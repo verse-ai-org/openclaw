@@ -72,11 +72,41 @@ function resolveDefaultGatewayUrl(): string {
   return `${proto}://${location.host}`;
 }
 
+function isDevGatewayOverrideActive(): boolean {
+  return (
+    typeof import.meta !== "undefined" &&
+    !!import.meta.env?.DEV &&
+    typeof location !== "undefined" &&
+    location.hostname === "localhost" &&
+    location.port === "5174"
+  );
+}
+
 export function loadSettings(): UiSettings {
   const defaultUrl = resolveDefaultGatewayUrl();
+
+  // Read token from URL hash (#token=xxx) – same as the Lit UI applySettingsFromUrl.
+  // Strip it from the URL immediately so it never appears in history.
+  let urlToken = "";
+  try {
+    const hashParams = new URLSearchParams(
+      location.hash.startsWith("#") ? location.hash.slice(1) : location.hash,
+    );
+    const raw = hashParams.get("token");
+    if (raw?.trim()) {
+      urlToken = raw.trim();
+      hashParams.delete("token");
+      const newHash = hashParams.toString();
+      history.replaceState(null, "", newHash ? `#${newHash}` : location.pathname + location.search);
+      // Persist to sessionStorage immediately so the token survives page refresh.
+      persistSessionToken(resolveDefaultGatewayUrl(), urlToken);
+    }
+  } catch {
+    // best-effort
+  }
   const defaults: UiSettings = {
     gatewayUrl: defaultUrl,
-    token: loadSessionToken(defaultUrl),
+    token: urlToken || loadSessionToken(defaultUrl),
     sessionKey: "main",
     lastActiveSessionKey: "main",
     theme: "system",
@@ -93,13 +123,19 @@ export function loadSettings(): UiSettings {
       return defaults;
     }
     const parsed = JSON.parse(raw) as Partial<UiSettings>;
-    const gatewayUrl =
-      typeof parsed.gatewayUrl === "string" && parsed.gatewayUrl.trim()
+    const gatewayUrl = (() => {
+      // In dev mode (port 5174) always use the gateway override — never trust
+      // a stale localStorage URL that may point back at the Vite dev server.
+      if (isDevGatewayOverrideActive()) {
+        return defaultUrl;
+      }
+      return typeof parsed.gatewayUrl === "string" && parsed.gatewayUrl.trim()
         ? parsed.gatewayUrl.trim()
         : defaultUrl;
+    })();
     return {
       gatewayUrl,
-      token: loadSessionToken(gatewayUrl),
+      token: urlToken || loadSessionToken(gatewayUrl),
       sessionKey:
         typeof parsed.sessionKey === "string" && parsed.sessionKey.trim()
           ? parsed.sessionKey.trim()

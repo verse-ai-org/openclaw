@@ -30,6 +30,8 @@ type GatewayClientOptions = {
   onClose: (info: { code: number; reason: string; error?: GatewayErrorInfo }) => void;
 };
 
+let _clientSerial = 0;
+
 class GatewayClient {
   private ws: WebSocket | null = null;
   private pending = new Map<string, Pending>();
@@ -39,15 +41,20 @@ class GatewayClient {
   private connectSent = false;
   private connectNonce: string | null = null;
   private pendingConnectError: GatewayErrorInfo | undefined;
+  readonly serial = ++_clientSerial;
 
-  constructor(private opts: GatewayClientOptions) {}
+  constructor(private opts: GatewayClientOptions) {
+    console.log(`[gateway:${this.serial}] GatewayClient created, url=${opts.url}`);
+  }
 
   start() {
+    console.log(`[gateway:${this.serial}] start()`);
     this.closed = false;
     this.connect();
   }
 
   stop() {
+    console.log(`[gateway:${this.serial}] stop() — ws.readyState=${this.ws?.readyState ?? "null"}`);
     this.closed = true;
     this.ws?.close();
     this.ws = null;
@@ -73,13 +80,21 @@ class GatewayClient {
 
   private connect() {
     if (this.closed) {
+      console.log(`[gateway:${this.serial}] connect() skipped — already closed`);
       return;
     }
+    console.log(`[gateway:${this.serial}] connect() opening WebSocket to ${this.opts.url}`);
     this.ws = new WebSocket(this.opts.url);
-    this.ws.addEventListener("open", () => this.queueConnect());
+    this.ws.addEventListener("open", () => {
+      console.log(`[gateway:${this.serial}] ws open`);
+      this.queueConnect();
+    });
     this.ws.addEventListener("message", (ev) => this.handleMessage(String(ev.data ?? "")));
     this.ws.addEventListener("close", (ev) => {
       const reason = String(ev.reason ?? "");
+      console.log(
+        `[gateway:${this.serial}] ws close code=${ev.code} reason=${reason || "(none)"} wasClean=${ev.wasClean}`,
+      );
       const connectError = this.pendingConnectError;
       this.pendingConnectError = undefined;
       this.ws = null;
@@ -89,8 +104,8 @@ class GatewayClient {
         this.scheduleReconnect();
       }
     });
-    this.ws.addEventListener("error", () => {
-      // close handler fires after error
+    this.ws.addEventListener("error", (ev) => {
+      console.log(`[gateway:${this.serial}] ws error`, ev);
     });
   }
 
@@ -137,13 +152,15 @@ class GatewayClient {
         const nonce = this.connectNonce ?? "";
         const payload = buildDevicePayload({
           deviceId,
+          clientId: "openclaw-control-ui",
+          clientMode: "webchat",
           signedAtMs,
           nonce,
           token: authToken ?? null,
           role,
           scopes,
         });
-        const signature = await signPayload(privateKey, payload);
+        const signature = await signDevicePayload(privateKey, payload);
         device = { id: deviceId, publicKey, signature, signedAt: signedAtMs, nonce };
       } catch {
         // Fallback to token-only auth
@@ -154,7 +171,7 @@ class GatewayClient {
       minProtocol: 3,
       maxProtocol: 3,
       client: {
-        id: "openclaw-control-ui-react",
+        id: "openclaw-control-ui",
         version: "control-ui-react",
         platform: navigator.platform ?? "web",
         mode: "webchat",
@@ -274,83 +291,136 @@ class GatewayClient {
 }
 
 // ---------------------------------------------------------------------------
-// Device identity helpers (ECDSA P-256, mirrors device-identity.ts)
+// Device identity helpers (Ed25519, mirrors ui/src/ui/device-identity.ts)
+// Uses @noble/ed25519 to stay consistent with the Lit UI and the server-side
+// verifyDeviceSignature which expects raw Ed25519 public keys (32 bytes).
+// deviceId = SHA-256(publicKey raw bytes).hex, same as deriveDeviceIdFromPublicKey
+// on the server.
 // ---------------------------------------------------------------------------
-const DEVICE_ID_KEY = "openclaw.device.id.v1";
-const DEVICE_KEY_KEY = "openclaw.device.key.v1";
+import { getPublicKeyAsync, signAsync, utils as ed25519utils } from "@noble/ed25519";
 
-async function loadOrCreateDeviceIdentity() {
-  let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-  const storedKey = localStorage.getItem(DEVICE_KEY_KEY);
+const DEVICE_STORAGE_KEY = "openclaw-device-identity-v1";
 
-  if (deviceId && storedKey) {
-    try {
-      const keyData = JSON.parse(storedKey) as JsonWebKey;
-      const privateKey = await crypto.subtle.importKey(
-        "jwk",
-        keyData,
-        { name: "ECDSA", namedCurve: "P-256" },
-        false,
-        ["sign"],
-      );
-      // Derive public key from JWK (omit 'd' field)
-      const { d: _d, ...pubJwk } = keyData;
-      const publicKeyObj = await crypto.subtle.importKey(
-        "jwk",
-        pubJwk,
-        { name: "ECDSA", namedCurve: "P-256" },
-        true,
-        ["verify"],
-      );
-      const exported = await crypto.subtle.exportKey("spki", publicKeyObj);
-      const publicKey = btoa(String.fromCharCode(...new Uint8Array(exported)));
-      return { deviceId, publicKey, privateKey };
-    } catch {
-      // Fall through to generate new key
+type StoredDeviceIdentity = {
+  version: 1;
+  deviceId: string;
+  publicKey: string; // base64url raw 32-byte Ed25519 public key
+  privateKey: string; // base64url raw 32-byte Ed25519 private key
+  createdAtMs: number;
+};
+
+function b64urlEncode(bytes: Uint8Array): string {
+  let binary = "";
+  for (const b of bytes) {
+    binary += String.fromCharCode(b);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function b64urlDecode(input: string): Uint8Array {
+  const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    out[i] = binary.charCodeAt(i);
+  }
+  return out;
+}
+
+async function fingerprintEd25519PublicKey(publicKey: Uint8Array): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", publicKey.slice().buffer);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function loadOrCreateDeviceIdentity(): Promise<{
+  deviceId: string;
+  publicKey: string;
+  privateKey: string;
+}> {
+  try {
+    const raw = localStorage.getItem(DEVICE_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as StoredDeviceIdentity;
+      if (
+        parsed?.version === 1 &&
+        typeof parsed.deviceId === "string" &&
+        typeof parsed.publicKey === "string" &&
+        typeof parsed.privateKey === "string"
+      ) {
+        // Re-derive deviceId from public key bytes to heal any stale stored value.
+        const derivedId = await fingerprintEd25519PublicKey(b64urlDecode(parsed.publicKey));
+        if (derivedId !== parsed.deviceId) {
+          const updated: StoredDeviceIdentity = { ...parsed, deviceId: derivedId };
+          localStorage.setItem(DEVICE_STORAGE_KEY, JSON.stringify(updated));
+          return {
+            deviceId: derivedId,
+            publicKey: parsed.publicKey,
+            privateKey: parsed.privateKey,
+          };
+        }
+        return {
+          deviceId: parsed.deviceId,
+          publicKey: parsed.publicKey,
+          privateKey: parsed.privateKey,
+        };
+      }
     }
+  } catch {
+    // fall through to regenerate
   }
 
-  // Generate new key pair
-  const keyPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, [
-    "sign",
-    "verify",
-  ]);
-  deviceId = crypto.randomUUID();
-  const jwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
-  localStorage.setItem(DEVICE_ID_KEY, deviceId);
-  localStorage.setItem(DEVICE_KEY_KEY, JSON.stringify(jwk));
-
-  const exported = await crypto.subtle.exportKey("spki", keyPair.publicKey);
-  const publicKey = btoa(String.fromCharCode(...new Uint8Array(exported)));
-  return { deviceId, publicKey, privateKey: keyPair.privateKey };
+  // Generate a new Ed25519 key pair.
+  const privateKeyBytes = ed25519utils.randomSecretKey();
+  const publicKeyBytes = await getPublicKeyAsync(privateKeyBytes);
+  const deviceId = await fingerprintEd25519PublicKey(publicKeyBytes);
+  const identity = {
+    deviceId,
+    publicKey: b64urlEncode(publicKeyBytes),
+    privateKey: b64urlEncode(privateKeyBytes),
+  };
+  const stored: StoredDeviceIdentity = {
+    version: 1,
+    ...identity,
+    createdAtMs: Date.now(),
+  };
+  localStorage.setItem(DEVICE_STORAGE_KEY, JSON.stringify(stored));
+  return identity;
 }
 
 function buildDevicePayload(opts: {
   deviceId: string;
+  clientId: string;
+  clientMode: string;
   signedAtMs: number;
   nonce: string;
   token: string | null;
   role: string;
   scopes: string[];
 }): string {
-  return JSON.stringify({
-    deviceId: opts.deviceId,
-    signedAtMs: opts.signedAtMs,
-    nonce: opts.nonce,
-    token: opts.token,
-    role: opts.role,
-    scopes: opts.scopes,
-  });
+  // Must match buildDeviceAuthPayload in src/gateway/device-auth.ts (v2 pipe format).
+  const scopes = opts.scopes.join(",");
+  const token = opts.token ?? "";
+  return [
+    "v2",
+    opts.deviceId,
+    opts.clientId,
+    opts.clientMode,
+    opts.role,
+    scopes,
+    String(opts.signedAtMs),
+    token,
+    opts.nonce,
+  ].join("|");
 }
 
-async function signPayload(privateKey: CryptoKey, payload: string): Promise<string> {
-  const encoded = new TextEncoder().encode(payload);
-  const sig = await crypto.subtle.sign(
-    { name: "ECDSA", hash: { name: "SHA-256" } },
-    privateKey,
-    encoded,
-  );
-  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+async function signDevicePayload(privateKeyBase64Url: string, payload: string): Promise<string> {
+  const key = b64urlDecode(privateKeyBase64Url);
+  const data = new TextEncoder().encode(payload);
+  const sig = await signAsync(data, key);
+  return b64urlEncode(sig);
 }
 
 // ---------------------------------------------------------------------------
@@ -366,24 +436,45 @@ export function useGateway() {
   const storeRef = useRef({ setConnected, setDisconnected, handleEvent });
   storeRef.current = { setConnected, setDisconnected, handleEvent };
 
+  // Keep settings in a ref so connect() can read the latest values without
+  // being listed as a useCallback dependency — avoids reconnect storms when
+  // Zustand action references change on every render.
+  const settingsRef = useRef({ gatewayUrl: settings.gatewayUrl, token: settings.token, password });
+  settingsRef.current = { gatewayUrl: settings.gatewayUrl, token: settings.token, password };
+
   const clientRef = useRef<GatewayClient | null>(null);
 
-  const connect = useCallback(() => {
-    clientRef.current?.stop();
-    setConnecting();
+  // Stable refs for store actions so connect() doesn't need them as deps.
+  const setClientRef = useRef(setClient);
+  const setConnectingRef = useRef(setConnecting);
+  setClientRef.current = setClient;
+  setConnectingRef.current = setConnecting;
 
+  const connect = useCallback(() => {
+    console.log(
+      "[gateway] connect() called | prev client serial=",
+      (clientRef.current as (GatewayClient & { serial?: number }) | null)?.serial ?? "none",
+    );
+    setConnectingRef.current();
+
+    const { gatewayUrl, token, password: pw } = settingsRef.current;
     const client = new GatewayClient({
-      url: settings.gatewayUrl,
-      token: settings.token || undefined,
-      password: password || undefined,
-      onHello: (hello) => storeRef.current.setConnected(hello),
-      onClose: (info) => storeRef.current.setDisconnected(info),
+      url: gatewayUrl,
+      token: token || undefined,
+      password: pw || undefined,
+      onHello: (hello) => {
+        console.log("[gateway] hello-ok", hello.server?.version);
+        storeRef.current.setConnected(hello);
+      },
+      onClose: (info) => {
+        console.log("[gateway] closed", info.code, info.reason, info.error?.code);
+        storeRef.current.setDisconnected(info);
+      },
       onEvent: (evt) => storeRef.current.handleEvent(evt),
     });
 
     clientRef.current = client;
-    // Expose request method via store so components can call gateway methods
-    setClient({
+    setClientRef.current({
       start: () => client.start(),
       stop: () => client.stop(),
       get connected() {
@@ -392,16 +483,19 @@ export function useGateway() {
       request: (method, params) => client.request(method, params),
     });
     client.start();
-  }, [settings.gatewayUrl, settings.token, password, setConnecting, setClient]);
+  }, []); // stable — all live values are read via refs
 
-  // Auto-connect on mount and when URL/token changes
+  // Reconnect when the gateway URL or token actually changes.
+  const gatewayUrl = settings.gatewayUrl;
+  const token = settings.token;
   useEffect(() => {
     connect();
     return () => {
       clientRef.current?.stop();
       clientRef.current = null;
     };
-  }, [connect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gatewayUrl, token]);
 
   return { connect };
 }

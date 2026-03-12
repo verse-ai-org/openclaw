@@ -1,12 +1,12 @@
 import { AlertCircle, RefreshCw, X } from "lucide-react";
-import { useGateway } from "@/hooks/useGateway";
 import { cn } from "@/lib/utils";
 import { useGatewayStore } from "@/store/gateway.store";
 
 export function ConnectionBanner() {
   const status = useGatewayStore((s) => s.status);
   const lastError = useGatewayStore((s) => s.lastError);
-  const { connect } = useGateway();
+  const client = useGatewayStore((s) => s.client);
+  const connect = () => client?.start();
 
   if (status === "connected" || status === "connecting") {
     return null;

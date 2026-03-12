@@ -10,6 +10,22 @@ import type {
 } from "@/types/gateway";
 
 // ---------------------------------------------------------------------------
+// Chat event dispatch callback — injected from useChatEventBridge to avoid
+// direct circular dependency between gateway.store and chat.store.
+// ---------------------------------------------------------------------------
+export type ChatEventDispatch = (event: string, payload: unknown) => void;
+
+let _chatDispatch: ChatEventDispatch | null = null;
+
+export function registerChatDispatch(fn: ChatEventDispatch) {
+  _chatDispatch = fn;
+}
+
+export function unregisterChatDispatch() {
+  _chatDispatch = null;
+}
+
+// ---------------------------------------------------------------------------
 // Client interface – matches GatewayBrowserClient from ui/src/ui/gateway.ts
 // We reference the shape without a direct import to avoid Lit dependency.
 // ---------------------------------------------------------------------------
@@ -134,6 +150,18 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
 
     if (evt.event === "health") {
       set({ debugHealth: evt.payload as HealthSnapshot });
+      return;
+    }
+
+    // Delegate chat-specific and agent events to the registered chat dispatch handler.
+    // This avoids importing chat.store here and keeps the dependency direction clean.
+    if (
+      evt.event === "chat" ||
+      evt.event === "agent" ||
+      evt.event.startsWith("chat.") ||
+      evt.event.startsWith("tool.")
+    ) {
+      _chatDispatch?.(evt.event, evt.payload);
       return;
     }
   },
