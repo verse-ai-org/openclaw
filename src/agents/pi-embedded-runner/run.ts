@@ -553,7 +553,7 @@ export async function runEmbeddedPiAgent(
             resolveProfilesUnavailableReason({
               store: authStore,
               profileIds,
-            }) ?? "unknown"
+            }) ?? "rate_limit"
           );
         }
         const classified = classifyFailoverReason(params.message);
@@ -669,15 +669,14 @@ export async function runEmbeddedPiAgent(
           ? (resolveProfilesUnavailableReason({
               store: authStore,
               profileIds: autoProfileCandidates,
-            }) ?? "unknown")
+            }) ?? "rate_limit")
           : null;
         const allowTransientCooldownProbe =
           params.allowTransientCooldownProbe === true &&
           allAutoProfilesInCooldown &&
           (unavailableReason === "rate_limit" ||
             unavailableReason === "overloaded" ||
-            unavailableReason === "billing" ||
-            unavailableReason === "unknown");
+            unavailableReason === "billing");
         let didTransientCooldownProbe = false;
 
         while (profileIndex < profileCandidates.length) {

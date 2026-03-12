@@ -2,10 +2,11 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>OpenClaw</title>
+        <!-- Beta releases are published to appcast-beta.xml, not this stable feed. -->
         <item>
             <title>2026.3.8-beta.1</title>
             <pubDate>Mon, 09 Mar 2026 07:19:57 +0000</pubDate>
-            <link>https://raw.githubusercontent.com/openclaw/openclaw/main/appcast.xml</link>
+            <link>https://raw.githubusercontent.com/openclaw/openclaw/main/appcast-beta.xml</link>
             <sparkle:version>2026030801</sparkle:version>
             <sparkle:shortVersionString>2026.3.8-beta.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
@@ -73,7 +74,7 @@
 <li>Skills/download installs: pin the validated per-skill tools root before writing downloaded archives, so rebinding the lexical tools path cannot redirect download writes outside the intended tools directory. Thanks @tdjackey.</li>
 </ul>
 <p><a href="https://github.com/openclaw/openclaw/blob/main/CHANGELOG.md">View full changelog</a></p>
-]]></description>
+]]>            </description>
             <enclosure url="https://github.com/openclaw/openclaw/releases/download/v2026.3.8-beta.1/OpenClaw-2026.3.8-beta.1.zip" length="23407015" type="application/octet-stream" sparkle:edSignature="KCqhSmu4b0tHf55RqcQOHorsc55CgBI5BUmK/NTizxNq04INn/7QvsamHYQou9DbB2IW6B2nawBC4nn4au5yDA=="/>
         </item>
         <item>
@@ -435,7 +436,7 @@
 <li>Control UI/Telegram sender labels: preserve inbound sender labels in sanitized chat history so dashboard user-message groups split correctly and show real group-member names instead of <code>You</code>. (#39414) Thanks @obviyus.</li>
 </ul>
 <p><a href="https://github.com/openclaw/openclaw/blob/main/CHANGELOG.md">View full changelog</a></p>
-]]></description>
+]]>            </description>
             <enclosure url="https://github.com/openclaw/openclaw/releases/download/v2026.3.7/OpenClaw-2026.3.7.zip" length="23263833" type="application/octet-stream" sparkle:edSignature="SO0zedZMzrvSDltLkuaSVQTWFPPPe1iu/enS4TGGb5EGckhqRCmNJWMKNID5lKwFC8vefTbfG9JTlSrZedP4Bg=="/>
         </item>
         <item>
@@ -654,7 +655,7 @@
 <li>Tests/Subagent announce: set <code>OPENCLAW_TEST_FAST=1</code> before importing <code>subagent-announce</code> format suites so module-level fast-mode constants are captured deterministically on Windows CI, preventing timeout flakes in nested completion announce coverage. (#31370) Thanks @zwffff.</li>
 </ul>
 <p><a href="https://github.com/openclaw/openclaw/blob/main/CHANGELOG.md">View full changelog</a></p>
-]]></description>
+]]>            </description>
             <enclosure url="https://github.com/openclaw/openclaw/releases/download/v2026.3.2/OpenClaw-2026.3.2.zip" length="23181513" type="application/octet-stream" sparkle:edSignature="THMgkcoMgz2vv5zse3Po3K7l3Or2RhBKurXZIi8iYVXN76yJy1YXAY6kXi6ovD+dbYn68JKYDIKA1Ya78bO7BQ=="/>
             <!-- pragma: allowlist secret -->
         </item>

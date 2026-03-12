@@ -2255,7 +2255,8 @@ extension NodeAppModel {
                 from: payload)
             guard !decoded.actions.isEmpty else { return }
             self.pendingActionLogger.info(
-                "Pending actions pulled trigger=\(trigger, privacy: .public) count=\(decoded.actions.count, privacy: .public)")
+                "Pending actions pulled trigger=\(trigger, privacy: .public) "
+                    + "count=\(decoded.actions.count, privacy: .public)")
             await self.applyPendingForegroundNodeActions(decoded.actions, trigger: trigger)
         } catch {
             // Best-effort only.
@@ -2278,7 +2279,9 @@ extension NodeAppModel {
                 paramsJSON: action.paramsJSON)
             let result = await self.handleInvoke(req)
             self.pendingActionLogger.info(
-                "Pending action replay trigger=\(trigger, privacy: .public) id=\(action.id, privacy: .public) command=\(action.command, privacy: .public) ok=\(result.ok, privacy: .public)")
+                "Pending action replay trigger=\(trigger, privacy: .public) "
+                    + "id=\(action.id, privacy: .public) command=\(action.command, privacy: .public) "
+                    + "ok=\(result.ok, privacy: .public)")
             guard result.ok else { return }
             let acked = await self.ackPendingForegroundNodeAction(
                 id: action.id,
@@ -2303,7 +2306,9 @@ extension NodeAppModel {
             return true
         } catch {
             self.pendingActionLogger.error(
-                "Pending action ack failed trigger=\(trigger, privacy: .public) id=\(id, privacy: .public) command=\(command, privacy: .public) error=\(String(describing: error), privacy: .public)")
+                "Pending action ack failed trigger=\(trigger, privacy: .public) "
+                    + "id=\(id, privacy: .public) command=\(command, privacy: .public) "
+                    + "error=\(String(describing: error), privacy: .public)")
             return false
         }
     }

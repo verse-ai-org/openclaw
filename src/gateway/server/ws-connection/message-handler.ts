@@ -114,7 +114,7 @@ function resolveHandshakeBrowserSecurityContext(params: {
   );
   return {
     hasBrowserOriginHeader,
-    enforceOriginCheckForAnyClient: hasBrowserOriginHeader,
+    enforceOriginCheckForAnyClient: hasBrowserOriginHeader && !params.hasProxyHeaders,
     rateLimitClientIp:
       hasBrowserOriginHeader && isLoopbackAddress(params.clientIp)
         ? BROWSER_ORIGIN_LOOPBACK_RATE_LIMIT_IP

@@ -2,8 +2,31 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-ZIP=${1:?"Usage: $0 OpenClaw-<ver>.zip"}
-FEED_URL=${2:-"https://raw.githubusercontent.com/openclaw/openclaw/main/appcast.xml"}
+
+# Parse --beta flag before positional args.
+IS_BETA=0
+ARGS=()
+for arg in "$@"; do
+  if [[ "$arg" == "--beta" ]]; then
+    IS_BETA=1
+  else
+    ARGS+=("$arg")
+  fi
+done
+set -- "${ARGS[@]}"
+
+ZIP=${1:?"Usage: $0 [--beta] OpenClaw-<ver>.zip [feed_url]"}
+
+# Choose the correct feed URL and output appcast file based on channel.
+if [[ "$IS_BETA" == "1" ]]; then
+  DEFAULT_FEED_URL="https://raw.githubusercontent.com/openclaw/openclaw/main/appcast-beta.xml"
+  APPCAST_OUT="$ROOT/appcast-beta.xml"
+else
+  DEFAULT_FEED_URL="https://raw.githubusercontent.com/openclaw/openclaw/main/appcast.xml"
+  APPCAST_OUT="$ROOT/appcast.xml"
+fi
+
+FEED_URL=${2:-"$DEFAULT_FEED_URL"}
 PRIVATE_KEY_FILE=${SPARKLE_PRIVATE_KEY_FILE:-}
 if [[ -z "$PRIVATE_KEY_FILE" ]]; then
   echo "Set SPARKLE_PRIVATE_KEY_FILE to your ed25519 private key (Sparkle)." >&2
@@ -37,7 +60,9 @@ cleanup() {
 }
 trap cleanup EXIT
 cp -f "$ZIP" "$TMP_DIR/$ZIP_NAME"
-if [[ -f "$ROOT/appcast.xml" ]]; then
+if [[ -f "$APPCAST_OUT" ]]; then
+  cp -f "$APPCAST_OUT" "$TMP_DIR/appcast.xml"
+elif [[ -f "$ROOT/appcast.xml" && "$IS_BETA" == "0" ]]; then
   cp -f "$ROOT/appcast.xml" "$TMP_DIR/appcast.xml"
 fi
 
@@ -65,6 +90,10 @@ generate_appcast \
   --link "$FEED_URL" \
   "$TMP_DIR"
 
-cp -f "$TMP_DIR/appcast.xml" "$ROOT/appcast.xml"
+cp -f "$TMP_DIR/appcast.xml" "$APPCAST_OUT"
 
-echo "Appcast generated (appcast.xml). Upload alongside $ZIP at $FEED_URL"
+if [[ "$IS_BETA" == "1" ]]; then
+  echo "Beta appcast generated (appcast-beta.xml). Upload alongside $ZIP at $FEED_URL"
+else
+  echo "Appcast generated (appcast.xml). Upload alongside $ZIP at $FEED_URL"
+fi

@@ -24,7 +24,6 @@ import type {
   GatewayServiceEnvArgs,
   GatewayServiceInstallArgs,
   GatewayServiceManageArgs,
-  GatewayServiceRestartResult,
 } from "./service-types.js";
 import {
   installSystemdService,
@@ -42,7 +41,6 @@ export type {
   GatewayServiceEnvArgs,
   GatewayServiceInstallArgs,
   GatewayServiceManageArgs,
-  GatewayServiceRestartResult,
 } from "./service-types.js";
 
 function ignoreInstallResult(
@@ -60,7 +58,7 @@ export type GatewayService = {
   install: (args: GatewayServiceInstallArgs) => Promise<void>;
   uninstall: (args: GatewayServiceManageArgs) => Promise<void>;
   stop: (args: GatewayServiceControlArgs) => Promise<void>;
-  restart: (args: GatewayServiceControlArgs) => Promise<GatewayServiceRestartResult>;
+  restart: (args: GatewayServiceControlArgs) => Promise<void>;
   isLoaded: (args: GatewayServiceEnvArgs) => Promise<boolean>;
   readCommand: (env: GatewayServiceEnv) => Promise<GatewayServiceCommandConfig | null>;
   readRuntime: (env: GatewayServiceEnv) => Promise<GatewayServiceRuntime>;

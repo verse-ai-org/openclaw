@@ -71,6 +71,9 @@ apps/ios/fastlane/test_output/
 apps/ios/fastlane/logs/
 apps/ios/fastlane/.env
 
+apps/electron/release/**
+apps/electron/resources/node-arm64/**
+
 # fastlane build artifacts (local)
 apps/ios/*.ipa
 apps/ios/*.dSYM.zip

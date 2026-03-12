@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- 允许 JIT 编译（V8 引擎需要） -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- 允许未签名的可执行内存（Node.js 需要） -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- 允许出站网络连接（WebSocket 连接 Gateway） -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- 允许入站网络连接（Gateway 监听本地端口） -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+    <!-- 允许读写用户选择的文件（workspace 目录） -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <!-- 允许读写用户主目录下的文件（~/.openclaw 配置目录） -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+  </dict>
+</plist>

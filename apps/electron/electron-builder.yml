@@ -1,0 +1,75 @@
+appId: ai.openclaw.electron
+productName: OpenClaw
+copyright: "OpenClaw Contributors"
+
+# 构建输出目录
+directories:
+  output: release/
+  buildResources: resources/
+
+# asar 打包主进程代码
+asar: true
+
+# 不进 asar 的资源（需要保持文件权限的可执行文件）
+asarUnpack:
+  - "**/*.node"
+
+# 将外部资源打包进 Resources/
+extraResources:
+  # 捆绑的 Node 22 二进制（由 download-node.sh 下载到 resources/node-${arch}/）
+  - from: "resources/node-${arch}/node"
+    to: "node/node"
+
+  # openclaw CLI 入口脚本
+  - from: "../../openclaw.mjs"
+    to: "openclaw/openclaw.mjs"
+
+  # openclaw 编译产物（dist/）
+  - from: "../../dist"
+    to: "openclaw/dist"
+    filter:
+      - "**/*"
+      - "!**/*.map"        # 生产环境不需要 sourcemap
+      - "!**/test*"
+
+  # Control UI 构建产物
+  - from: "../../dist/control-ui"
+    to: "control-ui"
+
+  # Electron 专属渲染页面（React Onboarding 等）
+  - from: "renderer/dist"
+    to: "renderer"
+
+mac:
+  category: public.app-category.productivity
+  icon: resources/icon.icns
+  hardenedRuntime: true
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  gatekeeperAssess: false
+  # 支持 arm64（Apple Silicon）和 x64（Intel）
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+
+dmg:
+  title: "OpenClaw ${version}"
+  background: "../../assets/dmg-background.png"
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 130
+      y: 190
+      type: file
+    - x: 410
+      y: 190
+      type: link
+      path: /Applications
+  internetEnabled: false
