@@ -1,6 +1,7 @@
 packages:
   - .
   - ui
+  - ui-react
   - apps/electron
   - packages/*
   - extensions/*

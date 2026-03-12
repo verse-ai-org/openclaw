@@ -249,6 +249,11 @@
     "docs:spellcheck:fix": "bash scripts/docs-spellcheck.sh --write",
     "dup:check": "jscpd src extensions test scripts --format typescript,javascript --pattern \"**/*.{ts,tsx,js,mjs,cjs}\" --gitignore --noSymlinks --ignore \"**/node_modules/**,**/dist/**,**/.git/**,**/coverage/**,**/build/**,**/.build/**,**/.artifacts/**\" --min-lines 12 --min-tokens 80 --reporters console",
     "dup:check:json": "jscpd src extensions test scripts --format typescript,javascript --pattern \"**/*.{ts,tsx,js,mjs,cjs}\" --gitignore --noSymlinks --ignore \"**/node_modules/**,**/dist/**,**/.git/**,**/coverage/**,**/build/**,**/.build/**,**/.artifacts/**\" --min-lines 12 --min-tokens 80 --reporters json --output .artifacts/jscpd",
+    "electron:build": "pnpm build && pnpm ui:build && pnpm --filter openclaw-electron build",
+    "electron:build:renderer": "pnpm --filter openclaw-electron renderer:build",
+    "electron:dev": "pnpm ui:build && pnpm --filter openclaw-electron dev",
+    "electron:dev:static": "pnpm --filter openclaw-electron renderer:static",
+    "electron:package": "bash apps/electron/scripts/package-electron.sh",
     "format": "oxfmt --write",
     "format:all": "pnpm format && pnpm format:swift",
     "format:check": "oxfmt --check",
@@ -333,11 +338,8 @@
     "ui:build": "node scripts/ui.js build",
     "ui:dev": "node scripts/ui.js dev",
     "ui:install": "node scripts/ui.js install",
-    "electron:dev": "pnpm ui:build && pnpm --filter openclaw-electron dev",
-    "electron:dev:static": "pnpm --filter openclaw-electron renderer:static",
-    "electron:build:renderer": "pnpm --filter openclaw-electron renderer:build",
-    "electron:build": "pnpm build && pnpm ui:build && pnpm --filter openclaw-electron build",
-    "electron:package": "bash apps/electron/scripts/package-electron.sh"
+    "ui:react:build": "pnpm --dir ui-react build",
+    "ui:react:dev": "pnpm --dir ui-react dev"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "0.15.0",
