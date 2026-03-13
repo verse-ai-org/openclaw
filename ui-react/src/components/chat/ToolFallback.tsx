@@ -15,8 +15,10 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import {
   Drawer,
   DrawerClose,
@@ -26,6 +28,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { plainMdComponents } from "./markdown-components";
 
 // ---------------------------------------------------------------------------
 // Tool type classification
@@ -198,21 +201,8 @@ function formatToolLabel(name: string): string {
     .trim();
 }
 
-/** Result text might be large; truncate for display in collapsed card. */
-const PREVIEW_MAX_CHARS = 200;
-const PREVIEW_MAX_LINES = 4;
-
-function truncatePreview(text: string): string {
-  const lines = text.split("\n").slice(0, PREVIEW_MAX_LINES);
-  const preview = lines.join("\n");
-  const truncated =
-    preview.length > PREVIEW_MAX_CHARS ? preview.slice(0, PREVIEW_MAX_CHARS) + "\u2026" : preview;
-  return lines.length < text.split("\n").length ? truncated + "\u2026" : truncated;
-}
-
 // ---------------------------------------------------------------------------
 // ToolDetailDrawer
-// ---------------------------------------------------------------------------
 interface ToolDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -241,7 +231,7 @@ function ToolDetailDrawer({
   const Icon = cfg.Icon;
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="h-full w-105 sm:max-w-120">
+      <DrawerContent className="h-full w-200 sm:max-w-120">
         {/* Fixed header */}
         <DrawerHeader className="border-b">
           <DrawerTitle className="flex items-center gap-2.5">
@@ -284,15 +274,17 @@ function ToolDetailDrawer({
             </section>
           )}
 
-          {/* Result */}
+          {/* Result — rendered as Markdown */}
           {!isCancelled && resultStr !== undefined && (
             <section>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Result
               </h3>
-              <pre className="rounded-lg border bg-muted/50 p-3 text-xs leading-relaxed whitespace-pre-wrap break-all">
-                {resultStr}
-              </pre>
+              <div className="text-sm">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={plainMdComponents}>
+                  {resultStr}
+                </ReactMarkdown>
+              </div>
             </section>
           )}
 
@@ -343,6 +335,11 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
         ? JSON.stringify(result, null, 2)
         : undefined;
 
+  if (process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console
+    console.log("[ToolFallback]", toolName, { result, resultStr, status });
+  }
+
   const errorMessage =
     status?.type === "incomplete" && status.error
       ? typeof status.error === "string"
@@ -350,8 +347,6 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
         : JSON.stringify(status.error)
       : undefined;
 
-  // Show a truncated preview in the collapsed card when result is available
-  const showPreview = statusType !== "running" && resultStr != null;
   // Only allow opening drawer when not running
   const canViewDetail = statusType !== "running";
 
@@ -410,22 +405,6 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
             </button>
           )}
         </CardHeader>
-
-        {/* Result preview section */}
-        {showPreview && (
-          <CardContent className="border-t px-3 py-2">
-            <pre
-              className={cn(
-                "whitespace-pre-wrap break-all text-xs leading-relaxed",
-                statusType === "incomplete" ? "text-destructive/80" : "text-muted-foreground",
-              )}
-            >
-              {statusType === "incomplete" && errorMessage
-                ? truncatePreview(errorMessage)
-                : truncatePreview(resultStr)}
-            </pre>
-          </CardContent>
-        )}
       </Card>
 
       {/* Drawer — portal'd outside card */}

@@ -11,7 +11,7 @@ export function PlaceholderPage({ tab }: PlaceholderPageProps) {
   const label = tabLabel(tab);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground overflow-auto">
       <Icon className="size-12 opacity-20" />
       <div className="text-center">
         <p className="text-lg font-medium text-foreground">{label}</p>

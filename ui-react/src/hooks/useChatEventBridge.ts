@@ -73,6 +73,79 @@ export function normalizeRole(raw: string | undefined): ChatMessageRole {
   }
 }
 
+/**
+ * Pre-process a raw Gateway history message array:
+ * merge standalone toolResult messages into the preceding assistant message's
+ * content array, then filter out the toolResult messages.
+ *
+ * Gateway returns history as separate messages:
+ *   [{role:"assistant", content:[{type:"toolCall", id:"x"}]},
+ *    {role:"toolResult", content:[{type:"toolResult", toolCallId:"x", text:"..."}]}]
+ *
+ * After merging the toolResult is appended into the assistant message's content
+ * so extractContentBlocks can correlate it.
+ */
+export function mergeToolResults(rawMessages: unknown[]): unknown[] {
+  const out: Record<string, unknown>[] = [];
+
+  for (const raw of rawMessages) {
+    const msg = raw as Record<string, unknown>;
+    const roleStr = ((msg.role as string) ?? "").toLowerCase().replace(/_/g, "");
+
+    if (roleStr === "toolresult" || roleStr === "tool") {
+      // Find the last preceding non-toolResult assistant message and append result blocks.
+      // Gateway sends toolResult as a separate message whose content is [{type:"text", text:"..."}].
+      // We need to wrap those text blocks as {type:"toolresult", toolCallId, text} so
+      // extractContentBlocks can match them to their toolCall block by id.
+      for (let i = out.length - 1; i >= 0; i--) {
+        const prev = out[i];
+        const prevRole = ((prev.role as string) ?? "").toLowerCase().replace(/_/g, "");
+        if (prevRole === "toolresult" || prevRole === "tool") {
+          continue;
+        }
+        // Find the first unmatched toolCall in prev.content to get its id
+        const prevContent = Array.isArray(prev.content)
+          ? (prev.content as Array<Record<string, unknown>>)
+          : [];
+        // Collect toolCall ids already paired with a toolresult block
+        const pairedIds = new Set(
+          prevContent
+            .filter((b) => (b.type as string) === "toolresult")
+            .map((b) => b.toolCallId as string)
+            .filter(Boolean),
+        );
+        const unpaired = prevContent.find(
+          (b) =>
+            (b.type as string) === "toolCall" && typeof b.id === "string" && !pairedIds.has(b.id),
+        );
+        const toolCallId = unpaired?.id as string | undefined;
+
+        // Build wrapped toolresult blocks from the incoming text blocks
+        const rawContent = Array.isArray(msg.content)
+          ? (msg.content as Array<Record<string, unknown>>)
+          : [];
+        const resultText = rawContent
+          .filter((b) => (b.type as string) === "text" && typeof b.text === "string")
+          .map((b) => b.text as string)
+          .join("");
+        const resultBlock: Record<string, unknown> = {
+          type: "toolresult",
+          text: resultText,
+          ...(toolCallId ? { toolCallId } : {}),
+        };
+
+        out[i] = { ...prev, content: [...prevContent, resultBlock] };
+        break;
+      }
+      // toolResult message itself is NOT pushed to out (filtered away)
+    } else {
+      out.push({ ...msg });
+    }
+  }
+
+  return out;
+}
+
 /** Extract plain text from a Gateway message object (content string or content block array). */
 function extractMessageText(message: unknown): string {
   if (!message || typeof message !== "object") {
@@ -192,6 +265,12 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
   }
 
   const blocks = rawContent as Array<Record<string, unknown>>;
+
+  // Debug: log raw blocks in dev to inspect field names
+  if (process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console
+    console.log("[extractContentBlocks] blocks:", JSON.stringify(blocks.slice(0, 10), null, 2));
+  }
 
   // Build a map of toolCallId -> result/error for the second pass
   const resultMap = new Map<string, { result?: string; phase: "result" | "error" }>();
@@ -343,7 +422,10 @@ export function useChatEventBridge() {
         // ----------------------------------------------------------------
         case "chat.history": {
           const msgs = (p?.messages ?? []) as RawMessage[];
-          const normalized: ChatMessage[] = msgs.map((m) => ({
+          // Merge standalone toolResult messages into their preceding assistant
+          // message's content array so extractContentBlocks can populate block.result.
+          const mergedMsgs = mergeToolResults(msgs) as RawMessage[];
+          const normalized: ChatMessage[] = mergedMsgs.map((m) => ({
             id: m.id ?? crypto.randomUUID(),
             role: normalizeRole(m.role),
             content: normalizeContent(m.content ?? m.text ?? ""),

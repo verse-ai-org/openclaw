@@ -1,8 +1,6 @@
 import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
 export { SkillsPage } from "./SkillsPage";
-export function OverviewPage() {
-  return <PlaceholderPage tab="overview" />;
-}
+export { OverviewPage } from "./OverviewPage";
 export function ChannelsPage() {
   return <PlaceholderPage tab="channels" />;
 }
@@ -28,9 +26,5 @@ export function NodesPage() {
 export function ConfigPage() {
   return <PlaceholderPage tab="config" />;
 }
-export function DebugPage() {
-  return <PlaceholderPage tab="debug" />;
-}
-export function LogsPage() {
-  return <PlaceholderPage tab="logs" />;
-}
+export { DebugPage } from "./DebugPage";
+export { LogsPage } from "./LogsPage";

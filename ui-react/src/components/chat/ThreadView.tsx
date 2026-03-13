@@ -15,7 +15,7 @@ import { UserMessage } from "./UserMessage";
 export const ThreadView: FC = () => {
   return (
     <ThreadPrimitive.Root
-      className="flex w-full h-full flex-col bg-background"
+      className="flex w-full flex-1 min-h-0 flex-col bg-background"
       style={{ "--thread-max-width": "48rem" } as React.CSSProperties}
     >
       <ThreadPrimitive.Viewport className="relative flex flex-1 flex-col overflow-x-hidden overflow-y-scroll scroll-smooth px-4 pt-4">

@@ -120,3 +120,28 @@ body {
   background-color: var(--background);
   color: var(--foreground);
 }
+
+
+/* 强制所有滚动条样式 - 全局 */
+*::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-height);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-color);
+  margin: 0;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-color);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover-color) !important;
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-corner-color) !important;
+}

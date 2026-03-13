@@ -56,7 +56,7 @@ export function SkillsPage() {
   }, [status, loadSkills]);
 
   return (
-    <div className="flex flex-col gap-4 p-4 max-w-5xl mx-auto w-full">
+    <div className="flex flex-col gap-4 p-4 max-w-5xl mx-auto w-full overflow-auto h-full">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

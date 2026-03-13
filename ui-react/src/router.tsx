@@ -1,12 +1,12 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { ChatPage } from "@/pages/ChatPage";
+import { DebugPage } from "@/pages/DebugPage";
 import {
   AgentsPage,
   ChannelsPage,
   ConfigPage,
   CronPage,
-  DebugPage,
   InstancesPage,
   LogsPage,
   NodesPage,
