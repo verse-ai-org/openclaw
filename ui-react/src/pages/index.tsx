@@ -1,4 +1,5 @@
 import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
+export { SkillsPage } from "./SkillsPage";
 export function OverviewPage() {
   return <PlaceholderPage tab="overview" />;
 }
@@ -20,9 +21,7 @@ export function CronPage() {
 export function AgentsPage() {
   return <PlaceholderPage tab="agents" />;
 }
-export function SkillsPage() {
-  return <PlaceholderPage tab="skills" />;
-}
+// SkillsPage is now a real implementation — re-exported above
 export function NodesPage() {
   return <PlaceholderPage tab="nodes" />;
 }

@@ -9,7 +9,21 @@
 - [sessions.ts](file://ui/src/ui/controllers/sessions.ts)
 - [sessions-history-tool.ts](file://src/agents/tools/sessions-history-tool.ts)
 - [layout.css](file://ui/src/styles/chat/layout.css)
-- [chat.ts](file://apps/android/app/src/main/java/ai/openclaw/app/ui/chat/ChatMessageViews.kt)
+- [ChatPage.tsx](file://ui-react/src/pages/ChatPage.tsx)
+- [chat.store.ts](file://ui-react/src/store/chat.store.ts)
+- [useChatEventBridge.ts](file://ui-react/src/hooks/useChatEventBridge.ts)
+- [GatewayChatRuntimeProvider.tsx](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx)
+- [ThreadView.tsx](file://ui-react/src/components/chat/ThreadView.tsx)
+- [SessionSelector.tsx](file://ui-react/src/components/chat/SessionSelector.tsx)
+- [Composer.tsx](file://ui-react/src/components/chat/Composer.tsx)
+- [AssistantMessage.tsx](file://ui-react/src/components/chat/AssistantMessage.tsx)
+- [UserMessage.tsx](file://ui-react/src/components/chat/UserMessage.tsx)
+- [ToolFallback.tsx](file://ui-react/src/components/chat/ToolFallback.tsx)
+- [gateway.store.ts](file://ui-react/src/store/gateway.store.ts)
+- [router.tsx](file://ui-react/src/router.tsx)
+- [vite.config.ts](file://ui-react/vite.config.ts)
+- [package.json](file://ui-react/package.json)
+- [ChatMessageViews.kt](file://apps/android/app/src/main/java/ai/openclaw/app/ui/chat/ChatMessageViews.kt)
 - [SessionFilters.kt](file://apps/android/app/src/main/java/ai/openclaw/app/ui/chat/SessionFilters.kt)
 - [test-helpers.server.ts](file://src/gateway/test-helpers.server.ts)
 - [GatewayChannel.swift](file://apps/shared/OpenClawKit/Sources/OpenClawKit/GatewayChannel.swift)
@@ -19,6 +33,18 @@
 - [bluebubbles reactions.ts](file://extensions/bluebubbles/src/reactions.ts)
 - [status-reaction-variants.ts](file://src/telegram/status-reaction-variants.ts)
 </cite>
+
+## 更新摘要
+
+**所做更改**
+
+- 新增React架构聊天组件系统的详细分析
+- 更新聊天组件系统架构图以反映新的React组件结构
+- 新增Zustand状态管理系统的说明
+- 更新消息渲染机制以支持新的内容块系统
+- 新增工具调用流式处理和状态管理
+- 更新会话管理和工具集成功能说明
+- 新增React Hooks和组件生命周期的说明
 
 ## 目录
 
@@ -37,25 +63,38 @@
 
 本文件系统性阐述WebChat界面的设计与实现，覆盖实时聊天、消息收发、界面布局、消息历史、输入框功能、多媒体消息、文件传输、表情反应、聊天室与群组管理、隐私策略以及WebSocket连接、消息同步与离线处理等主题。文档基于仓库中的UI实现、网关协议、通道适配层与平台集成进行综合分析，帮助开发者与运维人员快速理解并部署WebChat。
 
+**更新** 本版本重点反映了从传统Lit框架向现代React架构的迁移，包括新的聊天组件系统、增强的消息渲染能力、会话管理和工具集成功能。
+
 ## 项目结构
 
-WebChat界面由前端UI、网关客户端、通道适配层与平台集成四部分组成：
+WebChat界面现已迁移到React架构，由前端UI、网关客户端、通道适配层与平台集成四部分组成：
 
-- 前端UI：负责渲染聊天线程、输入框、附件预览、队列与占位提示等。
+- 前端UI（React架构）：使用React 19、Zustand状态管理、Assistant UI组件库，负责渲染聊天线程、输入框、附件预览、队列与占位提示等。
 - 网关客户端：封装WebSocket连接、请求/响应、事件订阅与重连逻辑。
 - 通道适配层：抽象Web渠道的登录、会话、入站监听与出站发送。
 - 平台集成：在不同平台上通过原生UI或移动端框架接入网关。
 
 ```mermaid
 graph TB
-subgraph "前端UI"
-UI_Chat["chat.ts<br/>聊天视图与渲染"]
-UI_Sessions["sessions.ts<br/>会话控制"]
-UI_CSS["layout.css<br/>样式与响应式"]
+subgraph "React前端UI"
+React_ChatPage["ChatPage.tsx<br/>聊天页面入口"]
+React_ThreadView["ThreadView.tsx<br/>线程视图"]
+React_Session["SessionSelector.tsx<br/>会话选择器"]
+React_Composer["Composer.tsx<br/>消息composer"]
+React_Runtime["GatewayChatRuntimeProvider.tsx<br/>运行时提供者"]
+end
+subgraph "状态管理"
+Zustand_Chat["chat.store.ts<br/>聊天状态管理"]
+Zustand_Gateway["gateway.store.ts<br/>网关状态管理"]
+end
+subgraph "消息渲染组件"
+React_Assistant["AssistantMessage.tsx<br/>助手消息"]
+React_User["UserMessage.tsx<br/>用户消息"]
+React_Tool["ToolFallback.tsx<br/>工具降级组件"]
 end
 subgraph "网关客户端"
 GW_Client["client.ts<br/>WebSocket客户端"]
-GW_Server["测试辅助<br/>test-helpers.server.ts"]
+GW_Server["test-helpers.server.ts<br/>测试辅助"]
 end
 subgraph "通道适配层"
 Web_Channel["channel-web.ts<br/>Web渠道导出"]
@@ -67,354 +106,386 @@ iOS_Gateway["GatewayChannel.swift<br/>iOS网关通道"]
 Android_UI["ChatMessageViews.kt<br/>Android聊天视图"]
 Android_Session["SessionFilters.kt<br/>会话名称过滤"]
 end
-UI_Chat --> GW_Client
-UI_Sessions --> GW_Client
+React_ChatPage --> React_ThreadView
+React_ThreadView --> React_Runtime
+React_Session --> React_Runtime
+React_Composer --> React_Runtime
+React_Runtime --> Zustand_Chat
+React_Runtime --> Zustand_Gateway
+React_Assistant --> React_Tool
+React_User --> React_Tool
+Zustand_Chat --> GW_Client
 GW_Client --> GW_Server
-UI_Chat --> Web_Channel
+React_ChatPage --> Web_Channel
 Web_Channel --> Media_Send
 Web_Channel --> Telegram_Send
 iOS_Gateway --> GW_Client
 Android_UI --> GW_Client
-Android_Session --> UI_Sessions
+Android_Session --> React_Session
 ```
 
 **图表来源**
 
-- [chat.ts:241-481](file://ui/src/ui/views/chat.ts#L241-L481)
+- [ChatPage.tsx:1-21](file://ui-react/src/pages/ChatPage.tsx#L1-L21)
+- [ThreadView.tsx:1-82](file://ui-react/src/components/chat/ThreadView.tsx#L1-L82)
+- [chat.store.ts:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [GatewayChatRuntimeProvider.tsx:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
 - [client.ts:43-96](file://src/gateway/client.ts#L43-L96)
 - [channel-web.ts:1-34](file://src/channel-web.ts#L1-L34)
-- [media.ts:1-60](file://extensions/matrix/src/matrix/send/media.ts#L1-L60)
-- [send.ts:760-857](file://src/telegram/send.ts#L760-L857)
-- [GatewayChannel.swift:592-622](file://apps/shared/OpenClawKit/Sources/OpenClawKit/GatewayChannel.swift#L592-L622)
-- [ChatMessageViews.kt:71-108](file://apps/android/app/src/main/java/ai/openclaw/app/ui/chat/ChatMessageViews.kt#L71-L108)
-- [SessionFilters.kt:1-29](file://apps/android/app/src/main/java/ai/openclaw/app/ui/chat/SessionFilters.kt#L1-L29)
-- [test-helpers.server.ts:661-704](file://src/gateway/test-helpers.server.ts#L661-L704)
 
 **章节来源**
 
-- [chat.ts:241-481](file://ui/src/ui/views/chat.ts#L241-L481)
+- [ChatPage.tsx:1-21](file://ui-react/src/pages/ChatPage.tsx#L1-L21)
+- [chat.store.ts:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [GatewayChatRuntimeProvider.tsx:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
 - [webchat.md:1-62](file://docs/web/webchat.md#L1-L62)
 - [channel-web.ts:1-34](file://src/channel-web.ts#L1-L34)
 
 ## 核心组件
 
-- 聊天视图与渲染：负责消息分组、流式输出、占位提示、附件预览、滚动控制与侧边栏。
-- 会话控制器：提供会话列表、会话补丁更新、删除会话等操作。
-- 网关客户端：封装WebSocket连接、心跳、事件广播、序列号断点检测与重连。
-- 通道适配层：统一Web渠道的登录、会话、入站监听与出站发送接口。
-- 多媒体与文件传输：针对不同渠道的媒体类型识别、尺寸与格式转换、上传与发送。
-- 表情反应：跨渠道的表情别名标准化与变体选择。
-- 群组与隐私策略：群组访问控制、提及门禁与工具策略。
+- **React聊天页面**：ChatPage作为根组件，整合会话选择器和线程视图，提供完整的聊天界面。
+- **状态管理系统**：使用Zustand管理聊天状态、网关连接状态和设置状态，避免组件间复杂的数据传递。
+- **消息渲染组件**：AssistantMessage、UserMessage和ToolFallback提供丰富的消息渲染能力，支持Markdown、工具调用和附件。
+- **运行时提供者**：GatewayChatRuntimeProvider桥接Zustand状态与Assistant UI组件库，实现消息转换和事件处理。
+- **事件桥接**：useChatEventBridge将网关事件转换为Zustand状态更新，保持组件解耦。
+- **会话管理**：SessionSelector提供会话切换、创建和历史加载功能。
+- **Composer组件**：提供富文本输入、附件上传和发送控制功能。
+- **工具降级组件**：ToolFallback展示工具调用的分类、状态和详细信息。
 
 **章节来源**
 
-- [chat.ts:1-120](file://ui/src/ui/views/chat.ts#L1-L120)
-- [sessions.ts:60-127](file://ui/src/ui/controllers/sessions.ts#L60-L127)
-- [client.ts:43-96](file://src/gateway/client.ts#L43-L96)
-- [channel-web.ts:1-34](file://src/channel-web.ts#L1-L34)
-- [media.ts:1-60](file://extensions/matrix/src/matrix/send/media.ts#L1-L60)
-- [send.ts:760-857](file://src/telegram/send.ts#L760-L857)
-- [bluebubbles reactions.ts:16-133](file://extensions/bluebubbles/src/reactions.ts#L16-L133)
-- [status-reaction-variants.ts:175-226](file://src/telegram/status-reaction-variants.ts#L175-L226)
-- [groups.md:1-39](file://docs/channels/groups.md#L1-L39)
+- [ChatPage.tsx:1-21](file://ui-react/src/pages/ChatPage.tsx#L1-L21)
+- [chat.store.ts:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [useChatEventBridge.ts:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
+- [GatewayChatRuntimeProvider.tsx:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
+- [SessionSelector.tsx:1-212](file://ui-react/src/components/chat/SessionSelector.tsx#L1-L212)
+- [Composer.tsx:1-90](file://ui-react/src/components/chat/Composer.tsx#L1-L90)
+- [AssistantMessage.tsx:1-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L240)
+- [ToolFallback.tsx:1-451](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L451)
 
 ## 架构总览
 
-WebChat采用“前端UI + 网关客户端 + 通道适配层”的分层设计，前端通过WebSocket与网关通信，使用标准方法如chat.history、chat.send、chat.inject进行消息同步与交互。群组策略与提及门禁在通道层统一处理，确保跨渠道一致性。
+WebChat采用"React前端 + Zustand状态管理 + Assistant UI组件库"的现代化架构，通过GatewayChatRuntimeProvider桥接网关事件与React组件。前端通过WebSocket与网关通信，使用标准方法如chat.history、chat.send、chat.inject进行消息同步与交互。群组策略与提及门禁在通道层统一处理，确保跨渠道一致性。
 
 ```mermaid
 sequenceDiagram
-participant UI as "聊天视图(chat.ts)"
+participant UI as "React组件(ChatPage)"
+participant Runtime as "运行时提供者(GatewayChatRuntimeProvider)"
+participant Store as "Zustand状态管理"
 participant Client as "网关客户端(client.ts)"
 participant Gateway as "网关服务"
 participant Channel as "通道适配(channel-web.ts)"
-UI->>Client : 连接WebSocket并握手
-Client-->>UI : hello-ok, features, policy
-UI->>Client : 请求chat.history(sessionKey)
-Client->>Gateway : 方法调用(chat.history)
-Gateway-->>Client : 历史消息(含截断/省略)
-Client-->>UI : 分发历史消息
-UI->>Client : 发送消息(chat.send)
+UI->>Runtime : 初始化运行时
+Runtime->>Store : 订阅状态变化
+UI->>Runtime : 用户发送消息
+Runtime->>Store : 添加用户消息
+Runtime->>Client : chat.send请求
 Client->>Gateway : 方法调用(chat.send)
 Gateway->>Channel : 路由至对应渠道
 Channel-->>Gateway : 发送结果
 Gateway-->>Client : 事件推送(消息/状态)
-Client-->>UI : 渲染消息与流式输出
+Client-->>Store : 触发事件桥接
+Store-->>Runtime : 更新状态
+Runtime-->>UI : 重新渲染组件
 ```
 
 **图表来源**
 
-- [chat.ts:241-481](file://ui/src/ui/views/chat.ts#L241-L481)
+- [ChatPage.tsx:1-21](file://ui-react/src/pages/ChatPage.tsx#L1-L21)
+- [GatewayChatRuntimeProvider.tsx:167-213](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L167-L213)
+- [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
 - [client.ts:43-96](file://src/gateway/client.ts#L43-L96)
 - [channel-web.ts:1-34](file://src/channel-web.ts#L1-L34)
-- [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
 
 **章节来源**
 
 - [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
-- [chat.ts:241-481](file://ui/src/ui/views/chat.ts#L241-L481)
+- [ChatPage.tsx:1-21](file://ui-react/src/pages/ChatPage.tsx#L1-L21)
+- [GatewayChatRuntimeProvider.tsx:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
 
 ## 详细组件分析
 
-### 聊天界面布局与消息渲染
+### React聊天组件系统
 
-- 线程容器：承载消息、分隔符、阅读指示与流式片段，支持滚动与可访问性标注。
-- 消息分组：按角色与发送者聚合连续消息，减少渲染碎片。
-- 流式输出：将分段文本与工具卡片交错展示，保证视觉顺序正确。
-- 占位提示：根据连接状态与附件数量动态调整输入框提示文案。
-- 侧边栏与分割：支持可调整比例的主侧布局，便于查看上下文。
-- 队列与占位：显示待发送队列，支持移除与跳转到底部。
+- **ChatPage入口组件**：整合会话选择器和线程视图，提供完整的聊天界面布局。
+- **ThreadView线程视图**：使用Assistant UI的ThreadPrimitive组件，支持消息列表、滚动控制和composer集成。
+- **SessionSelector会话管理**：提供会话切换、创建新会话和历史加载功能。
+- **Composer消息输入**：支持文本输入、附件上传、拖拽操作和发送控制。
+- **消息渲染组件**：AssistantMessage和UserMessage分别处理不同类型消息的渲染。
 
 ```mermaid
 flowchart TD
-Start(["进入聊天视图"]) --> BuildItems["构建聊天项列表<br/>历史+工具+流式片段"]
-BuildItems --> Group["消息分组<br/>按角色/发送者聚合"]
-Group --> RenderThread["渲染线程容器<br/>role='log'"]
-RenderThread --> Attachments["附件预览渲染"]
-RenderThread --> Compose["输入框与动作按钮"]
-Compose --> Queue["队列显示与移除"]
-Queue --> Sidebar["侧边栏与分割器"]
-Sidebar --> End(["完成渲染"])
+Start(["ChatPage初始化"]) --> Runtime["GatewayChatRuntimeProvider创建"]
+Runtime --> Subscribe["订阅Zustand状态"]
+Subscribe --> Thread["ThreadView渲染"]
+Thread --> Messages["消息列表渲染"]
+Messages --> Components["AssistantMessage/UserMessage"]
+Components --> ToolFallback["工具调用渲染"]
+ToolFallback --> Composer["Composer输入组件"]
+Composer --> Send["发送消息到网关"]
+Send --> Gateway["WebSocket连接"]
+Gateway --> Receive["接收网关事件"]
+Receive --> Update["更新Zustand状态"]
+Update --> ReRender["重新渲染组件"]
+ReRender --> End(["完成渲染"])
 ```
 
 **图表来源**
 
-- [chat.ts:485-637](file://ui/src/ui/views/chat.ts#L485-L637)
-- [chat.ts:241-481](file://ui/src/ui/views/chat.ts#L241-L481)
+- [ChatPage.tsx:6-20](file://ui-react/src/pages/ChatPage.tsx#L6-L20)
+- [GatewayChatRuntimeProvider.tsx:112-236](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L112-L236)
+- [ThreadView.tsx:15-49](file://ui-react/src/components/chat/ThreadView.tsx#L15-L49)
 
 **章节来源**
 
-- [chat.ts:241-481](file://ui/src/ui/views/chat.ts#L241-L481)
-- [chat.ts:485-637](file://ui/src/ui/views/chat.ts#L485-L637)
+- [ChatPage.tsx:1-21](file://ui-react/src/pages/ChatPage.tsx#L1-L21)
+- [ThreadView.tsx:1-82](file://ui-react/src/components/chat/ThreadView.tsx#L1-L82)
+- [SessionSelector.tsx:1-212](file://ui-react/src/components/chat/SessionSelector.tsx#L1-L212)
+- [Composer.tsx:1-90](file://ui-react/src/components/chat/Composer.tsx#L1-L90)
 
-### 输入框与附件功能
+### Zustand状态管理系统
 
-- 文本域自适应高度：输入时自动调整高度，粘贴图片时生成附件预览。
-- 快捷键支持：回车发送、Shift+回车换行；组合输入法中止。
-- 附件管理：支持多张图片粘贴，生成临时ID，支持移除与批量发送。
-- 提示文案：根据连接状态与附件数量动态提示。
+- **聊天状态管理**：chat.store.ts管理消息列表、流式输出、工具调用流和输入状态。
+- **网关状态管理**：gateway.store.ts管理连接状态、事件日志和客户端实例。
+- **状态同步**：通过useChatEventBridge将网关事件转换为状态更新，保持组件解耦。
+- **工具流管理**：支持工具调用的完整生命周期，包括开始、运行、结果和错误状态。
 
 ```mermaid
-flowchart TD
-Paste["粘贴图片"] --> Detect["检测剪贴板数据类型"]
-Detect --> HasImages{"是否包含图片？"}
-HasImages --> |否| End1["结束"]
-HasImages --> |是| Read["读取为DataURL"]
-Read --> GenID["生成附件ID"]
-GenID --> Preview["添加到附件预览"]
-Preview --> Send["点击发送或附加文字"]
-Send --> Upload["上传/发送至通道"]
-Upload --> End2["完成"]
+stateDiagram-v2
+[*] --> Disconnected
+Disconnected --> Connecting : setConnecting
+Connecting --> Connected : setConnected
+Connected --> Disconnected : setDisconnected
+Connected --> Error : 错误事件
+state ChatState {
+[*] --> Idle
+Idle --> Loading : setMessagesLoading
+Loading --> Loaded : setMessages
+Loaded --> Sending : setSending
+Sending --> Idle : finalizeStream/resetStream
+}
+state ToolStreamState {
+[*] --> Start
+Start --> Running : upsertToolStream
+Running --> Result : upsertToolStream
+Running --> Error : upsertToolStream
+Result --> [*]
+Error --> [*]
+}
 ```
 
 **图表来源**
 
-- [chat.ts:166-205](file://ui/src/ui/views/chat.ts#L166-L205)
-- [chat.ts:207-239](file://ui/src/ui/views/chat.ts#L207-L239)
+- [gateway.store.ts:72-183](file://ui-react/src/store/gateway.store.ts#L72-L183)
+- [chat.store.ts:135-229](file://ui-react/src/store/chat.store.ts#L135-L229)
+- [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
 
 **章节来源**
 
-- [chat.ts:166-205](file://ui/src/ui/views/chat.ts#L166-L205)
-- [chat.ts:207-239](file://ui/src/ui/views/chat.ts#L207-L239)
+- [chat.store.ts:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [useChatEventBridge.ts:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
 
-### 消息历史记录与同步
+### 增强的消息渲染能力
 
-- 历史获取：通过chat.history按会话键拉取最近消息，支持限制数量。
-- 截断与省略：长文本字段可能被截断，重型元数据可能被省略，超大条目替换为占位提示。
-- 同步策略：UI始终从网关获取历史，不依赖本地文件监控；网关持久化中断后的部分输出并在UI中标记。
-- 会话管理：sessions.list列出会话，sessions.patch更新会话属性，sessions.delete删除会话并归档转录。
+- **内容块系统**：支持交错的文本和工具调用渲染，保持原始消息顺序。
+- **Markdown支持**：AssistantMessage组件集成Markdown渲染，支持GFM语法。
+- **工具调用可视化**：ToolFallback组件提供工具调用的分类、状态和详细信息展示。
+- **附件支持**：UserMessage组件支持图片附件的预览和渲染。
+- **流式渲染**：支持实时流式消息的增量更新和最终合并。
+
+```mermaid
+flowchart TD
+Message["原始消息"] --> Normalize["规范化内容"]
+Normalize --> Role["角色标准化"]
+Role --> Blocks{"是否有内容块？"}
+Blocks --> |是| Interleaved["交错渲染<br/>文本 → 工具 → 文本 → 工具"]
+Blocks --> |否| Flat["平面渲染<br/>文本 + 工具调用"]
+Interleaved --> Markdown["Markdown渲染"]
+Flat --> ToolCards["工具卡片渲染"]
+Markdown --> Components["AssistantMessage组件"]
+ToolCards --> Components
+Components --> Final["最终消息渲染"]
+```
+
+**图表来源**
+
+- [GatewayChatRuntimeProvider.tsx:16-100](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L16-L100)
+- [AssistantMessage.tsx:22-150](file://ui-react/src/components/chat/AssistantMessage.tsx#L22-L150)
+- [ToolFallback.tsx:45-150](file://ui-react/src/components/chat/ToolFallback.tsx#L45-L150)
+
+**章节来源**
+
+- [GatewayChatRuntimeProvider.tsx:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
+- [AssistantMessage.tsx:1-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L240)
+- [ToolFallback.tsx:1-451](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L451)
+
+### 工具集成功能
+
+- **工具分类系统**：根据工具名称自动分类为read、write、exec、search、web、database、file、function等类别。
+- **状态跟踪**：支持工具调用的完整生命周期状态跟踪和可视化。
+- **详细信息展示**：通过抽屉式对话框展示工具调用的参数、结果和错误信息。
+- **交互式操作**：支持工具调用的重新执行、取消和查看详情操作。
+
+```mermaid
+flowchart TD
+ToolCall["工具调用"] --> Classify["工具分类"]
+Classify --> Status["状态跟踪<br/>running/complete/incomplete"]
+Status --> Drawer["抽屉详情"]
+Drawer --> Actions["交互操作<br/>重新执行/取消/查看详情"]
+Actions --> Result["结果显示"]
+Result --> Preview["预览模式"]
+Preview --> Detail["详细模式"]
+```
+
+**图表来源**
+
+- [ToolFallback.tsx:45-150](file://ui-react/src/components/chat/ToolFallback.tsx#L45-L150)
+- [ToolFallback.tsx:214-316](file://ui-react/src/components/chat/ToolFallback.tsx#L214-L316)
+- [useChatEventBridge.ts:419-459](file://ui-react/src/hooks/useChatEventBridge.ts#L419-L459)
+
+**章节来源**
+
+- [ToolFallback.tsx:1-451](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L451)
+- [useChatEventBridge.ts:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
+
+### 会话管理
+
+- **会话列表**：通过chat.sessions.list获取会话列表，支持动态刷新。
+- **会话切换**：切换会话时自动加载对应的历史消息。
+- **新会话创建**：支持创建新会话并自动切换到新会话。
+- **历史加载**：支持按会话键加载历史消息，处理同步和异步响应。
 
 ```mermaid
 sequenceDiagram
-participant UI as "聊天视图"
+participant UI as "SessionSelector"
 participant Client as "网关客户端"
-participant Gateway as "网关"
-UI->>Client : request("chat.history",{sessionKey})
-Client->>Gateway : 方法调用(chat.history)
-Gateway-->>Client : 历史消息(可能截断/省略)
-Client-->>UI : 分发消息
-UI->>Client : request("sessions.list",...)
+participant Store as "Zustand状态"
+UI->>Client : chat.sessions.list
 Client-->>UI : 会话列表
-UI->>Client : request("sessions.patch",...)
-Client-->>UI : 更新成功
+UI->>Store : setMessagesLoading
+UI->>Client : chat.history(sessionKey)
+Client-->>UI : 历史消息
+UI->>Store : setMessages(规范化)
+Note over UI,Store : 支持silent模式避免闪烁
 ```
 
 **图表来源**
 
-- [chat.ts:532-614](file://ui/src/ui/views/chat.ts#L532-L614)
-- [sessions.ts:60-127](file://ui/src/ui/controllers/sessions.ts#L60-L127)
-- [sessions-history-tool.ts:235-270](file://src/agents/tools/sessions-history-tool.ts#L235-L270)
-- [webchat.md:26-32](file://docs/web/webchat.md#L26-L32)
+- [SessionSelector.tsx:34-90](file://ui-react/src/components/chat/SessionSelector.tsx#L34-L90)
+- [useChatEventBridge.ts:344-361](file://ui-react/src/hooks/useChatEventBridge.ts#L344-L361)
 
 **章节来源**
 
-- [chat.ts:532-614](file://ui/src/ui/views/chat.ts#L532-L614)
-- [sessions.ts:60-127](file://ui/src/ui/controllers/sessions.ts#L60-L127)
-- [sessions-history-tool.ts:235-270](file://src/agents/tools/sessions-history-tool.ts#L235-L270)
-- [webchat.md:26-32](file://docs/web/webchat.md#L26-L32)
-
-### 多媒体消息与文件传输
-
-- 图像优化：Web渠道对图像进行压缩与尺寸调整，遵循渠道最大字节数限制。
-- 媒体类型识别：根据MIME类型与文件名推断媒体种类，区分图片、视频、音频与文档。
-- 渠道特定发送：Telegram根据媒体类型选择具体API（照片、动画、视频、视频消息等）。
-- 矩阵媒体信息：构建尺寸、时长、缩略图等元信息，确保兼容性。
-
-```mermaid
-flowchart TD
-Load["加载Web媒体"] --> Optimize["优化与尺寸调整"]
-Optimize --> DetectKind["检测媒体类型"]
-DetectKind --> Route{"渠道路由"}
-Route --> |Telegram| TG["选择发送API<br/>照片/动画/视频/视频消息"]
-Route --> |矩阵| MX["构建媒体信息<br/>尺寸/时长/缩略图"]
-TG --> Upload["上传并发送"]
-MX --> Upload
-Upload --> Done["完成"]
-```
-
-**图表来源**
-
-- [send.ts:760-857](file://src/telegram/send.ts#L760-L857)
-- [media.ts:1-60](file://extensions/matrix/src/matrix/send/media.ts#L1-L60)
-
-**章节来源**
-
-- [send.ts:760-857](file://src/telegram/send.ts#L760-L857)
-- [media.ts:1-60](file://extensions/matrix/src/matrix/send/media.ts#L1-L60)
-
-### 表情反应与群组功能
-
-- 表情别名标准化：支持多种别名与Emoji映射，统一到标准类型（like/love/laugh等）。
-- 变体选择：在Telegram中根据聊天允许的Emoji集合选择最合适的变体。
-- 群组策略：群组默认限制（allowlist），需要提及才触发回复；支持房间级配置与通配符配置。
-
-```mermaid
-flowchart TD
-Input["用户输入表情"] --> Normalize["别名/Emoji标准化"]
-Normalize --> Validate{"是否支持？"}
-Validate --> |否| Error["报错或忽略"]
-Validate --> |是| Variant["选择聊天允许的变体"]
-Variant --> Apply["应用到消息/状态"]
-Apply --> Done["完成"]
-```
-
-**图表来源**
-
-- [bluebubbles reactions.ts:16-133](file://extensions/bluebubbles/src/reactions.ts#L16-L133)
-- [status-reaction-variants.ts:175-226](file://src/telegram/status-reaction-variants.ts#L175-L226)
-- [groups.md:17-39](file://docs/channels/groups.md#L17-L39)
-
-**章节来源**
-
-- [bluebubbles reactions.ts:16-133](file://extensions/bluebubbles/src/reactions.ts#L16-L133)
-- [status-reaction-variants.ts:175-226](file://src/telegram/status-reaction-variants.ts#L175-L226)
-- [groups.md:17-39](file://docs/channels/groups.md#L17-L39)
+- [SessionSelector.tsx:1-212](file://ui-react/src/components/chat/SessionSelector.tsx#L1-L212)
+- [useChatEventBridge.ts:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
 
 ### WebSocket连接、消息同步与离线处理
 
-- 连接握手：客户端发起连接，等待hello-ok确认，获取协议版本、特性与策略。
-- 事件处理：区分响应帧与事件帧，维护序列号，检测断点并广播gap事件。
-- 心跳与保活：周期性tick事件用于保活与健康检查。
-- 离线策略：网关不可达时，WebChat为只读；连接恢复后继续同步历史与事件。
+- **连接管理**：gateway.store.ts管理连接状态、事件处理和错误恢复。
+- **事件桥接**：useChatEventBridge将网关事件转换为状态更新，支持聊天、工具和代理事件。
+- **状态同步**：通过注册回调函数实现跨模块的状态同步，避免循环依赖。
+- **离线策略**：连接断开时提供清晰的错误状态和重连机制。
 
 ```mermaid
 sequenceDiagram
-participant Client as "网关客户端"
-participant WS as "WebSocket"
-participant Server as "网关服务器"
-Client->>WS : 建立连接
-WS-->>Client : open
-Client->>Server : 发送握手请求
-Server-->>Client : hello-ok(协议/特性/策略)
-Client->>Server : 订阅事件/历史
-Server-->>Client : 事件推送(tick/connect.challenge等)
-Client->>Client : 维护序列号/断点检测
-Note over Client,Server : 网络异常时保持只读，恢复后继续同步
+participant Store as "gateway.store"
+participant Bridge as "useChatEventBridge"
+participant Client as "WebSocket客户端"
+participant Gateway as "网关服务器"
+Store->>Client : setClient/registerChatDispatch
+Client->>Gateway : 建立WebSocket连接
+Gateway-->>Client : hello-ok事件
+Client-->>Store : handleEvent("chat"|"tool"|"agent")
+Store->>Bridge : 注册的事件处理器
+Bridge->>Store : 更新聊天状态
+Note over Store,Gateway : 支持断线重连和事件缓冲
 ```
 
 **图表来源**
 
-- [client.ts:43-96](file://src/gateway/client.ts#L43-L96)
+- [gateway.store.ts:128-167](file://ui-react/src/store/gateway.store.ts#L128-L167)
+- [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
 - [GatewayChannel.swift:592-622](file://apps/shared/OpenClawKit/Sources/OpenClawKit/GatewayChannel.swift#L592-L622)
-- [test-helpers.server.ts:661-704](file://src/gateway/test-helpers.server.ts#L661-L704)
-- [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
 
 **章节来源**
 
+- [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [useChatEventBridge.ts:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L471)
 - [client.ts:43-96](file://src/gateway/client.ts#L43-L96)
-- [GatewayChannel.swift:592-622](file://apps/shared/OpenClawKit/Sources/OpenClawKit/GatewayChannel.swift#L592-L622)
-- [test-helpers.server.ts:661-704](file://src/gateway/test-helpers.server.ts#L661-L704)
-- [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
 
 ## 依赖关系分析
 
-- UI依赖网关客户端进行消息同步与会话管理；会话控制器通过RPC调用sessions.\*方法。
-- 通道适配层统一Web渠道能力，向网关暴露login、monitor、sendMessage等接口。
-- 不同平台（iOS、Android）通过各自原生UI接入网关，共享相同的网关协议与策略。
+- **React组件依赖**：所有React组件通过GatewayChatRuntimeProvider访问状态管理，避免直接导入Zustand。
+- **状态管理解耦**：useChatEventBridge通过回调函数注册机制避免循环依赖，保持模块边界清晰。
+- **Assistant UI集成**：使用@assistant-ui/react系列包提供统一的UI组件和运行时支持。
+- **Tailwind CSS**：使用Tailwind 4.x提供现代化的样式系统，支持响应式设计。
 
 ```mermaid
 graph LR
-UI["chat.ts"] --> RPC["sessions.ts<br/>RPC调用"]
-RPC --> GW["client.ts<br/>网关客户端"]
-UI --> Channel["channel-web.ts<br/>Web渠道"]
-Channel --> Media["media.ts<br/>媒体信息"]
-Channel --> TG["send.ts<br/>Telegram发送"]
-iOS["GatewayChannel.swift"] --> GW
-Android["ChatMessageViews.kt"] --> GW
+React_Components["React组件"] --> Runtime["GatewayChatRuntimeProvider"]
+Runtime --> Zustand["Zustand状态管理"]
+Zustand --> GatewayStore["gateway.store.ts"]
+Zustand --> ChatStore["chat.store.ts"]
+GatewayStore --> Client["client.ts"]
+ChatStore --> Events["useChatEventBridge.ts"]
+Events --> AssistantUI["@assistant-ui/react"]
+AssistantUI --> Components["UI组件库"]
 ```
 
 **图表来源**
 
-- [chat.ts:241-481](file://ui/src/ui/views/chat.ts#L241-L481)
-- [sessions.ts:60-127](file://ui/src/ui/controllers/sessions.ts#L60-L127)
-- [client.ts:43-96](file://src/gateway/client.ts#L43-L96)
-- [channel-web.ts:1-34](file://src/channel-web.ts#L1-L34)
-- [media.ts:1-60](file://extensions/matrix/src/matrix/send/media.ts#L1-L60)
-- [send.ts:760-857](file://src/telegram/send.ts#L760-L857)
-- [GatewayChannel.swift:592-622](file://apps/shared/OpenClawKit/Sources/OpenClawKit/GatewayChannel.swift#L592-L622)
-- [ChatMessageViews.kt:71-108](file://apps/android/app/src/main/java/ai/openclaw/app/ui/chat/ChatMessageViews.kt#L71-L108)
+- [ChatPage.tsx:1-21](file://ui-react/src/pages/ChatPage.tsx#L1-L21)
+- [GatewayChatRuntimeProvider.tsx:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
+- [chat.store.ts:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 
 **章节来源**
 
-- [chat.ts:241-481](file://ui/src/ui/views/chat.ts#L241-L481)
-- [sessions.ts:60-127](file://ui/src/ui/controllers/sessions.ts#L60-L127)
-- [client.ts:43-96](file://src/gateway/client.ts#L43-L96)
-- [channel-web.ts:1-34](file://src/channel-web.ts#L1-L34)
+- [ChatPage.tsx:1-21](file://ui-react/src/pages/ChatPage.tsx#L1-L21)
+- [GatewayChatRuntimeProvider.tsx:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
+- [chat.store.ts:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 
 ## 性能考虑
 
-- 历史渲染限制：UI仅渲染最近N条消息，隐藏多余条目并通过系统提示告知。
-- 媒体优化：图像压缩与尺寸调整降低传输开销，避免超限。
-- 流式渲染：交错展示流式文本与工具卡片，提升感知性能。
-- 响应式布局：移动端堆叠输入区域与按钮，减少重排成本。
+- **状态管理优化**：使用Zustand替代Redux，减少不必要的状态更新和组件重渲染。
+- **组件懒加载**：React.lazy和Suspense支持大型组件的按需加载。
+- **虚拟化支持**：Assistant UI组件支持消息列表的虚拟化渲染，提高大数据量场景下的性能。
+- **事件桥接优化**：useChatEventBridge通过事件过滤和状态缓存减少重复渲染。
+- **资源复用**：vite.config.ts配置公共资源目录，避免重复构建静态资源。
 
 **章节来源**
 
-- [chat.ts:483-484](file://ui/src/ui/views/chat.ts#L483-L484)
-- [layout.css:446-481](file://ui/src/styles/chat/layout.css#L446-L481)
+- [vite.config.ts:13-14](file://ui-react/vite.config.ts#L13-L14)
+- [package.json:11-42](file://ui-react/package.json#L11-L42)
 
 ## 故障排除指南
 
-- 连接失败：检查网关端口与认证配置，确认WebSocket握手成功。
-- 无消息：确认已订阅chat.subscribe并成功拉取chat.history。
-- 离线只读：网关不可达时UI为只读，恢复网络后自动同步。
-- 序列断点：客户端检测到事件序列异常时会广播gap事件，需关注重连与重放策略。
+- **连接失败**：检查网关端口与认证配置，确认WebSocket握手成功，查看gateway.store的错误状态。
+- **无消息**：确认已订阅chat.subscribe并成功拉取chat.history，检查useChatEventBridge的事件处理。
+- **组件渲染问题**：检查GatewayChatRuntimeProvider的运行时配置，验证消息转换函数的正确性。
+- **状态同步问题**：确认useChatEventBridge的回调注册正常，检查Zustand状态的更新时机。
+- **工具调用异常**：检查ToolFallback的分类和状态处理，验证工具调用的生命周期管理。
 
 **章节来源**
 
-- [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
-- [GatewayChannel.swift:603-622](file://apps/shared/OpenClawKit/Sources/OpenClawKit/GatewayChannel.swift#L603-L622)
-- [test-helpers.server.ts:661-704](file://src/gateway/test-helpers.server.ts#L661-L704)
+- [gateway.store.ts:115-126](file://ui-react/src/store/gateway.store.ts#L115-L126)
+- [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
+- [GatewayChatRuntimeProvider.tsx:227-236](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L227-L236)
 
 ## 结论
 
-WebChat界面以清晰的分层架构实现了跨平台的实时聊天体验：前端负责渲染与交互，网关客户端保障连接稳定与事件同步，通道适配层统一多渠道能力，配合群组策略与表情反应机制，满足多样化的消息场景。通过历史截断、媒体优化与响应式布局，系统在性能与可用性之间取得平衡。
+WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，采用"React + Zustand + Assistant UI"的技术栈实现了更加现代化和可维护的聊天体验。新的架构通过组件化设计、状态管理和事件桥接机制，提供了更好的开发体验和用户体验。通过增强的消息渲染能力、工具集成功能和会话管理，系统在性能与可用性之间取得了更好的平衡，为未来的功能扩展奠定了坚实的基础。
 
 ## 附录
 
-- 配置参考：WebChat使用网关端点与认证参数，无需独立配置块。
-- 远程使用：可通过SSH/Tailscale隧道访问远程网关WebSocket。
+- **配置参考**：WebChat使用网关端点与认证参数，React构建配置独立于传统UI，输出到独立的dist目录。
+- **开发环境**：使用Vite 7.3.1提供开发服务器，支持热重载和TypeScript编译。
+- **生产部署**：构建输出到dist/control-ui-react目录，避免与现有Lit UI冲突。
 
 **章节来源**
 
-- [webchat.md:42-62](file://docs/web/webchat.md#L42-L62)
+- [vite.config.ts:21-28](file://ui-react/vite.config.ts#L21-L28)
+- [package.json:5-10](file://ui-react/package.json#L5-L10)
+- [router.tsx:19-41](file://ui-react/src/router.tsx#L19-L41)
