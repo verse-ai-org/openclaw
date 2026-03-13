@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ interface Props {
   onEdit: (value: string) => void;
   onSaveKey: () => void;
   onInstall: (installId: string) => void;
+  onRemove?: () => void;
 }
 
 export function SkillCard({
@@ -26,7 +28,12 @@ export function SkillCard({
   onEdit,
   onSaveKey,
   onInstall,
+  onRemove,
 }: Props) {
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const canRemove =
+    onRemove !== undefined &&
+    (skill.source === "openclaw-workspace" || skill.source === "openclaw-managed");
   const showBundledBadge = Boolean(skill.bundled && skill.source !== "openclaw-bundled");
   const canInstall = skill.install.length > 0 && skill.missing.bins.length > 0;
   const missing = computeSkillMissing(skill);
@@ -74,6 +81,40 @@ export function SkillCard({
               >
                 {busy ? "Installing…" : skill.install[0].label}
               </Button>
+            )}
+            {canRemove && !confirmRemove && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                disabled={busy}
+                onClick={() => setConfirmRemove(true)}
+              >
+                Remove
+              </Button>
+            )}
+            {canRemove && confirmRemove && (
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirmRemove(false);
+                    onRemove();
+                  }}
+                >
+                  Confirm
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setConfirmRemove(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
             )}
           </div>
         </div>

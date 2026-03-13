@@ -1,11 +1,15 @@
+import path from "node:path";
 import {
   listAgentIds,
   resolveAgentWorkspaceDir,
   resolveDefaultAgentId,
 } from "../../agents/agent-scope.js";
+import { importSkill } from "../../agents/skills-import.js";
 import { installSkill } from "../../agents/skills-install.js";
+import { removeSkill } from "../../agents/skills-remove.js";
 import { buildWorkspaceSkillStatus } from "../../agents/skills-status.js";
 import { loadWorkspaceSkillEntries, type SkillEntry } from "../../agents/skills.js";
+import { bumpSkillsSnapshotVersion } from "../../agents/skills/refresh.js";
 import { listAgentWorkspaceDirs } from "../../agents/workspace-dirs.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { loadConfig, writeConfigFile } from "../../config/config.js";
@@ -17,6 +21,8 @@ import {
   errorShape,
   formatValidationErrors,
   validateSkillsBinsParams,
+  validateSkillsImportParams,
+  validateSkillsRemoveParams,
   validateSkillsInstallParams,
   validateSkillsStatusParams,
   validateSkillsUpdateParams,
@@ -200,5 +206,80 @@ export const skillsHandlers: GatewayRequestHandlers = {
     };
     await writeConfigFile(nextConfig);
     respond(true, { ok: true, skillKey: p.skillKey, config: current }, undefined);
+  },
+  "skills.import": async ({ params, respond }) => {
+    if (!validateSkillsImportParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid skills.import params: ${formatValidationErrors(validateSkillsImportParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as {
+      kind: "url" | "upload";
+      target?: "workspace" | "managed";
+      url?: string;
+      data?: string;
+      filename?: string;
+      skillName?: string;
+      timeoutMs?: number;
+    };
+    const cfg = loadConfig();
+    // target=workspace (default): <workspaceDir>/skills/  — highest priority, project-scoped
+    // target=managed: ~/.openclaw/skills/ — global, shared across all workspaces
+    const target = p.target ?? "workspace";
+    let skillsBaseDir: string | undefined;
+    if (target === "workspace") {
+      const workspaceDir = resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg));
+      if (workspaceDir) {
+        skillsBaseDir = path.join(workspaceDir, "skills");
+      }
+    }
+    // skillsBaseDir left undefined => importSkill falls back to managed dir
+    const result = await importSkill({
+      kind: p.kind,
+      url: p.url,
+      data: p.data,
+      filename: p.filename,
+      skillName: p.skillName,
+      timeoutMs: p.timeoutMs,
+      skillsBaseDir,
+    });
+    if (result.ok) {
+      // Notify all sessions that skills have changed
+      bumpSkillsSnapshotVersion({ reason: "manual" });
+    }
+    respond(
+      result.ok,
+      result,
+      result.ok ? undefined : errorShape(ErrorCodes.UNAVAILABLE, result.message),
+    );
+  },
+  "skills.remove": async ({ params, respond }) => {
+    if (!validateSkillsRemoveParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid skills.remove params: ${formatValidationErrors(validateSkillsRemoveParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as { baseDir: string; source: string };
+    const result = await removeSkill({ baseDir: p.baseDir, source: p.source });
+    if (result.ok) {
+      bumpSkillsSnapshotVersion({ reason: "manual" });
+    }
+    respond(
+      result.ok,
+      result,
+      result.ok ? undefined : errorShape(ErrorCodes.UNAVAILABLE, result.message),
+    );
   },
 };

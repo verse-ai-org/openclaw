@@ -20,6 +20,48 @@ function isNodeReadableStream(value: unknown): value is NodeJS.ReadableStream {
   return Boolean(value && typeof (value as NodeJS.ReadableStream).pipe === "function");
 }
 
+/**
+ * Low-level: fetch a URL and stream its body directly to destPath.
+ * Uses a temp file in stagingDir to avoid partial writes.
+ * Exported so other modules (e.g. skills-import) can reuse the same logic.
+ */
+export type DownloadUrlResult = {
+  contentType: string | null;
+  contentDisposition: string | null;
+};
+
+export async function downloadUrlToFile(params: {
+  url: string;
+  destPath: string;
+  stagingDir: string;
+  timeoutMs: number;
+}): Promise<DownloadUrlResult> {
+  await ensureDir(params.stagingDir);
+  const tempPath = path.join(params.stagingDir, `${randomUUID()}.tmp`);
+  const { response, release } = await fetchWithSsrFGuard({
+    url: params.url,
+    timeoutMs: Math.max(1_000, params.timeoutMs),
+  });
+  try {
+    if (!response.ok || !response.body) {
+      throw new Error(`Download failed (${response.status} ${response.statusText})`);
+    }
+    const contentType = response.headers.get("content-type");
+    const contentDisposition = response.headers.get("content-disposition");
+    const file = fs.createWriteStream(tempPath);
+    const body = response.body as unknown;
+    const readable = isNodeReadableStream(body)
+      ? body
+      : Readable.fromWeb(body as NodeReadableStream);
+    await pipeline(readable, file);
+    await fs.promises.rename(tempPath, params.destPath);
+    return { contentType, contentDisposition };
+  } finally {
+    await fs.promises.rm(tempPath, { force: true }).catch(() => undefined);
+    await release();
+  }
+}
+
 function resolveDownloadTargetDir(entry: SkillEntry, spec: SkillInstallSpec): string {
   const safeRoot = resolveSkillToolsRootDir(entry);
   const raw = spec.targetDir?.trim();

@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import type { SkillStatusEntry, SkillStatusReport } from "@/types/skills";
+import type {
+  SkillImportParams,
+  SkillImportResult,
+  SkillRemoveResult,
+  SkillStatusEntry,
+  SkillStatusReport,
+} from "@/types/skills";
 import { useGatewayStore } from "./gateway.store";
 
 // ---------------------------------------------------------------------------
@@ -29,6 +35,8 @@ interface SkillsState {
   toggleSkill: (skillKey: string, currentlyDisabled: boolean) => Promise<void>;
   saveApiKey: (skillKey: string) => Promise<void>;
   installSkill: (skillKey: string, name: string, installId: string) => Promise<void>;
+  importSkill: (params: SkillImportParams) => Promise<SkillImportResult>;
+  removeSkill: (baseDir: string, source: string) => Promise<SkillRemoveResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +200,38 @@ export const useSkillsStore = create<SkillsState>()((set, get) => ({
       }));
     } finally {
       set({ busyKey: null });
+    }
+  },
+
+  importSkill: async (params) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return { ok: false, message: "Not connected to gateway" };
+    }
+    try {
+      const result = await client.request<SkillImportResult>("skills.import", params);
+      if (result?.ok) {
+        await get().loadSkills(true);
+      }
+      return result ?? { ok: false, message: "No response from gateway" };
+    } catch (err) {
+      return { ok: false, message: getErrorMessage(err) };
+    }
+  },
+
+  removeSkill: async (baseDir, source) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return { ok: false, message: "Not connected to gateway" };
+    }
+    try {
+      const result = await client.request<SkillRemoveResult>("skills.remove", { baseDir, source });
+      if (result?.ok) {
+        await get().loadSkills(true);
+      }
+      return result ?? { ok: false, message: "No response from gateway" };
+    } catch (err) {
+      return { ok: false, message: getErrorMessage(err) };
     }
   },
 }));

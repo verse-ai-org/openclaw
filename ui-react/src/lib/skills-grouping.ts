@@ -22,9 +22,10 @@ export function groupSkills(skills: SkillStatusEntry[]): SkillGroup[] {
   const other: SkillGroup = { id: "other", label: "Other Skills", skills: [] };
 
   for (const skill of skills) {
-    const match = skill.bundled
-      ? builtInGroup
-      : SKILL_SOURCE_GROUPS.find((group) => group.sources.includes(skill.source));
+    // source takes precedence for grouping; bundled flag is only a display badge
+    const match =
+      SKILL_SOURCE_GROUPS.find((group) => group.sources.includes(skill.source)) ??
+      (skill.bundled ? builtInGroup : undefined);
     if (match) {
       groups.get(match.id)?.skills.push(skill);
     } else {

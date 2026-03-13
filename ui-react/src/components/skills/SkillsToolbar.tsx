@@ -1,6 +1,7 @@
-import { RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddSkillDialog } from "./AddSkillDialog";
 
 interface Props {
   filter: string;
@@ -39,6 +40,14 @@ export function SkillsToolbar({ filter, loading, shownCount, onFilterChange, onR
         <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
         {loading ? "Loading…" : "Refresh"}
       </Button>
+      <AddSkillDialog
+        trigger={
+          <Button size="sm" variant="default" className="shrink-0">
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Add Skill
+          </Button>
+        }
+      />
     </div>
   );
 }

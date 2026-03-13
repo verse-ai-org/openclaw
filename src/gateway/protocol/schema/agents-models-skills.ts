@@ -208,6 +208,56 @@ export const SkillsUpdateParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+/**
+ * skills.import — import a new skill from a URL or uploaded file data.
+ * kind=url: download and extract from a remote URL.
+ * kind=upload: decode base64 file data and extract to the target skills dir.
+ * target=workspace: install into <workspaceDir>/skills/ (default, highest priority).
+ * target=managed: install into ~/.openclaw/skills/ (global, shared across workspaces).
+ */
+export const SkillsImportParamsSchema = Type.Object(
+  {
+    kind: Type.Union([Type.Literal("url"), Type.Literal("upload")]),
+    target: Type.Optional(Type.Union([Type.Literal("workspace"), Type.Literal("managed")])),
+    url: Type.Optional(NonEmptyString),
+    data: Type.Optional(NonEmptyString),
+    filename: Type.Optional(NonEmptyString),
+    skillName: Type.Optional(NonEmptyString),
+    timeoutMs: Type.Optional(Type.Integer({ minimum: 1000 })),
+  },
+  { additionalProperties: false },
+);
+
+export type SkillsImportParams = {
+  kind: "url" | "upload";
+  /** Where to install the skill. Defaults to "workspace". */
+  target?: "workspace" | "managed";
+  url?: string;
+  data?: string;
+  filename?: string;
+  skillName?: string;
+  timeoutMs?: number;
+};
+
+/**
+ * skills.remove — remove a user-installed skill directory from disk.
+ * Only workspace and managed skills (source=openclaw-workspace|openclaw-managed) may be removed.
+ */
+export const SkillsRemoveParamsSchema = Type.Object(
+  {
+    baseDir: NonEmptyString,
+    source: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
+export type SkillsRemoveParams = {
+  /** Absolute path to the skill directory (contains SKILL.md). */
+  baseDir: string;
+  /** The skill source, e.g. "openclaw-workspace" or "openclaw-managed". */
+  source: string;
+};
+
 export const ToolsCatalogParamsSchema = Type.Object(
   {
     agentId: Type.Optional(NonEmptyString),

@@ -46,3 +46,29 @@ export type SkillStatusReport = {
   managedSkillsDir: string;
   skills: SkillStatusEntry[];
 };
+
+export type SkillImportTarget = "workspace" | "managed";
+
+export type SkillImportParams =
+  | { kind: "url"; url: string; target?: SkillImportTarget; skillName?: string; timeoutMs?: number }
+  | {
+      kind: "upload";
+      data: string;
+      filename: string;
+      target?: SkillImportTarget;
+      skillName?: string;
+      timeoutMs?: number;
+    };
+
+export type SkillImportResult = {
+  ok: boolean;
+  message: string;
+  skillName?: string;
+  destDir?: string;
+  warnings?: string[];
+};
+
+export type SkillRemoveResult = {
+  ok: boolean;
+  message: string;
+};

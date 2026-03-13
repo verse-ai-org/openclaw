@@ -26,6 +26,7 @@ export function SkillsPage() {
   const toggleSkill = useSkillsStore((s) => s.toggleSkill);
   const saveApiKey = useSkillsStore((s) => s.saveApiKey);
   const installSkill = useSkillsStore((s) => s.installSkill);
+  const removeSkill = useSkillsStore((s) => s.removeSkill);
 
   // Compute filtered list + groups only when report or filter changes
   const filteredSkills = useMemo(() => {
@@ -118,6 +119,7 @@ export function SkillsPage() {
                       onEdit={(value) => setEdit(skill.skillKey, value)}
                       onSaveKey={() => saveApiKey(skill.skillKey)}
                       onInstall={(installId) => installSkill(skill.skillKey, skill.name, installId)}
+                      onRemove={() => void removeSkill(skill.baseDir, skill.source)}
                     />
                   ))}
                 </div>
