@@ -500,6 +500,11 @@ export function useChatEventBridge() {
         // Tool call lifecycle
         // ----------------------------------------------------------------
         case "tool.start": {
+          console.log("[tool.start] Tool starting:", p?.toolName, "ID:", p?.toolCallId);
+          // Commit any in-progress streaming text as a segment so it renders
+          // above the tool card instead of below it (matches old UI behavior).
+          useChatStore.getState().commitStreamSegment();
+
           const entry: ToolStreamEntry = {
             id: (p?.toolCallId as string) ?? crypto.randomUUID(),
             toolName: p?.toolName as string | undefined,
@@ -507,6 +512,10 @@ export function useChatEventBridge() {
             input: p?.input,
           };
           useChatStore.getState().upsertToolStream(entry);
+          console.log(
+            "[tool.start] ✅ Tool added to stream, total tools:",
+            useChatStore.getState().toolStreamOrder.length,
+          );
           break;
         }
 

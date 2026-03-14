@@ -6,7 +6,7 @@ import {
 } from "@assistant-ui/react";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { normalizeRole } from "@/hooks/useChatEventBridge";
-import { useChatStore, type ChatMessage } from "@/store/chat.store";
+import { useChatStore, type ChatMessage, type ContentBlock } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 
@@ -112,6 +112,7 @@ interface Props {
 export function GatewayChatRuntimeProvider({ children }: Props) {
   const chatMessages = useChatStore((s) => s.messages);
   const stream = useChatStore((s) => s.stream);
+  // const streamSegments = useChatStore((s) => s.streamSegments);
   const sending = useChatStore((s) => s.sending);
   const runId = useChatStore((s) => s.runId);
   const sessionKey = useChatStore((s) => s.sessionKey);
@@ -132,7 +133,40 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     if (!isRunning) {
       return chatMessages;
     }
-    // Build toolCalls from live tool stream entries (for in-progress tool calls)
+
+    // Build contentBlocks by interleaving text and tool calls in order.
+    // This matches the old UI's behavior: text → tool → text → tool ...
+    const contentBlocks: ContentBlock[] = [];
+
+    // Add current stream text if present
+    const streamContent = stream ?? "";
+    if (streamContent.trim()) {
+      contentBlocks.push({ type: "text", text: streamContent });
+    }
+
+    // Add tool calls in order
+    for (const id of toolStreamOrder) {
+      const entry = toolStreamById.get(id);
+      if (!entry) {
+        continue;
+      }
+
+      contentBlocks.push({
+        type: "tool-call",
+        toolCallId: entry.id,
+        toolName: entry.toolName ?? "tool",
+        argsText: entry.input != null ? JSON.stringify(entry.input, null, 2) : undefined,
+        result:
+          typeof entry.output === "string"
+            ? entry.output
+            : entry.output != null
+              ? JSON.stringify(entry.output, null, 2)
+              : undefined,
+        phase: entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
+      });
+    }
+
+    // Build toolCalls array for backward compatibility
     const liveToolCalls = toolStreamOrder
       .map((id) => toolStreamById.get(id))
       .filter(Boolean)
@@ -149,7 +183,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         error: entry!.error,
         phase: entry!.phase === "result" ? "result" : entry!.phase === "error" ? "error" : "call",
       }));
-    const streamContent = stream ?? "";
+
     return [
       ...chatMessages,
       {
@@ -159,6 +193,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         ts: Date.now(),
         runId: runId ?? undefined,
         toolCalls: liveToolCalls.length > 0 ? liveToolCalls : undefined,
+        contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
       },
     ];
   }, [chatMessages, stream, runId, isRunning, toolStreamById, toolStreamOrder]);

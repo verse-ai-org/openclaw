@@ -126,6 +126,7 @@ interface ChatState {
   setRunId: (id: string | null) => void;
   finalizeStream: () => void;
   resetStream: () => void;
+  commitStreamSegment: () => void;
   upsertToolStream: (entry: ToolStreamEntry) => void;
   resetToolStream: () => void;
   enqueueMessage: (id: string, text: string) => void;
@@ -209,6 +210,25 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       streamSegments: [],
       runId: null,
     }),
+
+  commitStreamSegment: () => {
+    const { stream, streamSegments } = get();
+    console.log("[commitStreamSegment] Current stream:", stream?.substring(0, 50) + "...");
+    console.log("[commitStreamSegment] Current segments count:", streamSegments.length);
+    if (stream && stream.trim().length > 0) {
+      const now = Date.now();
+      set({
+        stream: "",
+        streamSegments: [...streamSegments, { text: stream, ts: now }],
+      });
+      console.log(
+        "[commitStreamSegment] ✅ Committed segment, new count:",
+        streamSegments.length + 1,
+      );
+    } else {
+      console.log("[commitStreamSegment] ⚠️ No stream to commit");
+    }
+  },
 
   upsertToolStream: (entry) => {
     set((state) => {
