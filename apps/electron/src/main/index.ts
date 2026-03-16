@@ -98,10 +98,10 @@ async function main() {
   mainWindow = createWindow();
 
   if (isFirstLaunch()) {
-    // 首次启动：加载 Onboarding React 页面，注册 wizard IPC 中转
-    console.log("[main] 首次启动，加载 Onboarding 向导");
+    // 首次启动：加载 ui-react Setup Wizard 页面，注册 wizard IPC 中转
+    console.log("[main] 首次启动，加载 Setup Wizard");
     registerWizardIpc(GATEWAY_PORT, sessionToken);
-    loadRendererPage(mainWindow, "onboarding");
+    loadRendererPage(mainWindow, "setup");
   } else {
     // 已配置：直接加载 Gateway Control UI
     loadGatewayUI(mainWindow, { port: GATEWAY_PORT, token: sessionToken });

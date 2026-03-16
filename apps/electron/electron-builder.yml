@@ -36,6 +36,10 @@ extraResources:
   - from: "../../dist/control-ui"
     to: "control-ui"
 
+  # ui-react Setup Wizard 构建产物
+  - from: "../../dist/control-ui-react"
+    to: "control-ui-react"
+
   # Electron 专属渲染页面（React Onboarding 等）
   - from: "renderer/dist"
     to: "renderer"

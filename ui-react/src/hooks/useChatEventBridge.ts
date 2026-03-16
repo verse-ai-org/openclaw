@@ -417,6 +417,65 @@ export function useChatEventBridge() {
           break;
         }
 
+        // -------------------------------------------------------------- events: tool calls and lifecycle
+        // ----------------------------------------------------------------
+        case "agent": {
+          const agentPayload = p;
+          const stream = agentPayload?.stream as string | undefined;
+          const data = agentPayload?.data as Record<string, unknown> | undefined;
+
+          if (stream === "tool" && data) {
+            const phase = data.phase as string | undefined;
+            const toolCallId = data.toolCallId as string | undefined;
+            const toolName = data.name as string | undefined;
+
+            console.log("[agent:tool]", phase, "toolCallId:", toolCallId, "toolName:", toolName);
+
+            if (phase === "start") {
+              // Commit any in-progress streaming text as a segment
+              useChatStore.getState().commitStreamSegment();
+
+              const entry: ToolStreamEntry = {
+                id: toolCallId ?? crypto.randomUUID(),
+                toolName: toolName,
+                phase: "start",
+                input: data.args,
+              };
+              useChatStore.getState().upsertToolStream(entry);
+              console.log(
+                "[agent:tool:start] ✅ Tool added, total:",
+                useChatStore.getState().toolStreamOrder.length,
+              );
+            } else if (phase === "result") {
+              const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
+              if (existing) {
+                // Mark tool as completed. Use meta as temporary output.
+                // Actual result content will come from chat.history later.
+                useChatStore.getState().upsertToolStream({
+                  ...existing,
+                  phase: "result",
+                  output: data.meta ?? "Tool executed successfully",
+                });
+                console.log("[agent:tool:result] ✅ Tool marked as result, meta:", data.meta);
+              }
+            } else if (phase === "error") {
+              const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
+              if (existing) {
+                useChatStore.getState().upsertToolStream({
+                  ...existing,
+                  phase: "error",
+                  error: (data.error as string) ?? "unknown error",
+                });
+                console.log("[agent:tool:error] ✅ Tool error updated");
+              }
+            }
+          } else if (stream === "lifecycle" && data) {
+            const phase = data.phase as string | undefined;
+            console.log("[agent:lifecycle]", phase);
+          }
+          break;
+        }
+
         // ----------------------------------------------------------------
         // History: full message list loaded (e.g. on session switch)
         // ----------------------------------------------------------------
@@ -497,58 +556,6 @@ export function useChatEventBridge() {
         }
 
         // ----------------------------------------------------------------
-        // Tool call lifecycle
-        // ----------------------------------------------------------------
-        case "tool.start": {
-          console.log("[tool.start] Tool starting:", p?.toolName, "ID:", p?.toolCallId);
-          // Commit any in-progress streaming text as a segment so it renders
-          // above the tool card instead of below it (matches old UI behavior).
-          useChatStore.getState().commitStreamSegment();
-
-          const entry: ToolStreamEntry = {
-            id: (p?.toolCallId as string) ?? crypto.randomUUID(),
-            toolName: p?.toolName as string | undefined,
-            phase: "start",
-            input: p?.input,
-          };
-          useChatStore.getState().upsertToolStream(entry);
-          console.log(
-            "[tool.start] ✅ Tool added to stream, total tools:",
-            useChatStore.getState().toolStreamOrder.length,
-          );
-          break;
-        }
-
-        case "tool.running": {
-          const existing = useChatStore.getState().toolStreamById.get(p?.toolCallId as string);
-          if (existing) {
-            useChatStore.getState().upsertToolStream({ ...existing, phase: "running" });
-          }
-          break;
-        }
-
-        case "tool.result": {
-          const existing = useChatStore.getState().toolStreamById.get(p?.toolCallId as string);
-          if (existing) {
-            useChatStore
-              .getState()
-              .upsertToolStream({ ...existing, phase: "result", output: p?.output });
-          }
-          break;
-        }
-
-        case "tool.error": {
-          const existing = useChatStore.getState().toolStreamById.get(p?.toolCallId as string);
-          if (existing) {
-            useChatStore.getState().upsertToolStream({
-              ...existing,
-              phase: "error",
-              error: (p?.error as string) ?? "unknown error",
-            });
-          }
-          break;
-        }
-
         default:
           break;
       }

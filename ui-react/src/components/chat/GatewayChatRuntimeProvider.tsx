@@ -112,7 +112,7 @@ interface Props {
 export function GatewayChatRuntimeProvider({ children }: Props) {
   const chatMessages = useChatStore((s) => s.messages);
   const stream = useChatStore((s) => s.stream);
-  // const streamSegments = useChatStore((s) => s.streamSegments);
+  const _streamSegments = useChatStore((s) => s.streamSegments);
   const sending = useChatStore((s) => s.sending);
   const runId = useChatStore((s) => s.runId);
   const sessionKey = useChatStore((s) => s.sessionKey);

@@ -1,0 +1,1718 @@
+{
+  "version": "2.8",
+  "imports": {
+    "y": "pencil:shadcn.lib.pen"
+  },
+  "children": [
+    {
+      "type": "Frame",
+      "name": "Step 0 - Welcome",
+      "width": 600,
+      "height": 900,
+      "fill": {
+        "type": "gradient",
+        "gradient": {
+          "type": "linear",
+          "angle": 135,
+          "stops": [
+            { "color": "#f8f9fa", "position": 0 },
+            { "color": "#e9ecef", "position": 1 }
+          ]
+        }
+      },
+      "children": [
+        {
+          "type": "Frame",
+          "name": "Card",
+          "x": 0,
+          "y": 40,
+          "width": 600,
+          "height": 820,
+          "fill": "#ffffff",
+          "cornerRadius": 24,
+          "shadow": {
+            "x": 0,
+            "y": 8,
+            "blur": 32,
+            "color": "rgba(0,0,0,0.08)"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "name": "Logo",
+              "x": 250,
+              "y": 80,
+              "text": "🦞",
+              "fontSize": 72,
+              "textAlign": "center"
+            },
+            {
+              "type": "Text",
+              "name": "Title",
+              "x": 60,
+              "y": 180,
+              "width": 480,
+              "text": "欢迎使用 OpenClaw",
+              "fontSize": 36,
+              "fontWeight": 600,
+              "textAlign": "center",
+              "color": "#1a1a1a"
+            },
+            {
+              "type": "Text",
+              "name": "Subtitle",
+              "x": 60,
+              "y": 240,
+              "width": 480,
+              "text": "你的个人 AI 助手，随时随地帮助你",
+              "fontSize": 18,
+              "fontWeight": 400,
+              "textAlign": "center",
+              "color": "#6c757d",
+              "lineHeight": 1.6
+            },
+            {
+              "type": "Frame",
+              "name": "Info Card",
+              "x": 60,
+              "y": 320,
+              "width": 480,
+              "height": 180,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "border": {
+                "width": 1,
+                "color": "#e9ecef"
+              },
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Duration",
+                  "x": 40,
+                  "y": 30,
+                  "width": 400,
+                  "text": "只需 3 分钟快速设置",
+                  "fontSize": 20,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Steps",
+                  "x": 40,
+                  "y": 75,
+                  "width": 400,
+                  "text": "• 选择 AI 模型\n• 连接消息应用（可选）\n• 开始使用",
+                  "fontSize": 16,
+                  "color": "#495057",
+                  "lineHeight": 1.8
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Primary Button",
+              "x": 60,
+              "y": 540,
+              "width": 480,
+              "height": 56,
+              "fill": {
+                "type": "gradient",
+                "gradient": {
+                  "type": "linear",
+                  "angle": 135,
+                  "stops": [
+                    { "color": "#007aff", "position": 0 },
+                    { "color": "#0051d5", "position": 1 }
+                  ]
+                }
+              },
+              "cornerRadius": 14,
+              "shadow": {
+                "x": 0,
+                "y": 4,
+                "blur": 16,
+                "color": "rgba(0,122,255,0.3)"
+              },
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Text",
+                  "x": 0,
+                  "y": 0,
+                  "width": 480,
+                  "height": 56,
+                  "text": "开始设置",
+                  "fontSize": 18,
+                  "fontWeight": 600,
+                  "color": "#ffffff",
+                  "textAlign": "center",
+                  "verticalAlign": "middle"
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "name": "Login Link",
+              "x": 60,
+              "y": 620,
+              "width": 480,
+              "text": "已有账户？登录",
+              "fontSize": 15,
+              "color": "#007aff",
+              "textAlign": "center"
+            },
+            {
+              "type": "Frame",
+              "name": "Progress",
+              "x": 60,
+              "y": 700,
+              "width": 480,
+              "height": 4,
+              "fill": "#e9ecef",
+              "cornerRadius": 2
+            },
+            {
+              "type": "Text",
+              "name": "Progress Text",
+              "x": 60,
+              "y": 720,
+              "width": 480,
+              "text": "0/5",
+              "fontSize": 13,
+              "color": "#6c757d",
+              "textAlign": "center"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Frame",
+      "name": "Step 1 - Security",
+      "width": 600,
+      "height": 900,
+      "fill": {
+        "type": "gradient",
+        "gradient": {
+          "type": "linear",
+          "angle": 135,
+          "stops": [
+            { "color": "#f8f9fa", "position": 0 },
+            { "color": "#e9ecef", "position": 1 }
+          ]
+        }
+      },
+      "children": [
+        {
+          "type": "Frame",
+          "name": "Card",
+          "x": 0,
+          "y": 40,
+          "width": 600,
+          "height": 820,
+          "fill": "#ffffff",
+          "cornerRadius": 24,
+          "shadow": {
+            "x": 0,
+            "y": 8,
+            "blur": 32,
+            "color": "rgba(0,0,0,0.08)"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "name": "Icon",
+              "x": 250,
+              "y": 60,
+              "text": "⚠️",
+              "fontSize": 56,
+              "textAlign": "center"
+            },
+            {
+              "type": "Text",
+              "name": "Title",
+              "x": 60,
+              "y": 140,
+              "width": 480,
+              "text": "安全提示",
+              "fontSize": 32,
+              "fontWeight": 600,
+              "textAlign": "center",
+              "color": "#1a1a1a"
+            },
+            {
+              "type": "Text",
+              "name": "Description",
+              "x": 60,
+              "y": 200,
+              "width": 480,
+              "text": "OpenClaw 是一个强大的 AI 助手，可以帮你处理文件和执行任务。",
+              "fontSize": 17,
+              "color": "#495057",
+              "textAlign": "center",
+              "lineHeight": 1.6
+            },
+            {
+              "type": "Frame",
+              "name": "Security Card",
+              "x": 60,
+              "y": 280,
+              "width": 480,
+              "height": 220,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Subtitle",
+                  "x": 30,
+                  "y": 30,
+                  "width": 420,
+                  "text": "为了安全起见，请确保：",
+                  "fontSize": 16,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Items",
+                  "x": 30,
+                  "y": 75,
+                  "width": 420,
+                  "text": "✓ 只在你信任的设备上运行\n✓ 不要分享你的 API 密钥\n✓ 定期检查日志",
+                  "fontSize": 16,
+                  "color": "#495057",
+                  "lineHeight": 2
+                },
+                {
+                  "type": "Text",
+                  "name": "Learn More",
+                  "x": 30,
+                  "y": 180,
+                  "width": 420,
+                  "text": "📖 了解更多安全信息",
+                  "fontSize": 15,
+                  "color": "#007aff"
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Checkbox",
+              "x": 60,
+              "y": 540,
+              "width": 480,
+              "height": 60,
+              "fill": "#ffffff",
+              "cornerRadius": 12,
+              "border": {
+                "width": 1,
+                "color": "#dee2e6"
+              },
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Check",
+                  "x": 20,
+                  "y": 20,
+                  "width": 20,
+                  "height": 20,
+                  "fill": "#007aff",
+                  "cornerRadius": 4
+                },
+                {
+                  "type": "Text",
+                  "name": "Label",
+                  "x": 55,
+                  "y": 0,
+                  "width": 405,
+                  "height": 60,
+                  "text": "我已阅读并同意",
+                  "fontSize": 16,
+                  "color": "#1a1a1a",
+                  "verticalAlign": "middle"
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Button Group",
+              "x": 60,
+              "y": 640,
+              "width": 480,
+              "height": 56,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Back Button",
+                  "x": 0,
+                  "y": 0,
+                  "width": 230,
+                  "height": 56,
+                  "fill": "#f8f9fa",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 230,
+                      "height": 56,
+                      "text": "返回",
+                      "fontSize": 17,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                },
+                {
+                  "type": "Frame",
+                  "name": "Continue Button",
+                  "x": 250,
+                  "y": 0,
+                  "width": 230,
+                  "height": 56,
+                  "fill": {
+                    "type": "gradient",
+                    "gradient": {
+                      "type": "linear",
+                      "angle": 135,
+                      "stops": [
+                        { "color": "#007aff", "position": 0 },
+                        { "color": "#0051d5", "position": 1 }
+                      ]
+                    }
+                  },
+                  "cornerRadius": 14,
+                  "shadow": {
+                    "x": 0,
+                    "y": 4,
+                    "blur": 16,
+                    "color": "rgba(0,122,255,0.3)"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 230,
+                      "height": 56,
+                      "text": "继续 →",
+                      "fontSize": 17,
+                      "fontWeight": 600,
+                      "color": "#ffffff",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Progress",
+              "x": 60,
+              "y": 720,
+              "width": 480,
+              "height": 4,
+              "fill": "#e9ecef",
+              "cornerRadius": 2,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Fill",
+                  "x": 0,
+                  "y": 0,
+                  "width": 96,
+                  "height": 4,
+                  "fill": "#007aff",
+                  "cornerRadius": 2
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "name": "Progress Text",
+              "x": 60,
+              "y": 740,
+              "width": 480,
+              "text": "1/5",
+              "fontSize": 13,
+              "color": "#6c757d",
+              "textAlign": "center"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Frame",
+      "name": "Step 2 - AI Model",
+      "width": 800,
+      "height": 900,
+      "fill": {
+        "type": "gradient",
+        "gradient": {
+          "type": "linear",
+          "angle": 135,
+          "stops": [
+            { "color": "#f8f9fa", "position": 0 },
+            { "color": "#e9ecef", "position": 1 }
+          ]
+        }
+      },
+      "children": [
+        {
+          "type": "Frame",
+          "name": "Card",
+          "x": 100,
+          "y": 40,
+          "width": 600,
+          "height": 820,
+          "fill": "#ffffff",
+          "cornerRadius": 24,
+          "shadow": {
+            "x": 0,
+            "y": 8,
+            "blur": 32,
+            "color": "rgba(0,0,0,0.08)"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "name": "Icon",
+              "x": 250,
+              "y": 50,
+              "text": "🤖",
+              "fontSize": 56,
+              "textAlign": "center"
+            },
+            {
+              "type": "Text",
+              "name": "Title",
+              "x": 60,
+              "y": 130,
+              "width": 480,
+              "text": "选择你的 AI 助手",
+              "fontSize": 32,
+              "fontWeight": 600,
+              "textAlign": "center",
+              "color": "#1a1a1a"
+            },
+            {
+              "type": "Text",
+              "name": "Subtitle",
+              "x": 60,
+              "y": 185,
+              "width": 480,
+              "text": "选择一个 AI 模型来驱动你的助手。不确定？我们推荐 Claude。",
+              "fontSize": 16,
+              "color": "#6c757d",
+              "textAlign": "center",
+              "lineHeight": 1.6
+            },
+            {
+              "type": "Frame",
+              "name": "Claude Card",
+              "x": 60,
+              "y": 260,
+              "width": 480,
+              "height": 110,
+              "fill": {
+                "type": "gradient",
+                "gradient": {
+                  "type": "linear",
+                  "angle": 135,
+                  "stops": [
+                    { "color": "#f0f7ff", "position": 0 },
+                    { "color": "#e6f2ff", "position": 1 }
+                  ]
+                }
+              },
+              "cornerRadius": 16,
+              "border": {
+                "width": 2,
+                "color": "#007aff"
+              },
+              "shadow": {
+                "x": 0,
+                "y": 4,
+                "blur": 16,
+                "color": "rgba(0,122,255,0.15)"
+              },
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Badge",
+                  "x": 30,
+                  "y": 20,
+                  "text": "⭐ 推荐",
+                  "fontSize": 14,
+                  "fontWeight": 600,
+                  "color": "#007aff"
+                },
+                {
+                  "type": "Text",
+                  "name": "Title",
+                  "x": 30,
+                  "y": 45,
+                  "width": 350,
+                  "text": "Claude",
+                  "fontSize": 20,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Desc",
+                  "x": 30,
+                  "y": 72,
+                  "width": 350,
+                  "text": "最聪明，最可靠 · 由 Anthropic 提供",
+                  "fontSize": 14,
+                  "color": "#495057"
+                },
+                {
+                  "type": "Frame",
+                  "name": "Button",
+                  "x": 400,
+                  "y": 30,
+                  "width": 60,
+                  "height": 50,
+                  "fill": "#007aff",
+                  "cornerRadius": 10,
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 60,
+                      "height": 50,
+                      "text": "选择",
+                      "fontSize": 14,
+                      "fontWeight": 600,
+                      "color": "#ffffff",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "GPT-4 Card",
+              "x": 60,
+              "y": 390,
+              "width": 480,
+              "height": 100,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "border": {
+                "width": 1,
+                "color": "#dee2e6"
+              },
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Title",
+                  "x": 30,
+                  "y": 25,
+                  "width": 350,
+                  "text": "GPT-4 (OpenAI)",
+                  "fontSize": 20,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Desc",
+                  "x": 30,
+                  "y": 60,
+                  "width": 350,
+                  "text": "快速，功能强大",
+                  "fontSize": 14,
+                  "color": "#6c757d"
+                },
+                {
+                  "type": "Frame",
+                  "name": "Button",
+                  "x": 400,
+                  "y": 25,
+                  "width": 60,
+                  "height": 50,
+                  "fill": "#ffffff",
+                  "cornerRadius": 10,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 60,
+                      "height": 50,
+                      "text": "选择",
+                      "fontSize": 14,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Other Card",
+              "x": 60,
+              "y": 510,
+              "width": 480,
+              "height": 100,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "border": {
+                "width": 1,
+                "color": "#dee2e6"
+              },
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Title",
+                  "x": 30,
+                  "y": 25,
+                  "width": 350,
+                  "text": "其他模型 ▼",
+                  "fontSize": 20,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Desc",
+                  "x": 30,
+                  "y": 60,
+                  "width": 350,
+                  "text": "Gemini, Llama, 本地模型...",
+                  "fontSize": 14,
+                  "color": "#6c757d"
+                },
+                {
+                  "type": "Frame",
+                  "name": "Button",
+                  "x": 400,
+                  "y": 25,
+                  "width": 60,
+                  "height": 50,
+                  "fill": "#ffffff",
+                  "cornerRadius": 10,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 60,
+                      "height": 50,
+                      "text": "选择",
+                      "fontSize": 14,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Button Group",
+              "x": 60,
+              "y": 660,
+              "width": 480,
+              "height": 56,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Back Button",
+                  "x": 0,
+                  "y": 0,
+                  "width": 230,
+                  "height": 56,
+                  "fill": "#f8f9fa",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 230,
+                      "height": 56,
+                      "text": "返回",
+                      "fontSize": 17,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                },
+                {
+                  "type": "Frame",
+                  "name": "Continue Button",
+                  "x": 250,
+                  "y": 0,
+                  "width": 230,
+                  "height": 56,
+                  "fill": {
+                    "type": "gradient",
+                    "gradient": {
+                      "type": "linear",
+                      "angle": 135,
+                      "stops": [
+                        { "color": "#007aff", "position": 0 },
+                        { "color": "#0051d5", "position": 1 }
+                      ]
+                    }
+                  },
+                  "cornerRadius": 14,
+                  "shadow": {
+                    "x": 0,
+                    "y": 4,
+                    "blur": 16,
+                    "color": "rgba(0,122,255,0.3)"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 230,
+                      "height": 56,
+                      "text": "继续 →",
+                      "fontSize": 17,
+                      "fontWeight": 600,
+                      "color": "#ffffff",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Progress",
+              "x": 160,
+              "y": 740,
+              "width": 280,
+              "height": 4,
+              "fill": "#e9ecef",
+              "cornerRadius": 2,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Fill",
+                  "x": 0,
+                  "y": 0,
+                  "width": 112,
+                  "height": 4,
+                  "fill": "#007aff",
+                  "cornerRadius": 2
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "name": "Progress Text",
+              "x": 160,
+              "y": 760,
+              "width": 280,
+              "text": "2/5",
+              "fontSize": 13,
+              "color": "#6c757d",
+              "textAlign": "center"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Frame",
+      "name": "Step 3 - API Key",
+      "width": 800,
+      "height": 900,
+      "fill": {
+        "type": "gradient",
+        "gradient": {
+          "type": "linear",
+          "angle": 135,
+          "stops": [
+            { "color": "#f8f9fa", "position": 0 },
+            { "color": "#e9ecef", "position": 1 }
+          ]
+        }
+      },
+      "children": [
+        {
+          "type": "Frame",
+          "name": "Card",
+          "x": 100,
+          "y": 40,
+          "width": 600,
+          "height": 820,
+          "fill": "#ffffff",
+          "cornerRadius": 24,
+          "shadow": {
+            "x": 0,
+            "y": 8,
+            "blur": 32,
+            "color": "rgba(0,0,0,0.08)"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "name": "Icon",
+              "x": 250,
+              "y": 50,
+              "text": "🔑",
+              "fontSize": 56,
+              "textAlign": "center"
+            },
+            {
+              "type": "Text",
+              "name": "Title",
+              "x": 60,
+              "y": 130,
+              "width": 480,
+              "text": "连接你的 Claude 账户",
+              "fontSize": 32,
+              "fontWeight": 600,
+              "textAlign": "center",
+              "color": "#1a1a1a"
+            },
+            {
+              "type": "Text",
+              "name": "Subtitle",
+              "x": 60,
+              "y": 185,
+              "width": 480,
+              "text": "需要 API 密钥来使用 Claude。这是免费的，只需 2 分钟。",
+              "fontSize": 16,
+              "color": "#6c757d",
+              "textAlign": "center",
+              "lineHeight": 1.6
+            },
+            {
+              "type": "Frame",
+              "name": "Step 1 Card",
+              "x": 60,
+              "y": 260,
+              "width": 480,
+              "height": 140,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Step",
+                  "x": 30,
+                  "y": 20,
+                  "text": "1️⃣ 获取 API 密钥",
+                  "fontSize": 16,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Frame",
+                  "name": "Link Button",
+                  "x": 30,
+                  "y": 55,
+                  "width": 420,
+                  "height": 40,
+                  "fill": "#ffffff",
+                  "cornerRadius": 10,
+                  "border": {
+                    "width": 1,
+                    "color": "#007aff"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 420,
+                      "height": 40,
+                      "text": "打开 Anthropic 网站 🔗",
+                      "fontSize": 14,
+                      "fontWeight": 500,
+                      "color": "#007aff",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Step 2 Card",
+              "x": 60,
+              "y": 420,
+              "width": 480,
+              "height": 140,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Step",
+                  "x": 30,
+                  "y": 20,
+                  "text": "2️⃣ 粘贴你的密钥",
+                  "fontSize": 16,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Frame",
+                  "name": "Input",
+                  "x": 30,
+                  "y": 55,
+                  "width": 420,
+                  "height": 40,
+                  "fill": "#ffffff",
+                  "cornerRadius": 10,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Placeholder",
+                      "x": 15,
+                      "y": 0,
+                      "width": 390,
+                      "height": 40,
+                      "text": "sk-ant-••••••••••••••••••",
+                      "fontSize": 14,
+                      "color": "#adb5bd",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Step 3 Card",
+              "x": 60,
+              "y": 580,
+              "width": 480,
+              "height": 100,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Step",
+                  "x": 30,
+                  "y": 20,
+                  "text": "3️⃣ 测试连接",
+                  "fontSize": 16,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Frame",
+                  "name": "Test Button",
+                  "x": 30,
+                  "y": 55,
+                  "width": 420,
+                  "height": 35,
+                  "fill": "#ffffff",
+                  "cornerRadius": 10,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 420,
+                      "height": 35,
+                      "text": "测试连接 ⟳",
+                      "fontSize": 14,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Button Group",
+              "x": 60,
+              "y": 720,
+              "width": 480,
+              "height": 56,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Back Button",
+                  "x": 0,
+                  "y": 0,
+                  "width": 230,
+                  "height": 56,
+                  "fill": "#f8f9fa",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 230,
+                      "height": 56,
+                      "text": "返回",
+                      "fontSize": 17,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                },
+                {
+                  "type": "Frame",
+                  "name": "Continue Button",
+                  "x": 250,
+                  "y": 0,
+                  "width": 230,
+                  "height": 56,
+                  "fill": {
+                    "type": "gradient",
+                    "gradient": {
+                      "type": "linear",
+                      "angle": 135,
+                      "stops": [
+                        { "color": "#007aff", "position": 0 },
+                        { "color": "#0051d5", "position": 1 }
+                      ]
+                    }
+                  },
+                  "cornerRadius": 14,
+                  "shadow": {
+                    "x": 0,
+                    "y": 4,
+                    "blur": 16,
+                    "color": "rgba(0,122,255,0.3)"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 230,
+                      "height": 56,
+                      "text": "继续 →",
+                      "fontSize": 17,
+                      "fontWeight": 600,
+                      "color": "#ffffff",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Frame",
+      "name": "Step 4 - Optional Features",
+      "width": 800,
+      "height": 900,
+      "fill": {
+        "type": "gradient",
+        "gradient": {
+          "type": "linear",
+          "angle": 135,
+          "stops": [
+            { "color": "#f8f9fa", "position": 0 },
+            { "color": "#e9ecef", "position": 1 }
+          ]
+        }
+      },
+      "children": [
+        {
+          "type": "Frame",
+          "name": "Card",
+          "x": 100,
+          "y": 40,
+          "width": 600,
+          "height": 820,
+          "fill": "#ffffff",
+          "cornerRadius": 24,
+          "shadow": {
+            "x": 0,
+            "y": 8,
+            "blur": 32,
+            "color": "rgba(0,0,0,0.08)"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "name": "Icon",
+              "x": 250,
+              "y": 50,
+              "text": "⚙️",
+              "fontSize": 56,
+              "textAlign": "center"
+            },
+            {
+              "type": "Text",
+              "name": "Title",
+              "x": 60,
+              "y": 130,
+              "width": 480,
+              "text": "可选功能",
+              "fontSize": 32,
+              "fontWeight": 600,
+              "textAlign": "center",
+              "color": "#1a1a1a"
+            },
+            {
+              "type": "Text",
+              "name": "Subtitle",
+              "x": 60,
+              "y": 185,
+              "width": 480,
+              "text": "这些功能可以让 OpenClaw 更强大。现在不选也没关系，以后可以随时添加。",
+              "fontSize": 15,
+              "color": "#6c757d",
+              "textAlign": "center",
+              "lineHeight": 1.5
+            },
+            {
+              "type": "Frame",
+              "name": "Feature 1",
+              "x": 60,
+              "y": 260,
+              "width": 480,
+              "height": 90,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Checkbox",
+                  "x": 20,
+                  "y": 25,
+                  "width": 18,
+                  "height": 18,
+                  "fill": "#ffffff",
+                  "cornerRadius": 3,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  }
+                },
+                {
+                  "type": "Text",
+                  "name": "Title",
+                  "x": 50,
+                  "y": 15,
+                  "width": 350,
+                  "text": "连接消息应用",
+                  "fontSize": 15,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Desc",
+                  "x": 50,
+                  "y": 42,
+                  "width": 350,
+                  "text": "WhatsApp / Telegram / Discord",
+                  "fontSize": 13,
+                  "color": "#6c757d"
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Feature 2",
+              "x": 60,
+              "y": 370,
+              "width": 480,
+              "height": 90,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Checkbox",
+                  "x": 20,
+                  "y": 25,
+                  "width": 18,
+                  "height": 18,
+                  "fill": "#ffffff",
+                  "cornerRadius": 3,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  }
+                },
+                {
+                  "type": "Text",
+                  "name": "Title",
+                  "x": 50,
+                  "y": 15,
+                  "width": 350,
+                  "text": "启用浏览器功能",
+                  "fontSize": 15,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Desc",
+                  "x": 50,
+                  "y": 42,
+                  "width": 350,
+                  "text": "让 AI 可以浏览网页",
+                  "fontSize": 13,
+                  "color": "#6c757d"
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Feature 3",
+              "x": 60,
+              "y": 480,
+              "width": 480,
+              "height": 90,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Checkbox",
+                  "x": 20,
+                  "y": 25,
+                  "width": 18,
+                  "height": 18,
+                  "fill": "#ffffff",
+                  "cornerRadius": 3,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  }
+                },
+                {
+                  "type": "Text",
+                  "name": "Title",
+                  "x": 50,
+                  "y": 15,
+                  "width": 350,
+                  "text": "启用文件访问",
+                  "fontSize": 15,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Desc",
+                  "x": 50,
+                  "y": 42,
+                  "width": 350,
+                  "text": "让 AI 可以读写你的文件",
+                  "fontSize": 13,
+                  "color": "#6c757d"
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "name": "Tip",
+              "x": 60,
+              "y": 600,
+              "width": 480,
+              "text": "💡 提示：这些功能可以在设置中随时启用或禁用。",
+              "fontSize": 13,
+              "color": "#6c757d",
+              "textAlign": "center",
+              "lineHeight": 1.5
+            },
+            {
+              "type": "Frame",
+              "name": "Button Group",
+              "x": 60,
+              "y": 660,
+              "width": 480,
+              "height": 56,
+              "children": [
+                {
+                  "type": "Frame",
+                  "name": "Back Button",
+                  "x": 0,
+                  "y": 0,
+                  "width": 230,
+                  "height": 56,
+                  "fill": "#f8f9fa",
+                  "cornerRadius": 14,
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 230,
+                      "height": 56,
+                      "text": "返回",
+                      "fontSize": 17,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                },
+                {
+                  "type": "Frame",
+                  "name": "Continue Button",
+                  "x": 250,
+                  "y": 0,
+                  "width": 230,
+                  "height": 56,
+                  "fill": {
+                    "type": "gradient",
+                    "gradient": {
+                      "type": "linear",
+                      "angle": 135,
+                      "stops": [
+                        { "color": "#007aff", "position": 0 },
+                        { "color": "#0051d5", "position": 1 }
+                      ]
+                    }
+                  },
+                  "cornerRadius": 14,
+                  "shadow": {
+                    "x": 0,
+                    "y": 4,
+                    "blur": 16,
+                    "color": "rgba(0,122,255,0.3)"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 230,
+                      "height": 56,
+                      "text": "继续 →",
+                      "fontSize": 17,
+                      "fontWeight": 600,
+                      "color": "#ffffff",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Frame",
+      "name": "Step 5 - Complete",
+      "width": 800,
+      "height": 900,
+      "fill": {
+        "type": "gradient",
+        "gradient": {
+          "type": "linear",
+          "angle": 135,
+          "stops": [
+            { "color": "#f8f9fa", "position": 0 },
+            { "color": "#e9ecef", "position": 1 }
+          ]
+        }
+      },
+      "children": [
+        {
+          "type": "Frame",
+          "name": "Card",
+          "x": 100,
+          "y": 40,
+          "width": 600,
+          "height": 820,
+          "fill": "#ffffff",
+          "cornerRadius": 24,
+          "shadow": {
+            "x": 0,
+            "y": 8,
+            "blur": 32,
+            "color": "rgba(0,0,0,0.08)"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "name": "Icon",
+              "x": 250,
+              "y": 50,
+              "text": "✅",
+              "fontSize": 56,
+              "textAlign": "center"
+            },
+            {
+              "type": "Text",
+              "name": "Title",
+              "x": 60,
+              "y": 130,
+              "width": 480,
+              "text": "设置完成！",
+              "fontSize": 36,
+              "fontWeight": 600,
+              "textAlign": "center",
+              "color": "#1a1a1a"
+            },
+            {
+              "type": "Text",
+              "name": "Subtitle",
+              "x": 60,
+              "y": 185,
+              "width": 480,
+              "text": "你的 OpenClaw 已准备好使用。",
+              "fontSize": 17,
+              "color": "#6c757d",
+              "textAlign": "center",
+              "lineHeight": 1.6
+            },
+            {
+              "type": "Frame",
+              "name": "Summary Card",
+              "x": 60,
+              "y": 260,
+              "width": 480,
+              "height": 160,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Title",
+                  "x": 30,
+                  "y": 20,
+                  "text": "📊 设置摘要",
+                  "fontSize": 15,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Text",
+                  "name": "Items",
+                  "x": 30,
+                  "y": 50,
+                  "width": 420,
+                  "text": "AI 模型：Claude 3.5 Sonnet\n工作区：~/.openclaw/workspace\n消息应用：未连接\n浏览器：已启用",
+                  "fontSize": 13,
+                  "color": "#495057",
+                  "lineHeight": 1.8
+                },
+                {
+                  "type": "Frame",
+                  "name": "Edit Button",
+                  "x": 30,
+                  "y": 125,
+                  "width": 420,
+                  "height": 28,
+                  "fill": "#ffffff",
+                  "cornerRadius": 8,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 420,
+                      "height": 28,
+                      "text": "编辑设置",
+                      "fontSize": 12,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Next Steps Card",
+              "x": 60,
+              "y": 440,
+              "width": 480,
+              "height": 160,
+              "fill": "#f8f9fa",
+              "cornerRadius": 16,
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Title",
+                  "x": 30,
+                  "y": 20,
+                  "text": "🚀 下一步",
+                  "fontSize": 15,
+                  "fontWeight": 600,
+                  "color": "#1a1a1a"
+                },
+                {
+                  "type": "Frame",
+                  "name": "Button 1",
+                  "x": 30,
+                  "y": 55,
+                  "width": 420,
+                  "height": 36,
+                  "fill": "#ffffff",
+                  "cornerRadius": 10,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 420,
+                      "height": 36,
+                      "text": "打开 Control Panel →",
+                      "fontSize": 13,
+                      "fontWeight": 500,
+                      "color": "#007aff",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                },
+                {
+                  "type": "Frame",
+                  "name": "Button 2",
+                  "x": 30,
+                  "y": 100,
+                  "width": 420,
+                  "height": 36,
+                  "fill": "#ffffff",
+                  "cornerRadius": 10,
+                  "border": {
+                    "width": 1,
+                    "color": "#dee2e6"
+                  },
+                  "children": [
+                    {
+                      "type": "Text",
+                      "name": "Text",
+                      "x": 0,
+                      "y": 0,
+                      "width": 420,
+                      "height": 36,
+                      "text": "查看教程 📖",
+                      "fontSize": 13,
+                      "fontWeight": 500,
+                      "color": "#495057",
+                      "textAlign": "center",
+                      "verticalAlign": "middle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Frame",
+              "name": "Primary Button",
+              "x": 60,
+              "y": 640,
+              "width": 480,
+              "height": 56,
+              "fill": {
+                "type": "gradient",
+                "gradient": {
+                  "type": "linear",
+                  "angle": 135,
+                  "stops": [
+                    { "color": "#007aff", "position": 0 },
+                    { "color": "#0051d5", "position": 1 }
+                  ]
+                }
+              },
+              "cornerRadius": 14,
+              "shadow": {
+                "x": 0,
+                "y": 4,
+                "blur": 16,
+                "color": "rgba(0,122,255,0.3)"
+              },
+              "children": [
+                {
+                  "type": "Text",
+                  "name": "Text",
+                  "x": 0,
+                  "y": 0,
+                  "width": 480,
+                  "height": 56,
+                  "text": "开始聊天 💬",
+                  "fontSize": 18,
+                  "fontWeight": 600,
+                  "color": "#ffffff",
+                  "textAlign": "center",
+                  "verticalAlign": "middle"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

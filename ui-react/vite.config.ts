@@ -25,6 +25,17 @@ export default defineConfig(() => {
       emptyOutDir: true,
       sourcemap: true,
       chunkSizeWarningLimit: 1024,
+      rollupOptions: {
+        input: {
+          main: path.resolve(here, "index.html"),
+          setup: path.resolve(here, "setup.html"),
+        },
+        output: {
+          entryFileNames: "[name].js",
+          chunkFileNames: "chunks/[name].js",
+          assetFileNames: "assets/[name].[ext]",
+        },
+      },
     },
     server: {
       host: true,
