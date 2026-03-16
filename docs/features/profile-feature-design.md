@@ -1,7 +1,7 @@
 # Profile 功能设计方案
 
-**版本**: v1.0  
-**状态**: 待开发  
+**版本**: v1.1  
+**状态**: 已实现  
 **所属模块**: Dashboard > Profile
 
 ---
@@ -184,44 +184,44 @@ Dashboard 侧边栏
 ### 5.1 整体架构
 
 ```
-前端（ui-react）                    后端（Gateway）
-─────────────────                  ──────────────────────
-ProfilePage
- ├─ TemplateModeTab   ──────────→  agents.files.get     (读取现有 USER.md)
- │   └─ 用户填写字段  ──────────→  agents.files.set     (写入 USER.md)
- └─ FreeInputTab      ──────────→  profile.parse        (新增 Gateway 方法)
-     └─ URL + 文字    ──────────→  agents.files.set     (写入 USER.md + MEMORY.md)
+前端（ui/ — Lit UI，即 http://127.0.0.1:18789）    后端（Gateway）
+──────────────────────────────────────           ──────────────────────
+Profile 页面 (profile tab)
+ ├─ Template Mode Tab    ─────────────────────→  agents.files.get   (读取现有 USER.md)
+ │   └─ 职业卡片 + 字段表单  ─────────────────→  agents.files.set   (写入 USER.md)
+ └─ Free Input Tab       ─────────────────────→  profile.parse      (新增 Gateway 方法)
+     └─ URL + 文字输入   ─────────────────────→  agents.files.set   (写入 USER.md + MEMORY.md)
 ```
 
-### 5.2 前端实现路径
+> **注意**：Profile 功能实现在旧版 Lit UI（`ui/`），即 `http://127.0.0.1:18789` 直接加载的 Dashboard，而非 `ui-react/`（后者是独立的实验性 React 版本）。
+
+### 5.2 前端实现路径（Lit UI）
 
 **新增文件：**
 
 ```
-ui-react/src/pages/ProfilePage.tsx              # 页面入口，Tab 切换
-ui-react/src/pages/profile/
-  ├─ TemplateModeTab.tsx                        # 功能一：模板选择 + 字段填写
-  ├─ FreeInputTab.tsx                           # 功能二：自由输入框
-  ├─ ProfilePreviewModal.tsx                    # 预览确认弹窗（两个功能共用）
-  ├─ templates.ts                               # 5 个职业模板的预设数据
-  └─ profile.types.ts                           # 类型定义
+ui/src/ui/views/profile.ts          # Profile 页面完整实现（Lit html 模板）
 ```
 
 **修改文件：**
 
 ```
-ui-react/src/router.tsx                         # 新增 /profile 路由
-ui-react/src/pages/index.tsx                    # 导出 ProfilePage
-ui-react/src/components/layout/Sidebar.tsx      # 侧边栏新增 Profile 入口
+ui/src/ui/navigation.ts             # 新增 "profile" Tab 类型、路径 /profile、分组 "me"、图标 "user"
+ui/src/ui/icons.ts                  # 新增 user SVG 图标
+ui/src/i18n/locales/en.ts          # 新增 tabs.profile = "Profile"、subtitles.profile
+ui/src/ui/app-view-state.ts        # 新增 profile 相关 state 字段（profileTab、profileFormXxx 等）
+ui/src/ui/app.ts                   # 新增 @state() 字段初始化（对应 app-view-state 新增字段）
+ui/src/ui/app-render.ts            # 导入 renderProfile 等函数，注册 profile tab 渲染块
 ```
 
-### 5.3 路由注册
+### 5.3 导航注册
 
-在 `ui-react/src/router.tsx` 中新增：
+在 `ui/src/ui/navigation.ts` 中：
 
-```typescript
-{ path: "profile", element: <ProfilePage /> }
-```
+- `TAB_GROUPS` 新增 `{ label: "me", tabs: ["profile"] }`
+- `Tab` 类型联合新增 `"profile"`
+- `TAB_PATHS` 新增 `profile: "/profile"`
+- `iconForTab` 新增 `case "profile": return "user"`
 
 ### 5.4 Gateway 方法调用
 
@@ -232,7 +232,7 @@ ui-react/src/components/layout/Sidebar.tsx      # 侧边栏新增 Profile 入口
 | 读取当前 USER.md | `agents.files.get` | 获取现有内容，用于追加 |
 | 写入 USER.md     | `agents.files.set` | 写入拼接后的内容       |
 
-**功能二（自由输入解析）** 需新增 Gateway 方法：
+**功能二（自由输入解析）** 新增 Gateway 方法：
 
 ```
 profile.parse
@@ -240,43 +240,41 @@ profile.parse
   returns: {
     userMdContent: string;   // 建议写入 USER.md 的内容
     memoryContent: string;   // 建议写入 MEMORY.md 的内容
+    skippedUrls?: string[];  // 无法抓取的 URL 列表
   }
 ```
 
 该方法内部：
 
-1. 对 URL 调用 browser/fetch 工具抓取网页正文
-2. 将所有内容（用户文字 + URL 正文）送入 AI 模型分析
-3. AI 按预设 prompt 提取结构化画像信息 → `userMdContent`
-4. AI 将非结构化补充背景 → `memoryContent`
-5. 返回两份 Markdown 内容供前端预览
+1. 对 URL 调用 fetch 抓取网页正文（15 秒超时，失败则加入 skippedUrls）
+2. 将所有内容（用户文字 + URL 正文）送入 Gateway 当前默认 AI 模型分析
+3. AI 按预设 prompt 以 `<USER_MD>...</USER_MD>` 和 `<MEMORY_MD>...</MEMORY_MD>` 格式返回
+4. 解析 XML 标签提取两份内容，返回给前端预览
 
 ### 5.5 后端实现路径
 
 **新增文件：**
 
 ```
-src/gateway/server-methods/profile.ts           # profile.parse 方法实现
+src/gateway/server-methods/profile.ts    # profile.parse 方法实现
 ```
 
 **修改文件：**
 
 ```
-src/gateway/server-methods-list.ts              # 注册 profile.parse 方法
-src/gateway/server-methods.ts                   # 绑定 profile 方法处理器
+src/gateway/server-methods-list.ts       # 在 BASE_METHODS 末尾追加 "profile.parse"
+src/gateway/server-methods.ts            # import profileHandlers 并 spread 到 coreGatewayHandlers
 ```
 
 ### 5.6 文件写入策略（追加）
 
-写入时的合并逻辑：
+写入时的合并逻辑（前端和后端均遵循）：
 
 ```typescript
-// 读取现有内容
-const existing = await agentsFilesGet({ name: "USER.md" });
-// 在末尾追加新内容（带时间戳区分）
-const merged = existing.content.trimEnd() + "\n\n" + newSection;
-// 写回
-await agentsFilesSet({ name: "USER.md", content: merged });
+const existing =
+  (await client.request("agents.files.get", { agentId, name: "USER.md" }))?.file?.content ?? "";
+const merged = existing.trimEnd() ? `${existing.trimEnd()}\n\n${newSection}` : newSection;
+await client.request("agents.files.set", { agentId, name: "USER.md", content: merged });
 ```
 
 ---
@@ -326,37 +324,37 @@ await agentsFilesSet({ name: "USER.md", content: merged });
 
 ## 八、开发任务拆解
 
-### Phase 1：前端基础框架（预计 3 天）
+### Phase 1：前端基础框架 ✅
 
-- [ ] 新增 `ProfilePage.tsx` 页面框架，实现 Tab 切换
-- [ ] 注册 `/profile` 路由
-- [ ] 侧边栏添加 Profile 导航入口
-- [ ] 实现 `templates.ts` 职业模板数据定义
-- [ ] 实现 `TemplateModeTab.tsx`：职业卡片选择 + 字段填写表单
-- [ ] 实现 `ProfilePreviewModal.tsx`：通用预览确认弹窗
+- [x] 新增 `ui/src/ui/navigation.ts` 中 profile tab 注册
+- [x] 新增 `ui/src/ui/icons.ts` 中 user 图标
+- [x] 新增 `ui/src/i18n/locales/en.ts` 中 profile 翻译
+- [x] 新增 `ui/src/ui/app-view-state.ts` 中 profile state 字段
+- [x] 新增 `ui/src/ui/app.ts` 中 @state() 初始化
+- [x] 新增 `ui/src/ui/views/profile.ts`：职业卡片选择 + 字段填写表单 + 预览确认弹窗
 
-### Phase 2：功能一写入对接（预计 2 天）
+### Phase 2：功能一写入对接 ✅
 
-- [ ] 调用 `agents.files.get` 读取现有 `USER.md`
-- [ ] 实现内容追加拼接逻辑
-- [ ] 调用 `agents.files.set` 写入更新内容
-- [ ] 写入成功/失败状态处理
+- [x] 调用 `agents.files.get` 读取现有 `USER.md`
+- [x] 实现内容追加拼接逻辑（`mergeContent`）
+- [x] 调用 `agents.files.set` 写入更新内容
+- [x] 写入成功/失败状态处理（3 秒成功提示）
 
-### Phase 3：功能二后端实现（预计 3 天）
+### Phase 3：功能二后端实现 ✅
 
-- [ ] 新增 `src/gateway/server-methods/profile.ts`，实现 `profile.parse` 方法
-- [ ] URL 内容抓取逻辑（复用现有 browser 工具能力）
-- [ ] AI 分析 Prompt 设计与实现（分离 USER.md 内容和 MEMORY.md 内容）
-- [ ] 注册到 `server-methods-list.ts` 和 `server-methods.ts`
+- [x] 新增 `src/gateway/server-methods/profile.ts`，实现 `profile.parse` 方法
+- [x] URL 内容抓取逻辑（15 秒超时，失败加入 skippedUrls）
+- [x] AI 分析 Prompt 设计（`<USER_MD>` / `<MEMORY_MD>` XML 格式输出）
+- [x] 注册到 `server-methods-list.ts` 和 `server-methods.ts`
 
-### Phase 4：功能二前端对接（预计 2 天）
+### Phase 4：功能二前端对接 ✅
 
-- [ ] 实现 `FreeInputTab.tsx`：文字 + URL 输入区域
-- [ ] 调用 `profile.parse` 方法，处理 Loading 状态
-- [ ] 在预览弹窗中展示两部分内容（USER.md + MEMORY.md 预览）
-- [ ] 写入确认后分别调用 `agents.files.set` 写入两个文件
+- [x] Free Input Tab：文字 + URL 混合输入
+- [x] 调用 `profile.parse` 方法，处理 Loading 状态
+- [x] 预览弹窗展示两部分内容（USER.md + MEMORY.md 可编辑）
+- [x] 写入确认后分别追加写入两个文件
 
-### Phase 5：测试与完善（预计 2 天）
+### Phase 5：测试与完善（待验证）
 
 - [ ] 各职业模板的字段预填验证
 - [ ] 追加写入不覆盖已有内容的验证

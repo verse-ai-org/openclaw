@@ -41,7 +41,9 @@ export const icons = {
     </svg>
   `,
   zap: html`
-    <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+    <svg viewBox="0 0 24 24">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
   `,
   monitor: html`
     <svg viewBox="0 0 24 24">
@@ -228,6 +230,12 @@ export const icons = {
       />
     </svg>
   `,
+  user: html`
+    <svg viewBox="0 0 24 24">
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  `,
 } as const;
 
 export type IconName = keyof typeof icons;
@@ -237,7 +245,9 @@ export function icon(name: IconName): TemplateResult {
 }
 
 export function renderIcon(name: IconName, className = "nav-item__icon"): TemplateResult {
-  return html`<span class=${className} aria-hidden="true">${icons[name]}</span>`;
+  return html`<span class=${className} aria-hidden="true"
+    >${icons[name]}</span
+  >`;
 }
 
 // Legacy function for compatibility
@@ -245,7 +255,9 @@ export function renderEmojiIcon(
   iconContent: string | TemplateResult,
   className: string,
 ): TemplateResult {
-  return html`<span class=${className} aria-hidden="true">${iconContent}</span>`;
+  return html`<span class=${className} aria-hidden="true"
+    >${iconContent}</span
+  >`;
 }
 
 export function setEmojiIcon(target: HTMLElement | null, icon: string): void {

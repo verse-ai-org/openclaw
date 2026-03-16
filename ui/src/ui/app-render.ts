@@ -87,6 +87,15 @@ import { renderInstances } from "./views/instances.ts";
 import { renderLogs } from "./views/logs.ts";
 import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
+import {
+  renderProfile,
+  handleProfileTemplateSelect,
+  handleProfileTemplatePreview,
+  handleProfileFreeInputParse,
+  handleProfileSave,
+  handleProfileEditLoad,
+  handleProfileEditSaveDirect,
+} from "./views/profile.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
 
@@ -234,7 +243,11 @@ export function renderApp(state: AppViewState) {
       : rawDeliveryToSuggestions;
 
   return html`
-    <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
+    <div
+      class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${
+        state.settings.navCollapsed ? "shell--nav-collapsed" : ""
+      } ${state.onboarding ? "shell--onboarding" : ""}"
+    >
       <header class="topbar">
         <div class="topbar-left">
           <button
@@ -251,7 +264,10 @@ export function renderApp(state: AppViewState) {
           </button>
           <div class="brand">
             <div class="brand-logo">
-              <img src=${basePath ? `${basePath}/favicon.svg` : "/favicon.svg"} alt="OpenClaw" />
+              <img
+                src=${basePath ? `${basePath}/favicon.svg` : "/favicon.svg"}
+                alt="OpenClaw"
+              />
             </div>
             <div class="brand-text">
               <div class="brand-title">OPENCLAW</div>
@@ -268,7 +284,9 @@ export function renderApp(state: AppViewState) {
           <div class="pill">
             <span class="statusDot ${state.connected ? "ok" : ""}"></span>
             <span>${t("common.health")}</span>
-            <span class="mono">${state.connected ? t("common.ok") : t("common.offline")}</span>
+            <span class="mono"
+              >${state.connected ? t("common.ok") : t("common.offline")}</span
+            >
           </div>
           ${renderThemeToggle(state)}
         </div>
@@ -278,7 +296,9 @@ export function renderApp(state: AppViewState) {
           const isGroupCollapsed = state.settings.navGroupsCollapsed[group.label] ?? false;
           const hasActiveTab = group.tabs.some((tab) => tab === state.tab);
           return html`
-            <div class="nav-group ${isGroupCollapsed && !hasActiveTab ? "nav-group--collapsed" : ""}">
+            <div
+              class="nav-group ${isGroupCollapsed && !hasActiveTab ? "nav-group--collapsed" : ""}"
+            >
               <button
                 class="nav-label"
                 @click=${() => {
@@ -292,7 +312,9 @@ export function renderApp(state: AppViewState) {
                 aria-expanded=${!isGroupCollapsed}
               >
                 <span class="nav-label__text">${t(`nav.${group.label}`)}</span>
-                <span class="nav-label__chevron">${isGroupCollapsed ? "+" : "−"}</span>
+                <span class="nav-label__chevron"
+                  >${isGroupCollapsed ? "+" : "−"}</span
+                >
               </button>
               <div class="nav-group__items">
                 ${group.tabs.map((tab) => renderTab(state, tab))}
@@ -312,7 +334,9 @@ export function renderApp(state: AppViewState) {
               rel=${buildExternalLinkRel()}
               title="${t("common.docs")} (opens in new tab)"
             >
-              <span class="nav-item__icon" aria-hidden="true">${icons.book}</span>
+              <span class="nav-item__icon" aria-hidden="true"
+                >${icons.book}</span
+              >
               <span class="nav-item__text">${t("common.docs")}</span>
             </a>
           </div>
@@ -322,20 +346,31 @@ export function renderApp(state: AppViewState) {
         ${
           availableUpdate
             ? html`<div class="update-banner callout danger" role="alert">
-              <strong>Update available:</strong> v${availableUpdate.latestVersion}
-              (running v${availableUpdate.currentVersion}).
+              <strong>Update available:</strong>
+              v${availableUpdate.latestVersion} (running
+              v${availableUpdate.currentVersion}).
               <button
                 class="btn btn--sm update-banner__btn"
                 ?disabled=${state.updateRunning || !state.connected}
                 @click=${() => runUpdate(state)}
-              >${state.updateRunning ? "Updating…" : "Update now"}</button>
+              >
+                ${state.updateRunning ? "Updating…" : "Update now"}
+              </button>
             </div>`
             : nothing
         }
         <section class="content-header">
           <div>
-            ${state.tab === "usage" ? nothing : html`<div class="page-title">${titleForTab(state.tab)}</div>`}
-            ${state.tab === "usage" ? nothing : html`<div class="page-sub">${subtitleForTab(state.tab)}</div>`}
+            ${
+              state.tab === "usage"
+                ? nothing
+                : html`<div class="page-title">${titleForTab(state.tab)}</div>`
+            }
+            ${
+              state.tab === "usage"
+                ? nothing
+                : html`<div class="page-sub">${subtitleForTab(state.tab)}</div>`
+            }
           </div>
           <div class="page-meta">
             ${state.lastError ? html`<div class="pill danger">${state.lastError}</div>` : nothing}
@@ -375,7 +410,6 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${
           state.tab === "channels"
             ? renderChannels({
@@ -414,7 +448,6 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${
           state.tab === "instances"
             ? renderInstances({
@@ -426,7 +459,6 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${
           state.tab === "sessions"
             ? renderSessions({
@@ -450,9 +482,7 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${renderUsageTab(state)}
-
         ${
           state.tab === "cron"
             ? renderCron({
@@ -498,7 +528,10 @@ export function renderApp(state: AppViewState) {
                 deliveryToSuggestions,
                 accountSuggestions,
                 onFormChange: (patch) => {
-                  state.cronForm = normalizeCronFormState({ ...state.cronForm, ...patch });
+                  state.cronForm = normalizeCronFormState({
+                    ...state.cronForm,
+                    ...patch,
+                  });
                   state.cronFieldErrors = validateCronForm(state.cronForm);
                 },
                 onRefresh: () => state.loadCron(),
@@ -548,7 +581,6 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${
           state.tab === "agents"
             ? renderAgents({
@@ -661,11 +693,17 @@ export function renderApp(state: AppViewState) {
                   void loadAgentFileContent(state, resolvedAgentId, name);
                 },
                 onFileDraftChange: (name, content) => {
-                  state.agentFileDrafts = { ...state.agentFileDrafts, [name]: content };
+                  state.agentFileDrafts = {
+                    ...state.agentFileDrafts,
+                    [name]: content,
+                  };
                 },
                 onFileReset: (name) => {
                   const base = state.agentFileContents[name] ?? "";
-                  state.agentFileDrafts = { ...state.agentFileDrafts, [name]: base };
+                  state.agentFileDrafts = {
+                    ...state.agentFileDrafts,
+                    [name]: base,
+                  };
                 },
                 onFileSave: (name) => {
                   if (!resolvedAgentId) {
@@ -726,8 +764,11 @@ export function renderApp(state: AppViewState) {
                   if (index < 0) {
                     return;
                   }
-                  const list = (getCurrentConfigValue() as { agents?: { list?: unknown[] } } | null)
-                    ?.agents?.list;
+                  const list = (
+                    getCurrentConfigValue() as {
+                      agents?: { list?: unknown[] };
+                    } | null
+                  )?.agents?.list;
                   const entry = Array.isArray(list)
                     ? (list[index] as { skills?: unknown })
                     : undefined;
@@ -769,8 +810,11 @@ export function renderApp(state: AppViewState) {
                   if (index < 0) {
                     return;
                   }
-                  const list = (getCurrentConfigValue() as { agents?: { list?: unknown[] } } | null)
-                    ?.agents?.list;
+                  const list = (
+                    getCurrentConfigValue() as {
+                      agents?: { list?: unknown[] };
+                    } | null
+                  )?.agents?.list;
                   const basePath = ["agents", "list", index, "model"];
                   if (!modelId) {
                     removeConfigFormValue(state, basePath);
@@ -813,8 +857,11 @@ export function renderApp(state: AppViewState) {
                   if (index < 0) {
                     return;
                   }
-                  const list = (getCurrentConfigValue() as { agents?: { list?: unknown[] } } | null)
-                    ?.agents?.list;
+                  const list = (
+                    getCurrentConfigValue() as {
+                      agents?: { list?: unknown[] };
+                    } | null
+                  )?.agents?.list;
                   const basePath = ["agents", "list", index, "model"];
                   const entry = Array.isArray(list)
                     ? (list[index] as { model?: unknown })
@@ -845,12 +892,14 @@ export function renderApp(state: AppViewState) {
                   if (!primary) {
                     return;
                   }
-                  updateConfigFormValue(state, basePath, { primary, fallbacks: normalized });
+                  updateConfigFormValue(state, basePath, {
+                    primary,
+                    fallbacks: normalized,
+                  });
                 },
               })
             : nothing
         }
-
         ${
           state.tab === "skills"
             ? renderSkills({
@@ -871,7 +920,6 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${
           state.tab === "nodes"
             ? renderNodes({
@@ -906,7 +954,10 @@ export function renderApp(state: AppViewState) {
                 onLoadExecApprovals: () => {
                   const target =
                     state.execApprovalsTarget === "node" && state.execApprovalsTargetNodeId
-                      ? { kind: "node" as const, nodeId: state.execApprovalsTargetNodeId }
+                      ? {
+                          kind: "node" as const,
+                          nodeId: state.execApprovalsTargetNodeId,
+                        }
                       : { kind: "gateway" as const };
                   return loadExecApprovals(state, target);
                 },
@@ -943,14 +994,63 @@ export function renderApp(state: AppViewState) {
                 onSaveExecApprovals: () => {
                   const target =
                     state.execApprovalsTarget === "node" && state.execApprovalsTargetNodeId
-                      ? { kind: "node" as const, nodeId: state.execApprovalsTargetNodeId }
+                      ? {
+                          kind: "node" as const,
+                          nodeId: state.execApprovalsTargetNodeId,
+                        }
                       : { kind: "gateway" as const };
                   return saveExecApprovals(state, target);
                 },
               })
             : nothing
         }
-
+        ${
+          state.tab === "profile"
+            ? renderProfile({
+                state,
+                onTabChange: (tab) => {
+                  state.profileTab = tab;
+                },
+                onTemplateSelect: (id) => void handleProfileTemplateSelect(state, id),
+                onFieldChange: (field, value) => {
+                  (state as Record<string, unknown>)[field] = value;
+                },
+                onTemplatePreview: () => void handleProfileTemplatePreview(state),
+                onFreeInputChange: (text) => {
+                  state.profileFreeInput = text;
+                },
+                onFreeInputParse: () => void handleProfileFreeInputParse(state),
+                onPreviewClose: () => {
+                  state.profilePreviewOpen = false;
+                },
+                onPreviewModeChange: (mode) => {
+                  state.profilePreviewMode = mode;
+                },
+                onPreviewDraftChange: (field, value) => {
+                  if (field === "user") {
+                    state.profilePreviewUserMdDraft = value;
+                  } else {
+                    state.profilePreviewMemoryMdDraft = value;
+                  }
+                },
+                onSave: (userMd, memoryMd) => void handleProfileSave(state, userMd, memoryMd),
+                onEditLoad: () => void handleProfileEditLoad(state),
+                onEditViewModeChange: (mode) => {
+                  state.profileEditViewMode = mode;
+                },
+                onEditUserMdChange: (value) => {
+                  state.profileEditUserMd = value;
+                },
+                onEditMemoryMdChange: (value) => {
+                  state.profileEditMemoryMd = value;
+                },
+                onEditSaveDirect: () => void handleProfileEditSaveDirect(state),
+                onEditInputToggle: (open) => {
+                  state.profileEditInputOpen = open;
+                },
+              })
+            : nothing
+        }
         ${
           state.tab === "chat"
             ? renderChat({
@@ -1031,7 +1131,6 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${
           state.tab === "config"
             ? renderConfig({
@@ -1071,7 +1170,6 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${
           state.tab === "debug"
             ? renderDebug({
@@ -1093,7 +1191,6 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
-
         ${
           state.tab === "logs"
             ? renderLogs({
@@ -1107,7 +1204,10 @@ export function renderApp(state: AppViewState) {
                 truncated: state.logsTruncated,
                 onFilterTextChange: (next) => (state.logsFilterText = next),
                 onLevelToggle: (level, enabled) => {
-                  state.logsLevelFilters = { ...state.logsLevelFilters, [level]: enabled };
+                  state.logsLevelFilters = {
+                    ...state.logsLevelFilters,
+                    [level]: enabled,
+                  };
                 },
                 onToggleAutoFollow: (next) => (state.logsAutoFollow = next),
                 onRefresh: () => loadLogs(state, { reset: true }),
@@ -1117,8 +1217,7 @@ export function renderApp(state: AppViewState) {
             : nothing
         }
       </main>
-      ${renderExecApprovalPrompt(state)}
-      ${renderGatewayUrlConfirmation(state)}
+      ${renderExecApprovalPrompt(state)} ${renderGatewayUrlConfirmation(state)}
     </div>
   `;
 }
