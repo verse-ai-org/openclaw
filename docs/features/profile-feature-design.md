@@ -1,8 +1,9 @@
 # Profile 功能设计方案
 
-**版本**: v1.1  
-**状态**: 已实现  
-**所属模块**: Dashboard > Profile
+**版本**: v1.2  
+**状态**: 已实现（含页面重构与交互优化）  
+**所属模块**: Dashboard > Profile  
+**最后更新**: 2026-03-17
 
 ---
 
@@ -58,37 +59,63 @@ OpenClaw 通过 workspace 目录下的一组 bootstrap 文件（`USER.md`、`MEM
 ```
 Dashboard 侧边栏
 └─ Profile（新增入口）
-   ├─ [Tab1] 画像模板
-   └─ [Tab2] 自由输入
+   ├─ Profile Home（入口页面）
+   │  ├─ [Card1] Profile Templates → 进入模板子页面
+   │  └─ [Card2] Profile Edit → 进入编辑子页面
+   │
+   ├─ Profile Templates（子页面）
+   │  ├─ Current USER.md 预览/编辑区域
+   │  ├─ 模板选择网格（默认展开）
+   │  └─ 模板表单（选择后展开）
+   │
+   └─ Profile Edit（子页面）
+      ├─ USER.md 预览/编辑
+      ├─ MEMORY.md 预览/编辑
+      └─ Add from Text/URL 输入区域
 ```
+
+**导航说明：**
+
+- Profile 入口页面展示两个功能卡片，点击分别进入子页面
+- 子页面顶部有返回按钮 (← Back) 可返回 Profile Home
+- 当处于子页面时，侧边栏 Profile 菜单保持高亮状态
 
 ### 3.2 功能一：画像模板交互流程
 
 ```
-① 进入 Profile > 画像模板 Tab
-② 展示 5 个职业卡片供选择（自媒体工作者 / 文字工作者 / 旅游向导 / 教育工作者 / 软件开发工程师）
-③ 点击职业卡片，进入该模板的字段填写界面
-④ 字段内容预填模板默认值，用户按需修改
-⑤ 点击「预览」→ 弹出预览弹窗，展示将写入 USER.md 的完整内容
-⑥ 用户确认 → 点击「保存」→ 写入 workspace → 成功提示
+① 进入 Profile > Profile Templates 子页面
+② 顶部展示 Current USER.md 内容（如有），支持 Preview/Edit 切换
+③ 下方展示 5 个职业模板卡片（默认自动展开）
+   - 系统根据现有 USER.md 中的 ROLE 自动匹配对应模板
+   - 无匹配时默认选中第一个模板
+④ 模板表单默认展开，显示当前选中模板的字段
+⑤ 字段内容预填模板默认值，用户按需修改
+⑥ 点击「Preview & Save」→ 弹出预览弹窗
+⑦ 用户确认 → 点击「Save to workspace」→ 写入 workspace → 成功提示 → 刷新 USER.md 展示
 ```
 
 **重要交互约定：**
 
 - 功能一的结果仅更新 `USER.md`，不影响 `MEMORY.md`
+- Profile Templates 页面**不展示 MEMORY.md**
 - 若 `USER.md` 已有内容，保存时采用**追加**策略（新内容追加到文件末尾），不覆盖
 - 用户可多次进入修改，每次保存均为追加
+- Domains/Tools/Preferences 字段使用对话框交互：点击「+ Add」打开对话框，输入后添加
 
 ### 3.3 功能二：自由输入交互流程
 
 ```
-① 进入 Profile > 自由输入 Tab
-② 输入区域：支持文字输入 + URL 粘贴（两者可混合使用）
-③ 点击「解析」→ 系统处理（URL 抓取 + AI 分析提取）→ 展示 Loading
-④ 解析完成 → 弹出预览界面，展示两部分内容：
-   - 将写入 USER.md 的结构化信息（可编辑）
-   - 将写入 MEMORY.md 的补充记忆内容（可编辑）
-⑤ 用户确认 → 点击「保存」→ 分别追加写入两个文件 → 成功提示
+① 进入 Profile > Profile Edit 子页面
+② 页面直接展示：
+   - USER.md 当前内容（Preview/Edit 模式可切换）
+   - MEMORY.md 当前内容（Preview/Edit 模式可切换）
+③ 「Add from Text / URL」折叠面板：
+   - 展开后输入文字 + URL（两者可混合使用）
+   - 点击「Analyze & Append」→ 系统处理 → 展示 Loading
+④ 解析完成 → 弹出预览界面，展示两部分内容（均可编辑）：
+   - 将写入 USER.md 的结构化信息
+   - 将写入 MEMORY.md 的补充记忆内容
+⑤ 用户确认 → 点击「Save to workspace」→ 分别追加写入两个文件 → 成功提示 → 刷新页面内容
 ```
 
 **重要交互约定：**
@@ -96,6 +123,7 @@ Dashboard 侧边栏
 - 功能二的结果写入 `USER.md`（结构化部分）和 `MEMORY.md`（非结构化补充部分）
 - 功能二与功能一**完全独立**，功能二不修改功能一填写的内容
 - 写入策略：追加到文件末尾
+- 用户可直接编辑现有 USER.md / MEMORY.md 内容并保存
 
 ---
 
@@ -186,11 +214,19 @@ Dashboard 侧边栏
 ```
 前端（ui/ — Lit UI，即 http://127.0.0.1:18789）    后端（Gateway）
 ──────────────────────────────────────           ──────────────────────
-Profile 页面 (profile tab)
- ├─ Template Mode Tab    ─────────────────────→  agents.files.get   (读取现有 USER.md)
- │   └─ 职业卡片 + 字段表单  ─────────────────→  agents.files.set   (写入 USER.md)
- └─ Free Input Tab       ─────────────────────→  profile.parse      (新增 Gateway 方法)
-     └─ URL + 文字输入   ─────────────────────→  agents.files.set   (写入 USER.md + MEMORY.md)
+Profile Home (profile tab)
+ ├─ Profile Templates Card ───────────────────→  进入 profile-templates 子页面
+ └─ Profile Edit Card ────────────────────────→  进入 profile-edit 子页面
+
+Profile Templates 子页面 (profile-templates tab)
+ ├─ USER.md 预览/编辑区域 ────────────────────→  agents.files.get   (读取现有 USER.md)
+ ├─ 模板选择 + 字段表单  ─────────────────────→  agents.files.set   (写入 USER.md)
+ └─ Save 成功后 ──────────────────────────────→  自动刷新 USER.md 展示
+
+Profile Edit 子页面 (profile-edit tab)
+ ├─ USER.md / MEMORY.md 预览/编辑 ────────────→  agents.files.get   (读取现有文件)
+ ├─ Add from Text/URL  ───────────────────────→  profile.parse      (新增 Gateway 方法)
+ └─ Save 成功后 ──────────────────────────────→  自动刷新两个文件展示
 ```
 
 > **注意**：Profile 功能实现在旧版 Lit UI（`ui/`），即 `http://127.0.0.1:18789` 直接加载的 Dashboard，而非 `ui-react/`（后者是独立的实验性 React 版本）。
@@ -206,22 +242,46 @@ ui/src/ui/views/profile.ts          # Profile 页面完整实现（Lit html 模�
 **修改文件：**
 
 ```
-ui/src/ui/navigation.ts             # 新增 "profile" Tab 类型、路径 /profile、分组 "me"、图标 "user"
+ui/src/ui/navigation.ts             # 新增 "profile" / "profile-templates" / "profile-edit" Tab 类型
+                                    # 路径 /profile、/profile/templates、/profile/edit
+                                    # 分组 "me"、图标 "user"
 ui/src/ui/icons.ts                  # 新增 user SVG 图标
 ui/src/i18n/locales/en.ts          # 新增 tabs.profile = "Profile"、subtitles.profile
-ui/src/ui/app-view-state.ts        # 新增 profile 相关 state 字段（profileTab、profileFormXxx 等）
-ui/src/ui/app.ts                   # 新增 @state() 字段初始化（对应 app-view-state 新增字段）
-ui/src/ui/app-render.ts            # 导入 renderProfile 等函数，注册 profile tab 渲染块
+ui/src/ui/app-view-state.ts        # 新增 profile 相关 state 字段
+ui/src/ui/app.ts                   # 新增 @state() 字段初始化
+ui/src/ui/app-render.ts            # 导入 renderProfileHome / renderProfileTemplates / renderProfileEdit
+                                    # 注册三个 tab 的渲染块
+ui/src/ui/app-settings.ts          # 在 refreshActiveTab 中添加 profile-templates 和 profile-edit 的数据加载
 ```
 
 ### 5.3 导航注册
 
 在 `ui/src/ui/navigation.ts` 中：
 
+**Tab 类型定义：**
+
+- `Tab` 类型联合新增 `"profile" | "profile-templates" | "profile-edit"`
+
+**路径映射：**
+
+- `TAB_PATHS` 新增：
+  - `profile: "/profile"`
+  - `profile-templates: "/profile/templates"`
+  - `profile-edit: "/profile/edit"`
+
+**分组配置：**
+
 - `TAB_GROUPS` 新增 `{ label: "me", tabs: ["profile"] }`
-- `Tab` 类型联合新增 `"profile"`
-- `TAB_PATHS` 新增 `profile: "/profile"`
+- 子页面（profile-templates、profile-edit）不归入分组，通过导航高亮规则处理
+
+**图标配置：**
+
 - `iconForTab` 新增 `case "profile": return "user"`
+- 子页面继承父级图标
+
+**高亮规则：**
+
+- 当 `state.tab === "profile-templates" || state.tab === "profile-edit"` 时，Profile 菜单保持高亮
 
 ### 5.4 Gateway 方法调用
 
@@ -266,7 +326,70 @@ src/gateway/server-methods-list.ts       # 在 BASE_METHODS 末尾追加 "profil
 src/gateway/server-methods.ts            # import profileHandlers 并 spread 到 coreGatewayHandlers
 ```
 
-### 5.6 文件写入策略（追加）
+### 5.6 模板自动选择逻辑
+
+在 `handleProfileTemplateLoad()` 中实现：
+
+```typescript
+// 1. 从 USER.md 解析当前 ROLE
+function parseRoleFromUserMd(content: string): string | null {
+  const roleMatch = content.match(/\*\*Role\*\*:\s*(.+)/i);
+  return roleMatch?.[1]?.trim() || null;
+}
+
+// 2. 根据 ROLE 匹配模板 ID
+function findTemplateIdByRole(role: string): string | null {
+  const normalizedRole = role.toLowerCase();
+  // 优先精确匹配
+  const exactMatch = PROFILE_TEMPLATES.find((t) => t.defaultRole.toLowerCase() === normalizedRole);
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+  // 其次部分匹配
+  const partialMatch = PROFILE_TEMPLATES.find(
+    (t) =>
+      normalizedRole.includes(t.defaultRole.toLowerCase()) ||
+      t.defaultRole.toLowerCase().includes(normalizedRole),
+  );
+  if (partialMatch) {
+    return partialMatch.id;
+  }
+  return null;
+}
+
+// 3. 加载时自动选择
+const role = parseRoleFromUserMd(content);
+if (role) {
+  const templateId = findTemplateIdByRole(role);
+  if (templateId && !state.profileTemplateId) {
+    await handleProfileTemplateSelect(state, templateId);
+  }
+}
+// 兜底：选择第一个模板
+if (!state.profileTemplateId && PROFILE_TEMPLATES.length > 0) {
+  await handleProfileTemplateSelect(state, PROFILE_TEMPLATES[0].id);
+}
+```
+
+### 5.7 页面刷新数据加载
+
+在 `ui/src/ui/app-settings.ts` 的 `refreshActiveTab()` 中添加：
+
+```typescript
+if (host.tab === "profile-templates") {
+  await handleProfileTemplateLoad(host as unknown as OpenClawApp);
+}
+if (host.tab === "profile-edit") {
+  await handleProfileEditLoad(host as unknown as OpenClawApp);
+}
+```
+
+这样当用户：
+
+- 刷新页面时，数据会自动加载
+- 从其他 tab 切换回来时，数据会自动刷新
+
+### 5.8 文件写入策略（追加）
 
 写入时的合并逻辑（前端和后端均遵循）：
 
@@ -326,12 +449,17 @@ await client.request("agents.files.set", { agentId, name: "USER.md", content: me
 
 ### Phase 1：前端基础框架 ✅
 
-- [x] 新增 `ui/src/ui/navigation.ts` 中 profile tab 注册
+- [x] 新增 `ui/src/ui/navigation.ts` 中 profile / profile-templates / profile-edit tab 注册
 - [x] 新增 `ui/src/ui/icons.ts` 中 user 图标
 - [x] 新增 `ui/src/i18n/locales/en.ts` 中 profile 翻译
 - [x] 新增 `ui/src/ui/app-view-state.ts` 中 profile state 字段
 - [x] 新增 `ui/src/ui/app.ts` 中 @state() 初始化
-- [x] 新增 `ui/src/ui/views/profile.ts`：职业卡片选择 + 字段填写表单 + 预览确认弹窗
+- [x] 新增 `ui/src/ui/views/profile.ts`：
+  - Profile Home 入口页面（两个功能卡片）
+  - Profile Templates 子页面（USER.md 展示 + 模板选择 + 表单）
+  - Profile Edit 子页面（双文件编辑 + Text/URL 输入）
+- [x] 新增 `ui/src/ui/app-render.ts` 中三个页面的渲染注册
+- [x] 新增 `ui/src/ui/app-settings.ts` 中 refreshActiveTab 数据加载
 
 ### Phase 2：功能一写入对接 ✅
 
@@ -354,12 +482,39 @@ await client.request("agents.files.set", { agentId, name: "USER.md", content: me
 - [x] 预览弹窗展示两部分内容（USER.md + MEMORY.md 可编辑）
 - [x] 写入确认后分别追加写入两个文件
 
-### Phase 5：测试与完善（待验证）
+### Phase 5：页面架构重构 ✅
+
+- [x] Profile 页面拆分为三个子页面（Home / Templates / Edit）
+- [x] 子页面导航和返回按钮实现
+- [x] 侧边栏高亮规则（子页面时 Profile 保持高亮）
+
+### Phase 6：交互优化 ✅
+
+- [x] Profile Templates 页面移除 MEMORY.md 展示
+- [x] USER.md 预览/编辑双模式切换
+- [x] Domains/Tools/Preferences 改为对话框交互
+- [x] Save 成功后自动刷新内容展示
+
+### Phase 7：智能模板选择 ✅
+
+- [x] 从 USER.md 解析 ROLE 字段
+- [x] ROLE 与模板自动匹配（精确匹配 → 部分匹配）
+- [x] 无匹配时默认选择第一个模板
+- [x] 模板表单默认展开
+
+### Phase 8：刷新 Bug 修复 ✅
+
+- [x] 在 `refreshActiveTab` 中添加 profile-templates 数据加载
+- [x] 在 `refreshActiveTab` 中添加 profile-edit 数据加载
+- [x] 页面刷新后自动加载 USER.md / MEMORY.md 内容
+
+### Phase 9：测试与完善（待验证）
 
 - [ ] 各职业模板的字段预填验证
 - [ ] 追加写入不覆盖已有内容的验证
 - [ ] URL 解析失败的错误处理验证
 - [ ] 预览界面的可编辑性验证
+- [ ] 模板自动选择逻辑验证（不同 ROLE 的匹配情况）
 
 ---
 
