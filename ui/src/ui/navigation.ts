@@ -26,7 +26,9 @@ export type Tab =
   | "config"
   | "debug"
   | "logs"
-  | "profile";
+  | "profile"
+  | "profile-templates"
+  | "profile-edit";
 
 const TAB_PATHS: Record<Tab, string> = {
   agents: "/agents",
@@ -43,6 +45,8 @@ const TAB_PATHS: Record<Tab, string> = {
   debug: "/debug",
   logs: "/logs",
   profile: "/profile",
+  "profile-templates": "/profile/templates",
+  "profile-edit": "/profile/edit",
 };
 
 const PATH_TO_TAB = new Map(Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as Tab]));
@@ -155,6 +159,8 @@ export function iconForTab(tab: Tab): IconName {
     case "logs":
       return "scrollText";
     case "profile":
+    case "profile-templates":
+    case "profile-edit":
       return "user";
     default:
       return "folder";

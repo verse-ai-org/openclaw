@@ -88,13 +88,17 @@ import { renderLogs } from "./views/logs.ts";
 import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
 import {
-  renderProfile,
+  renderProfileHome,
+  renderProfileTemplates,
+  renderProfileEdit,
   handleProfileTemplateSelect,
   handleProfileTemplatePreview,
   handleProfileFreeInputParse,
   handleProfileSave,
   handleProfileEditLoad,
   handleProfileEditSaveDirect,
+  handleProfileTemplateLoad,
+  handleProfileTemplateUserMdSave,
 } from "./views/profile.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
@@ -1006,16 +1010,90 @@ export function renderApp(state: AppViewState) {
         }
         ${
           state.tab === "profile"
-            ? renderProfile({
-                state,
-                onTabChange: (tab) => {
-                  state.profileTab = tab;
+            ? renderProfileHome({
+                onNavigateToTemplates: () => {
+                  state.setTab("profile-templates");
+                  void handleProfileTemplateLoad(state);
                 },
+                onNavigateToEdit: () => {
+                  state.setTab("profile-edit");
+                  void handleProfileEditLoad(state);
+                },
+              })
+            : nothing
+        }
+        ${
+          state.tab === "profile-templates"
+            ? renderProfileTemplates({
+                state,
+                onBack: () => state.setTab("profile"),
                 onTemplateSelect: (id) => void handleProfileTemplateSelect(state, id),
                 onFieldChange: (field, value) => {
                   (state as Record<string, unknown>)[field] = value;
                 },
                 onTemplatePreview: () => void handleProfileTemplatePreview(state),
+                onTemplateLoad: () => void handleProfileTemplateLoad(state),
+                onPreviewClose: () => {
+                  state.profilePreviewOpen = false;
+                },
+                onPreviewModeChange: (mode) => {
+                  state.profilePreviewMode = mode;
+                },
+                onPreviewDraftChange: (field, value) => {
+                  if (field === "user") {
+                    state.profilePreviewUserMdDraft = value;
+                  } else {
+                    state.profilePreviewMemoryMdDraft = value;
+                  }
+                },
+                onSave: (userMd, memoryMd) => void handleProfileSave(state, userMd, memoryMd),
+                onDomainDialogOpen: () => {
+                  state.profileDomainDialogOpen = true;
+                },
+                onDomainDialogClose: () => {
+                  state.profileDomainDialogOpen = false;
+                },
+                onToolDialogOpen: () => {
+                  state.profileToolDialogOpen = true;
+                },
+                onToolDialogClose: () => {
+                  state.profileToolDialogOpen = false;
+                },
+                onPreferenceDialogOpen: () => {
+                  state.profilePreferenceDialogOpen = true;
+                },
+                onPreferenceDialogClose: () => {
+                  state.profilePreferenceDialogOpen = false;
+                },
+                onTemplateUserMdViewModeChange: (mode) => {
+                  state.profileTemplateUserMdViewMode = mode;
+                },
+                onTemplateUserMdDraftChange: (value) => {
+                  state.profileTemplateUserMdDraft = value;
+                },
+                onTemplateUserMdSave: () => void handleProfileTemplateUserMdSave(state),
+              })
+            : nothing
+        }
+        ${
+          state.tab === "profile-edit"
+            ? renderProfileEdit({
+                state,
+                onBack: () => state.setTab("profile"),
+                onEditLoad: () => void handleProfileEditLoad(state),
+                onEditViewModeChange: (mode) => {
+                  state.profileEditViewMode = mode;
+                },
+                onEditUserMdChange: (value) => {
+                  state.profileEditUserMd = value;
+                },
+                onEditMemoryMdChange: (value) => {
+                  state.profileEditMemoryMd = value;
+                },
+                onEditSaveDirect: () => void handleProfileEditSaveDirect(state),
+                onEditInputToggle: (open) => {
+                  state.profileEditInputOpen = open;
+                },
                 onFreeInputChange: (text) => {
                   state.profileFreeInput = text;
                 },
@@ -1034,20 +1112,6 @@ export function renderApp(state: AppViewState) {
                   }
                 },
                 onSave: (userMd, memoryMd) => void handleProfileSave(state, userMd, memoryMd),
-                onEditLoad: () => void handleProfileEditLoad(state),
-                onEditViewModeChange: (mode) => {
-                  state.profileEditViewMode = mode;
-                },
-                onEditUserMdChange: (value) => {
-                  state.profileEditUserMd = value;
-                },
-                onEditMemoryMdChange: (value) => {
-                  state.profileEditMemoryMd = value;
-                },
-                onEditSaveDirect: () => void handleProfileEditSaveDirect(state),
-                onEditInputToggle: (open) => {
-                  state.profileEditInputOpen = open;
-                },
               })
             : nothing
         }

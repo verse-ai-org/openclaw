@@ -347,4 +347,13 @@ export type AppViewState = {
     profileEditLoading: boolean;
     profileEditInputOpen: boolean;
     profileEditViewMode: "preview" | "edit";
+    // Template tab: read-only USER.md preview
+    profileTemplateUserMd: string;
+    profileTemplateUserMdLoading: boolean;
+    profileTemplateUserMdViewMode: "preview" | "edit";
+    profileTemplateUserMdDraft: string;
+    // Tag input dialogs
+    profileDomainDialogOpen: boolean;
+    profileToolDialogOpen: boolean;
+    profilePreferenceDialogOpen: boolean;
   };

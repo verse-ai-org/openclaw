@@ -47,12 +47,23 @@ function resetChatStateForSessionSwitch(state: AppViewState, sessionKey: string)
   });
 }
 
+function isTabActive(state: AppViewState, tab: Tab): boolean {
+  if (state.tab === tab) {
+    return true;
+  }
+  // Profile sub-pages should highlight Profile menu
+  if (tab === "profile" && (state.tab === "profile-templates" || state.tab === "profile-edit")) {
+    return true;
+  }
+  return false;
+}
+
 export function renderTab(state: AppViewState, tab: Tab) {
   const href = pathForTab(tab, state.basePath);
   return html`
     <a
       href=${href}
-      class="nav-item ${state.tab === tab ? "active" : ""}"
+      class="nav-item ${isTabActive(state, tab) ? "active" : ""}"
       @click=${(event: MouseEvent) => {
         if (
           event.defaultPrevented ||
@@ -76,7 +87,9 @@ export function renderTab(state: AppViewState, tab: Tab) {
       }}
       title=${titleForTab(tab)}
     >
-      <span class="nav-item__icon" aria-hidden="true">${icons[iconForTab(tab)]}</span>
+      <span class="nav-item__icon" aria-hidden="true"
+        >${icons[iconForTab(tab)]}</span
+      >
       <span class="nav-item__text">${titleForTab(tab)}</span>
     </a>
   `;
@@ -84,7 +97,9 @@ export function renderTab(state: AppViewState, tab: Tab) {
 
 function renderCronFilterIcon(hiddenCount: number) {
   return html`
-    <span style="position: relative; display: inline-flex; align-items: center;">
+    <span
+      style="position: relative; display: inline-flex; align-items: center;"
+    >
       <svg
         width="16"
         height="16"
@@ -114,7 +129,7 @@ function renderCronFilterIcon(hiddenCount: number) {
               padding: 1px 3px;
               pointer-events: none;
             "
-          >${hiddenCount}</span
+            >${hiddenCount}</span
           >`
           : ""
       }
@@ -280,7 +295,9 @@ export function renderChatControls(state: AppViewState) {
         title=${
           hideCron
             ? hiddenCronCount > 0
-              ? t("chat.showCronSessionsHidden", { count: String(hiddenCronCount) })
+              ? t("chat.showCronSessionsHidden", {
+                  count: String(hiddenCronCount),
+                })
               : t("chat.showCronSessions")
             : t("chat.hideCronSessions")
         }

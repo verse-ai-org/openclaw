@@ -410,6 +410,13 @@ export class OpenClawApp extends LitElement {
   @state() profileEditLoading = false;
   @state() profileEditInputOpen = false;
   @state() profileEditViewMode: "preview" | "edit" = "preview";
+  @state() profileTemplateUserMd = "";
+  @state() profileTemplateUserMdLoading = false;
+  @state() profileTemplateUserMdViewMode: "preview" | "edit" = "preview";
+  @state() profileTemplateUserMdDraft = "";
+  @state() profileDomainDialogOpen = false;
+  @state() profileToolDialogOpen = false;
+  @state() profilePreferenceDialogOpen = false;
 
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;
