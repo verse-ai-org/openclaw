@@ -3,6 +3,15 @@
  * 定义 setup-wizard 与不同平台（web、Electron 等）的交互方式
  */
 
+/** Single entry from the model catalog (mirrors CLI model-catalog shape). */
+export interface ModelCatalogEntry {
+  provider: string;
+  id: string;
+  name?: string;
+  contextWindow?: number;
+  reasoning?: boolean;
+}
+
 export interface WizardAdapter {
   /**
    * 提交当前步骤的数据
@@ -32,6 +41,20 @@ export interface WizardAdapter {
    * 获取初始状态（可选）
    */
   getInitialState?(): Promise<Record<string, unknown>>;
+
+  /**
+   * Validate an API key for the given auth method.
+   * Returns { ok: true } on success, { ok: false, error } on failure.
+   * If not implemented, the UI falls back to basic format validation.
+   */
+  validateApiKey?(authMethod: string, apiKey: string): Promise<{ ok: boolean; error?: string }>;
+
+  /**
+   * Fetch the model catalog for the given provider from the backend.
+   * Used by DefaultModelStep to show available models.
+   * If not implemented, the UI uses the built-in static list.
+   */
+  fetchModelCatalog?(provider: string): Promise<ModelCatalogEntry[]>;
 }
 
 /**

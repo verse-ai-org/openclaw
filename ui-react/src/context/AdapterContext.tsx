@@ -26,3 +26,11 @@ export function useWizardAdapter(): WizardAdapter {
   }
   return adapter;
 }
+
+/**
+ * Like useWizardAdapter but returns null instead of throwing when there is no
+ * AdapterProvider in the tree (e.g. web-only / standalone rendering).
+ */
+export function useOptionalWizardAdapter(): WizardAdapter | null {
+  return useContext(AdapterContext);
+}

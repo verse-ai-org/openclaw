@@ -1,6 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { useRef, useState, useMemo } from "react";
-import { SetupWizard, ElectronWizardAdapter, useWizardStore } from "@openclaw/setup-wizard";
+import { SetupWizard } from "@/components/setup-wizard/index";
+import { ElectronWizardAdapter } from "@/adapters/ElectronWizardAdapter";
+import { useWizardStore } from "@/store/setup-wizard.store";
 import "./index.css";
 
 /**

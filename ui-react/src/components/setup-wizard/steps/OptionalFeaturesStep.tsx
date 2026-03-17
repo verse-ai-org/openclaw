@@ -1,4 +1,4 @@
-import { MessageCircle, Globe, Folder } from "lucide-react";
+import { MessageCircle, Globe, Folder, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useWizardStore } from "@/store/setup-wizard.store";
 
@@ -31,7 +31,7 @@ const FEATURES = [
   },
 ];
 
-export function OptionalFeaturesStep({ onNext: _onNext }: OptionalFeaturesStepProps) {
+export function OptionalFeaturesStep({ onNext }: OptionalFeaturesStepProps) {
   const { wizardState, updateWizardState } = useWizardStore();
   const [features, setFeatures] = useState(wizardState.optionalFeatures || {});
 
@@ -101,6 +101,17 @@ export function OptionalFeaturesStep({ onNext: _onNext }: OptionalFeaturesStepPr
         <p className="text-slate-400 dark:text-slate-500 text-xs mt-2">
           Adding these features may use additional storage and require certain permissions.
         </p>
+      </div>
+
+      {/* Continue */}
+      <div className="flex justify-center mt-8">
+        <button
+          onClick={onNext}
+          className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all"
+        >
+          Continue
+          <ArrowRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

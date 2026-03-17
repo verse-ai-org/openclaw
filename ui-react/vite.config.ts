@@ -23,8 +23,6 @@ export default defineConfig(() => {
       alias: {
         "@": path.resolve(here, "./src"),
         "@gateway": path.resolve(here, "../src/gateway"),
-        // Point to setup-wizard source directly in dev — no rebuild needed.
-        "@openclaw/setup-wizard": path.resolve(here, "../packages/setup-wizard/src/index.ts"),
       },
     },
     build: {

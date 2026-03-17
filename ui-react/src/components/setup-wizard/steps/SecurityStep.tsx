@@ -1,4 +1,4 @@
-import { Shield, Info } from "lucide-react";
+import { Shield, Info, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { GlassCard } from "../GlassCard";
 
@@ -22,7 +22,7 @@ const SECURITY_ITEMS = [
   },
 ];
 
-export function SecurityStep({ onNext: _onNext }: SecurityStepProps) {
+export function SecurityStep({ onNext }: SecurityStepProps) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   return (
@@ -90,6 +90,16 @@ export function SecurityStep({ onNext: _onNext }: SecurityStepProps) {
           Learn more about safety protocols
         </button>
       </div>
+
+      {/* Continue button — gated on agreedToTerms */}
+      <button
+        onClick={onNext}
+        disabled={!agreedToTerms}
+        className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Continue
+        <ArrowRight className="w-4 h-4" />
+      </button>
     </div>
   );
 }

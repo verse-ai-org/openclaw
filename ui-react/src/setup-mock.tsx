@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { SetupWizard, ElectronWizardAdapter } from "@openclaw/setup-wizard";
+import { SetupWizard } from "@/components/setup-wizard/index";
+import { ElectronWizardAdapter } from "@/adapters/ElectronWizardAdapter";
 import "./index.css";
 
 /**

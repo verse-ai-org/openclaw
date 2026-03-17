@@ -9,7 +9,7 @@ import {
   Info,
 } from "lucide-react";
 import { useWizardStore } from "@/store/setup-wizard.store";
-import { useWizardAdapter } from "@/context/AdapterContext";
+import { useOptionalWizardAdapter } from "@/context/AdapterContext";
 
 interface CompletionStepProps {
   onBack: () => void;
@@ -17,13 +17,7 @@ interface CompletionStepProps {
 
 export function CompletionStep(_props: CompletionStepProps) {
   const { wizardState } = useWizardStore();
-  // useWizardAdapter may be null if rendered outside AdapterProvider (e.g. web)
-  let adapter: ReturnType<typeof useWizardAdapter> | null = null;
-  try {
-    adapter = useWizardAdapter();
-  } catch {
-    // no adapter context — web mode, fallback to location redirect
-  }
+  const adapter = useOptionalWizardAdapter();
 
   const handleViewTutorial = () => {
     window.open("https://docs.openclaw.ai/start/getting-started", "_blank");
@@ -52,6 +46,11 @@ export function CompletionStep(_props: CompletionStepProps) {
   };
 
   const getModelName = () => {
+    // Use resolvedModelId (e.g. "anthropic/claude-opus-4-5") as the display name.
+    // Fall back to the legacy selectedModel field if resolvedModelId is not set.
+    if (wizardState.resolvedModelId) {
+      return wizardState.resolvedModelId;
+    }
     const models: Record<string, string> = {
       claude: "Claude 3.5 Sonnet",
       gpt4: "GPT-4o",

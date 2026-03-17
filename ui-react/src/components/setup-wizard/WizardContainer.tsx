@@ -23,7 +23,6 @@ const STEPS: { id: WizardStep; label: string }[] = [
 
 export function WizardContainer() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("welcome");
-  useWizardStore();
 
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
@@ -38,6 +37,8 @@ export function WizardContainer() {
   };
 
   const shouldShowFooter = currentStep !== "welcome" && currentStep !== "completion";
+  // Steps that own their own Continue button (gated on internal state)
+  const stepOwnsNext = currentStep === "security" || currentStep === "api-key" || currentStep === "features";
 
   const renderStep = () => {
     switch (currentStep) {
@@ -98,13 +99,19 @@ export function WizardContainer() {
 
             <ProgressBar current={currentStepIndex + 1} total={STEPS.length} />
 
-            <button
-              onClick={() => handleNext(STEPS[currentStepIndex + 1].id)}
-              className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all"
-            >
-              Continue
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {!stepOwnsNext && (
+              <button
+                onClick={() => handleNext(STEPS[currentStepIndex + 1].id)}
+                className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all"
+              >
+                Continue
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
+            {stepOwnsNext && (
+              // Spacer to keep Back button flush left when Continue is hidden
+              <div className="w-32" />
+            )}
           </div>
         </footer>
       )}

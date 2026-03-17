@@ -17,22 +17,39 @@
 - [packages/setup-wizard/src/context/AdapterContext.tsx](file://packages/setup-wizard/src/context/AdapterContext.tsx)
 - [packages/setup-wizard/src/lib/utils.ts](file://packages/setup-wizard/src/lib/utils.ts)
 - [packages/setup-wizard/package.json](file://packages/setup-wizard/package.json)
+- [packages/setup-wizard/src/components/ui/button.tsx](file://packages/setup-wizard/src/components/ui/button.tsx)
+- [packages/setup-wizard/src/components/ui/input.tsx](file://packages/setup-wizard/src/components/ui/input.tsx)
+- [packages/setup-wizard/src/components/ui/select.tsx](file://packages/setup-wizard/src/components/ui/select.tsx)
+- [packages/setup-wizard/src/components/ui/checkbox.tsx](file://packages/setup-wizard/src/components/ui/checkbox.tsx)
+- [packages/setup-wizard/src/components/ui/card.tsx](file://packages/setup-wizard/src/components/ui/card.tsx)
+- [packages/setup-wizard/src/components/ui/sheet.tsx](file://packages/setup-wizard/src/components/ui/sheet.tsx)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 新增UI基础组件系统章节，详细介绍重构后的20+个基础组件
+- 更新核心组件部分，反映Button、Input、Select等组件的使用情况
+- 新增UI组件架构图，展示基础组件与业务组件的关系
+- 更新依赖关系分析，包含新的UI组件依赖
+- 新增组件使用示例，展示如何在步骤组件中使用基础UI组件
 
 ## 目录
 1. [简介](#简介)
 2. [项目结构](#项目结构)
-3. [核心组件](#核心组件)
-4. [架构概览](#架构概览)
-5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考虑](#性能考虑)
-8. [故障排除指南](#故障排除指南)
-9. [结论](#结论)
+3. [UI基础组件系统](#ui基础组件系统)
+4. [核心组件](#核心组件)
+5. [架构概览](#架构概览)
+6. [详细组件分析](#详细组件分析)
+7. [依赖关系分析](#依赖关系分析)
+8. [性能考虑](#性能考虑)
+9. [故障排除指南](#故障排除指南)
+10. [结论](#结论)
 
 ## 简介
 
 设置向导UI组件是OpenClaw项目中的一个独立React组件包，专门用于提供用户友好的安装和配置体验。该组件包采用模块化设计，支持多种平台适配器，包括Web和Electron环境，并提供了完整的状态管理和持久化功能。
+
+**重大更新**：UI组件库已重构为基础组件系统，包含Button、Input、Select、Checkbox等20+个基础组件，采用现代化的设计系统和原子化组件架构，显著提升了组件的可复用性和一致性。
 
 该组件包的核心目标是为用户提供一个直观、响应式的设置向导界面，涵盖从欢迎页面到最终完成的所有配置步骤。通过使用现代前端技术栈和设计系统，确保了良好的用户体验和跨平台兼容性。
 
@@ -49,35 +66,122 @@ B --> E["store/"]
 B --> F["types/"]
 B --> G["context/"]
 B --> H["lib/"]
-B --> I["pages/"]
-C --> J["setup-wizard/"]
-J --> K["steps/"]
-J --> L["ui/"]
-J --> M["index.tsx"]
-J --> N["WizardContainer.tsx"]
+C --> I["setup-wizard/"]
+C --> J["ui/"]
+I --> K["steps/"]
+I --> L["ui/"]
+I --> M["index.tsx"]
+I --> N["WizardContainer.tsx"]
 K --> O["WelcomeStep.tsx"]
 K --> P["ApiKeyStep.tsx"]
 K --> Q["ModelSelectionStep.tsx"]
 K --> R["SecurityStep.tsx"]
 K --> S["OptionalFeaturesStep.tsx"]
 K --> T["CompletionStep.tsx"]
-D --> U["WebWizardAdapter.ts"]
-D --> V["ElectronWizardAdapter.ts"]
-D --> W["index.ts"]
-E --> X["setup-wizard.store.ts"]
-E --> Y["index.ts"]
-F --> Z["adapter.ts"]
-F --> AA["index.ts"]
-G --> AB["AdapterContext.tsx"]
-H --> AC["utils.ts"]
+J --> U["基础UI组件"]
+U --> V["button.tsx"]
+U --> W["input.tsx"]
+U --> X["select.tsx"]
+U --> Y["checkbox.tsx"]
+U --> Z["card.tsx"]
+U --> AA["sheet.tsx"]
+D --> AB["WebWizardAdapter.ts"]
+D --> AC["ElectronWizardAdapter.ts"]
+E --> AD["setup-wizard.store.ts"]
+E --> AE["index.ts"]
+F --> AF["adapter.ts"]
+F --> AG["index.ts"]
+G --> AH["AdapterContext.tsx"]
+H --> AI["utils.ts"]
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx:1-43](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L1-L43)
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:1-212](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L1-L212)
+- [packages/setup-wizard/src/components/setup-wizard/index.tsx:1-31](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L1-L31)
+- [packages/setup-wizard/src/components/ui/button.tsx:1-65](file://packages/setup-wizard/src/components/ui/button.tsx#L1-L65)
 
 **章节来源**
-- [packages/setup-wizard/package.json:1-61](file://packages/setup-wizard/package.json#L1-L61)
+- [packages/setup-wizard/package.json:1-58](file://packages/setup-wizard/package.json#L1-L58)
+
+## UI基础组件系统
+
+**重大更新**：UI组件库已重构为基础组件系统，提供20+个原子化UI组件，采用一致的设计语言和变体系统。
+
+### 组件分类
+
+#### 表单组件
+- **Button**：支持多种变体(variant)和尺寸(size)的按钮组件
+- **Input**：基础输入框组件，支持状态反馈和无障碍特性
+- **Select**：下拉选择组件，包含触发器、内容、选项等子组件
+- **Checkbox**：复选框组件，支持受控和非受控状态
+- **Label**：标签组件，与表单控件关联
+
+#### 布局组件
+- **Card**：卡片组件，包含标题、描述、内容等子组件
+- **Sheet**：抽屉组件，支持多方向滑入动画
+- **Badge**：徽章标签组件
+- **Separator**：分隔线组件
+
+#### 反馈组件
+- **Alert**：警告提示组件
+- **AlertDialog**：确认对话框组件
+- **Tooltip**：工具提示组件
+- **Avatar**：头像组件
+
+#### 导航组件
+- **Tabs**：标签页组件
+- **DropdownMenu**：下拉菜单组件
+- **Sidebar**：侧边栏组件
+
+### 设计系统特性
+
+所有基础组件都遵循以下设计原则：
+
+```mermaid
+classDiagram
+class BaseComponent {
++className : string
++variant : string
++size : string
++asChild : boolean
++data-slot : string
+}
+class Button {
++variant : "default"|"destructive"|"outline"|"secondary"|"ghost"|"link"
++size : "default"|"xs"|"sm"|"lg"|"icon"|"icon-xs"|"icon-sm"|"icon-lg"
+}
+class Input {
++type : string
++disabled : boolean
++aria-invalid : boolean
+}
+class Select {
++size : "sm"|"default"
++position : string
++align : string
+}
+BaseComponent <|-- Button
+BaseComponent <|-- Input
+BaseComponent <|-- Select
+```
+
+**图表来源**
+- [packages/setup-wizard/src/components/ui/button.tsx:7-39](file://packages/setup-wizard/src/components/ui/button.tsx#L7-L39)
+- [packages/setup-wizard/src/components/ui/input.tsx:4-18](file://packages/setup-wizard/src/components/ui/input.tsx#L4-L18)
+- [packages/setup-wizard/src/components/ui/select.tsx:25-49](file://packages/setup-wizard/src/components/ui/select.tsx#L25-L49)
+
+### 组件变体系统
+
+基础组件采用class-variance-authority库实现统一的变体系统：
+
+- **变体(variant)**：控制组件的主要视觉风格
+- **尺寸(size)**：控制组件的大小规格
+- **状态(state)**：控制组件的交互状态
+- **数据槽(data-slot)**：用于样式覆盖和主题定制
+
+**章节来源**
+- [packages/setup-wizard/src/components/ui/button.tsx:1-65](file://packages/setup-wizard/src/components/ui/button.tsx#L1-L65)
+- [packages/setup-wizard/src/components/ui/input.tsx:1-21](file://packages/setup-wizard/src/components/ui/input.tsx#L1-L21)
+- [packages/setup-wizard/src/components/ui/select.tsx:1-189](file://packages/setup-wizard/src/components/ui/select.tsx#L1-L189)
 
 ## 核心组件
 
@@ -91,23 +195,27 @@ H --> AC["utils.ts"]
 
 ### 步骤组件
 包含多个专门的步骤组件，每个组件负责特定的配置任务：
-- WelcomeStep：欢迎页面和设置概览
-- ApiKeyStep：API密钥输入和验证
-- ModelSelectionStep：AI模型选择
-- SecurityStep：安全设置
-- OptionalFeaturesStep：可选功能配置
-- CompletionStep：完成页面
+- **WelcomeStep**：欢迎页面和设置概览，使用Button和GlassCard组件
+- **ApiKeyStep**：API密钥输入和验证，使用Input组件
+- **ModelSelectionStep**：AI模型选择，使用Select组件
+- **SecurityStep**：安全设置
+- **OptionalFeaturesStep**：可选功能配置
+- **CompletionStep**：完成页面
 
 ### UI基础组件
 提供通用的UI组件，如玻璃卡片、进度条等，用于构建一致的用户体验。
 
+**更新**：所有步骤组件现在都使用新的基础UI组件系统，提升了组件的一致性和可维护性。
+
 **章节来源**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx:1-43](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L1-L43)
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:1-212](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L1-L212)
+- [packages/setup-wizard/src/components/setup-wizard/index.tsx:1-31](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L1-L31)
+- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:1-114](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L1-L114)
+- [packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx:1-87](file://packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L87)
+- [packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx:1-191](file://packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx#L1-L191)
 
 ## 架构概览
 
-设置向导UI组件采用了现代化的前端架构设计，结合了状态管理、依赖注入和平台适配器模式：
+设置向导UI组件采用了现代化的前端架构设计，结合了状态管理、依赖注入、平台适配器模式和基础组件系统：
 
 ```mermaid
 graph TB
@@ -115,45 +223,60 @@ subgraph "用户界面层"
 A[SetupWizard 主组件]
 B[WizardContainer 容器]
 C[步骤组件]
-D[UI基础组件]
+D[UI基础组件库]
+end
+subgraph "基础组件系统"
+E[Button]
+F[Input]
+G[Select]
+H[Checkbox]
+I[Card]
+J[Sheet]
 end
 subgraph "状态管理层"
-E[Zustand Store]
-F[WizardState 接口]
+K[Zustand Store]
+L[WizardState 接口]
 end
 subgraph "适配器层"
-G[WizardAdapter 接口]
-H[WebWizardAdapter]
-I[ElectronWizardAdapter]
+M[WizardAdapter 接口]
+N[WebWizardAdapter]
+O[ElectronWizardAdapter]
 end
 subgraph "上下文层"
-J[AdapterContext]
-K[AdapterProvider]
+P[AdapterContext]
+Q[AdapterProvider]
 end
 subgraph "外部服务"
-L[Web API]
-M[Electron IPC]
-N[本地存储]
+R[Web API]
+S[Electron IPC]
+T[本地存储]
 end
 A --> B
 B --> C
 B --> D
-B --> E
-E --> F
-A --> J
-J --> K
-K --> G
-G --> H
-G --> I
-H --> L
-I --> M
-E --> N
+D --> E
+D --> F
+D --> G
+D --> H
+D --> I
+D --> J
+B --> K
+K --> L
+A --> P
+P --> Q
+Q --> M
+M --> N
+M --> O
+N --> R
+O --> S
+K --> T
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx:1-43](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L1-L43)
-- [packages/setup-wizard/src/store/setup-wizard.store.ts:1-86](file://packages/setup-wizard/src/store/setup-wizard.store.ts#L1-L86)
-- [packages/setup-wizard/src/types/adapter.ts:1-46](file://packages/setup-wizard/src/types/adapter.ts#L1-L46)
+- [packages/setup-wizard/src/components/setup-wizard/index.tsx:11-28](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L11-L28)
+- [packages/setup-wizard/src/components/ui/button.tsx:41-62](file://packages/setup-wizard/src/components/ui/button.tsx#L41-L62)
+- [packages/setup-wizard/src/components/ui/input.tsx:4-18](file://packages/setup-wizard/src/components/ui/input.tsx#L4-L18)
+- [packages/setup-wizard/src/components/ui/select.tsx:7-11](file://packages/setup-wizard/src/components/ui/select.tsx#L7-L11)
 
 ### 数据流图
 
@@ -161,22 +284,26 @@ E --> N
 sequenceDiagram
 participant User as 用户
 participant Wizard as WizardContainer
+participant Steps as 步骤组件
+participant UIComponents as 基础UI组件
 participant Store as Zustand Store
 participant Adapter as WizardAdapter
 participant API as 外部服务
 User->>Wizard : 点击下一步
-Wizard->>Store : 更新状态
-Store-->>Wizard : 返回新状态
-Wizard->>Adapter : 提交步骤数据
+Wizard->>Steps : 切换到新步骤
+Steps->>UIComponents : 渲染基础组件
+UIComponents->>Store : 触发状态更新
+Store-->>UIComponents : 返回新状态
+UIComponents->>Adapter : 提交步骤数据
 Adapter->>API : 发送请求
 API-->>Adapter : 返回结果
-Adapter-->>Wizard : 返回完成状态
-Wizard->>Wizard : 更新当前步骤
+Adapter-->>Store : 更新完成状态
+Store-->>Wizard : 状态同步
 Wizard-->>User : 显示新步骤
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:66-95](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L66-L95)
+- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:30-38](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L30-L38)
 - [packages/setup-wizard/src/store/setup-wizard.store.ts:56-85](file://packages/setup-wizard/src/store/setup-wizard.store.ts#L56-L85)
 
 ## 详细组件分析
@@ -202,7 +329,7 @@ SetupWizard --> WizardContainer : 渲染子组件
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx:6-40](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L6-L40)
+- [packages/setup-wizard/src/components/setup-wizard/index.tsx:6-30](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L6-L30)
 
 ### WizardContainer 容器组件
 
@@ -230,13 +357,13 @@ M --> O[结束]
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:25-95](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L25-L95)
+- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:24-73](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L24-L73)
 
 ### 步骤组件分析
 
 #### WelcomeStep 欢迎步骤
 
-WelcomeStep提供了一个简洁的欢迎界面，展示设置向导的主要步骤：
+WelcomeStep提供了一个简洁的欢迎界面，展示设置向导的主要步骤，使用Button和GlassCard组件：
 
 ```mermaid
 classDiagram
@@ -249,26 +376,34 @@ class SetupStep {
 +title : string
 +description : string
 }
+class Button {
++variant : string
++size : string
++onClick : () => void
+}
 WelcomeStep --> SetupStep : 展示多个步骤
+WelcomeStep --> Button : 使用启动按钮
 SetupStep --> GlassCard : 包装显示
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx:9-25](file://packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx#L9-L25)
+- [packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx:27-86](file://packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx#L27-L86)
 
 #### ApiKeyStep API密钥步骤
 
-ApiKeyStep处理API密钥的输入和验证过程：
+ApiKeyStep处理API密钥的输入和验证过程，使用Input基础组件：
 
 ```mermaid
 sequenceDiagram
 participant User as 用户
 participant ApiKeyStep as ApiKeyStep
+participant Input as Input组件
 participant Store as Zustand Store
 participant Adapter as 适配器
 User->>ApiKeyStep : 输入API密钥
-ApiKeyStep->>Store : 更新状态
-Store-->>ApiKeyStep : 确认更新
+ApiKeyStep->>Input : 更新输入状态
+Input->>Store : 触发状态更新
+Store-->>Input : 确认更新
 User->>ApiKeyStep : 点击测试连接
 ApiKeyStep->>Adapter : 验证密钥
 Adapter-->>ApiKeyStep : 返回验证结果
@@ -280,7 +415,7 @@ ApiKeyStep-->>User : 显示连接状态
 
 #### ModelSelectionStep 模型选择步骤
 
-ModelSelectionStep提供了一个丰富的AI模型选择界面：
+ModelSelectionStep提供了一个丰富的AI模型选择界面，使用Select基础组件：
 
 ```mermaid
 classDiagram
@@ -290,25 +425,25 @@ class ModelSelectionStep {
 +selectedProvider : string
 +handleSelect(modelId) void
 }
-class Model {
-+id : string
-+name : string
-+provider : string
-+description : string
-+badge : string
-+gradient : string
-+icon : React.ComponentType
+class Select {
++size : string
++position : string
++align : string
 }
-class MoreModel {
-+id : string
-+name : string
-+description : string
-+badge : string
-+icon : React.ComponentType
-+provider : string
+class SelectTrigger {
++size : string
 }
-ModelSelectionStep --> Model : 渲染主要模型
-ModelSelectionStep --> MoreModel : 渲染更多模型
+class SelectContent {
++position : string
++align : string
+}
+class SelectItem {
++disabled : boolean
+}
+ModelSelectionStep --> Select : 使用选择组件
+Select --> SelectTrigger : 包含触发器
+Select --> SelectContent : 包含内容
+Select --> SelectItem : 包含选项
 ```
 
 **图表来源**
@@ -395,26 +530,30 @@ A --> C["lucide-react (^0.469.0)"]
 A --> D["zustand (^5.0.3)"]
 A --> E["tailwind-merge (^2.6.0)"]
 A --> F["clsx (^2.1.1)"]
-B --> G["@types/react (^19.0.0)"]
-D --> H["@types/react-dom (^19.0.0)"]
+A --> G["class-variance-authority (^0.7.1)"]
+A --> H["radix-ui (^1.4.3)"]
+B --> I["@types/react (^19.0.0)"]
+D --> J["@types/react-dom (^19.0.0)"]
 subgraph "内部依赖"
-I[components/setup-wizard]
-J[adapters]
-K[store]
-L[types]
-M[context]
-N[lib]
+K[components/setup-wizard]
+L[components/ui]
+M[adapters]
+N[store]
+O[types]
+P[context]
+Q[lib]
 end
-A --> I
-A --> J
 A --> K
 A --> L
 A --> M
 A --> N
+A --> O
+A --> P
+A --> Q
 ```
 
 **图表来源**
-- [packages/setup-wizard/package.json:25-59](file://packages/setup-wizard/package.json#L25-L59)
+- [packages/setup-wizard/package.json:21-52](file://packages/setup-wizard/package.json#L21-L52)
 
 ### 外部依赖分析
 
@@ -424,12 +563,15 @@ A --> N
 - **Lucide React**: 图标库，提供现代化的SVG图标
 - **Zustand 5.0.3**: 轻量级状态管理库
 - **Tailwind Merge**: 类名合并工具
+- **Class Variance Authority**: 组件变体系统
 - **Radix UI**: 无障碍的UI组件库
+
+**新增**：基础UI组件系统引入了class-variance-authority和radix-ui等关键依赖，为组件变体系统和无障碍功能提供了强大支持。
 
 这些依赖的选择体现了组件包对性能、可访问性和开发体验的关注。
 
 **章节来源**
-- [packages/setup-wizard/package.json:1-61](file://packages/setup-wizard/package.json#L1-L61)
+- [packages/setup-wizard/package.json:1-58](file://packages/setup-wizard/package.json#L1-L58)
 
 ## 性能考虑
 
@@ -444,6 +586,12 @@ A --> N
 - 使用React.memo和useMemo优化昂贵计算
 - 条件渲染减少DOM节点数量
 - 懒加载非关键资源
+
+### 基础组件优化
+- **组件复用**：基础UI组件可在多个步骤中复用，减少重复代码
+- **变体系统**：统一的变体和尺寸系统减少了CSS样式的重复
+- **数据槽系统**：通过data-slot属性支持精确的样式覆盖
+- **无障碍优化**：所有基础组件都内置了ARIA属性和键盘导航支持
 
 ### 适配器优化
 - 异步加载适配器，避免阻塞主流程
@@ -470,6 +618,14 @@ A --> N
 2. 验证状态序列化/反序列化
 3. 实现适当的锁机制
 
+#### 基础组件样式问题
+**症状**: UI组件样式异常或变体不生效
+**原因**: CSS类名冲突或组件使用不当
+**解决方案**:
+1. 检查data-slot属性是否正确设置
+2. 验证变体和尺寸参数的有效性
+3. 确保基础组件的导入路径正确
+
 #### 性能问题
 **症状**: 向导响应缓慢或卡顿
 **原因**: 组件重渲染过多或内存泄漏
@@ -490,6 +646,7 @@ A --> N
 - **类型安全**: 完整的TypeScript支持和类型定义
 - **状态管理**: 高效的Zustand集成和持久化
 - **平台适配**: 灵活的适配器模式支持多平台部署
+- **基础组件系统**: 重构后的20+个原子化UI组件，提供一致的设计语言
 
 ### 用户体验
 - **响应式设计**: 适配各种屏幕尺寸和设备
@@ -502,5 +659,7 @@ A --> N
 - **国际化**: 内置多语言支持框架
 - **主题系统**: 灵活的主题和样式定制
 - **测试友好**: 完善的单元测试和集成测试
+
+**重大更新**：UI组件库重构为基础组件系统后，显著提升了组件的可复用性、一致性和可维护性。新的变体系统和数据槽机制为开发者提供了更强大的样式定制能力，同时保持了设计系统的一致性。
 
 该组件包为OpenClaw项目提供了一个坚实的技术基础，能够有效提升用户的初始体验和产品采用率。其模块化的设计使得未来的功能扩展和维护变得更加容易和可控。

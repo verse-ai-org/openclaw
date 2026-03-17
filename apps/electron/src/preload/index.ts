@@ -49,4 +49,24 @@ contextBridge.exposeInMainWorld("electronBridge", {
   /** 获取当前 Gateway 连接信息 */
   getGatewayInfo: (): Promise<{ port: number; token: string; wsUrl: string }> =>
     ipcRenderer.invoke("gateway:info"),
+
+  /**
+   * Validate an API key for the given auth method.
+   * The main process performs a lightweight probe against the provider API.
+   * Returns { ok: true } on success, { ok: false, error } on failure.
+   */
+  validateApiKey: (
+    authMethod: string,
+    apiKey: string,
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("onboarding:validateApiKey", authMethod, apiKey),
+
+  /**
+   * Fetch the model catalog for the given provider.
+   * The main process calls the CLI loadModelCatalog() and returns the result.
+   */
+  fetchModelCatalog: (
+    provider: string,
+  ): Promise<Array<{ provider: string; id: string; name?: string; contextWindow?: number; reasoning?: boolean }>> =>
+    ipcRenderer.invoke("onboarding:fetchModelCatalog", provider),
 });
