@@ -33,9 +33,7 @@
 </cite>
 
 ## 更新摘要
-
 **所做更改**
-
 - 新增shadcn/ui设计系统的完整组件架构分析
 - 添加新的Sidebar组件、Checkbox、Sheet、Switch等UI组件
 - 更新use-mobile钩子的引入和使用
@@ -43,7 +41,6 @@
 - 新增组件配置文件components.json的详细说明
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -102,7 +99,6 @@ end
 ```
 
 **图表来源**
-
 - [main.ts:1-3](file://ui/src/main.ts#L1-L3)
 - [main.tsx:1-11](file://ui-react/src/main.tsx#L1-L11)
 - [router.tsx:1-42](file://ui-react/src/router.tsx#L1-L42)
@@ -110,7 +106,6 @@ end
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 
 **章节来源**
-
 - [README.md:185-212](file://README.md#L185-L212)
 - [package.json:1-28](file://ui/package.json#L1-L28)
 - [package.json:1-57](file://ui-react/package.json#L1-L57)
@@ -155,7 +150,6 @@ OpenClawApp --> I18nController : 使用
 ```
 
 **图表来源**
-
 - [app.ts:110-630](file://ui/src/ui/app.ts#L110-L630)
 
 ### React UI核心组件（shadcn/ui设计系统）
@@ -245,7 +239,6 @@ AppShell <.. SkillsPage : 布局容器
 ```
 
 **图表来源**
-
 - [chat.store.ts:135-230](file://ui-react/src/store/chat.store.ts#L135-L230)
 - [skills.store.ts:16-32](file://ui-react/src/store/skills.store.ts#L16-L32)
 - [gateway.store.ts:41-68](file://ui-react/src/store/gateway.store.ts#L41-L68)
@@ -255,7 +248,6 @@ AppShell <.. SkillsPage : 布局容器
 - [SkillsPage.tsx:10-31](file://ui-react/src/pages/SkillsPage.tsx#L10-L31)
 
 **章节来源**
-
 - [app.ts:110-630](file://ui/src/ui/app.ts#L110-L630)
 - [chat.store.ts:135-230](file://ui-react/src/store/chat.store.ts#L135-L230)
 - [skills.store.ts:16-32](file://ui-react/src/store/skills.store.ts#L16-L32)
@@ -327,7 +319,6 @@ XX --> N
 ```
 
 **图表来源**
-
 - [app.ts:110-630](file://ui/src/ui/app.ts#L110-L630)
 - [chat.store.ts:135-230](file://ui-react/src/store/chat.store.ts#L135-L230)
 - [skills.store.ts:71-197](file://ui-react/src/store/skills.store.ts#L71-L197)
@@ -364,7 +355,6 @@ Store->>Chat : 渲染完整消息
 ```
 
 **图表来源**
-
 - [app.ts:497-506](file://ui/src/ui/app.ts#L497-L506)
 - [chat.store.ts:166-203](file://ui-react/src/store/chat.store.ts#L166-L203)
 
@@ -390,12 +380,10 @@ L --> M
 ```
 
 **图表来源**
-
 - [ChatPage.tsx:6-21](file://ui-react/src/pages/ChatPage.tsx#L6-L21)
 - [chat.store.ts:166-229](file://ui-react/src/store/chat.store.ts#L166-L229)
 
 **章节来源**
-
 - [app.ts:497-506](file://ui/src/ui/app.ts#L497-L506)
 - [ChatPage.tsx:6-21](file://ui-react/src/pages/ChatPage.tsx#L6-L21)
 - [chat.store.ts:166-229](file://ui-react/src/store/chat.store.ts#L166-L229)
@@ -447,7 +435,6 @@ SidebarMenu <|-- SidebarMenuButton : 组合
 ```
 
 **图表来源**
-
 - [sidebar.tsx:145-245](file://ui-react/src/components/ui/sidebar.tsx#L145-L245)
 - [sidebar.tsx:50-143](file://ui-react/src/components/ui/sidebar.tsx#L50-L143)
 - [sidebar.tsx:247-267](file://ui-react/src/components/ui/sidebar.tsx#L247-L267)
@@ -478,13 +465,11 @@ J --> S[嵌入式布局]
 ```
 
 **图表来源**
-
 - [sidebar.tsx:22-27](file://ui-react/src/components/ui/sidebar.tsx#L22-L27)
 - [sidebar.tsx:145-245](file://ui-react/src/components/ui/sidebar.tsx#L145-L245)
 - [sidebar.tsx:91-101](file://ui-react/src/components/ui/sidebar.tsx#L91-L101)
 
 **章节来源**
-
 - [sidebar.tsx:145-245](file://ui-react/src/components/ui/sidebar.tsx#L145-L245)
 - [sidebar.tsx:50-143](file://ui-react/src/components/ui/sidebar.tsx#L50-L143)
 - [sidebar.tsx:247-267](file://ui-react/src/components/ui/sidebar.tsx#L247-L267)
@@ -510,7 +495,6 @@ Checkbox --> CheckboxPrimitive : 使用
 ```
 
 **图表来源**
-
 - [checkbox.tsx:6-23](file://ui-react/src/components/ui/checkbox.tsx#L6-L23)
 
 #### Sheet组件
@@ -533,7 +517,6 @@ Sheet <|-- SheetContent : 组合
 ```
 
 **图表来源**
-
 - [sheet.tsx:8-18](file://ui-react/src/components/ui/sheet.tsx#L8-L18)
 - [sheet.tsx:40-79](file://ui-react/src/components/ui/sheet.tsx#L40-L79)
 
@@ -553,11 +536,9 @@ Switch --> SwitchPrimitive : 使用
 ```
 
 **图表来源**
-
 - [switch.tsx:5-30](file://ui-react/src/components/ui/switch.tsx#L5-L30)
 
 **章节来源**
-
 - [checkbox.tsx:1-26](file://ui-react/src/components/ui/checkbox.tsx#L1-L26)
 - [sheet.tsx:1-134](file://ui-react/src/components/ui/sheet.tsx#L1-L134)
 - [switch.tsx:1-33](file://ui-react/src/components/ui/switch.tsx#L1-L33)
@@ -581,7 +562,6 @@ H --> I
 ```
 
 **图表来源**
-
 - [use-mobile.ts:3-19](file://ui-react/src/hooks/use-mobile.ts#L3-L19)
 
 #### 移动端检测逻辑
@@ -599,11 +579,9 @@ stateDiagram-v2
 ```
 
 **图表来源**
-
 - [use-mobile.ts:8-16](file://ui-react/src/hooks/use-mobile.ts#L8-L16)
 
 **章节来源**
-
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 
 ### 技能管理系统
@@ -671,7 +649,6 @@ SkillCard --> SkillStatusBadges : 状态徽章
 ```
 
 **图表来源**
-
 - [SkillsPage.tsx:10-31](file://ui-react/src/pages/SkillsPage.tsx#L10-L31)
 - [skills.store.ts:16-32](file://ui-react/src/store/skills.store.ts#L16-L32)
 - [SkillCard.tsx:9-18](file://ui-react/src/components/skills/SkillCard.tsx#L9-L18)
@@ -705,7 +682,6 @@ stateDiagram-v2
 ```
 
 **图表来源**
-
 - [skills.store.ts:80-105](file://ui-react/src/store/skills.store.ts#L80-L105)
 - [skills.store.ts:111-137](file://ui-react/src/store/skills.store.ts#L111-L137)
 - [skills.store.ts:139-165](file://ui-react/src/store/skills.store.ts#L139-L165)
@@ -730,12 +706,10 @@ K --> L
 ```
 
 **图表来源**
-
 - [skills-grouping.ts:16-42](file://ui-react/src/lib/skills-grouping.ts#L16-L42)
 - [SkillsPage.tsx:31-42](file://ui-react/src/pages/SkillsPage.tsx#L31-L42)
 
 **章节来源**
-
 - [SkillsPage.tsx:10-31](file://ui-react/src/pages/SkillsPage.tsx#L10-L31)
 - [skills.store.ts:16-32](file://ui-react/src/store/skills.store.ts#L16-L32)
 - [SkillCard.tsx:9-18](file://ui-react/src/components/skills/SkillCard.tsx#L9-L18)
@@ -773,7 +747,6 @@ ConfigManager --> SchemaValidator : 使用
 ```
 
 **图表来源**
-
 - [app.ts:183-204](file://ui/src/ui/app.ts#L183-L204)
 
 ### 设备监控组件
@@ -794,11 +767,9 @@ stateDiagram-v2
 ```
 
 **图表来源**
-
 - [app.ts:164-179](file://ui/src/ui/app.ts#L164-L179)
 
 **章节来源**
-
 - [app.ts:183-204](file://ui/src/ui/app.ts#L183-L204)
 - [app.ts:164-179](file://ui/src/ui/app.ts#L164-L179)
 
@@ -837,7 +808,6 @@ end
 ```
 
 **图表来源**
-
 - [package.json:11-26](file://ui/package.json#L11-L26)
 - [package.json:11-55](file://ui-react/package.json#L11-L55)
 - [components.json:1-22](file://ui-react/components.json#L1-22)
@@ -846,19 +816,18 @@ end
 
 两个UI实现都保持了良好的向后兼容性：
 
-| 功能模块   | Lit实现     | React实现   | 兼容性        |
-| ---------- | ----------- | ----------- | ------------- |
-| 聊天界面   | ✅ 完全支持 | ✅ 完全支持 | ✅ 高度相似   |
-| 配置管理   | ✅ 基础支持 | ✅ 增强支持 | ✅ 功能相当   |
-| 设备监控   | ✅ 基础支持 | ✅ 增强支持 | ✅ 功能相当   |
-| 日志查看   | ✅ 基础支持 | ✅ 增强支持 | ✅ 功能相当   |
-| 技能管理   | ❌ 不支持   | ✅ 完全支持 | ✅ 新功能     |
-| 主题切换   | ✅ 支持     | ✅ 支持     | ✅ 功能相同   |
-| 国际化     | ✅ 支持     | ✅ 支持     | ✅ 功能相同   |
-| 响应式设计 | ❌ 不支持   | ✅ 完全支持 | ✅ 移动端优化 |
+| 功能模块 | Lit实现 | React实现 | 兼容性 |
+|---------|---------|-----------|--------|
+| 聊天界面 | ✅ 完全支持 | ✅ 完全支持 | ✅ 高度相似 |
+| 配置管理 | ✅ 基础支持 | ✅ 增强支持 | ✅ 功能相当 |
+| 设备监控 | ✅ 基础支持 | ✅ 增强支持 | ✅ 功能相当 |
+| 日志查看 | ✅ 基础支持 | ✅ 增强支持 | ✅ 功能相当 |
+| 技能管理 | ❌ 不支持 | ✅ 完全支持 | ✅ 新功能 |
+| 主题切换 | ✅ 支持 | ✅ 支持 | ✅ 功能相同 |
+| 国际化 | ✅ 支持 | ✅ 支持 | ✅ 功能相同 |
+| 响应式设计 | ❌ 不支持 | ✅ 完全支持 | ✅ 移动端优化 |
 
 **章节来源**
-
 - [package.json:11-26](file://ui/package.json#L11-L26)
 - [package.json:11-55](file://ui-react/package.json#L11-L55)
 - [components.json:1-22](file://ui-react/components.json#L1-22)
@@ -949,7 +918,6 @@ M --> N
 ```
 
 **章节来源**
-
 - [app.ts:129-131](file://ui/src/ui/app.ts#L129-L131)
 - [sidebar.tsx:174-197](file://ui-react/src/components/ui/sidebar.tsx#L174-L197)
 - [use-mobile.ts:8-16](file://ui-react/src/hooks/use-mobile.ts#L8-L16)
@@ -968,7 +936,6 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 **新增的shadcn/ui设计系统**提供了统一的设计语言和组件库，包括全新的Sidebar组件、Checkbox、Sheet、Switch等基础UI组件，以及use-mobile钩子的引入，显著提升了用户体验和开发效率。这个设计系统与现有的聊天和配置管理功能无缝集成，形成了一个完整的AI助手管理平台。
 
 **新增的Sidebar组件系统**具有以下优势：
-
 - 响应式设计：自动适配桌面端和移动端
 - 多变体支持：支持sidebar、floating、inset三种变体
 - 可折叠功能：支持完整展开、图标模式、无折叠三种模式
@@ -976,7 +943,6 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 - 无障碍访问：完整的ARIA标签和键盘导航支持
 
 **新增的UI组件库**提供了高质量的基础组件：
-
 - Checkbox：支持禁用状态和受控/非受控模式
 - Sheet：支持四个方向的抽屉式弹窗
 - Switch：支持不同尺寸和状态的开关组件

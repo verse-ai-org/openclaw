@@ -23,6 +23,19 @@ contextBridge.exposeInMainWorld("electronBridge", {
     ipcRenderer.invoke("wizard:request", method, params),
 
   /**
+   * 保存 Onboarding 配置到 ~/.openclaw/openclaw.json。
+   * 必须在 notifyOnboardingComplete() 之前调用，确保下次启动不再走 wizard。
+   */
+  saveOnboardingConfig: (cfg: unknown): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("onboarding:saveConfig", cfg),
+
+  /**
+   * 写调试日志到 ~/.openclaw/electron-onboarding.log。
+   */
+  writeDebugLog: (message: string): Promise<void> =>
+    ipcRenderer.invoke("onboarding:writeDebugLog", message),
+
+  /**
    * 通知主进程 Onboarding 已完成，主进程负责切换窗口内容到 Control UI。
    * 仅在 Onboarding Renderer 页面使用。
    */

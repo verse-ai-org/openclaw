@@ -60,13 +60,16 @@ function persistSessionToken(gatewayUrl: string, token: string) {
 function resolveDefaultGatewayUrl(): string {
   // In development (Vite on :5174), default to the gateway directly so we
   // don't need a WebSocket proxy and avoid Vite EPIPE noise.
+  // Port is read from VITE_GATEWAY_PORT env var so it stays in sync with
+  // the Electron main process (which may use 18790 to avoid conflicts).
   if (
     typeof import.meta !== "undefined" &&
     import.meta.env?.DEV &&
     location.hostname === "localhost" &&
     location.port === "5174"
   ) {
-    return "ws://127.0.0.1:18789";
+    const port = import.meta.env.VITE_GATEWAY_PORT ?? "18789";
+    return `ws://127.0.0.1:${port}`;
   }
   const proto = location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${location.host}`;
@@ -85,28 +88,42 @@ function isDevGatewayOverrideActive(): boolean {
 export function loadSettings(): UiSettings {
   const defaultUrl = resolveDefaultGatewayUrl();
 
-  // Read token from URL hash (#token=xxx) – same as the Lit UI applySettingsFromUrl.
-  // Strip it from the URL immediately so it never appears in history.
+  // Read gatewayUrl and token from URL hash injected by Electron main process.
+  // (#gatewayUrl=ws://...&token=xxx)
+  // Strip them from the URL immediately so they never appear in history.
   let urlToken = "";
+  let urlGatewayUrl = "";
   try {
     const hashParams = new URLSearchParams(
       location.hash.startsWith("#") ? location.hash.slice(1) : location.hash,
     );
-    const raw = hashParams.get("token");
-    if (raw?.trim()) {
-      urlToken = raw.trim();
+    const rawToken = hashParams.get("token");
+    const rawGatewayUrl = hashParams.get("gatewayUrl");
+    if (rawToken?.trim()) {
+      urlToken = rawToken.trim();
       hashParams.delete("token");
+    }
+    if (rawGatewayUrl?.trim()) {
+      urlGatewayUrl = rawGatewayUrl.trim();
+      hashParams.delete("gatewayUrl");
+    }
+    if (urlToken || urlGatewayUrl) {
       const newHash = hashParams.toString();
       history.replaceState(null, "", newHash ? `#${newHash}` : location.pathname + location.search);
-      // Persist to sessionStorage immediately so the token survives page refresh.
-      persistSessionToken(resolveDefaultGatewayUrl(), urlToken);
+      // Persist token to sessionStorage so it survives page refresh.
+      if (urlToken) {
+        persistSessionToken(urlGatewayUrl || defaultUrl, urlToken);
+      }
     }
   } catch {
     // best-effort
   }
+
+  // Effective gateway URL: hash param > localStorage > default
+  const resolvedGatewayUrl = urlGatewayUrl || defaultUrl;
   const defaults: UiSettings = {
-    gatewayUrl: defaultUrl,
-    token: urlToken || loadSessionToken(defaultUrl),
+    gatewayUrl: resolvedGatewayUrl,
+    token: urlToken || loadSessionToken(resolvedGatewayUrl),
     sessionKey: "main",
     lastActiveSessionKey: "main",
     theme: "system",
@@ -124,6 +141,10 @@ export function loadSettings(): UiSettings {
     }
     const parsed = JSON.parse(raw) as Partial<UiSettings>;
     const gatewayUrl = (() => {
+      // Hash param (injected by Electron) takes highest priority.
+      if (urlGatewayUrl) {
+        return urlGatewayUrl;
+      }
       // In dev mode (port 5174) always use the gateway override — never trust
       // a stale localStorage URL that may point back at the Vite dev server.
       if (isDevGatewayOverrideActive()) {

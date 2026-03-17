@@ -2,40 +2,25 @@ import path from "node:path";
 import { app, BrowserWindow, shell, session } from "electron";
 
 /**
- * 解析 Electron 专属渲染页面（renderer 工程产物）的加载目标。
- * - setup 页面：从 ui-react 加载（首次启动向导）
- * - 其他页面：从 apps/electron/renderer 加载
- * - 打包后：Resources/renderer/<page>.html 或 Resources/control-ui-react/<page>.html
- * - 开发时：若设了 VITE_DEV_SERVER_URL，从 Vite dev server 加载（热更新）
- *              否则从静态产物加载
+ * 解析渲染页面的加载目标。
+ * 所有页面（setup + index）均从 ui-react 工程加载：
+ * - 开发时：VITE_UI_REACT_URL (http://localhost:5174)
+ * - 打包后：Resources/control-ui-react/
  */
-const VITE_DEV_URL = process.env.VITE_DEV_SERVER_URL?.replace(/\/$/, "");
 const VITE_UI_REACT_URL = process.env.VITE_UI_REACT_URL?.replace(/\/$/, "");
 
 function resolveRendererUrl(page: string): { type: "url"; url: string } | { type: "file"; path: string } {
-  // setup 页面特殊处理：从 ui-react 加载
-  if (page === "setup") {
-    if (app.isPackaged) {
-      return { type: "file", path: path.join(process.resourcesPath, "control-ui-react", "setup.html") };
-    }
-    if (VITE_UI_REACT_URL) {
-      // Vite dev server 模式：从 http://localhost:5174/setup.html 加载
-      return { type: "url", url: `${VITE_UI_REACT_URL}/setup.html` };
-    }
-    // 静态产物模式：从 dist/control-ui-react/setup.html 加载
-    return { type: "file", path: path.resolve(__dirname, "../../dist/control-ui-react", "setup.html") };
-  }
-
-  // 其他页面：从 apps/electron/renderer 加载
   if (app.isPackaged) {
-    return { type: "file", path: path.join(process.resourcesPath, "renderer", `${page}.html`) };
+    return { type: "file", path: path.join(process.resourcesPath, "control-ui-react", `${page}.html`) };
   }
-  if (VITE_DEV_URL) {
-    // Vite dev server 模式：从 http://localhost:5173/<page>.html 加载
-    return { type: "url", url: `${VITE_DEV_URL}/${page}.html` };
+  if (VITE_UI_REACT_URL) {
+    // For the main index page, load root "/" so React Router's createBrowserRouter
+    // receives "/" as the initial URL (not "/index.html" which has no route match).
+    const urlPath = page === "index" ? "/" : `/${page}.html`;
+    return { type: "url", url: `${VITE_UI_REACT_URL}${urlPath}` };
   }
-  // 静态产物模式：__dirname = dist/main/，向上 2 级到 apps/electron/，再进入 renderer/dist/
-  return { type: "file", path: path.resolve(__dirname, "../../renderer/dist", `${page}.html`) };
+  // 静态产物模式（未设 VITE_UI_REACT_URL）
+  return { type: "file", path: path.resolve(__dirname, "../../dist/control-ui-react", `${page}.html`) };
 }
 
 /**
@@ -43,23 +28,20 @@ function resolveRendererUrl(page: string): { type: "url"; url: string } | { type
  * 统一对所有响应追加宽松策略，允许 Gateway HTTP/WS 资源和 Vite dev server。
  */
 export function configureSession(port: number): void {
-  // Vite dev server origins（开发时热更新）
-  const viteOrigin = VITE_DEV_URL ?? "";
   const uiReactOrigin = VITE_UI_REACT_URL ?? "";
-  const allViteOrigins = [viteOrigin, uiReactOrigin].filter(Boolean).join(" ");
-  
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         "Content-Security-Policy": [
           [
-            `default-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port}${allViteOrigins ? ` ${allViteOrigins}` : ""}`,
-            `script-src 'self' 'unsafe-inline' 'unsafe-eval' file: http://127.0.0.1:${port}${allViteOrigins ? ` ${allViteOrigins}` : ""}`,
-            `style-src 'self' 'unsafe-inline' file: http://127.0.0.1:${port}${allViteOrigins ? ` ${allViteOrigins}` : ""}`,
-            `img-src 'self' data: blob: file: http://127.0.0.1:${port}${allViteOrigins ? ` ${allViteOrigins}` : ""}`,
-            `font-src 'self' data: file: http://127.0.0.1:${port}${allViteOrigins ? ` ${allViteOrigins}` : ""}`,
-            `connect-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port} wss://127.0.0.1:${port}${allViteOrigins ? ` ${allViteOrigins} ws://localhost:5173 ws://localhost:5174` : ""}`,
+            `default-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            `script-src 'self' 'unsafe-inline' 'unsafe-eval' file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            `style-src 'self' 'unsafe-inline' file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            `img-src 'self' data: blob: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            `font-src 'self' data: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            `connect-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port} wss://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin} ws://localhost:5174` : ""}`,
           ].join("; "),
         ],
       },
@@ -104,16 +86,32 @@ export function createWindow(): BrowserWindow {
  * 加载 Electron 专属渲染页面。
  * - 开发时设了 VITE_DEV_SERVER_URL 则从 Vite dev server 加载（支持热更新）
  * - 否则从 file:// 静态产物加载
+ * - opts.port / opts.token：注入到 URL hash，供 ui-react settings.store 读取
  */
-export function loadRendererPage(win: BrowserWindow, page: string): void {
+export function loadRendererPage(
+  win: BrowserWindow,
+  page: string,
+  opts?: { port: number; token: string },
+): void {
   const target = resolveRendererUrl(page);
+
+  // 构造携带 Gateway 连接信息的 hash
+  const hash =
+    opts
+      ? `#gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(opts.token)}`
+      : "";
 
   win.once("ready-to-show", () => win.show());
 
   if (target.type === "url") {
-    void win.loadURL(target.url);
+    void win.loadURL(`${target.url}${hash}`);
   } else {
-    void win.loadFile(target.path);
+    // file:// 协议不支持直接加 hash，需用 loadURL 拼 file:// 路径
+    if (hash) {
+      void win.loadURL(`file://${target.path}${hash}`);
+    } else {
+      void win.loadFile(target.path);
+    }
   }
 }
 

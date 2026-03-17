@@ -39,9 +39,7 @@
 </cite>
 
 ## 更新摘要
-
 **所做更改**
-
 - 新增ChatSidebar组件的详细分析，提供现代化侧边栏界面
 - 更新useSessionManager钩子的完整功能说明，包括会话管理和历史加载
 - 新增markdown-components.tsx组件系统的详细说明
@@ -50,7 +48,6 @@
 - 更新会话管理架构，从SessionSelector迁移到ChatSidebar
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -63,15 +60,12 @@
 10. [附录](#附录)
 
 ## 简介
-
 本文件系统性阐述WebChat界面的设计与实现，覆盖实时聊天、消息收发、界面布局、消息历史、输入框功能、多媒体消息、文件传输、表情反应、聊天室与群组管理、隐私策略以及WebSocket连接、消息同步与离线处理等主题。文档基于仓库中的UI实现、网关协议、通道适配层与平台集成进行综合分析，帮助开发者与运维人员快速理解并部署WebChat。
 
 **更新** 本版本重点反映了从传统Lit框架向现代React架构的迁移，包括新的ChatSidebar组件、增强的useSessionManager钩子、markdown-components.tsx组件系统，以及GatewayChatRuntimeProvider的全面增强。
 
 ## 项目结构
-
 WebChat界面现已迁移到React架构，由前端UI、网关客户端、通道适配层与平台集成四部分组成：
-
 - 前端UI（React架构）：使用React 19、Zustand状态管理、Assistant UI组件库，负责渲染聊天线程、输入框、附件预览、队列与占位提示等。
 - 网关客户端：封装WebSocket连接、请求/响应、事件订阅与重连逻辑。
 - 通道适配层：抽象Web渠道的登录、会话、入站监听与出站发送。
@@ -139,7 +133,6 @@ Android_Session --> Hook_SessionManager
 ```
 
 **图表来源**
-
 - [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
 - [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
 - [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
@@ -149,7 +142,6 @@ Android_Session --> Hook_SessionManager
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
 
 **章节来源**
-
 - [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
 - [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
 - [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
@@ -157,7 +149,6 @@ Android_Session --> Hook_SessionManager
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 
 ## 核心组件
-
 - **React聊天页面**：ChatPage作为根组件，整合会话选择器和线程视图，提供完整的聊天界面。
 - **现代化侧边栏**：ChatSidebar提供品牌标识、会话列表管理和网关状态指示，替代传统的SessionSelector组件。
 - **Markdown组件系统**：markdown-components.tsx提供共享的Markdown组件定义，支持assistant-ui上下文和独立使用两种模式。
@@ -170,7 +161,6 @@ Android_Session --> Hook_SessionManager
 - **工具降级组件**：ToolFallback展示工具调用的分类、状态和详细信息。
 
 **章节来源**
-
 - [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
 - [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
 - [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
@@ -179,7 +169,6 @@ Android_Session --> Hook_SessionManager
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 
 ## 架构总览
-
 WebChat采用"React前端 + Zustand状态管理 + Assistant UI组件库"的现代化架构，通过GatewayChatRuntimeProvider桥接网关事件与React组件。前端通过WebSocket与网关通信，使用标准方法如chat.history、chat.send、chat.inject进行消息同步与交互。群组策略与提及门禁在通道层统一处理，确保跨渠道一致性。
 
 ```mermaid
@@ -211,14 +200,12 @@ Runtime-->>UI : 重新渲染组件
 ```
 
 **图表来源**
-
 - [ChatPage.tsx:9-12](file://ui-react/src/pages/ChatPage.tsx#L9-L12)
 - [ChatSidebar.tsx:19-22](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L22)
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 - [GatewayChatRuntimeProvider.tsx:112-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L112-L270)
 
 **章节来源**
-
 - [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
 - [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
 - [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
@@ -228,7 +215,6 @@ Runtime-->>UI : 重新渲染组件
 ## 详细组件分析
 
 ### ChatSidebar现代化侧边栏组件
-
 - **品牌标识区域**：显示OpenClaw品牌和连接状态指示器，提供直观的视觉反馈。
 - **会话管理功能**：集成会话列表、新建会话按钮和会话切换功能。
 - **网关状态监控**：实时显示网关连接状态，提供断线检测和重连提示。
@@ -251,15 +237,12 @@ Footer --> GatewayIndicator["网关状态指示<br/>彩色圆点 + 文本"]
 ```
 
 **图表来源**
-
 - [ChatSidebar.tsx:19-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L117)
 
 **章节来源**
-
 - [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
 
 ### markdown-components.tsx组件系统
-
 - **共享组件定义**：提供统一的Markdown组件样式，基于shadcn typography规范。
 - **双模式支持**：支持assistant-ui上下文的mdComponents和独立使用的plainMdComponents。
 - **智能代码块处理**：根据上下文自动区分行内代码和代码块，提供不同的样式处理。
@@ -284,15 +267,12 @@ CodeHandling --> PlainMode --> BlockCode
 ```
 
 **图表来源**
-
 - [markdown-components.tsx:16-174](file://ui-react/src/components/chat/markdown-components.tsx#L16-L174)
 
 **章节来源**
-
 - [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
 
 ### useSessionManager会话管理钩子
-
 - **会话列表管理**：通过chat.sessions.list获取和更新会话列表，支持加载状态管理。
 - **历史加载机制**：支持silent模式避免界面闪烁，提供完整的消息历史加载。
 - **会话切换功能**：自动更新设置状态和加载对应会话的历史消息。
@@ -332,15 +312,12 @@ Error --> [*]
 ```
 
 **图表来源**
-
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 
 **章节来源**
-
 - [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
 
 ### 增强的GatewayChatRuntimeProvider
-
 - **内容块系统**：支持交错的文本和工具调用渲染，保持原始消息顺序。
 - **流式渲染增强**：实时流式消息的增量更新和工具调用的有序插入。
 - **消息转换优化**：convertMessage函数处理contentBlocks和toolCalls的复杂转换。
@@ -366,15 +343,12 @@ CancelHandler --> StateReset["状态重置<br/>流状态 + 发送状态清理"]
 ```
 
 **图表来源**
-
 - [GatewayChatRuntimeProvider.tsx:16-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L16-L270)
 
 **章节来源**
-
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 
 ### Zustand状态管理系统
-
 - **聊天状态管理**：chat.store.ts管理消息列表、流式输出、工具调用流和输入状态。
 - **设置状态管理**：settings.store.ts管理用户偏好设置、网关配置和主题设置。
 - **网关状态管理**：gateway.store.ts管理连接状态、事件日志和客户端实例。
@@ -411,19 +385,16 @@ Custom --> Default : resetDefaults
 ```
 
 **图表来源**
-
 - [gateway.store.ts:72-183](file://ui-react/src/store/gateway.store.ts#L72-L183)
 - [chat.store.ts:135-229](file://ui-react/src/store/chat.store.ts#L135-L229)
 - [settings.store.ts:193-222](file://ui-react/src/store/settings.store.ts#L193-L222)
 
 **章节来源**
-
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 
 ### 增强的消息渲染能力
-
 - **内容块系统**：支持交错的文本和工具调用渲染，保持原始消息顺序。
 - **Markdown支持**：AssistantMessage组件集成Markdown渲染，支持GFM语法。
 - **工具调用可视化**：ToolFallback组件提供工具调用的分类、状态和详细信息展示。
@@ -445,19 +416,16 @@ Components --> Final["最终消息渲染"]
 ```
 
 **图表来源**
-
 - [GatewayChatRuntimeProvider.tsx:16-100](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L16-L100)
 - [AssistantMessage.tsx:22-150](file://ui-react/src/components/chat/AssistantMessage.tsx#L22-L150)
 - [ToolFallback.tsx:45-150](file://ui-react/src/components/chat/ToolFallback.tsx#L45-L150)
 
 **章节来源**
-
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 - [AssistantMessage.tsx:1-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L240)
 - [ToolFallback.tsx:1-451](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L451)
 
 ### 工具集成功能
-
 - **工具分类系统**：根据工具名称自动分类为read、write、exec、search、web、database、file、function等类别。
 - **状态跟踪**：支持工具调用的完整生命周期状态跟踪和可视化。
 - **详细信息展示**：通过抽屉式对话框展示工具调用的参数、结果和错误信息。
@@ -475,16 +443,13 @@ Preview --> Detail["详细模式"]
 ```
 
 **图表来源**
-
 - [ToolFallback.tsx:45-150](file://ui-react/src/components/chat/ToolFallback.tsx#L45-L150)
 - [ToolFallback.tsx:214-316](file://ui-react/src/components/chat/ToolFallback.tsx#L214-L316)
 
 **章节来源**
-
 - [ToolFallback.tsx:1-451](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L451)
 
 ### 会话管理
-
 - **会话列表**：通过chat.sessions.list获取会话列表，支持动态刷新。
 - **会话切换**：切换会话时自动加载对应的历史消息。
 - **新会话创建**：支持创建新会话并自动切换到新会话。
@@ -505,15 +470,12 @@ Note over UI,Store : 支持silent模式避免闪烁
 ```
 
 **图表来源**
-
 - [SessionSelector.tsx:34-90](file://ui-react/src/components/chat/SessionSelector.tsx#L34-L90)
 
 **章节来源**
-
 - [SessionSelector.tsx:1-212](file://ui-react/src/components/chat/SessionSelector.tsx#L1-L212)
 
 ### WebSocket连接、消息同步与离线处理
-
 - **连接管理**：gateway.store.ts管理连接状态、事件处理和错误恢复。
 - **事件桥接**：useChatEventBridge将网关事件转换为状态更新，支持聊天、工具和代理事件。
 - **状态同步**：通过注册回调函数实现跨模块的状态同步，避免循环依赖。
@@ -535,17 +497,14 @@ Note over Store,Gateway : 支持断线重连和事件缓冲
 ```
 
 **图表来源**
-
 - [gateway.store.ts:128-167](file://ui-react/src/store/gateway.store.ts#L128-L167)
 - [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
 
 **章节来源**
-
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [useChatEventBridge.ts:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
 
 ## 依赖关系分析
-
 - **React组件依赖**：所有React组件通过GatewayChatRuntimeProvider访问状态管理，避免直接导入Zustand。
 - **状态管理解耦**：useChatEventBridge通过回调函数注册机制避免循环依赖，保持模块边界清晰。
 - **Assistant UI集成**：使用@assistant-ui/react系列包提供统一的UI组件和运行时支持。
@@ -569,7 +528,6 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 ```
 
 **图表来源**
-
 - [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
@@ -577,7 +535,6 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 
 **章节来源**
-
 - [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
@@ -585,7 +542,6 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 
 ## 性能考虑
-
 - **状态管理优化**：使用Zustand替代Redux，减少不必要的状态更新和组件重渲染。
 - **组件懒加载**：React.lazy和Suspense支持大型组件的按需加载。
 - **虚拟化支持**：Assistant UI组件支持消息列表的虚拟化渲染，提高大数据量场景下的性能。
@@ -595,14 +551,12 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 - **会话管理缓存**：useSessionManager实现会话列表缓存，避免频繁的API调用。
 
 **章节来源**
-
 - [vite.config.ts:13-14](file://ui-react/vite.config.ts#L13-L14)
 - [package.json:11-42](file://ui-react/package.json#L11-L42)
 - [GatewayChatRuntimeProvider.tsx:132-197](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L132-L197)
 - [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
 
 ## 故障排除指南
-
 - **连接失败**：检查网关端口与认证配置，确认WebSocket握手成功，查看gateway.store的错误状态。
 - **无消息**：确认已订阅chat.subscribe并成功拉取chat.history，检查useChatEventBridge的事件处理。
 - **组件渲染问题**：检查GatewayChatRuntimeProvider的运行时配置，验证消息转换函数的正确性。
@@ -612,7 +566,6 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 - **侧边栏显示问题**：确认ChatSidebar的依赖注入正常，检查useSessionManager钩子的状态返回。
 
 **章节来源**
-
 - [gateway.store.ts:115-126](file://ui-react/src/store/gateway.store.ts#L115-L126)
 - [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
 - [GatewayChatRuntimeProvider.tsx:227-236](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L227-L236)
@@ -620,18 +573,15 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 - [ChatSidebar.tsx:19-22](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L22)
 
 ## 结论
-
 WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，采用"React + Zustand + Assistant UI"的技术栈实现了更加现代化和可维护的聊天体验。新的架构通过组件化设计、状态管理和事件桥接机制，提供了更好的开发体验和用户体验。通过新增的ChatSidebar组件、增强的useSessionManager钩子、markdown-components.tsx组件系统，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为未来的功能扩展奠定了坚实的基础。
 
 ## 附录
-
 - **配置参考**：WebChat使用网关端点与认证参数，React构建配置独立于传统UI，输出到独立的dist目录。
 - **开发环境**：使用Vite 7.3.1提供开发服务器，支持热重载和TypeScript编译。
 - **生产部署**：构建输出到dist/control-ui-react目录，避免与现有Lit UI冲突。
 - **组件兼容性**：SessionSelector组件保留向后兼容性，但不再作为独立组件使用。
 
 **章节来源**
-
 - [vite.config.ts:21-28](file://ui-react/vite.config.ts#L21-L28)
 - [package.json:5-10](file://ui-react/package.json#L5-L10)
 - [router.tsx:19-41](file://ui-react/src/router.tsx#L19-L41)

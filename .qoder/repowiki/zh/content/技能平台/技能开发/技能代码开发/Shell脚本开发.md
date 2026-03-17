@@ -16,7 +16,6 @@
 </cite>
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -29,20 +28,17 @@
 10. [附录](#附录)
 
 ## 简介
-
 本指南面向希望在OpenClaw生态中进行Shell脚本开发与运维的工程师，系统讲解如何使用Bash实现系统命令调用、进程管理、文件操作、参数处理、条件判断、循环控制与函数定义，并结合仓库中的真实脚本示例（如容器化网关管理、认证过期监控、日志采集、沙箱浏览器入口、安装器等）说明调试、错误处理与性能优化策略。同时覆盖跨平台兼容性与安全编程实践，帮助你在多平台环境中稳定运行Shell自动化任务。
 
 ## 项目结构
-
 仓库中与Shell脚本开发直接相关的核心目录与文件如下：
-
 - scripts/shell-helpers/clawdock-helpers.sh：Docker容器网关的便捷操作封装，演示参数解析、子命令分发、环境读取与容器交互。
 - scripts/auth-monitor.sh：定时任务脚本，用于检测第三方认证状态并在临期或过期时发送通知。
 - scripts/recover-orphaned-processes.sh：扫描并诊断孤儿进程，输出JSON结果，展示复杂流程控制与跨语言协作。
 - scripts/install.sh：跨平台安装器，包含终端交互、下载器选择、包管理器适配、错误诊断与重试逻辑。
 - scripts/build-and-run-mac.sh：本地Swift应用构建与启动脚本，体现进程管理与日志输出。
 - scripts/clawlog.sh：macOS统一日志工具，展示高级过滤、时间范围、搜索、导出与sudo权限处理。
-- scripts/sandbox-\*.sh系列：Docker沙箱镜像构建与浏览器入口脚本，涵盖环境变量、端口映射、图形与VNC支持。
+- scripts/sandbox-*.sh系列：Docker沙箱镜像构建与浏览器入口脚本，涵盖环境变量、端口映射、图形与VNC支持。
 - scripts/docs-spellcheck.sh：文档拼写检查脚本，演示外部工具检测与自动安装流程。
 
 ```mermaid
@@ -72,7 +68,6 @@ K --> |"文档质量"| D
 ```
 
 **图表来源**
-
 - [scripts/shell-helpers/clawdock-helpers.sh:1-418](file://scripts/shell-helpers/clawdock-helpers.sh#L1-L418)
 - [scripts/auth-monitor.sh:1-90](file://scripts/auth-monitor.sh#L1-L90)
 - [scripts/recover-orphaned-processes.sh:1-192](file://scripts/recover-orphaned-processes.sh#L1-L192)
@@ -86,12 +81,10 @@ K --> |"文档质量"| D
 - [scripts/docs-spellcheck.sh:1-45](file://scripts/docs-spellcheck.sh#L1-L45)
 
 **章节来源**
-
 - [scripts/shell-helpers/clawdock-helpers.sh:1-418](file://scripts/shell-helpers/clawdock-helpers.sh#L1-L418)
 - [scripts/install.sh:1-800](file://scripts/install.sh#L1-L800)
 
 ## 核心组件
-
 - 容器化网关助手（clawdock-helpers.sh）
   - 功能：封装容器启动/停止/重启、日志查看、状态查询、进入容器、执行CLI命令、健康检查、令牌配置、设备配对等。
   - 关键点：参数校验、环境变量读取、配置持久化、容器内命令执行、跨平台打开浏览器。
@@ -110,7 +103,7 @@ K --> |"文档质量"| D
 - 日志采集工具（clawlog.sh）
   - 功能：macOS统一日志系统下的日志筛选、流式输出、导出、错误模式、服务器输出过滤。
   - 关键点：sudo免密检测、谓词构造、时间范围、搜索与分类过滤、JSON输出。
-- 沙箱与浏览器（sandbox-\*.sh）
+- 沙箱与浏览器（sandbox-*.sh）
   - 功能：构建基础/通用沙箱镜像，设置DISPLAY与Chrome参数，启用VNC/NOVNC，暴露CDP端口。
   - 关键点：环境变量注入、端口计算与转发、Xvfb/VNC服务、进程等待与清理。
 - 文档拼写检查（docs-spellcheck.sh）
@@ -118,7 +111,6 @@ K --> |"文档质量"| D
   - 关键点：外部工具检测与安装、用户目录pip路径解析。
 
 **章节来源**
-
 - [scripts/shell-helpers/clawdock-helpers.sh:160-304](file://scripts/shell-helpers/clawdock-helpers.sh#L160-L304)
 - [scripts/auth-monitor.sh:68-89](file://scripts/auth-monitor.sh#L68-L89)
 - [scripts/recover-orphaned-processes.sh:32-38](file://scripts/recover-orphaned-processes.sh#L32-L38)
@@ -129,7 +121,6 @@ K --> |"文档质量"| D
 - [scripts/docs-spellcheck.sh:23-44](file://scripts/docs-spellcheck.sh#L23-L44)
 
 ## 架构总览
-
 下图展示了Shell脚本在OpenClaw中的典型工作流：安装器负责环境准备，容器助手负责网关生命周期管理，监控脚本负责健康预警，日志脚本负责问题定位，沙箱脚本负责隔离与浏览器能力。
 
 ```mermaid
@@ -160,7 +151,6 @@ DOCS --> INST
 ```
 
 **图表来源**
-
 - [scripts/install.sh:1-800](file://scripts/install.sh#L1-L800)
 - [scripts/sandbox-setup.sh:1-8](file://scripts/sandbox-setup.sh#L1-L8)
 - [scripts/sandbox-common-setup.sh:1-55](file://scripts/sandbox-common-setup.sh#L1-L55)
@@ -174,7 +164,6 @@ DOCS --> INST
 ## 详细组件分析
 
 ### 组件A：容器网关助手（clawdock-helpers.sh）
-
 - 设计要点
   - 命令分发：通过函数名映射到具体动作（启动、停止、日志、状态、进入容器、执行CLI、健康检查、令牌配置、设备配对等）。
   - 配置持久化：将项目根目录保存至用户配置文件，避免每次手动指定。
@@ -204,16 +193,13 @@ H-->>U : 输出结果/错误
 ```
 
 **图表来源**
-
 - [scripts/shell-helpers/clawdock-helpers.sh:160-178](file://scripts/shell-helpers/clawdock-helpers.sh#L160-L178)
 
 **章节来源**
-
 - [scripts/shell-helpers/clawdock-helpers.sh:74-134](file://scripts/shell-helpers/clawdock-helpers.sh#L74-L134)
 - [scripts/shell-helpers/clawdock-helpers.sh:160-275](file://scripts/shell-helpers/clawdock-helpers.sh#L160-L275)
 
 ### 组件B：认证过期监控（auth-monitor.sh）
-
 - 设计要点
   - 周期性检查第三方认证剩余时间，根据阈值触发不同优先级的通知。
   - 通过状态文件限制通知频率，避免刷屏。
@@ -243,15 +229,12 @@ Ok --> End
 ```
 
 **图表来源**
-
 - [scripts/auth-monitor.sh:68-89](file://scripts/auth-monitor.sh#L68-L89)
 
 **章节来源**
-
 - [scripts/auth-monitor.sh:1-90](file://scripts/auth-monitor.sh#L1-L90)
 
 ### 组件C：孤儿进程恢复（recover-orphaned-processes.sh）
-
 - 设计要点
   - 使用pgrep预筛选候选PID，再通过ps精确获取命令行；排除无关进程。
   - 通过Node子进程调用系统工具，收集进程启动时间、工作目录、命令行等信息。
@@ -285,15 +268,12 @@ ExitNo --> E
 ```
 
 **图表来源**
-
 - [scripts/recover-orphaned-processes.sh:99-191](file://scripts/recover-orphaned-processes.sh#L99-L191)
 
 **章节来源**
-
 - [scripts/recover-orphaned-processes.sh:1-192](file://scripts/recover-orphaned-processes.sh#L1-L192)
 
 ### 组件D：跨平台安装器（install.sh）
-
 - 设计要点
   - 检测操作系统与架构，选择合适的下载器（curl/wget），并进行SHA校验。
   - 交互式安装：通过TTY检测决定是否启用可视化UI（gum），否则使用颜色输出。
@@ -325,17 +305,14 @@ Abort --> End
 ```
 
 **图表来源**
-
 - [scripts/install.sh:253-269](file://scripts/install.sh#L253-L269)
 - [scripts/install.sh:568-620](file://scripts/install.sh#L568-L620)
 - [scripts/install.sh:784-800](file://scripts/install.sh#L784-L800)
 
 **章节来源**
-
 - [scripts/install.sh:1-800](file://scripts/install.sh#L1-L800)
 
 ### 组件E：macOS本地构建与运行（build-and-run-mac.sh）
-
 - 设计要点
   - Swift构建、终止旧进程、后台启动应用并将日志重定向到文件。
 - 参数与条件
@@ -359,15 +336,12 @@ SH-->>Dev : 输出启动信息与日志路径
 ```
 
 **图表来源**
-
 - [scripts/build-and-run-mac.sh:9-18](file://scripts/build-and-run-mac.sh#L9-L18)
 
 **章节来源**
-
 - [scripts/build-and-run-mac.sh:1-19](file://scripts/build-and-run-mac.sh#L1-L19)
 
 ### 组件F：日志采集工具（clawlog.sh）
-
 - 设计要点
   - 基于macOS统一日志系统，支持时间范围、类别过滤、错误模式、搜索、导出、JSON输出。
   - 通过sudo免密检测避免频繁密码提示；提供详尽的帮助与示例。
@@ -399,16 +373,13 @@ ToStdout --> End
 ```
 
 **图表来源**
-
 - [scripts/clawlog.sh:155-218](file://scripts/clawlog.sh#L155-L218)
 - [scripts/clawlog.sh:240-284](file://scripts/clawlog.sh#L240-L284)
 
 **章节来源**
-
 - [scripts/clawlog.sh:1-322](file://scripts/clawlog.sh#L1-L322)
 
-### 组件G：沙箱与浏览器（sandbox-\*.sh）
-
+### 组件G：沙箱与浏览器（sandbox-*.sh）
 - 设计要点
   - 基础镜像与通用镜像构建脚本：支持自定义包列表、安装pnpm/bun、Linuxbrew路径、最终用户等。
   - 浏览器入口脚本：设置DISPLAY、用户数据目录、远程调试端口、禁用扩展与GPU标志、启用VNC/NOVNC、端口转发与进程等待。
@@ -436,18 +407,15 @@ Entrypoint-->>Entrypoint : wait -n 等待子进程
 ```
 
 **图表来源**
-
 - [scripts/sandbox-browser-entrypoint.sh:19-127](file://scripts/sandbox-browser-entrypoint.sh#L19-L127)
 
 **章节来源**
-
 - [scripts/sandbox-setup.sh:1-8](file://scripts/sandbox-setup.sh#L1-L8)
 - [scripts/sandbox-browser-setup.sh:1-8](file://scripts/sandbox-browser-setup.sh#L1-L8)
 - [scripts/sandbox-common-setup.sh:1-55](file://scripts/sandbox-common-setup.sh#L1-L55)
 - [scripts/sandbox-browser-entrypoint.sh:1-128](file://scripts/sandbox-browser-entrypoint.sh#L1-L128)
 
 ### 组件H：文档拼写检查（docs-spellcheck.sh）
-
 - 设计要点
   - 检测codespell是否存在，不存在则尝试通过python3 -m pip安装到用户目录；支持写回修正。
 - 参数与条件
@@ -456,16 +424,14 @@ Entrypoint-->>Entrypoint : wait -n 等待子进程
   - 若工具始终不可用，输出错误并退出。
 
 **章节来源**
-
 - [scripts/docs-spellcheck.sh:1-45](file://scripts/docs-spellcheck.sh#L1-L45)
 
 ## 依赖关系分析
-
 - 内部依赖
   - clawdock-helpers.sh依赖docker compose配置文件与环境变量；与install.sh共享容器化部署思路。
   - auth-monitor.sh依赖第三方认证凭据与通知工具；与clawlog.sh共同构成监控与可观测性闭环。
   - recover-orphaned-processes.sh依赖ps/pgrep与Node子进程；与install.sh在工具链准备方面互补。
-  - sandbox-\*.sh依赖Docker与Xvfb/VNC/NOVNC工具链；与clawdock-helpers.sh在容器运行层面协同。
+  - sandbox-*.sh依赖Docker与Xvfb/VNC/NOVNC工具链；与clawdock-helpers.sh在容器运行层面协同。
 - 外部依赖
   - curl/wget/jq/sudo/log等系统工具；macOS上的Xcode命令行工具；Linux上的包管理器与构建工具链。
 - 可能的耦合风险
@@ -487,7 +453,6 @@ LOG["clawlog.sh"] --> SUDO["sudo /usr/bin/log"]
 ```
 
 **图表来源**
-
 - [scripts/auth-monitor.sh:44-62](file://scripts/auth-monitor.sh#L44-L62)
 - [scripts/shell-helpers/clawdock-helpers.sh:137-144](file://scripts/shell-helpers/clawdock-helpers.sh#L137-L144)
 - [scripts/recover-orphaned-processes.sh:102-122](file://scripts/recover-orphaned-processes.sh#L102-L122)
@@ -495,7 +460,6 @@ LOG["clawlog.sh"] --> SUDO["sudo /usr/bin/log"]
 - [scripts/clawlog.sh:288-320](file://scripts/clawlog.sh#L288-L320)
 
 **章节来源**
-
 - [scripts/auth-monitor.sh:1-90](file://scripts/auth-monitor.sh#L1-L90)
 - [scripts/shell-helpers/clawdock-helpers.sh:1-418](file://scripts/shell-helpers/clawdock-helpers.sh#L1-L418)
 - [scripts/recover-orphaned-processes.sh:1-192](file://scripts/recover-orphaned-processes.sh#L1-L192)
@@ -503,7 +467,6 @@ LOG["clawlog.sh"] --> SUDO["sudo /usr/bin/log"]
 - [scripts/clawlog.sh:1-322](file://scripts/clawlog.sh#L1-L322)
 
 ## 性能考量
-
 - I/O与网络
   - 使用管道与临时文件减少中间变量开销；在日志导出场景中先执行命令再截断，避免不必要的内存复制。
 - 进程与并发
@@ -516,7 +479,6 @@ LOG["clawlog.sh"] --> SUDO["sudo /usr/bin/log"]
 [本节为通用指导，无需特定文件引用]
 
 ## 故障排查指南
-
 - 容器相关
   - 症状：容器无法启动或找不到compose文件
   - 排查：确认CLAWDOCK_DIR与compose文件路径；检查额外配置文件是否存在；查看容器状态与日志。
@@ -554,7 +516,6 @@ LOG["clawlog.sh"] --> SUDO["sudo /usr/bin/log"]
     - [scripts/sandbox-browser-entrypoint.sh:106-127](file://scripts/sandbox-browser-entrypoint.sh#L106-L127)
 
 **章节来源**
-
 - [scripts/shell-helpers/clawdock-helpers.sh:74-134](file://scripts/shell-helpers/clawdock-helpers.sh#L74-L134)
 - [scripts/auth-monitor.sh:68-89](file://scripts/auth-monitor.sh#L68-L89)
 - [scripts/recover-orphaned-processes.sh:32-38](file://scripts/recover-orphaned-processes.sh#L32-L38)
@@ -563,13 +524,11 @@ LOG["clawlog.sh"] --> SUDO["sudo /usr/bin/log"]
 - [scripts/sandbox-browser-entrypoint.sh:48-52](file://scripts/sandbox-browser-entrypoint.sh#L48-L52)
 
 ## 结论
-
 通过以上组件与流程的梳理，你可以将Shell脚本作为OpenClaw生态中的基础设施：从安装准备、容器编排、健康监控、日志采集到沙箱与浏览器能力，形成一套完整的自动化与可观测体系。遵循本文的参数处理、条件判断、循环控制与函数定义范式，配合错误处理与性能优化策略，可以在多平台环境下稳定地交付高质量的Shell自动化方案。
 
 [本节为总结，无需特定文件引用]
 
 ## 附录
-
 - 实践建议
   - 使用set -euo pipefail统一错误处理策略；为关键路径添加超时与重试。
   - 对外部工具进行存在性检查与降级策略；在TTY不可用时切换到非交互模式。

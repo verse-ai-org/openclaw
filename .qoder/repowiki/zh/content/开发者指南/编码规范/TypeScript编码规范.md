@@ -15,7 +15,6 @@
 </cite>
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -71,7 +70,6 @@ RootPkg --> VitestBase
 ```
 
 **图表来源**
-
 - [tsconfig.json:1-29](file://tsconfig.json#L1-L29)
 - [package.json:1-467](file://package.json#L1-L467)
 - [tsconfig.plugin-sdk.dts.json:1-62](file://tsconfig.plugin-sdk.dts.json#L1-L62)
@@ -79,7 +77,6 @@ RootPkg --> VitestBase
 - [apps/electron/renderer/tsconfig.json:1-26](file://apps/electron/renderer/tsconfig.json#L1-L26)
 
 **章节来源**
-
 - [tsconfig.json:1-29](file://tsconfig.json#L1-L29)
 - [package.json:1-467](file://package.json#L1-L467)
 
@@ -90,19 +87,16 @@ RootPkg --> VitestBase
 项目采用严格的TypeScript配置，确保代码质量和类型安全：
 
 **严格模式配置**
-
 - 启用完整严格模式 (`"strict": true`)
 - 文件名大小写一致性检查 (`"forceConsistentCasingInFileNames": true`)
 - 实验性装饰器支持 (`"experimentalDecorators": true`)
 
 **目标与模块系统**
-
 - 目标版本：ES2023 (`"target": "es2023"`)
 - 模块系统：NodeNext (`"module": "NodeNext"`)
 - 模块解析：NodeNext (`"moduleResolution": "NodeNext"`)
 
 **输出与类型定义**
-
 - 声明文件生成：启用 (`"declaration": true`)
 - 输出目录：dist (`"outDir": "dist"`)
 - JSON模块解析：启用 (`"resolveJsonModule": true`)
@@ -118,11 +112,9 @@ OpenClawAccount["openclaw/plugin-sdk/account-id"] --> AccountId["src/plugin-sdk/
 ```
 
 **图表来源**
-
 - [tsconfig.json:20-24](file://tsconfig.json#L20-L24)
 
 **章节来源**
-
 - [tsconfig.json:2-28](file://tsconfig.json#L2-L28)
 
 ### 构建与发布配置
@@ -135,13 +127,11 @@ OpenClawAccount["openclaw/plugin-sdk/account-id"] --> AccountId["src/plugin-sdk/
 - 子路径导出：支持各个插件通道的独立导出
 
 **构建脚本**
-
 - 主构建：`pnpm build` - 执行完整的构建流程
 - 插件SDK声明文件：`pnpm build:plugin-sdk:dts` - 生成类型声明
 - 严格烟雾测试：`pnpm build:strict-smoke` - 验证严格模式配置
 
 **章节来源**
-
 - [package.json:37-216](file://package.json#L37-L216)
 - [package.json:226-229](file://package.json#L226-L229)
 
@@ -174,7 +164,6 @@ PluginSDK --> SharedUtils
 ```
 
 **图表来源**
-
 - [src/plugin-sdk/index.ts:1-826](file://src/plugin-sdk/index.ts#L1-L826)
 - [tsconfig.json:20-24](file://tsconfig.json#L20-L24)
 - [tsconfig.plugin-sdk.dts.json:13-59](file://tsconfig.plugin-sdk.dts.json#L13-L59)
@@ -225,7 +214,6 @@ PluginSDK --> RuntimeComponents : "导出运行时组件"
 ```
 
 **图表来源**
-
 - [src/plugin-sdk/index.ts:1-826](file://src/plugin-sdk/index.ts#L1-L826)
 
 **模块导入导出约定**
@@ -238,7 +226,6 @@ PluginSDK --> RuntimeComponents : "导出运行时组件"
 4. **命名空间导出**：插件SDK采用统一的命名空间导出
 
 **章节来源**
-
 - [src/plugin-sdk/index.ts:1-826](file://src/plugin-sdk/index.ts#L1-L826)
 
 ### 测试配置体系
@@ -265,7 +252,6 @@ E2EConfig --> BaseConfig
 ```
 
 **图表来源**
-
 - [vitest.config.ts:57-202](file://vitest.config.ts#L57-L202)
 - [vitest.unit.config.ts:1-31](file://vitest.unit.config.ts#L1-L31)
 - [vitest.e2e.config.ts:1-33](file://vitest.e2e.config.ts#L1-L33)
@@ -278,7 +264,6 @@ E2EConfig --> BaseConfig
 4. **环境适配**：根据CI/本地环境自动调整并发参数
 
 **章节来源**
-
 - [vitest.config.ts:57-202](file://vitest.config.ts#L57-L202)
 - [vitest.unit.config.ts:11-30](file://vitest.unit.config.ts#L11-L30)
 - [vitest.e2e.config.ts:20-32](file://vitest.e2e.config.ts#L20-L32)
@@ -305,7 +290,6 @@ Note over Dev,Package : 支持插件SDK的独立构建
 ```
 
 **图表来源**
-
 - [scripts/tsdown-build.mjs:1-20](file://scripts/tsdown-build.mjs#L1-L20)
 - [package.json:226-229](file://package.json#L226-L229)
 
@@ -317,7 +301,6 @@ Note over Dev,Package : 支持插件SDK的独立构建
 4. **跨平台兼容**：支持Windows和Unix系统的构建差异
 
 **章节来源**
-
 - [scripts/tsdown-build.mjs:1-20](file://scripts/tsdown-build.mjs#L1-L20)
 - [package.json:226-229](file://package.json#L226-L229)
 
@@ -349,7 +332,6 @@ RootTS --> CompilerOptions
 ```
 
 **图表来源**
-
 - [tsconfig.plugin-sdk.dts.json:2](file://tsconfig.plugin-sdk.dts.json#L2)
 - [tsconfig.json:26-27](file://tsconfig.json#L26-L27)
 
@@ -361,7 +343,6 @@ RootTS --> CompilerOptions
 4. **路径映射**：统一的路径映射策略贯穿所有配置
 
 **章节来源**
-
 - [tsconfig.plugin-sdk.dts.json:1-62](file://tsconfig.plugin-sdk.dts.json#L1-L62)
 - [tsconfig.json:1-29](file://tsconfig.json#L1-L29)
 
@@ -386,19 +367,16 @@ RootTS --> CompilerOptions
 ### 常见配置问题
 
 **路径映射不生效**
-
 - 检查tsconfig.json中的paths配置
 - 确认模块解析策略与路径映射匹配
 - 验证导入语句是否使用正确的别名
 
 **类型检查失败**
-
 - 检查严格模式下的类型错误
 - 确认声明文件生成是否正确
 - 验证模块导出是否完整
 
 **测试配置问题**
-
 - 检查别名配置是否正确映射到源文件
 - 确认覆盖率排除规则不会误排除测试代码
 - 验证执行池配置适合测试类型
@@ -406,21 +384,18 @@ RootTS --> CompilerOptions
 ### 构建问题诊断
 
 **构建失败排查**
-
 1. 检查TypeScript版本兼容性
 2. 验证构建脚本的依赖安装状态
 3. 确认Node.js版本满足要求
 4. 检查磁盘空间和权限问题
 
 **性能问题排查**
-
 1. 分析构建时间热点
 2. 检查并行度配置
 3. 验证缓存机制有效性
 4. 评估模块依赖复杂度
 
 **章节来源**
-
 - [tsconfig.json:2-28](file://tsconfig.json#L2-L28)
 - [vitest.config.ts:57-202](file://vitest.config.ts#L57-L202)
 

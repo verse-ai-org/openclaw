@@ -18,7 +18,6 @@
 </cite>
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -31,9 +30,7 @@
 10. [附录](#附录)
 
 ## 简介
-
 本文件为 OpenClaw 网关服务器的完整 API 参考，覆盖以下内容：
-
 - WebSocket 协议：握手、帧格式、角色与作用域、事件与方法、版本与迁移
 - HTTP API：OpenAI 兼容 /v1/chat/completions、OpenResponses 兼容 /v1/responses、/tools/invoke 工具直调
 - 认证与授权：Token/密码认证、设备令牌、配对与权限、安全边界
@@ -44,7 +41,6 @@
 - 测试与调试：协议生成脚本、单元测试、常见问题诊断
 
 ## 项目结构
-
 网关服务以“单端口多协议”方式运行：同一端口同时承载 WebSocket 控制面与 HTTP API（OpenAI、OpenResponses、工具直调），并内建控制 UI 与钩子入口。
 
 ```mermaid
@@ -60,15 +56,12 @@ Client --> CTRL
 ```
 
 图示来源
-
 - [docs/gateway/index.md:70-76](file://docs/gateway/index.md#L70-L76)
 
 章节来源
-
 - [docs/gateway/index.md:27-124](file://docs/gateway/index.md#L27-L124)
 
 ## 核心组件
-
 - WebSocket 协议层：统一的请求/响应/事件帧模型，首帧必须为 connect；支持角色（operator/node）、作用域与能力声明；内置版本协商与迁移指引。
 - HTTP 层：三类端点
   - OpenAI 兼容聊天补全：/v1/chat/completions
@@ -79,7 +72,6 @@ Client --> CTRL
 - 速率限制：认证失败的滑动窗口限流器，支持按作用域与来源 IP 分组计数。
 
 章节来源
-
 - [docs/gateway/protocol.md:12-268](file://docs/gateway/protocol.md#L12-L268)
 - [docs/gateway/openai-http-api.md:8-133](file://docs/gateway/openai-http-api.md#L8-L133)
 - [docs/gateway/openresponses-http-api.md:9-355](file://docs/gateway/openresponses-http-api.md#L9-L355)
@@ -90,7 +82,6 @@ Client --> CTRL
 - [src/gateway/auth-rate-limit.ts:1-117](file://src/gateway/auth-rate-limit.ts#L1-L117)
 
 ## 架构总览
-
 下图展示网关对外暴露的协议与端点，以及与客户端的关系。
 
 ```mermaid
@@ -112,7 +103,6 @@ HTTPC --> TI
 ```
 
 图示来源
-
 - [docs/gateway/index.md:70-76](file://docs/gateway/index.md#L70-L76)
 - [docs/gateway/openai-http-api.md:14-17](file://docs/gateway/openai-http-api.md#L14-L17)
 - [docs/gateway/openresponses-http-api.md:15-19](file://docs/gateway/openresponses-http-api.md#L15-L19)
@@ -121,7 +111,6 @@ HTTPC --> TI
 ## 详细组件分析
 
 ### WebSocket 协议（Gateway Protocol）
-
 - 传输与握手
   - 文本帧 JSON；首帧必须为 connect
   - 握手前：Gateway 发送 connect.challenge（含随机 nonce 与时间戳）
@@ -158,17 +147,14 @@ G-->>C : "res(health)"
 ```
 
 图示来源
-
 - [docs/gateway/protocol.md:22-90](file://docs/gateway/protocol.md#L22-L90)
 - [docs/gateway/protocol.md:127-134](file://docs/gateway/protocol.md#L127-L134)
 - [docs/gateway/protocol.md:191-209](file://docs/gateway/protocol.md#L191-L209)
 
 章节来源
-
 - [docs/gateway/protocol.md:12-268](file://docs/gateway/protocol.md#L12-L268)
 
 ### HTTP API：OpenAI 兼容 /v1/chat/completions
-
 - 端点
   - POST /v1/chat/completions
   - 与网关端口复用（WS+HTTP 复用端口）
@@ -202,16 +188,13 @@ Resp --> End
 ```
 
 图示来源
-
 - [docs/gateway/openai-http-api.md:19-58](file://docs/gateway/openai-http-api.md#L19-L58)
 - [docs/gateway/openai-http-api.md:91-104](file://docs/gateway/openai-http-api.md#L91-L104)
 
 章节来源
-
 - [docs/gateway/openai-http-api.md:8-133](file://docs/gateway/openai-http-api.md#L8-L133)
 
 ### HTTP API：OpenResponses 兼容 /v1/responses
-
 - 端点
   - POST /v1/responses
   - 与网关端口复用
@@ -259,18 +242,15 @@ X --> Done
 ```
 
 图示来源
-
 - [docs/gateway/openresponses-http-api.md:100-120](file://docs/gateway/openresponses-http-api.md#L100-L120)
 - [docs/gateway/openresponses-http-api.md:147-153](file://docs/gateway/openresponses-http-api.md#L147-L153)
 - [docs/gateway/openresponses-http-api.md:154-188](file://docs/gateway/openresponses-http-api.md#L154-L188)
 - [docs/gateway/openresponses-http-api.md:288-308](file://docs/gateway/openresponses-http-api.md#L288-L308)
 
 章节来源
-
 - [docs/gateway/openresponses-http-api.md:9-355](file://docs/gateway/openresponses-http-api.md#L9-L355)
 
 ### HTTP API：工具直调 /tools/invoke
-
 - 端点
   - POST /tools/invoke
   - 总是启用，但受网关认证与工具策略约束
@@ -307,16 +287,13 @@ C --> |限流| U429["429 Retry-After"]
 ```
 
 图示来源
-
 - [docs/gateway/tools-invoke-http-api.md:30-88](file://docs/gateway/tools-invoke-http-api.md#L30-L88)
 - [docs/gateway/tools-invoke-http-api.md:89-98](file://docs/gateway/tools-invoke-http-api.md#L89-L98)
 
 章节来源
-
 - [docs/gateway/tools-invoke-http-api.md:9-111](file://docs/gateway/tools-invoke-http-api.md#L9-L111)
 
 ### 认证与授权
-
 - 网关认证
   - 支持 token/password 两种模式；可通过环境变量或配置项设置
   - 认证失败可触发速率限制（见下节）
@@ -330,12 +307,10 @@ C --> |限流| U429["429 Retry-After"]
   - 支持 OAuth 与 API Key；提供凭据检查与轮换策略
 
 章节来源
-
 - [docs/gateway/authentication.md:9-180](file://docs/gateway/authentication.md#L9-L180)
 - [docs/gateway/protocol.md:200-215](file://docs/gateway/protocol.md#L200-L215)
 
 ### 类型系统与接口契约
-
 - 单一真实来源：TypeBox 模式定义请求/响应/事件帧与各方法参数/结果
 - 生成物
   - JSON Schema：dist/protocol.schema.json
@@ -365,18 +340,15 @@ ProtocolSchemas --> PROTOCOL_VERSION : "导出版本"
 ```
 
 图示来源
-
 - [src/gateway/protocol/schema/protocol-schemas.ts:162-302](file://src/gateway/protocol/schema/protocol-schemas.ts#L162-L302)
 - [src/gateway/protocol/schema.ts:1-19](file://src/gateway/protocol/schema.ts#L1-L19)
 
 章节来源
-
 - [docs/concepts/typebox.md:1-220](file://docs/concepts/typebox.md#L1-L220)
 - [scripts/protocol-gen.ts:1-51](file://scripts/protocol-gen.ts#L1-L51)
 - [src/gateway/protocol/schema/protocol-schemas.ts:162-302](file://src/gateway/protocol/schema/protocol-schemas.ts#L162-L302)
 
 ### 版本兼容与弃用策略
-
 - 协议版本
   - PROTOCOL_VERSION 由协议模式导出；客户端需声明 min/maxProtocol
   - 服务端拒绝不匹配
@@ -387,13 +359,11 @@ ProtocolSchemas --> PROTOCOL_VERSION : "导出版本"
   - registerHttpHandler 已弃用，请改用 registerHttpRoute
 
 章节来源
-
 - [docs/gateway/protocol.md:191-209](file://docs/gateway/protocol.md#L191-L209)
 - [docs/gateway/protocol.md:231-256](file://docs/gateway/protocol.md#L231-L256)
 - [docs/tools/plugin.md:139-144](file://docs/tools/plugin.md#L139-L144)
 
 ### 客户端 SDK 使用示例
-
 - 最小连接流程（Node.js）
   - 建立 WS 连接
   - 发送 connect 请求（含 min/maxProtocol、client、role、scopes、auth、device 等）
@@ -405,12 +375,10 @@ ProtocolSchemas --> PROTOCOL_VERSION : "导出版本"
   - 严格按协议版本与参数 schema 组装请求
 
 章节来源
-
 - [docs/concepts/typebox.md:146-186](file://docs/concepts/typebox.md#L146-L186)
 - [docs/gateway/protocol.md:202-209](file://docs/gateway/protocol.md#L202-L209)
 
 ### 速率限制
-
 - 适用范围
   - 认证失败尝试（共享密钥与设备令牌两类作用域）
 - 策略
@@ -431,17 +399,14 @@ LOCK --> END
 ```
 
 图示来源
-
 - [src/gateway/auth-rate-limit.ts:25-72](file://src/gateway/auth-rate-limit.ts#L25-L72)
 - [src/gateway/auth-rate-limit.test.ts:1-32](file://src/gateway/auth-rate-limit.test.ts#L1-L32)
 
 章节来源
-
 - [src/gateway/auth-rate-limit.ts:1-117](file://src/gateway/auth-rate-limit.ts#L1-L117)
 - [src/gateway/auth-rate-limit.test.ts:1-32](file://src/gateway/auth-rate-limit.test.ts#L1-L32)
 
 ## 依赖关系分析
-
 - 协议模式与生成
   - 协议模式集中于 src/gateway/protocol/schema/protocol-schemas.ts，并导出 PROTOCOL_VERSION
   - 通过 scripts/protocol-gen.ts 将模式导出为 JSON Schema
@@ -459,19 +424,16 @@ DOC["TypeBox 文档"] --> PS
 ```
 
 图示来源
-
 - [src/gateway/protocol/schema/protocol-schemas.ts:162-302](file://src/gateway/protocol/schema/protocol-schemas.ts#L162-L302)
 - [scripts/protocol-gen.ts:9-42](file://scripts/protocol-gen.ts#L9-L42)
 - [docs/concepts/typebox.md:1-220](file://docs/concepts/typebox.md#L1-L220)
 
 章节来源
-
 - [src/gateway/protocol/schema/protocol-schemas.ts:162-302](file://src/gateway/protocol/schema/protocol-schemas.ts#L162-L302)
 - [scripts/protocol-gen.ts:1-51](file://scripts/protocol-gen.ts#L1-L51)
 - [docs/tools/plugin.md:139-144](file://docs/tools/plugin.md#L139-L144)
 
 ## 性能考量
-
 - 端口复用与连接池
   - WS+HTTP 复用同一端口，减少网络复杂度
 - 事件驱动与流式输出
@@ -482,7 +444,6 @@ DOC["TypeBox 文档"] --> PS
   - hybrid 模式优先热应用安全变更，必要时重启以确保一致性
 
 ## 故障排查指南
-
 - 连接失败
   - 非 loopback 绑定且未配置 token/password 会被拒绝
   - 端口冲突（EADDRINUSE）
@@ -496,23 +457,19 @@ DOC["TypeBox 文档"] --> PS
   - 认证失败过多触发 429，检查 Retry-After 并调整重试策略
 
 章节来源
-
 - [docs/gateway/index.md:235-244](file://docs/gateway/index.md#L235-L244)
 - [docs/gateway/protocol.md:231-256](file://docs/gateway/protocol.md#L231-L256)
 - [src/gateway/auth-rate-limit.ts:1-117](file://src/gateway/auth-rate-limit.ts#L1-L117)
 
 ## 结论
-
 本参考文档梳理了网关的 WebSocket 协议与三大 HTTP API，明确了认证边界、类型契约、版本兼容与迁移策略，并提供了速率限制与故障排查要点。建议在生产环境中仅将 HTTP 端点置于受控网络内，配合设备令牌与严格的工具策略，确保安全与稳定性。
 
 ## 附录
-
 - 配置参考
   - 通道与模型覆盖、心跳、多账户、命令与访问控制等详参见配置参考文档
 - 安全与合规
   - 模型凭据管理、OAuth 流程与凭据检查详见认证文档
 
 章节来源
-
 - [docs/gateway/configuration-reference.md:1-800](file://docs/gateway/configuration-reference.md#L1-L800)
 - [docs/gateway/authentication.md:9-180](file://docs/gateway/authentication.md#L9-L180)

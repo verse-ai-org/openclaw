@@ -83,7 +83,6 @@
 </cite>
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -96,13 +95,10 @@
 10. [附录](#附录)
 
 ## 简介
-
 本文件为 OpenClaw 网关的 HTTP REST API 技术文档，覆盖健康检查、配置管理、会话操作、节点控制、OpenAI 兼容 API、工具调用 API、插件 API 等接口规范。文档基于代码库中的网关服务器实现与方法注册机制，系统性梳理端点定义、认证方式、请求/响应格式、错误码与典型使用场景，并提供序列图与流程图帮助理解。
 
 ## 项目结构
-
 OpenClaw 网关通过统一的启动流程装配 HTTP/WS 服务、认证、插件与通道方法，并在运行时动态暴露各类 API。核心入口与能力分布如下：
-
 - 启动与运行时装配：server.impl.ts
 - 认证与授权：auth.ts
 - 方法清单与注册：server-methods-list.ts、server-methods.js
@@ -129,7 +125,6 @@ A --> K["节点与会话<br/>server-methods/nodes.js<br/>server-methods/sessions
 ```
 
 图表来源
-
 - [server.impl.ts:266-800](file://src/gateway/server.impl.ts#L266-L800)
 - [server-methods-list.ts](file://src/gateway/server-methods-list.ts)
 - [server-plugins.js](file://src/gateway/server-plugins.js)
@@ -145,11 +140,9 @@ A --> K["节点与会话<br/>server-methods/nodes.js<br/>server-methods/sessions
 - [server-methods/sessions.js](file://src/gateway/server-methods/sessions.js)
 
 章节来源
-
 - [server.impl.ts:266-800](file://src/gateway/server.impl.ts#L266-L800)
 
 ## 核心组件
-
 - 网关服务器与运行时
   - 提供 HTTP/WS 服务、TLS、绑定策略（loopback/lan/tailnet/auto）、控制 UI、OpenAI/OpenResponses 端点开关等。
   - 关键选项：bind/host/controlUiEnabled/openAiChatCompletionsEnabled/openResponsesEnabled/auth/tailscale。
@@ -163,7 +156,6 @@ A --> K["节点与会话<br/>server-methods/nodes.js<br/>server-methods/sessions
   - 动态加载插件与通道，注入各自 gatewayMethods 并合并到全局方法集。
 
 章节来源
-
 - [server.impl.ts:211-265](file://src/gateway/server.impl.ts#L211-L265)
 - [auth.ts:23-50](file://src/gateway/auth.ts#L23-L50)
 - [server-methods-list.ts](file://src/gateway/server-methods-list.ts)
@@ -173,7 +165,6 @@ A --> K["节点与会话<br/>server-methods/nodes.js<br/>server-methods/sessions
 - [server-channels.js](file://src/gateway/server-channels.js)
 
 ## 架构总览
-
 下图展示网关启动后，HTTP/WS 服务如何与认证、方法注册、插件/通道、OpenAI/OpenResponses API、节点/会话等模块协同工作。
 
 ```mermaid
@@ -213,7 +204,6 @@ AUTH --> PLUGAPI
 ```
 
 图表来源
-
 - [server.impl.ts:468-487](file://src/gateway/server.impl.ts#L468-L487)
 - [auth.ts:378-503](file://src/gateway/auth.ts#L378-L503)
 - [server-methods-list.ts](file://src/gateway/server-methods-list.ts)
@@ -229,7 +219,6 @@ AUTH --> PLUGAPI
 ## 详细组件分析
 
 ### 健康检查与就绪检查
-
 - 端点
   - GET /health：返回健康状态与版本信息
   - GET /ready：返回就绪状态
@@ -260,19 +249,16 @@ S-->>C : 200 或 503
 ```
 
 图表来源
-
 - [server-methods/health.js](file://src/gateway/server-methods/health.js)
 - [server/readiness.js](file://src/gateway/server/readiness.js)
 - [server/health-state.js](file://src/gateway/server/health-state.js)
 
 章节来源
-
 - [server-methods/health.js](file://src/gateway/server-methods/health.js)
 - [server/readiness.js](file://src/gateway/server/readiness.js)
 - [server/health-state.js](file://src/gateway/server/health-state.js)
 
 ### 配置管理 API
-
 - 端点
   - GET /v1/config：获取当前配置快照
   - PUT /v1/config：更新配置（需要相应权限）
@@ -291,11 +277,9 @@ S-->>C : 200 或 503
   - 远程运维、灰度变更、热重载
 
 章节来源
-
 - [server-methods/config.js](file://src/gateway/server-methods/config.js)
 
 ### 会话操作 API
-
 - 端点
   - GET /v1/sessions：列出会话
   - GET /v1/sessions/{key}：获取会话详情
@@ -315,11 +299,9 @@ S-->>C : 200 或 503
   - 多会话并发管理、会话生命周期维护
 
 章节来源
-
 - [server-methods/sessions.js](file://src/gateway/server-methods/sessions.js)
 
 ### 节点控制 API
-
 - 端点
   - GET /v1/nodes：列出节点
   - GET /v1/nodes/{id}：获取节点状态
@@ -341,13 +323,11 @@ S-->>C : 200 或 503
   - 移动节点/设备控制、事件订阅与推送
 
 章节来源
-
 - [server-methods/nodes.js](file://src/gateway/server-methods/nodes.js)
 - [server-methods/nodes.helpers.js](file://src/gateway/server-methods/nodes.helpers.js)
 - [server-node-subscriptions.js](file://src/gateway/server-node-subscriptions.js)
 
 ### OpenAI 兼容 API
-
 - 端点
   - POST /v1/chat/completions：聊天补全（兼容 OpenAI）
 - 请求参数
@@ -363,11 +343,9 @@ S-->>C : 200 或 503
   - 第三方应用直连、SDK 兼容
 
 章节来源
-
 - [server-methods/openai.js](file://src/gateway/server-methods/openai.js)
 
 ### OpenResponses API
-
 - 端点
   - POST /v1/responses：生成响应（OpenResponses）
 - 请求参数
@@ -383,11 +361,9 @@ S-->>C : 200 或 503
   - 企业内部响应生成、统一输出格式
 
 章节来源
-
 - [server-methods/openresponses.js](file://src/gateway/server-methods/openresponses.js)
 
 ### 工具调用 API
-
 - 端点
   - POST /v1/tools/invoke：调用工具
   - GET /v1/tools：列出可用工具
@@ -404,12 +380,10 @@ S-->>C : 200 或 503
   - 自动化技能、外部系统集成
 
 章节来源
-
 - [server-methods/tools.js](file://src/gateway/server-methods/tools.js)
 - [server-methods/tools-invoke-http-api.js](file://src/gateway/server-methods/tools-invoke-http-api.js)
 
 ### 插件 API
-
 - 端点
   - GET /v1/plugins：列出已加载插件
   - GET /v1/plugins/{id}：获取插件元信息
@@ -428,12 +402,10 @@ S-->>C : 200 或 503
   - 插件生命周期管理、动态扩展
 
 章节来源
-
 - [server-methods/plugins.js](file://src/gateway/server-methods/plugins.js)
 - [server-plugins.js](file://src/gateway/server-plugins.js)
 
 ### 认证与授权
-
 - 支持模式
   - none：无需认证
   - token：Bearer Token
@@ -468,16 +440,13 @@ Deny --> End
 ```
 
 图表来源
-
 - [auth.ts:217-503](file://src/gateway/auth.ts#L217-L503)
 
 章节来源
-
 - [auth.ts:23-50](file://src/gateway/auth.ts#L23-L50)
 - [auth.ts:217-503](file://src/gateway/auth.ts#L217-L503)
 
 ### 事件与通知 API
-
 - 端点
   - GET /v1/events：订阅事件流
   - POST /v1/notifications：发送通知
@@ -494,12 +463,10 @@ Deny --> End
   - 实时事件订阅、系统通知
 
 章节来源
-
 - [server-methods/events.js](file://src/gateway/server-methods/events.js)
 - [server-methods/notifications.js](file://src/gateway/server-methods/notifications.js)
 
 ### 系统与诊断 API
-
 - 端点
   - GET /v1/status：系统状态
   - GET /v1/presence：在线存在
@@ -523,7 +490,6 @@ Deny --> End
   - 运维诊断、状态巡检
 
 章节来源
-
 - [server-methods/status.js](file://src/gateway/server-methods/status.js)
 - [server-methods/presence.js](file://src/gateway/server-methods/presence.js)
 - [server-methods/version.js](file://src/gateway/server-methods/version.js)
@@ -537,7 +503,6 @@ Deny --> End
 - [server-methods/updates.js](file://src/gateway/server-methods/updates.js)
 
 ## 依赖关系分析
-
 - 组件耦合
   - server.impl.ts 作为装配中心，依赖配置、认证、插件、通道、方法注册等模块
   - 认证模块对速率限制、Tailscale、受信代理有强依赖
@@ -566,7 +531,6 @@ OA --> Model["server-model-catalog.js"]
 ```
 
 图表来源
-
 - [server.impl.ts:468-487](file://src/gateway/server.impl.ts#L468-L487)
 - [auth.ts:11-14](file://src/gateway/auth.ts#L11-L14)
 - [server-methods/openai.js](file://src/gateway/server-methods/openai.js)
@@ -578,11 +542,9 @@ OA --> Model["server-model-catalog.js"]
 - [server-model-catalog.js](file://src/gateway/server-model-catalog.js)
 
 章节来源
-
 - [server.impl.ts:468-487](file://src/gateway/server.impl.ts#L468-L487)
 
 ## 性能考量
-
 - 速率限制
   - 通过共享密钥作用域的速率限制器保护认证端点，防止暴力破解
 - 流式响应
@@ -593,7 +555,6 @@ OA --> Model["server-model-catalog.js"]
   - 心跳、维护定时器与命令队列确保后台任务有序执行
 
 ## 故障排查指南
-
 - 常见问题
   - 401 未授权：检查认证模式与凭据；确认受信代理配置；核对 Tailscale 头部
   - 403 权限不足：确认方法作用域与 operator scopes
@@ -605,7 +566,6 @@ OA --> Model["server-model-catalog.js"]
   - 查看系统事件与诊断日志
 
 章节来源
-
 - [server-methods/status.js](file://src/gateway/server-methods/status.js)
 - [server-methods/logs.js](file://src/gateway/server-methods/logs.js)
 - [server-methods/heartbeat.js](file://src/gateway/server-methods/heartbeat.js)
@@ -616,11 +576,9 @@ OA --> Model["server-model-catalog.js"]
 - [server-methods/canvas.js](file://src/gateway/server-methods/canvas.js)
 
 ## 结论
-
 OpenClaw 网关通过统一的启动装配、灵活的认证授权、动态的方法注册与丰富的子系统，提供了完整的 HTTP/WS API 能力。本文档梳理了健康检查、配置管理、会话与节点控制、OpenAI/OpenResponses 兼容 API、工具与插件 API 的规范与使用场景，并给出了认证流程、依赖关系与故障排查建议，便于开发者与运维人员快速上手与稳定运营。
 
 ## 附录
-
 - 端点总览（按功能分组）
   - 健康与就绪：/health, /ready
   - 配置：/v1/config

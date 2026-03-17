@@ -4,29 +4,24 @@ import {
   stopGateway,
   restartGateway,
   getGatewayToken,
-  readExistingGatewayToken,
+  getGatewayPort,
 } from "./gateway.js";
-import { isFirstLaunch } from "./onboarding.js";
+import { isFirstLaunch, saveOnboardingConfig, writeDebugLog, type OnboardingConfig } from "./onboarding.js";
 import { generateToken } from "./token.js";
 import {
   createWindow,
   configureSession,
   loadRendererPage,
-  loadGatewayUI,
 } from "./window.js";
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
 
-// Electron 使用独立端口，避免与用户已有的 openclaw-gateway 冲突
-const GATEWAY_PORT = Number(process.env.OPENCLAW_GATEWAY_PORT ?? 18790);
-
 let mainWindow: BrowserWindow | null = null;
-let sessionToken = "";
 
 // macOS：点击 Dock 图标时，若窗口已关闭则重新创建
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     mainWindow = createWindow();
-    loadGatewayUI(mainWindow, { port: GATEWAY_PORT, token: sessionToken });
+    loadRendererPage(mainWindow, "index", { port: getGatewayPort(), token: getGatewayToken() });
   } else {
     mainWindow?.show();
   }
@@ -47,7 +42,7 @@ app.on("before-quit", () => {
 // IPC：渲染进程请求重启 Gateway（Onboarding 完成后调用）
 ipcMain.handle("gateway:restart", async () => {
   try {
-    await restartGateway({ port: GATEWAY_PORT, token: getGatewayToken() });
+    await restartGateway({ token: getGatewayToken() });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String(err) };
@@ -56,21 +51,42 @@ ipcMain.handle("gateway:restart", async () => {
 
 // IPC：渲染进程获取当前 Gateway 连接信息
 ipcMain.handle("gateway:info", () => {
+  const port = getGatewayPort();
   return {
-    port: GATEWAY_PORT,
+    port,
     token: getGatewayToken(),
-    wsUrl: `ws://127.0.0.1:${GATEWAY_PORT}`,
+    wsUrl: `ws://127.0.0.1:${port}`,
   };
 });
 
-// IPC：Onboarding 完成，切换到 Control UI
+// IPC：渲染进程写调试日志到 ~/.openclaw/electron-onboarding.log
+ipcMain.handle("onboarding:writeDebugLog", async (_, message: string) => {
+  await writeDebugLog(`[renderer] ${message}`);
+});
+
+// IPC：Onboarding 保存配置（wizard 完成后，notifyOnboardingComplete 之前调用）
+ipcMain.handle("onboarding:saveConfig", async (_, cfg: OnboardingConfig) => {
+  await writeDebugLog(`[main] saveOnboardingConfig called: ${JSON.stringify(cfg).slice(0, 200)}`);
+  try {
+    await saveOnboardingConfig(cfg);
+    await writeDebugLog('[main] saveOnboardingConfig: success');
+    return { ok: true };
+  } catch (err) {
+    const msg = String(err);
+    await writeDebugLog(`[main] saveOnboardingConfig: FAILED — ${msg}`);
+    console.error("[main] saveOnboardingConfig failed:", err);
+    return { ok: false, error: msg };
+  }
+});
+
+// IPC：Onboarding 完成，切换到 ui-react 主界面
 ipcMain.handle("onboarding:complete", () => {
-  console.log("[main] Onboarding 完成，切换到 Control UI");
+  console.log("[main] Onboarding 完成，切换到 ui-react 主界面");
   // 注销 wizard IPC 并关闭 WS 连接
   unregisterWizardIpc();
-  // 同一窗口切换到 Gateway Control UI
+  // 同一窗口切换到 ui-react 主界面，注入 Gateway 连接信息
   if (mainWindow) {
-    loadGatewayUI(mainWindow, { port: GATEWAY_PORT, token: sessionToken });
+    loadRendererPage(mainWindow, "index", { port: getGatewayPort(), token: getGatewayToken() });
   }
   return { ok: true };
 });
@@ -78,21 +94,21 @@ ipcMain.handle("onboarding:complete", () => {
 async function main() {
   await app.whenReady();
 
-  // 生成本次会话 token：优先复用用户配置中已有的 token
-  sessionToken = readExistingGatewayToken() ?? generateToken();
+  // 生成本次会话 token 备用（无配置时使用）
+  const sessionToken = generateToken();
 
-  // 配置 session（CSP 等）
-  configureSession(GATEWAY_PORT);
-
-  // 启动 Gateway
+  // 启动 Gateway（内部决策：复用外部 / 使用配置端口 / 使用独立端口）
   try {
-    await startGateway({
-      port: GATEWAY_PORT,
-      token: sessionToken,
-    });
+    await startGateway({ token: sessionToken });
   } catch (err) {
     console.error("[main] Gateway 启动失败:", err);
   }
+
+  const activePort = getGatewayPort();
+  const activeToken = getGatewayToken();
+
+  // 配置 session CSP（使用实际端口）
+  configureSession(activePort);
 
   // 创建主窗口
   mainWindow = createWindow();
@@ -100,11 +116,11 @@ async function main() {
   if (isFirstLaunch()) {
     // 首次启动：加载 ui-react Setup Wizard 页面，注册 wizard IPC 中转
     console.log("[main] 首次启动，加载 Setup Wizard");
-    registerWizardIpc(GATEWAY_PORT, sessionToken);
+    registerWizardIpc(activePort, activeToken);
     loadRendererPage(mainWindow, "setup");
   } else {
-    // 已配置：直接加载 Gateway Control UI
-    loadGatewayUI(mainWindow, { port: GATEWAY_PORT, token: sessionToken });
+    // 已配置：直接加载 ui-react 主界面，注入 Gateway 连接信息
+    loadRendererPage(mainWindow, "index", { port: activePort, token: activeToken });
   }
 }
 

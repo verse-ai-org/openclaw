@@ -14,7 +14,6 @@
 </cite>
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -32,7 +31,6 @@
 ## 项目结构
 
 OpenClaw采用多平台、多模块的大型Monorepo结构，包含以下关键目录：
-
 - 核心应用：apps/android（Android）、apps/ios（iOS）、apps/macos（macOS）
 - 桌面应用：apps/electron（Electron）
 - 共享库：apps/shared（共享组件）
@@ -75,7 +73,6 @@ SCRIPTS --> CORE
 ```
 
 **图表来源**
-
 - [项目结构](file://.)
 
 ## 核心组件
@@ -89,22 +86,22 @@ SCRIPTS --> CORE
    - 所有PR必须合并到main进行测试和验证
    - 通过CI流水线进行全面测试
 
-2. **功能分支（feature/\*）**
+2. **功能分支（feature/*）**
    - 用于新功能开发
    - 命名格式：`feature/模块/主题`
    - 示例：`feature/gateway/authentication`
 
-3. **修复分支（fix/\*）**
+3. **修复分支（fix/*）**
    - 用于bug修复
    - 命名格式：`fix/模块/问题描述`
    - 示例：`fix/telegram/message-handling`
 
-4. **发布分支（release/\*）**
+4. **发布分支（release/*）**
    - 用于准备发布版本
    - 命名格式：`release/vX.Y.Z`
    - 示例：`release/v1.2.3`
 
-5. **热修复分支（hotfix/\*）**
+5. **热修复分支（hotfix/*）**
    - 用于紧急修复生产问题
    - 命名格式：`hotfix/问题描述`
    - 示例：`hotfix/security-patch`
@@ -126,7 +123,6 @@ Footer --> End([完成])
 ```
 
 **图表来源**
-
 - [CONTRIBUTING.md:85-94](file://CONTRIBUTING.md#L85-L94)
 
 ### 代码审查流程
@@ -148,12 +144,10 @@ PR->>Dev : 合并通知
 ```
 
 **图表来源**
-
 - [CONTRIBUTING.md:96-106](file://CONTRIBUTING.md#L96-L106)
 - [.github/pull_request_template.md:1-116](file://.github/pull_request_template.md#L1-L116)
 
 **章节来源**
-
 - [CONTRIBUTING.md:85-106](file://CONTRIBUTING.md#L85-L106)
 - [.github/pull_request_template.md:1-116](file://.github/pull_request_template.md#L1-L116)
 
@@ -198,7 +192,6 @@ DOCKER --> MANIFEST
 ```
 
 **图表来源**
-
 - [.github/workflows/ci.yml:1-737](file://.github/workflows/ci.yml#L1-L737)
 - [.github/workflows/openclaw-npm-release.yml:1-80](file://.github/workflows/openclaw-npm-release.yml#L1-L80)
 - [.github/workflows/docker-release.yml:1-309](file://.github/workflows/docker-release.yml#L1-L309)
@@ -229,7 +222,6 @@ LIMIT2 --> GROUPS
 ```
 
 **图表来源**
-
 - [.github/dependabot.yml:1-128](file://.github/dependabot.yml#L1-L128)
 
 ## 详细组件分析
@@ -256,7 +248,6 @@ SWIFT --> FAIL
 ```
 
 **图表来源**
-
 - [.pre-commit-config.yaml:1-158](file://.pre-commit-config.yaml#L1-L158)
 
 ### 自动标签系统
@@ -324,11 +315,9 @@ SystemLabels <|-- ExtensionLabels
 ```
 
 **图表来源**
-
 - [.github/labeler.yml:1-259](file://.github/labeler.yml#L1-L259)
 
 **章节来源**
-
 - [.pre-commit-config.yaml:1-158](file://.pre-commit-config.yaml#L1-L158)
 - [.github/labeler.yml:1-259](file://.github/labeler.yml#L1-L259)
 
@@ -356,12 +345,10 @@ CI-->>Dev : 发布完成通知
 ```
 
 **图表来源**
-
 - [.github/workflows/openclaw-npm-release.yml:1-80](file://.github/workflows/openclaw-npm-release.yml#L1-L80)
 - [.github/workflows/docker-release.yml:1-309](file://.github/workflows/docker-release.yml#L1-L309)
 
 **章节来源**
-
 - [.github/workflows/openclaw-npm-release.yml:1-80](file://.github/workflows/openclaw-npm-release.yml#L1-L80)
 - [.github/workflows/docker-release.yml:1-309](file://.github/workflows/docker-release.yml#L1-L309)
 
@@ -405,7 +392,6 @@ CHANGESCOPE --> ANDTEST
 ```
 
 **图表来源**
-
 - [.github/workflows/ci.yml:1-737](file://.github/workflows/ci.yml#L1-L737)
 
 ### 依赖更新策略
@@ -439,11 +425,9 @@ LIMIT5 --> ANDROIDGRP
 ```
 
 **图表来源**
-
 - [.github/dependabot.yml:1-128](file://.github/dependabot.yml#L1-L128)
 
 **章节来源**
-
 - [.github/workflows/ci.yml:1-737](file://.github/workflows/ci.yml#L1-L737)
 - [.github/dependabot.yml:1-128](file://.github/dependabot.yml#L1-L128)
 
@@ -506,7 +490,6 @@ LIMIT5 --> ANDROIDGRP
    - 验证分组策略配置
 
 **章节来源**
-
 - [CONTRIBUTING.md:169-194](file://CONTRIBUTING.md#L169-L194)
 - [.pre-commit-config.yaml:1-158](file://.pre-commit-config.yaml#L1-L158)
 

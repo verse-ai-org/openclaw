@@ -24,7 +24,6 @@
 </cite>
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -37,15 +36,12 @@
 10. [附录](#附录)
 
 ## 简介
-
 本文件面向使用浏览器操作网关（Gateway）的用户与开发者，系统化介绍控制面板（Control UI）、仪表盘（Dashboard）与 WebChat 的使用方法、配置项与交互流程；同时覆盖界面定制、主题与响应式设计、开发与构建流程、API 接口与集成方式、浏览器兼容性、性能优化与安全注意事项。
 
 **更新** 本版本文档反映了UI React前端的全面重构，引入了全新的@assistant-ui/react库生态系统，包括AssistantMessage、Composer、GatewayChatRuntimeProvider等核心组件，以及useChatEventBridge钩子和增强的聊天存储系统。
 
 ## 项目结构
-
 Web 界面由"文档指引 + React前端应用 + 状态管理 + 组件库"构成：
-
 - 文档层：提供使用说明、认证与暴露模式、远程访问与安全建议等
 - 前端层：基于React 19 + TypeScript，使用@assistant-ui/react组件库，通过WebSocket与网关交互
 - 状态管理层：采用Zustand状态管理，分离聊天状态、网关状态和设置状态
@@ -95,7 +91,6 @@ AS --> UG
 ```
 
 **图表来源**
-
 - [应用根组件:1-7](file://ui-react/src/App.tsx#L1-L7)
 - [路由配置:1-42](file://ui-react/src/router.tsx#L1-L42)
 - [应用外壳:1-26](file://ui-react/src/components/layout/AppShell.tsx#L1-L26)
@@ -110,7 +105,6 @@ AS --> UG
 - [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
 
 **章节来源**
-
 - [控制UI（浏览器）:1-269](file://docs/web/control-ui.md#L1-L269)
 - [仪表盘（浏览器）:1-55](file://docs/web/dashboard.md#L1-L55)
 - [WebChat（网关WebSocket UI）:1-62](file://docs/web/webchat.md#L1-L62)
@@ -128,7 +122,6 @@ AS --> UG
 - [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
 
 ## 核心组件
-
 - 控制面板（Control UI）
   - 通过浏览器直接访问，服务端默认地址与可选前缀路径
   - 直连网关 WebSocket，握手阶段携带认证参数
@@ -157,7 +150,6 @@ AS --> UG
 **更新** 新的React架构引入了@assistant-ui/react组件库，提供了更丰富的UI组件和更好的开发者体验。
 
 **章节来源**
-
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)
 - [仪表盘（浏览器）:8-55](file://docs/web/dashboard.md#L8-L55)
 - [WebChat（网关WebSocket UI）:8-62](file://docs/web/webchat.md#L8-L62)
@@ -167,7 +159,6 @@ AS --> UG
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 
 ## 架构总览
-
 前端通过React组件树与@assistant-ui/react生态系统的协作，实现与网关的WebSocket通信；应用外壳统一管理连接状态，聊天运行时提供者桥接Zustand状态与@assistant-ui的外部存储运行时；组件层基于@assistant-ui的可组合组件实现丰富的聊天功能。
 
 ```mermaid
@@ -196,7 +187,6 @@ Provider-->>Browser : 渲染聊天线程
 ```
 
 **图表来源**
-
 - [应用根组件:1-7](file://ui-react/src/App.tsx#L1-L7)
 - [应用外壳:10-26](file://ui-react/src/components/layout/AppShell.tsx#L10-L26)
 - [路由配置:19-42](file://ui-react/src/router.tsx#L19-L42)
@@ -206,7 +196,6 @@ Provider-->>Browser : 渲染聊天线程
 ## 详细组件分析
 
 ### 控制面板（Control UI）使用指南
-
 - 访问与认证
   - 本地快速打开：默认端口与可选基础路径
   - 首次连接需要设备配对，避免未授权访问
@@ -234,11 +223,9 @@ Provider-->>Browser : 渲染聊天线程
 **更新** React版本的控制面板保持了相同的使用体验，但采用了现代化的组件架构和更好的性能表现。
 
 **章节来源**
-
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)
 
 ### 仪表盘（Dashboard）访问与认证
-
 - 快速打开与一键启动
   - 本地：默认端口
   - 一键打开：CLI 提供便捷入口
@@ -251,11 +238,9 @@ Provider-->>Browser : 渲染聊天线程
   - 令牌保存于当前标签页会话存储，URL 中清理
 
 **章节来源**
-
 - [仪表盘（浏览器）:8-55](file://docs/web/dashboard.md#L8-L55)
 
 ### WebChat（网关 WebSocket UI）
-
 - 行为特性
   - 基于@assistant-ui/react的现代化聊天界面
   - 支持流式响应、工具调用、Markdown渲染、附件上传
@@ -275,7 +260,6 @@ Provider-->>Browser : 渲染聊天线程
 **更新** WebChat完全重构为基于@assistant-ui/react的现代化架构，提供了更好的用户体验和开发体验。
 
 **章节来源**
-
 - [WebChat（网关WebSocket UI）:8-62](file://docs/web/webchat.md#L8-L62)
 - [聊天运行时提供者:102-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L102-L237)
 - [线程视图:9-33](file://ui-react/src/components/chat/ThreadView.tsx#L9-L33)
@@ -283,7 +267,6 @@ Provider-->>Browser : 渲染聊天线程
 - [Composer组件:6-90](file://ui-react/src/components/chat/Composer.tsx#L6-L90)
 
 ### 聊天（Chat）交互与行为
-
 - 发送与停止
   - 发送非阻塞，立即返回运行标识并以事件流回传结果
   - 支持点击停止、输入停止命令或按会话级停止
@@ -322,18 +305,15 @@ WaitFlush --> SendNow
 ```
 
 **图表来源**
-
 - [聊天运行时提供者:166-213](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L166-L213)
 - [聊天事件桥接钩子:273-472](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L472)
 
 **章节来源**
-
 - [聊天运行时提供者:102-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L102-L237)
 - [聊天事件桥接钩子:12-472](file://ui-react/src/hooks/useChatEventBridge.ts#L12-L472)
 - [聊天存储:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
 
 ### 网关连接与事件处理
-
 - 连接建立
   - 通过独立的GatewayClient类建立WebSocket连接
   - 支持设备身份验证和令牌认证
@@ -368,17 +348,14 @@ App-->>App : 显示错误或自动重连
 ```
 
 **图表来源**
-
 - [网关连接钩子:35-291](file://ui-react/src/hooks/useGateway.ts#L35-L291)
 - [网关存储:128-167](file://ui-react/src/store/gateway.store.ts#L128-L167)
 
 **章节来源**
-
 - [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 
 ### 界面定制、主题与响应式设计
-
 - 主题
   - 基于Tailwind CSS的现代化主题系统
   - 支持深色/浅色主题自动切换
@@ -395,23 +372,19 @@ App-->>App : 显示错误或自动重连
 **更新** 新的React架构提供了更好的主题支持和响应式设计能力。
 
 **章节来源**
-
 - [助手消息组件:1-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L240)
 - [Composer组件:1-90](file://ui-react/src/components/chat/Composer.tsx#L1-L90)
 - [Vite构建配置:1-36](file://ui-react/vite.config.ts#L1-L36)
 
 ### 国际化与本地化
-
 - 首次加载基于浏览器语言选择本地化资源
 - 支持多语懒加载，缺失键回退至英语
 - 本地存储复用已选语言，下次访问保持
 
 **章节来源**
-
 - [控制UI（浏览器）:63-71](file://docs/web/control-ui.md#L63-L71)
 
 ### 开发与构建指南
-
 - 构建
   - 使用Vite 7 + React + TypeScript构建
   - 输出到独立的dist/control-ui-react目录
@@ -427,13 +400,11 @@ App-->>App : 显示错误或自动重连
 **更新** 新的构建配置提供了更好的开发体验和性能优化。
 
 **章节来源**
-
 - [Vite构建配置:1-36](file://ui-react/vite.config.ts#L1-L36)
 - [UI包依赖定义:1-57](file://ui-react/package.json#L1-L57)
 - [应用根组件:1-7](file://ui-react/src/App.tsx#L1-L7)
 
 ### API 接口与集成方法
-
 - WebSocket 方法（典型）
   - 聊天：历史、发送、中止、注入
   - 通道：状态、登录、配置
@@ -447,7 +418,7 @@ App-->>App : 显示错误或自动重连
   - 日志：实时尾随、过滤、导出
   - 更新：运行更新并重启
 - 事件
-  - chat、agent、presence、cron、device.pair._、exec.approval._
+  - chat、agent、presence、cron、device.pair.*、exec.approval.*
   - tool.start、tool.running、tool.result、tool.error
 - @assistant-ui集成
   - ExternalStoreRuntime接口实现
@@ -457,13 +428,11 @@ App-->>App : 显示错误或自动重连
 **更新** 新的架构提供了完整的@assistant-ui生态系统的集成能力。
 
 **章节来源**
-
 - [控制UI（浏览器）:72-102](file://docs/web/control-ui.md#L72-L102)
 - [聊天事件桥接钩子:273-472](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L472)
 - [网关存储:12-27](file://ui-react/src/store/gateway.store.ts#L12-L27)
 
 ## 依赖关系分析
-
 - 组件耦合
   - 应用外壳聚合所有功能页面，作为单一状态源
   - 聊天运行时提供者与@assistant-ui生态系统的深度集成
@@ -504,7 +473,6 @@ Composer --> RadixUI["@radix-ui/react-* 组件"]
 ```
 
 **图表来源**
-
 - [应用根组件:1-7](file://ui-react/src/App.tsx#L1-L7)
 - [路由配置:1-42](file://ui-react/src/router.tsx#L1-L42)
 - [应用外壳:1-26](file://ui-react/src/components/layout/AppShell.tsx#L1-L26)
@@ -518,11 +486,9 @@ Composer --> RadixUI["@radix-ui/react-* 组件"]
 - [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
 
 **章节来源**
-
 - [UI包依赖定义:1-57](file://ui-react/package.json#L1-L57)
 
 ## 性能考量
-
 - 构建体积与警告阈值
   - 构建配置中设置了较大的分块体积警告阈值（1024KB）
   - 独立的构建输出目录，避免与旧版UI冲突
@@ -543,13 +509,11 @@ Composer --> RadixUI["@radix-ui/react-* 组件"]
 **更新** 新的架构在性能方面有了显著提升，特别是在状态管理和组件渲染方面。
 
 **章节来源**
-
 - [Vite构建配置:21-28](file://ui-react/vite.config.ts#L21-L28)
 - [聊天存储:135-230](file://ui-react/src/store/chat.store.ts#L135-L230)
 - [网关存储:72-184](file://ui-react/src/store/gateway.store.ts#L72-L184)
 
 ## 故障排查指南
-
 - "未授权"/1008 错误
   - 确认网关可达；令牌漂移时进行修复；从网关主机获取或生成令牌
   - 检查设备身份验证是否正常工作
@@ -574,18 +538,15 @@ Composer --> RadixUI["@radix-ui/react-* 组件"]
 **更新** 新的故障排查指南涵盖了React架构特有的问题和解决方案。
 
 **章节来源**
-
 - [仪表盘（浏览器）:45-55](file://docs/web/dashboard.md#L45-L55)
 - [控制UI（浏览器）:33-62](file://docs/web/control-ui.md#L33-L62)
 - [网关连接钩子:276-291](file://ui-react/src/hooks/useGateway.ts#L276-L291)
 - [聊天事件桥接钩子:461-472](file://ui-react/src/hooks/useChatEventBridge.ts#L461-L472)
 
 ## 结论
-
 该 Web 界面以轻量、安全与易用为目标：通过React 19 + @assistant-ui/react的现代化架构，提供完整的控制与调试能力；配合响应式布局与主题系统，适配多终端场景；完善的认证与安全策略确保管理员面的安全边界。新的架构引入了更好的组件化设计、状态管理和开发体验，为未来的功能扩展奠定了坚实的基础。对于开发者，清晰的模块划分与现代化的技术栈便于二次开发与集成。
 
 ## 附录
-
 - 快速链接
   - 本地访问：默认端口5174与基础路径
   - 一键打开：CLI 提供便捷入口
@@ -596,7 +557,6 @@ Composer --> RadixUI["@radix-ui/react-* 组件"]
   - Zustand状态管理的最佳实践
 
 **章节来源**
-
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)
 - [仪表盘（浏览器）:8-55](file://docs/web/dashboard.md#L8-L55)
 - [Vite构建配置:29-34](file://ui-react/vite.config.ts#L29-L34)

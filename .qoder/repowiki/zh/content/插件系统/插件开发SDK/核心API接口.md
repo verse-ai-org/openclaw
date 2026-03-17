@@ -17,7 +17,6 @@
 </cite>
 
 ## 目录
-
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
@@ -30,12 +29,10 @@
 10. [附录：API参考手册](#附录api参考手册)
 
 ## 简介
-
 本文件系统性梳理 OpenClaw 插件SDK的核心API接口，覆盖插件生命周期管理、事件钩子体系、消息路由与通道适配、运行时能力（子代理、媒体、TTS/STT、工具）、HTTP/Webhook 路由注册、认证与配置校验等关键能力。文档面向不同技术背景读者，既提供高层架构视图，也给出代码级参考与调用流程图，帮助开发者快速实现插件接口、正确处理事件并管理资源。
 
 ## 项目结构
-
-插件SDK位于 src/plugin-sdk 与 src/plugins 下，核心导出通过 index.ts 汇总；通道插件接口在 src/channels/plugins 下定义；扩展插件示例位于 extensions/\*。
+插件SDK位于 src/plugin-sdk 与 src/plugins 下，核心导出通过 index.ts 汇总；通道插件接口在 src/channels/plugins 下定义；扩展插件示例位于 extensions/*。
 
 ```mermaid
 graph TB
@@ -74,7 +71,6 @@ ExDiscord --> SDKIndex
 ```
 
 **图表来源**
-
 - [index.ts:1-826](file://src/plugin-sdk/index.ts#L1-L826)
 - [types.ts:1-893](file://src/plugins/types.ts#L1-L893)
 - [runtime/types.ts:1-64](file://src/plugins/runtime/types.ts#L1-L64)
@@ -89,7 +85,6 @@ ExDiscord --> SDKIndex
 - [index.ts:1-20](file://extensions/discord/index.ts#L1-L20)
 
 **章节来源**
-
 - [index.ts:1-826](file://src/plugin-sdk/index.ts#L1-L826)
 - [types.ts:1-893](file://src/plugins/types.ts#L1-L893)
 - [runtime/types.ts:1-64](file://src/plugins/runtime/types.ts#L1-L64)
@@ -104,18 +99,17 @@ ExDiscord --> SDKIndex
 - [index.ts:1-20](file://extensions/discord/index.ts#L1-L20)
 
 ## 核心组件
-
 - 插件API与生命周期
   - OpenClawPluginApi：插件注册入口，提供 registerTool、registerHook、registerHttpRoute、registerChannel、registerGatewayMethod、registerCli、registerService、registerProvider、registerCommand、registerContextEngine、resolvePath、on 等方法。
   - OpenClawPluginDefinition/OpenClawPluginModule：插件定义与模块化注册。
-  - 生命周期钩子：before*model_resolve、before_prompt_build、before_agent_start、llm_input、llm_output、agent_end、compaction、reset、message*_、tool\__、session*\*、subagent*_、gateway\__ 等。
+  - 生命周期钩子：before_model_resolve、before_prompt_build、before_agent_start、llm_input、llm_output、agent_end、compaction、reset、message_*、tool_*、session_*、subagent_*、gateway_* 等。
 - 运行时能力
   - PluginRuntime：聚合 PluginRuntimeCore 与 PluginRuntimeChannel，提供子代理运行、会话查询、通道能力等。
   - PluginRuntimeCore：配置读写、系统事件、命令执行、媒体/语音/音频、工具、事件订阅、日志、状态目录、模型鉴权等。
   - PluginRuntimeChannel：文本分块、回复派发、路由、配对、媒体拉取存储、活动记录、会话元数据、提及/反应/群组策略、防抖、命令授权、各通道特有能力（Discord/Slack/Telegram/Signal/iMessage/WhatsApp/LINE）。
 - 通道插件接口
   - ChannelPlugin：定义通道能力契约（配置、安全、群组、提及、出站、状态、网关、认证、提升权限、命令、流式、线程、消息、代理提示、目录、解析器、动作、心跳、代理工具等）。
-  - Channel\*Adapter 类型族：适配器抽象，承载通道特定实现。
+  - Channel*Adapter 类型族：适配器抽象，承载通道特定实现。
 - 认证与配置
   - ProviderAuthMethod/ProviderAuthContext/ProviderAuthResult：提供方认证流程与结果。
   - OpenClawPluginConfigSchema：插件配置校验与UI提示。
@@ -124,7 +118,6 @@ ExDiscord --> SDKIndex
   - Webhook 相关工具：目标注册、鉴权解析、请求守卫、内存限流与异常追踪。
 
 **章节来源**
-
 - [types.ts:263-306](file://src/plugins/types.ts#L263-L306)
 - [types.ts:321-372](file://src/plugins/types.ts#L321-L372)
 - [runtime/types.ts:51-63](file://src/plugins/runtime/types.ts#L51-L63)
@@ -137,7 +130,6 @@ ExDiscord --> SDKIndex
 - [types.ts:208-219](file://src/plugins/types.ts#L208-L219)
 
 ## 架构总览
-
 下图展示插件SDK从“插件模块”到“通道适配器”的整体交互，以及运行时能力的分层组织。
 
 ```mermaid
@@ -154,7 +146,6 @@ Runtime --> Channel
 ```
 
 **图表来源**
-
 - [types.ts:248-261](file://src/plugins/types.ts#L248-L261)
 - [types.ts:263-306](file://src/plugins/types.ts#L263-L306)
 - [runtime/types.ts:51-63](file://src/plugins/runtime/types.ts#L51-L63)
@@ -164,7 +155,6 @@ Runtime --> Channel
 ## 详细组件分析
 
 ### 组件A：插件API与生命周期
-
 - 关键职责
   - 注册工具：支持工厂函数或直接工具数组，可指定名称或别名。
   - 注册钩子：按事件名注册处理器，支持优先级。
@@ -200,17 +190,14 @@ Mod-->>Loader : 可选激活逻辑
 ```
 
 **图表来源**
-
 - [types.ts:248-261](file://src/plugins/types.ts#L248-L261)
 - [types.ts:263-306](file://src/plugins/types.ts#L263-L306)
 
 **章节来源**
-
 - [types.ts:263-306](file://src/plugins/types.ts#L263-L306)
 - [types.ts:321-372](file://src/plugins/types.ts#L321-L372)
 
 ### 组件B：运行时能力（子代理与通道）
-
 - 子代理运行
   - run：提交会话消息，返回 runId。
   - waitForRun：等待运行结束，返回状态与错误信息。
@@ -292,24 +279,21 @@ PluginRuntime --> PluginRuntimeChannel : "组合"
 ```
 
 **图表来源**
-
 - [runtime/types.ts:51-63](file://src/plugins/runtime/types.ts#L51-L63)
 - [runtime/types-core.ts:10-67](file://src/plugins/runtime/types-core.ts#L10-L67)
 - [runtime/types-channel.ts:16-165](file://src/plugins/runtime/types-channel.ts#L16-L165)
 
 **章节来源**
-
 - [runtime/types.ts:8-63](file://src/plugins/runtime/types.ts#L8-L63)
 - [runtime/types-core.ts:10-67](file://src/plugins/runtime/types-core.ts#L10-L67)
 - [runtime/types-channel.ts:16-165](file://src/plugins/runtime/types-channel.ts#L16-L165)
 
 ### 组件C：通道插件接口
-
 - ChannelPlugin 契约
   - 必填：id、meta、capabilities。
   - 可选：defaults、reload、onboarding、config/configSchema、setup、pairing、security、groups、mentions、outbound、status、gatewayMethods、gateway、auth、elevated、commands、streaming、threading、messaging、agentPrompt、directory、resolver、actions、heartbeat、agentTools。
 - 适配器族
-  - Channel\*Adapter：认证、命令、配置、目录、解析、提升权限、网关、群组、心跳、登出、登录、安全、设置、状态、流式、线程、消息、工具等。
+  - Channel*Adapter：认证、命令、配置、目录、解析、提升权限、网关、群组、心跳、登出、登录、安全、设置、状态、流式、线程、消息、工具等。
 
 ```mermaid
 classDiagram
@@ -347,16 +331,13 @@ class ChannelPlugin {
 ```
 
 **图表来源**
-
 - [types.plugin.ts:49-85](file://src/channels/plugins/types.plugin.ts#L49-L85)
 
 **章节来源**
-
 - [types.ts:7-65](file://src/channels/plugins/types.ts#L7-L65)
 - [types.plugin.ts:49-85](file://src/channels/plugins/types.plugin.ts#L49-L85)
 
 ### 组件D：认证与配置
-
 - ProviderAuthMethod
   - id/label/kind/run：定义认证方式与执行流程。
   - ProviderAuthContext：包含配置、工作空间、提示器、运行时、远程标记、打开URL回调、OAuth处理器。
@@ -376,38 +357,31 @@ Fail --> Done
 ```
 
 **图表来源**
-
 - [types.ts:114-132](file://src/plugins/types.ts#L114-L132)
 - [types.ts:44-56](file://src/plugins/types.ts#L44-L56)
 
 **章节来源**
-
 - [types.ts:44-56](file://src/plugins/types.ts#L44-L56)
 - [types.ts:114-132](file://src/plugins/types.ts#L114-L132)
 
 ### 组件E：HTTP/Webhook 路由
-
 - OpenClawPluginHttpRouteParams
   - path/handler/auth(match/replaceExisting)：精确匹配或前缀匹配，支持替换已有路由。
 - Webhook 工具
   - 目标注册与鉴权解析、请求守卫（内容类型、请求体大小限制、并发限制）、异常追踪与计数器。
 
 **章节来源**
-
 - [types.ts:208-219](file://src/plugins/types.ts#L208-L219)
 - [index.ts:149-175](file://src/plugin-sdk/index.ts#L149-L175)
 
 ### 组件F：运行时环境封装
-
 - createLoggerBackedRuntime/resolveRuntimeEnv/resolveRuntimeEnvWithUnavailableExit
   - 将外部 Logger 包装为 RuntimeEnv，提供 log/error/exit 接口，并支持不可用退出场景。
 
 **章节来源**
-
 - [runtime.ts:9-44](file://src/plugin-sdk/runtime.ts#L9-L44)
 
 ## 依赖关系分析
-
 - 插件SDK导出汇总于 index.ts，统一暴露类型与工具，便于扩展插件按需导入。
 - 插件API依赖运行时类型，运行时类型进一步依赖核心与通道能力。
 - 通道插件接口独立于具体通道实现，通过 Adapter 抽象解耦。
@@ -427,7 +401,6 @@ ExDiscord["extensions/discord/index.ts"] --> Index
 ```
 
 **图表来源**
-
 - [index.ts:1-826](file://src/plugin-sdk/index.ts#L1-L826)
 - [types.ts:1-893](file://src/plugins/types.ts#L1-L893)
 - [runtime/types.ts:1-64](file://src/plugins/runtime/types.ts#L1-L64)
@@ -440,7 +413,6 @@ ExDiscord["extensions/discord/index.ts"] --> Index
 - [index.ts:1-20](file://extensions/discord/index.ts#L1-L20)
 
 **章节来源**
-
 - [index.ts:1-826](file://src/plugin-sdk/index.ts#L1-L826)
 - [types.ts:1-893](file://src/plugins/types.ts#L1-L893)
 - [runtime/types.ts:1-64](file://src/plugins/runtime/types.ts#L1-L64)
@@ -453,7 +425,6 @@ ExDiscord["extensions/discord/index.ts"] --> Index
 - [index.ts:1-20](file://extensions/discord/index.ts#L1-L20)
 
 ## 性能考量
-
 - 子代理运行
   - 使用 idempotencyKey 避免重复执行。
   - 合理设置 lane，隔离高负载任务。
@@ -468,7 +439,6 @@ ExDiscord["extensions/discord/index.ts"] --> Index
 [本节为通用指导，无需列出章节来源]
 
 ## 故障排查指南
-
 - 配置校验失败
   - 使用 OpenClawPluginConfigSchema.validate，检查返回的错误列表。
 - HTTP路由未生效
@@ -482,14 +452,12 @@ ExDiscord["extensions/discord/index.ts"] --> Index
   - 确认 ChannelPlugin 的 capabilities 与对应 Adapter 是否完整实现。
 
 **章节来源**
-
 - [types.ts:44-56](file://src/plugins/types.ts#L44-L56)
 - [types.ts:208-219](file://src/plugins/types.ts#L208-L219)
 - [runtime.ts:34-44](file://src/plugin-sdk/runtime.ts#L34-L44)
 - [index.ts:149-175](file://src/plugin-sdk/index.ts#L149-L175)
 
 ## 结论
-
 OpenClaw 插件SDK通过清晰的类型体系与分层架构，提供了从插件注册、生命周期管理、事件钩子、运行时能力到通道适配的全栈支持。开发者可基于示例插件快速上手，遵循本文档的接口规范与最佳实践，实现稳定高效的插件功能。
 
 [本节为总结性内容，无需列出章节来源]
@@ -497,7 +465,6 @@ OpenClaw 插件SDK通过清晰的类型体系与分层架构，提供了从插�
 ## 附录：API参考手册
 
 ### 插件API（OpenClawPluginApi）
-
 - 方法
   - registerTool(tool | factory, opts?)：注册工具或工具工厂。
   - registerHook(events, handler, opts?)：注册生命周期钩子。
@@ -515,18 +482,15 @@ OpenClaw 插件SDK通过清晰的类型体系与分层架构，提供了从插�
   - 以上均为副作用操作，无返回值或返回 Promise<void>。
 
 **章节来源**
-
 - [types.ts:263-306](file://src/plugins/types.ts#L263-L306)
 
 ### 生命周期钩子（PluginHookName）
-
 - 钩子列表
   - before_model_resolve、before_prompt_build、before_agent_start、llm_input、llm_output、agent_end、before_compaction、after_compaction、before_reset、message_received、message_sending、message_sent、before_tool_call、after_tool_call、tool_result_persist、before_message_write、session_start、session_end、subagent_spawning、subagent_delivery_target、subagent_spawned、subagent_ended、gateway_start、gateway_stop。
 - 事件对象与结果
   - 各钩子对应事件对象与可选结果类型详见 types.ts 中的事件/结果定义。
 
 **章节来源**
-
 - [types.ts:321-372](file://src/plugins/types.ts#L321-L372)
 - [types.ts:410-526](file://src/plugins/types.ts#L410-L526)
 - [types.ts:606-633](file://src/plugins/types.ts#L606-L633)
@@ -536,7 +500,6 @@ OpenClaw 插件SDK通过清晰的类型体系与分层架构，提供了从插�
 - [types.ts:776-784](file://src/plugins/types.ts#L776-L784)
 
 ### 运行时接口（PluginRuntime）
-
 - 子代理
   - run(params)：提交消息，返回 runId。
   - waitForRun(params)：等待运行结束，返回状态与错误。
@@ -547,44 +510,36 @@ OpenClaw 插件SDK通过清晰的类型体系与分层架构，提供了从插�
   - text/reply/routing/pairing/media/activity/session/mentions/reactions/groups/debounce/commands/discord/slack/telegram/signal/imessage/whatsapp/line 等。
 
 **章节来源**
-
 - [runtime/types.ts:8-63](file://src/plugins/runtime/types.ts#L8-L63)
 - [runtime/types-channel.ts:16-165](file://src/plugins/runtime/types-channel.ts#L16-L165)
 
 ### 通道插件（ChannelPlugin）
-
 - 字段
   - id、meta、capabilities、defaults、reload、onboarding、config/configSchema、setup、pairing、security、groups、mentions、outbound、status、gatewayMethods、gateway、auth、elevated、commands、streaming、threading、messaging、agentPrompt、directory、resolver、actions、heartbeat、agentTools。
 - 适配器族
-  - Channel\*Adapter：认证/命令/配置/目录/解析/提升权限/网关/群组/心跳/登出/登录/安全/设置/状态/流式/线程/消息/工具等。
+  - Channel*Adapter：认证/命令/配置/目录/解析/提升权限/网关/群组/心跳/登出/登录/安全/设置/状态/流式/线程/消息/工具等。
 
 **章节来源**
-
 - [types.plugin.ts:49-85](file://src/channels/plugins/types.plugin.ts#L49-L85)
 - [types.ts:7-65](file://src/channels/plugins/types.ts#L7-L65)
 
 ### 认证与配置
-
 - ProviderAuthMethod/ProviderAuthContext/ProviderAuthResult
 - OpenClawPluginConfigSchema
 
 **章节来源**
-
 - [types.ts:114-132](file://src/plugins/types.ts#L114-L132)
 - [types.ts:44-56](file://src/plugins/types.ts#L44-L56)
 
 ### HTTP/Webhook
-
 - OpenClawPluginHttpRouteParams
 - Webhook 目标注册、鉴权解析、请求守卫、异常追踪与限流
 
 **章节来源**
-
 - [types.ts:208-219](file://src/plugins/types.ts#L208-L219)
 - [index.ts:149-175](file://src/plugin-sdk/index.ts#L149-L175)
 
 ### 示例：实现要点
-
 - 工具注册
   - 使用 registerTool(factory, { names }) 注册工具，确保工厂在运行时传入的上下文中可用。
 - 生命周期事件
@@ -595,7 +550,6 @@ OpenClaw 插件SDK通过清晰的类型体系与分层架构，提供了从插�
   - 使用 api.registerHttpRoute({ path, auth, match, handler }) 注册路由。
 
 **章节来源**
-
 - [index.ts:19-41](file://extensions/diffs/index.ts#L19-L41)
 - [index.ts:10-35](file://extensions/memory-core/index.ts#L10-L35)
 - [index.ts:12-16](file://extensions/discord/index.ts#L12-L16)

@@ -12,10 +12,19 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss()],
     // Reuse public assets (favicons etc.) from the existing Lit UI
     publicDir: path.resolve(here, "../ui/public"),
+    define: {
+      // Expose gateway port to client so resolveDefaultGatewayUrl() can use
+      // the correct port (Electron uses 18790, standalone dev uses 18789).
+      "import.meta.env.VITE_GATEWAY_PORT": JSON.stringify(
+        process.env.VITE_GATEWAY_PORT ?? "18789",
+      ),
+    },
     resolve: {
       alias: {
         "@": path.resolve(here, "./src"),
         "@gateway": path.resolve(here, "../src/gateway"),
+        // Point to setup-wizard source directly in dev — no rebuild needed.
+        "@openclaw/setup-wizard": path.resolve(here, "../packages/setup-wizard/src/index.ts"),
       },
     },
     build: {
