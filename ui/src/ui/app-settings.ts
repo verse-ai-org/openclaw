@@ -38,6 +38,7 @@ import { saveSettings, type UiSettings } from "./storage.ts";
 import { startThemeTransition, type ThemeTransitionContext } from "./theme-transition.ts";
 import { resolveTheme, type ResolvedTheme, type ThemeMode } from "./theme.ts";
 import type { AgentsListResult } from "./types.ts";
+import { handleProfileEditLoad, handleProfileTemplateLoad } from "./views/profile.ts";
 
 type SettingsHost = {
   settings: UiSettings;
@@ -247,6 +248,12 @@ export async function refreshActiveTab(host: SettingsHost) {
     host.logsAtBottom = true;
     await loadLogs(host as unknown as OpenClawApp, { reset: true });
     scheduleLogsScroll(host as unknown as Parameters<typeof scheduleLogsScroll>[0], true);
+  }
+  if (host.tab === "profile-templates") {
+    await handleProfileTemplateLoad(host as unknown as OpenClawApp);
+  }
+  if (host.tab === "profile-edit") {
+    await handleProfileEditLoad(host as unknown as OpenClawApp);
   }
 }
 

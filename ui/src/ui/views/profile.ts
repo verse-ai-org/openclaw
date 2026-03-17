@@ -115,6 +115,38 @@ const PROFILE_TEMPLATES: ProfileTemplate[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Parse ROLE from existing USER.md content
+function parseRoleFromUserMd(content: string): string | null {
+  if (!content) {
+    return null;
+  }
+  const roleMatch = content.match(/\*\*Role\*\*:\s*(.+)/i);
+  return roleMatch?.[1]?.trim() || null;
+}
+
+// Find template ID by role name (case-insensitive partial match)
+function findTemplateIdByRole(role: string): string | null {
+  if (!role) {
+    return null;
+  }
+  const normalizedRole = role.toLowerCase();
+  // Try exact match first
+  const exactMatch = PROFILE_TEMPLATES.find((t) => t.defaultRole.toLowerCase() === normalizedRole);
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+  // Try partial match (role contains template role or vice versa)
+  const partialMatch = PROFILE_TEMPLATES.find(
+    (t) =>
+      normalizedRole.includes(t.defaultRole.toLowerCase()) ||
+      t.defaultRole.toLowerCase().includes(normalizedRole),
+  );
+  if (partialMatch) {
+    return partialMatch.id;
+  }
+  return null;
+}
+
 function buildUserMdSection(state: ProfileState): string {
   const tpl = PROFILE_TEMPLATES.find((t) => t.id === state.profileTemplateId);
   const date = new Date().toISOString().slice(0, 10);
@@ -396,6 +428,7 @@ export async function handleProfileTemplateLoad(state: ProfileState): Promise<vo
     return;
   }
   const agentId = state.agentsList?.defaultId ?? state.agentsList?.agents?.[0]?.id ?? "main";
+  // Load USER.md
   state.profileTemplateUserMdLoading = true;
   try {
     const res = await state.client.request<{
@@ -404,9 +437,27 @@ export async function handleProfileTemplateLoad(state: ProfileState): Promise<vo
     const content = res?.file?.content ?? "";
     state.profileTemplateUserMd = content;
     state.profileTemplateUserMdDraft = content;
+
+    // Auto-select template based on ROLE from USER.md
+    const role = parseRoleFromUserMd(content);
+    if (role) {
+      const templateId = findTemplateIdByRole(role);
+      if (templateId && !state.profileTemplateId) {
+        // Only auto-select if no template is currently selected
+        await handleProfileTemplateSelect(state, templateId);
+      }
+    }
+    // If no template selected yet (no ROLE match), select first template as fallback
+    if (!state.profileTemplateId && PROFILE_TEMPLATES.length > 0) {
+      await handleProfileTemplateSelect(state, PROFILE_TEMPLATES[0].id);
+    }
   } catch {
     state.profileTemplateUserMd = "";
     state.profileTemplateUserMdDraft = "";
+    // On error, still select first template as fallback
+    if (!state.profileTemplateId && PROFILE_TEMPLATES.length > 0) {
+      await handleProfileTemplateSelect(state, PROFILE_TEMPLATES[0].id);
+    }
   } finally {
     state.profileTemplateUserMdLoading = false;
   }
@@ -1057,7 +1108,7 @@ export function renderProfileTemplates(props: ProfileTemplatesProps) {
                 `
         }
 
-        <div class="card-sub" style="margin-bottom: 12px;">
+        <div class="card-sub" style="margin-bottom: 12px; margin-top: 20px;">
           Select a role template to pre-fill your profile details.
         </div>
         ${renderTemplateSelect(state, props.onTemplateSelect)}
