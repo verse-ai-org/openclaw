@@ -572,7 +572,53 @@ await client.request("agents.files.set", { agentId, name: "USER.md", content: me
 
 ---
 
-## 十、更新日志
+## 十、开发规范与注意事项
+
+### ESLint 规范（必须遵守）
+
+在 Profile 功能开发过程中，以下 ESLint 规则必须严格遵守，避免重复出现相同问题：
+
+#### 1. 事件绑定必须使用 `addEventListener`
+
+**错误写法：**
+
+```typescript
+input.onchange = (e) => { ... };
+```
+
+**正确写法：**
+
+```typescript
+input.addEventListener("change", (e) => { ... });
+```
+
+**规则：** `eslint-plugin-unicorn(prefer-add-event-listener)`
+
+#### 2. Promise 必须显式处理
+
+**错误写法：**
+
+```typescript
+if (files) {
+  handleFileSelect(files, state, props.onFileSelect);
+}
+```
+
+**正确写法：**
+
+```typescript
+if (files) {
+  void handleFileSelect(files, state, props.onFileSelect);
+}
+```
+
+**规则：** `typescript-eslint(no-floating-promises)`
+
+**说明：** 对于异步函数调用，如果不使用 `await`，必须添加 `void` 操作符显式标记忽略返回值。
+
+---
+
+## 十一、更新日志
 
 ### v1.3 (2026-03-17)
 
