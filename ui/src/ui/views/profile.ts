@@ -20,6 +20,10 @@ export type ProfileState = {
   profileFormCustomFields: Record<string, string>;
   // free input (still used for the "add from text" area in edit tab)
   profileFreeInput: string;
+  // file uploads
+  profileFiles: Array<{ name: string; content: string }>; // base64 encoded content
+  profileFilesMaxCount: number;
+  profileFilesMaxSize: number; // in bytes
   // async state
   profileLoading: boolean;
   profileError: string | null;
@@ -28,6 +32,7 @@ export type ProfileState = {
   profilePreviewUserMd: string;
   profilePreviewMemoryMd: string;
   profilePreviewSkippedUrls: string[];
+  profilePreviewSkippedFiles: string[];
   profileSaving: boolean;
   profileSaveSuccess: boolean;
   // draft edits inside preview modal
@@ -114,6 +119,85 @@ const PROFILE_TEMPLATES: ProfileTemplate[] = [
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Format bytes to human readable string */
+function formatBytes(bytes: number): string {
+  if (bytes === 0) {
+    return "0 B";
+  }
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+/** Get file icon based on extension */
+function getFileIcon(filename: string): string {
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  switch (ext) {
+    case ".md":
+      return "📝";
+    case ".doc":
+    case ".docx":
+      return "📄";
+    case ".pdf":
+      return "📑";
+    default:
+      return "📎";
+  }
+}
+
+/** Handle file selection from input or drop */
+async function handleFileSelect(
+  files: FileList,
+  state: ProfileState,
+  onFileSelect: (files: Array<{ name: string; content: string }>) => void,
+): Promise<void> {
+  const supportedExts = new Set([".md", ".doc", ".docx", ".pdf"]);
+  const newFiles: Array<{ name: string; content: string }> = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+
+    // Check file count limit
+    if (state.profileFiles.length + newFiles.length >= state.profileFilesMaxCount) {
+      break;
+    }
+
+    // Check file type
+    if (!supportedExts.has(ext)) {
+      continue;
+    }
+
+    // Check file size
+    if (file.size > state.profileFilesMaxSize) {
+      continue;
+    }
+
+    // Read file as base64
+    try {
+      const content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => {
+          const result = reader.result as string;
+          // Extract base64 content from data URL
+          const base64 = result.split(",")[1];
+          resolve(base64);
+        });
+        reader.addEventListener("error", () => reject(new Error("Failed to read file")));
+        reader.readAsDataURL(file);
+      });
+      newFiles.push({ name: file.name, content });
+    } catch {
+      // Skip files that fail to read
+    }
+  }
+
+  if (newFiles.length > 0) {
+    onFileSelect([...state.profileFiles, ...newFiles]);
+  }
+}
 
 // Parse ROLE from existing USER.md content
 function parseRoleFromUserMd(content: string): string | null {
@@ -222,8 +306,9 @@ export async function handleProfileFreeInputParse(state: ProfileState): Promise<
     return;
   }
   const text = state.profileFreeInput.trim();
-  if (!text) {
-    state.profileError = "Please enter some text or URLs.";
+  const hasFiles = state.profileFiles.length > 0;
+  if (!text && !hasFiles) {
+    state.profileError = "Please enter some text, URLs, or upload files.";
     return;
   }
   // Extract URLs
@@ -238,9 +323,11 @@ export async function handleProfileFreeInputParse(state: ProfileState): Promise<
       userMdContent: string;
       memoryContent: string;
       skippedUrls?: string[];
+      skippedFiles?: string[];
     } | null>("profile.parse", {
       text: textOnly || undefined,
       urls: urls.length > 0 ? urls : undefined,
+      files: hasFiles ? state.profileFiles : undefined,
     });
     if (!result) {
       state.profileError = "Gateway returned no result.";
@@ -256,19 +343,28 @@ export async function handleProfileFreeInputParse(state: ProfileState): Promise<
       // Collapse input area after successful parse
       state.profileEditInputOpen = false;
       state.profileFreeInput = "";
+      state.profileFiles = []; // Clear files after successful parse
     } else {
       // In template tab: use preview modal flow
       state.profilePreviewUserMd = result.userMdContent ?? "";
       state.profilePreviewMemoryMd = result.memoryContent ?? "";
       state.profilePreviewSkippedUrls = result.skippedUrls ?? [];
+      state.profilePreviewSkippedFiles = result.skippedFiles ?? [];
       state.profilePreviewOpen = true;
       state.profilePreviewUserMdDraft = result.userMdContent ?? "";
       state.profilePreviewMemoryMdDraft = result.memoryContent ?? "";
       state.profilePreviewMode = "preview";
     }
 
+    const warnings: string[] = [];
     if (result.skippedUrls && result.skippedUrls.length > 0) {
-      state.profileError = `⚠️ Could not fetch: ${result.skippedUrls.join(", ")}`;
+      warnings.push(`Could not fetch URLs: ${result.skippedUrls.join(", ")}`);
+    }
+    if (result.skippedFiles && result.skippedFiles.length > 0) {
+      warnings.push(`Could not process files: ${result.skippedFiles.join(", ")}`);
+    }
+    if (warnings.length > 0) {
+      state.profileError = `⚠️ ${warnings.join("; ")}`;
     }
   } catch (err) {
     state.profileError = String(err);
@@ -814,11 +910,25 @@ function renderPreviewModal(
         </div>
 
         ${
-          state.profilePreviewSkippedUrls.length > 0
+          state.profilePreviewSkippedUrls.length > 0 || state.profilePreviewSkippedFiles.length > 0
             ? html`
               <div class="callout warn" style="margin-bottom: 12px;">
-                ⚠️ Could not fetch:
-                ${state.profilePreviewSkippedUrls.join(", ")}
+                ${
+                  state.profilePreviewSkippedUrls.length > 0
+                    ? html`<div>
+                      ⚠️ Could not fetch URLs:
+                      ${state.profilePreviewSkippedUrls.join(", ")}
+                    </div>`
+                    : nothing
+                }
+                ${
+                  state.profilePreviewSkippedFiles.length > 0
+                    ? html`<div>
+                      ⚠️ Could not process files:
+                      ${state.profilePreviewSkippedFiles.join(", ")}
+                    </div>`
+                    : nothing
+                }
               </div>
             `
             : nothing
@@ -1164,6 +1274,8 @@ export type ProfileEditProps = {
   onEditInputToggle: (open: boolean) => void;
   onFreeInputChange: (text: string) => void;
   onFreeInputParse: () => void;
+  onFileSelect: (files: Array<{ name: string; content: string }>) => void;
+  onFileRemove: (index: number) => void;
   onPreviewClose: () => void;
   onPreviewModeChange: (mode: "preview" | "edit") => void;
   onPreviewDraftChange: (field: "user" | "memory", value: string) => void;
@@ -1242,7 +1354,7 @@ export function renderProfileEdit(props: ProfileEditProps) {
                   : nothing
               }
 
-              <!-- Add from text/URL section -->
+              <!-- Add from text/URL/File section -->
               <div
                 style="margin-top: 4px; border-top: 1px solid var(--border, #e0e0e0); padding-top: 16px;"
               >
@@ -1253,7 +1365,7 @@ export function renderProfileEdit(props: ProfileEditProps) {
                 >
                   <span>${state.profileEditInputOpen ? "▲" : "▼"}</span>
                   <span
-                    >${state.profileEditInputOpen ? "Hide" : "Add from Text / URL"}</span
+                    >${state.profileEditInputOpen ? "Hide" : "Add from Text / URL / File"}</span
                   >
                 </button>
 
@@ -1270,10 +1382,127 @@ export function renderProfileEdit(props: ProfileEditProps) {
                             props.onFreeInputChange((e.target as HTMLTextAreaElement).value)}
                         ></textarea>
                       </label>
+
+                      <!-- File upload section -->
+                      <div class="field" style="margin-top: 16px;">
+                        <span>Files</span>
+                        <div
+                          style="
+                            border: 2px dashed var(--border, #e0e0e0);
+                            border-radius: 6px;
+                            padding: 16px;
+                            text-align: center;
+                            background: var(--surface-2, #f9f9f9);
+                            cursor: pointer;
+                            transition: border-color 0.2s;
+                          "
+                          @dragover=${(e: DragEvent) => {
+                            e.preventDefault();
+                            (e.currentTarget as HTMLElement).style.borderColor =
+                              "var(--primary, #0066cc)";
+                          }}
+                          @dragleave=${(e: DragEvent) => {
+                            e.preventDefault();
+                            (e.currentTarget as HTMLElement).style.borderColor =
+                              "var(--border, #e0e0e0)";
+                          }}
+                          @drop=${(e: DragEvent) => {
+                            e.preventDefault();
+                            (e.currentTarget as HTMLElement).style.borderColor =
+                              "var(--border, #e0e0e0)";
+                            const files = e.dataTransfer?.files;
+                            if (files) {
+                              void handleFileSelect(files, state, props.onFileSelect);
+                            }
+                          }}
+                          @click=${() => {
+                            const input = document.createElement("input");
+                            input.type = "file";
+                            input.multiple = true;
+                            input.accept = ".md,.doc,.docx,.pdf";
+                            input.addEventListener("change", (e) => {
+                              const files = (e.target as HTMLInputElement).files;
+                              if (files) {
+                                void handleFileSelect(files, state, props.onFileSelect);
+                              }
+                            });
+                            input.click();
+                          }}
+                        >
+                          <div style="font-size: 24px; margin-bottom: 8px;">
+                            📁
+                          </div>
+                          <div
+                            style="font-size: 13px; color: var(--text-muted, #666);"
+                          >
+                            Click to select or drag files here
+                          </div>
+                          <div
+                            style="font-size: 12px; color: var(--text-muted, #999); margin-top: 4px;"
+                          >
+                            Supports: .md, .doc, .docx, .pdf
+                          </div>
+                          <div
+                            style="font-size: 11px; color: var(--text-muted, #999); margin-top: 2px;"
+                          >
+                            Max ${state.profileFilesMaxCount} files,
+                            ${formatBytes(state.profileFilesMaxSize)} each
+                          </div>
+                        </div>
+
+                        <!-- Selected files list -->
+                        ${
+                          state.profileFiles.length > 0
+                            ? html`
+                              <div style="margin-top: 12px;">
+                                ${state.profileFiles.map(
+                                  (file, index) => html`
+                                    <div
+                                      style="
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: space-between;
+                                    padding: 8px 12px;
+                                    background: var(--surface-1, #fff);
+                                    border: 1px solid var(--border, #e0e0e0);
+                                    border-radius: 4px;
+                                    margin-bottom: 6px;
+                                    font-size: 13px;
+                                  "
+                                    >
+                                      <span
+                                        style="display: flex; align-items: center; gap: 6px;"
+                                      >
+                                        <span>${getFileIcon(file.name)}</span>
+                                        <span
+                                          style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                        >
+                                          ${file.name}
+                                        </span>
+                                      </span>
+                                      <button
+                                        class="btn btn-xs"
+                                        style="padding: 2px 8px; font-size: 12px;"
+                                        @click=${() => props.onFileRemove(index)}
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  `,
+                                )}
+                              </div>
+                            `
+                            : nothing
+                        }
+                      </div>
+
                       <button
                         class="btn primary"
-                        style="margin-top: 10px;"
-                        ?disabled=${state.profileLoading}
+                        style="margin-top: 16px;"
+                        ?disabled=${
+                          state.profileLoading ||
+                          (state.profileFreeInput.trim() === "" && state.profileFiles.length === 0)
+                        }
                         @click=${props.onFreeInputParse}
                       >
                         ${state.profileLoading ? "Analyzing…" : "Analyze & Append"}

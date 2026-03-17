@@ -1,7 +1,7 @@
 # Profile 功能设计方案
 
-**版本**: v1.2  
-**状态**: 已实现（含页面重构与交互优化）  
+**版本**: v1.3  
+**状态**: 已实现（含文件上传解析功能）  
 **所属模块**: Dashboard > Profile  
 **最后更新**: 2026-03-17
 
@@ -33,20 +33,21 @@ OpenClaw 通过 workspace 目录下的一组 bootstrap 文件（`USER.md`、`MEM
 
 ### 功能二：用户画像输入框（Free Input Mode）
 
-提供自由输入入口，用户可输入文字、URL 链接，系统自动解析并提取画像信息，经用户预览确认后写入 workspace 文件。
+提供自由输入入口，用户可输入文字、URL 链接，或上传文档文件，系统自动解析并提取画像信息，经用户预览确认后写入 workspace 文件。
 
 ### 本期范围边界
 
 **做（本期）：**
 
 - 5 个固定职业模板 + 模板字段填写与保存
-- 功能二支持文字输入和 URL 解析
+- 功能二支持文字输入、URL 解析和**文件上传**（.md, .doc, .docx, .pdf）
 - 写入前必须经过预览确认界面
 - 结果写入 `USER.md` 和 `MEMORY.md`，两者独立，不互相影响
+- 文件上传限制可配置（默认最大 5 个文件，单个最大 5MB）
 
 **暂缓（下期）：**
 
-- 图片 / 文件上传解析
+- 图片上传解析
 - 用户自定义模板
 - Profile 历史版本 / 撤销功能
 
@@ -71,7 +72,7 @@ Dashboard 侧边栏
    └─ Profile Edit（子页面）
       ├─ USER.md 预览/编辑
       ├─ MEMORY.md 预览/编辑
-      └─ Add from Text/URL 输入区域
+      └─ Add from Text/URL/File 输入区域
 ```
 
 **导航说明：**
@@ -109,8 +110,9 @@ Dashboard 侧边栏
 ② 页面直接展示：
    - USER.md 当前内容（Preview/Edit 模式可切换）
    - MEMORY.md 当前内容（Preview/Edit 模式可切换）
-③ 「Add from Text / URL」折叠面板：
-   - 展开后输入文字 + URL（两者可混合使用）
+③ 「Add from Text / URL / File」折叠面板：
+   - 展开后输入文字 + URL + 上传文件（三者可混合使用）
+   - 支持文件格式：.md, .doc, .docx, .pdf
    - 点击「Analyze & Append」→ 系统处理 → 展示 Loading
 ④ 解析完成 → 弹出预览界面，展示两部分内容（均可编辑）：
    - 将写入 USER.md 的结构化信息
@@ -225,7 +227,8 @@ Profile Templates 子页面 (profile-templates tab)
 
 Profile Edit 子页面 (profile-edit tab)
  ├─ USER.md / MEMORY.md 预览/编辑 ────────────→  agents.files.get   (读取现有文件)
- ├─ Add from Text/URL  ───────────────────────→  profile.parse      (新增 Gateway 方法)
+ ├─ Add from Text/URL/File  ──────────────────→  profile.parse      (新增 Gateway 方法)
+ │   └─ 文件上传解析（.md/.doc/.docx/.pdf）
  └─ Save 成功后 ──────────────────────────────→  自动刷新两个文件展示
 ```
 
@@ -296,20 +299,29 @@ ui/src/ui/app-settings.ts          # 在 refreshActiveTab 中添加 profile-temp
 
 ```
 profile.parse
-  params: { text?: string; urls?: string[] }
+  params: {
+    text?: string;
+    urls?: string[];
+    files?: Array<{ name: string; content: string }>;  // base64 编码的文件内容
+  }
   returns: {
-    userMdContent: string;   // 建议写入 USER.md 的内容
-    memoryContent: string;   // 建议写入 MEMORY.md 的内容
-    skippedUrls?: string[];  // 无法抓取的 URL 列表
+    userMdContent: string;    // 建议写入 USER.md 的内容
+    memoryContent: string;    // 建议写入 MEMORY.md 的内容
+    skippedUrls?: string[];   // 无法抓取的 URL 列表
+    skippedFiles?: string[];  // 无法解析的文件列表
   }
 ```
 
 该方法内部：
 
 1. 对 URL 调用 fetch 抓取网页正文（15 秒超时，失败则加入 skippedUrls）
-2. 将所有内容（用户文字 + URL 正文）送入 Gateway 当前默认 AI 模型分析
-3. AI 按预设 prompt 以 `<USER_MD>...</USER_MD>` 和 `<MEMORY_MD>...</MEMORY_MD>` 格式返回
-4. 解析 XML 标签提取两份内容，返回给前端预览
+2. 对上传的文件进行解析：
+   - `.md` 文件：直接读取为 UTF-8 文本
+   - `.doc/.docx` 文件：使用 mammoth 库提取纯文本
+   - `.pdf` 文件：使用 pdf-parse 库提取文本
+3. 将所有内容（用户文字 + URL 正文 + 文件内容）送入 Gateway 当前默认 AI 模型分析
+4. AI 按预设 prompt 以 `<USER_MD>...</USER_MD>` 和 `<MEMORY_MD>...</MEMORY_MD>` 格式返回
+5. 解析 XML 标签提取两份内容，返回给前端预览
 
 ### 5.5 后端实现路径
 
@@ -324,6 +336,14 @@ src/gateway/server-methods/profile.ts    # profile.parse 方法实现
 ```
 src/gateway/server-methods-list.ts       # 在 BASE_METHODS 末尾追加 "profile.parse"
 src/gateway/server-methods.ts            # import profileHandlers 并 spread 到 coreGatewayHandlers
+src/config/types.openclaw.ts             # 新增 profile.upload 配置类型
+```
+
+**新增依赖：**
+
+```
+mammoth: ^1.9.0      # 用于解析 .doc/.docx 文件
+pdf-parse: ^1.1.1    # 用于解析 .pdf 文件
 ```
 
 ### 5.6 模板自动选择逻辑
@@ -389,7 +409,30 @@ if (host.tab === "profile-edit") {
 - 刷新页面时，数据会自动加载
 - 从其他 tab 切换回来时，数据会自动刷新
 
-### 5.8 文件写入策略（追加）
+### 5.8 文件上传配置
+
+文件上传限制可通过 OpenClaw 配置进行自定义：
+
+```bash
+# 设置单个文件最大大小（字节，默认 5MB = 5242880）
+openclaw config set profile.upload.maxFileSize 10485760
+
+# 设置单次最大上传文件数（默认 5）
+openclaw config set profile.upload.maxFileCount 10
+```
+
+配置类型定义：
+
+```typescript
+profile?: {
+  upload?: {
+    maxFileSize?: number;   // 默认 5242880 (5MB)
+    maxFileCount?: number;  // 默认 5
+  };
+};
+```
+
+### 5.9 文件写入策略（追加）
 
 写入时的合并逻辑（前端和后端均遵循）：
 
@@ -523,4 +566,22 @@ await client.request("agents.files.set", { agentId, name: "USER.md", content: me
 1. **侧边栏 Profile 图标**：使用 `User` 图标
 2. **profile.parse 的 AI 模型**：使用 Gateway 当前配置的默认模型
 3. **URL 抓取的超时时间**：15 秒，超时则跳过该 URL 并在预览界面提示
-4. **多语言支持**：本期不做国际化，界面语言统一使用英文（English），仅针对功能展示字段，用户输入内容不做翻译处理。
+4. **文件上传格式**：支持 `.md`, `.doc`, `.docx`, `.pdf`
+5. **文件上传限制**：默认最大 5 个文件，单个文件最大 5MB（可通过配置调整）
+6. **多语言支持**：本期不做国际化，界面语言统一使用英文（English），仅针对功能展示字段，用户输入内容不做翻译处理。
+
+---
+
+## 十、更新日志
+
+### v1.3 (2026-03-17)
+
+- ✅ 新增文件上传解析功能（支持 .md, .doc, .docx, .pdf）
+- ✅ 文件上传限制可配置（maxFileSize, maxFileCount）
+- ✅ 预览弹窗增加 skippedFiles 提示
+
+### v1.2 (2026-03-17)
+
+- ✅ 页面重构与交互优化
+- ✅ Profile Templates 与 Profile Edit 分离
+- ✅ 智能模板选择（基于 ROLE 自动匹配）

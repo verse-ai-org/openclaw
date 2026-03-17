@@ -329,12 +329,16 @@ export type AppViewState = {
     profileFormPreferences: string[];
     profileFormCustomFields: Record<string, string>;
     profileFreeInput: string;
+    profileFiles: Array<{ name: string; content: string }>;
+    profileFilesMaxCount: number;
+    profileFilesMaxSize: number;
     profileLoading: boolean;
     profileError: string | null;
     profilePreviewOpen: boolean;
     profilePreviewUserMd: string;
     profilePreviewMemoryMd: string;
     profilePreviewSkippedUrls: string[];
+    profilePreviewSkippedFiles: string[];
     profileSaving: boolean;
     profileSaveSuccess: boolean;
     // Editable drafts inside preview modal

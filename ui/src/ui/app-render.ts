@@ -1098,6 +1098,12 @@ export function renderApp(state: AppViewState) {
                   state.profileFreeInput = text;
                 },
                 onFreeInputParse: () => void handleProfileFreeInputParse(state),
+                onFileSelect: (files) => {
+                  state.profileFiles = files;
+                },
+                onFileRemove: (index) => {
+                  state.profileFiles = state.profileFiles.filter((_, i) => i !== index);
+                },
                 onPreviewClose: () => {
                   state.profilePreviewOpen = false;
                 },

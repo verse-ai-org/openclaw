@@ -120,6 +120,16 @@ export type OpenClawConfig = {
   talk?: TalkConfig;
   gateway?: GatewayConfig;
   memory?: MemoryConfig;
+  /** Profile feature configuration */
+  profile?: {
+    /** File upload settings for profile.parse */
+    upload?: {
+      /** Maximum file size in bytes. Default: 5242880 (5MB) */
+      maxFileSize?: number;
+      /** Maximum number of files per upload. Default: 5 */
+      maxFileCount?: number;
+    };
+  };
 };
 
 export type ConfigValidationIssue = {

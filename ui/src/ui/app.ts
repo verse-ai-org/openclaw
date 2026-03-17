@@ -394,12 +394,16 @@ export class OpenClawApp extends LitElement {
   @state() profileFormPreferences: string[] = [];
   @state() profileFormCustomFields: Record<string, string> = {};
   @state() profileFreeInput = "";
+  @state() profileFiles: Array<{ name: string; content: string }> = [];
+  @state() profileFilesMaxCount = 5;
+  @state() profileFilesMaxSize = 5 * 1024 * 1024; // 5MB
   @state() profileLoading = false;
   @state() profileError: string | null = null;
   @state() profilePreviewOpen = false;
   @state() profilePreviewUserMd = "";
   @state() profilePreviewMemoryMd = "";
   @state() profilePreviewSkippedUrls: string[] = [];
+  @state() profilePreviewSkippedFiles: string[] = [];
   @state() profileSaving = false;
   @state() profileSaveSuccess = false;
   @state() profilePreviewUserMdDraft = "";

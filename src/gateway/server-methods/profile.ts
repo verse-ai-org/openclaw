@@ -1,11 +1,13 @@
 /**
  * profile.parse — Gateway handler for the Profile feature (Free Input mode).
  *
- * Accepts user-provided text and/or URLs, fetches URL content, then uses
- * the gateway's default AI model to extract structured USER.md content
- * and supplementary MEMORY.md content.
+ * Accepts user-provided text, URLs, and/or files, fetches URL content,
+ * parses file contents, then uses the gateway's default AI model to
+ * extract structured USER.md content and supplementary MEMORY.md content.
  */
 import { completeSimple } from "@mariozechner/pi-ai";
+import mammoth from "mammoth";
+import pdfParse from "pdf-parse";
 import { getApiKeyForModel, requireApiKey } from "../../agents/model-auth.js";
 import { resolveModel } from "../../agents/pi-embedded-runner/model.js";
 import { resolveDefaultModelRef } from "../../agents/tools/model-config.helpers.js";
@@ -15,6 +17,72 @@ import type { GatewayRequestHandlers } from "./types.js";
 
 const URL_FETCH_TIMEOUT_MS = 15_000;
 const AI_TIMEOUT_MS = 60_000;
+
+/** Default upload configuration */
+const DEFAULT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const DEFAULT_MAX_FILE_COUNT = 5;
+
+/** Supported file types for parsing */
+const SUPPORTED_EXTENSIONS = new Set([".md", ".doc", ".docx", ".pdf"]);
+
+/** File content from frontend */
+type FileContent = {
+  name: string;
+  content: string; // base64 encoded
+  mimeType?: string;
+};
+
+/** Get file extension from filename */
+function getFileExtension(filename: string): string {
+  const match = filename.match(/\.[^.]+$/);
+  return match ? match[0].toLowerCase() : "";
+}
+
+/** Check if file type is supported */
+function isSupportedFileType(filename: string): boolean {
+  const ext = getFileExtension(filename);
+  return SUPPORTED_EXTENSIONS.has(ext);
+}
+
+/** Parse file content based on file type */
+async function parseFileContent(file: FileContent): Promise<string | null> {
+  try {
+    const ext = getFileExtension(file.name);
+    const buffer = Buffer.from(file.content, "base64");
+
+    switch (ext) {
+      case ".md":
+        // Markdown files: directly decode as UTF-8
+        return buffer.toString("utf-8");
+
+      case ".doc":
+      case ".docx": {
+        // Word documents: use mammoth to extract text
+        const result = await mammoth.extractRawText({ buffer });
+        return result.value || null;
+      }
+
+      case ".pdf": {
+        // PDF files: use pdf-parse to extract text
+        const result = await pdfParse(buffer);
+        return result.text || null;
+      }
+
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Get upload configuration from config */
+function getUploadConfig(cfg: ReturnType<typeof loadConfig>) {
+  return {
+    maxFileSize: cfg.profile?.upload?.maxFileSize ?? DEFAULT_MAX_FILE_SIZE,
+    maxFileCount: cfg.profile?.upload?.maxFileCount ?? DEFAULT_MAX_FILE_COUNT,
+  };
+}
 
 /** Try to fetch a URL and return its text body. Returns null on failure. */
 async function fetchUrlText(url: string): Promise<string | null> {
@@ -108,6 +176,7 @@ Respond in EXACTLY this format (no preamble, no extra text):
 function buildUserPrompt(params: {
   text?: string;
   urlContents: Array<{ url: string; body: string }>;
+  fileContents: Array<{ name: string; body: string }>;
 }): string {
   const parts: string[] = [];
   if (params.text?.trim()) {
@@ -115,6 +184,9 @@ function buildUserPrompt(params: {
   }
   for (const { url, body } of params.urlContents) {
     parts.push(`## Content from ${url}\n${body}`);
+  }
+  for (const { name, body } of params.fileContents) {
+    parts.push(`## Content from file: ${name}\n${body}`);
   }
   return parts.join("\n\n");
 }
@@ -137,12 +209,56 @@ export const profileHandlers: GatewayRequestHandlers = {
     const rawUrls = Array.isArray(params.urls)
       ? (params.urls as unknown[]).filter((u): u is string => typeof u === "string")
       : [];
+    const rawFiles = Array.isArray(params.files)
+      ? (params.files as unknown[]).filter(
+          (f): f is FileContent =>
+            typeof f === "object" &&
+            f !== null &&
+            typeof (f as FileContent).name === "string" &&
+            typeof (f as FileContent).content === "string",
+        )
+      : [];
 
-    if (!text && rawUrls.length === 0) {
+    // Load config for upload limits
+    const cfg = loadConfig();
+    const uploadConfig = getUploadConfig(cfg);
+
+    // Validate file count
+    if (rawFiles.length > uploadConfig.maxFileCount) {
       respond(
         false,
         undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "profile.parse: text or urls required"),
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `profile.parse: too many files (max ${uploadConfig.maxFileCount})`,
+        ),
+      );
+      return;
+    }
+
+    // Validate file size and type
+    const validFiles: FileContent[] = [];
+    const skippedFiles: string[] = [];
+    for (const file of rawFiles) {
+      // Check file size (base64 is ~4/3 of binary size)
+      const estimatedSize = (file.content.length * 3) / 4;
+      if (estimatedSize > uploadConfig.maxFileSize) {
+        skippedFiles.push(`${file.name} (too large)`);
+        continue;
+      }
+      // Check file type
+      if (!isSupportedFileType(file.name)) {
+        skippedFiles.push(`${file.name} (unsupported type)`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (!text && rawUrls.length === 0 && validFiles.length === 0) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "profile.parse: text, urls, or files required"),
       );
       return;
     }
@@ -156,17 +272,29 @@ export const profileHandlers: GatewayRequestHandlers = {
       (r): r is { url: string; body: string } => r.body !== null,
     );
 
-    if (!text && urlContents.length === 0) {
+    // Parse files concurrently; track which ones failed
+    const fileResults = await Promise.all(
+      validFiles.map(async (file) => ({
+        name: file.name,
+        body: await parseFileContent(file),
+      })),
+    );
+    const fileParseFailures = fileResults.filter((r) => r.body === null).map((r) => r.name);
+    skippedFiles.push(...fileParseFailures.map((name) => `${name} (parse failed)`));
+    const fileContents = fileResults.filter(
+      (r): r is { name: string; body: string } => r.body !== null,
+    );
+
+    if (!text && urlContents.length === 0 && fileContents.length === 0) {
       respond(
         false,
         undefined,
-        errorShape(ErrorCodes.UNAVAILABLE, "profile.parse: all URLs failed to fetch"),
+        errorShape(ErrorCodes.UNAVAILABLE, "profile.parse: all inputs failed to process"),
       );
       return;
     }
 
-    // Resolve the gateway default model
-    const cfg = loadConfig();
+    // Resolve the gateway default model (cfg already loaded above)
     const defaultRef = resolveDefaultModelRef(cfg);
     const resolved = resolveModel(defaultRef.provider, defaultRef.model, undefined, cfg);
     if (!resolved.model) {
@@ -197,7 +325,7 @@ export const profileHandlers: GatewayRequestHandlers = {
       return;
     }
 
-    const userPrompt = buildUserPrompt({ text, urlContents });
+    const userPrompt = buildUserPrompt({ text, urlContents, fileContents });
 
     try {
       const controller = new AbortController();
@@ -240,7 +368,7 @@ export const profileHandlers: GatewayRequestHandlers = {
         return;
       }
 
-      respond(true, { userMdContent, memoryContent, skippedUrls }, undefined);
+      respond(true, { userMdContent, memoryContent, skippedUrls, skippedFiles }, undefined);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, `profile.parse: ${message}`));
