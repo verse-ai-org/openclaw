@@ -30,6 +30,7 @@ const PROVIDER_EMOJI: Record<string, string> = {
   xai: "✖️",
   mistral: "🌊",
   minimax: "⚡",
+  "minimax-cn": "⚡",
   volcengine: "🌋",
   byteplus: "🔶",
   openrouter: "🔀",
@@ -306,13 +307,6 @@ export function ModelSelectionStep({ onNext }: ModelSelectionStepProps) {
       authProviderGroup: group.id,
       authMethod: method.id,
       resolvedModelId: method.defaultModelId ?? "",
-      // Keep legacy field in sync for backwards compat with saveOnboardingConfig
-      selectedModel:
-        group.id === "openai"
-          ? "gpt4"
-          : group.id === "google"
-            ? "gemini"
-            : "claude",
     });
     onNext();
   };

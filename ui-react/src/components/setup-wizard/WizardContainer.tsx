@@ -1,7 +1,5 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useState } from "react";
-import { useWizardStore } from "@/store/setup-wizard.store";
-import { Header } from "./Header";
 import { ProgressBar } from "./ProgressBar";
 import { ApiKeyStep } from "./steps/ApiKeyStep";
 import { CompletionStep } from "./steps/CompletionStep";
@@ -23,22 +21,24 @@ const STEPS: { id: WizardStep; label: string }[] = [
 
 export function WizardContainer() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("welcome");
+  // canProceed lets individual steps gate the footer Continue button
+  const [canProceed, setCanProceed] = useState(true);
 
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
   const handleNext = (nextStep: WizardStep) => {
+    setCanProceed(true);
     setCurrentStep(nextStep);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleBack = (prevStep: WizardStep) => {
+    setCanProceed(true);
     setCurrentStep(prevStep);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const shouldShowFooter = currentStep !== "welcome" && currentStep !== "completion";
-  // Steps that own their own Continue button (gated on internal state)
-  const stepOwnsNext = currentStep === "security" || currentStep === "api-key" || currentStep === "features";
 
   const renderStep = () => {
     switch (currentStep) {
@@ -46,7 +46,10 @@ export function WizardContainer() {
         return <WelcomeStep onNext={() => handleNext("security")} />;
       case "security":
         return (
-          <SecurityStep onNext={() => handleNext("model")} onBack={() => handleBack("welcome")} />
+          <SecurityStep
+            onBack={() => handleBack("welcome")}
+            onCanProceedChange={setCanProceed}
+          />
         );
       case "model":
         return (
@@ -57,12 +60,15 @@ export function WizardContainer() {
         );
       case "api-key":
         return (
-          <ApiKeyStep onNext={() => handleNext("features")} onBack={() => handleBack("model")} />
+          <ApiKeyStep
+            onNext={() => handleNext("features")}
+            onBack={() => handleBack("model")}
+            onCanProceedChange={setCanProceed}
+          />
         );
       case "features":
         return (
           <OptionalFeaturesStep
-            onNext={() => handleNext("completion")}
             onBack={() => handleBack("api-key")}
           />
         );
@@ -74,21 +80,18 @@ export function WizardContainer() {
   };
 
   return (
-    <div className="flex h-full grow flex-col">
-      {/* Header */}
-      <Header currentStep={currentStepIndex + 1} totalSteps={STEPS.length} />
-
+    <div className="flex h-screen w-full grow flex-col">
       {/* Main Content */}
-      <div className="px-4 md:px-40 flex flex-1 justify-center md:py-20">
-        <div className="layout-content-container flex flex-col flex-1 max-w-4xl mx-auto">
+      <div className="px-4 md:px-40 flex flex-1 justify-center md:py-4">
+        <div className="layout-content-container flex flex-col flex-1 max-w-2xl mx-auto">
           <div className="animate-in fade-in duration-300">{renderStep()}</div>
         </div>
       </div>
 
       {/* Footer Actions */}
       {shouldShowFooter && (
-        <footer className="border-t border-slate-100 dark:border-slate-800 pt-8 pb-12 px-4 md:px-40">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <footer className="fixed bottom-0 left-0 right-0 pt-8 pb-12 px-4 md:px-40">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
             <button
               onClick={() => handleBack(STEPS[currentStepIndex - 1].id)}
               className="flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
@@ -99,19 +102,14 @@ export function WizardContainer() {
 
             <ProgressBar current={currentStepIndex + 1} total={STEPS.length} />
 
-            {!stepOwnsNext && (
-              <button
-                onClick={() => handleNext(STEPS[currentStepIndex + 1].id)}
-                className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all"
-              >
-                Continue
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            )}
-            {stepOwnsNext && (
-              // Spacer to keep Back button flush left when Continue is hidden
-              <div className="w-32" />
-            )}
+            <button
+              onClick={() => handleNext(STEPS[currentStepIndex + 1].id)}
+              disabled={!canProceed}
+              className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Continue
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </footer>
       )}

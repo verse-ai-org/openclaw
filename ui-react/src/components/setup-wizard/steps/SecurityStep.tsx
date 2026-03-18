@@ -1,10 +1,10 @@
-import { Shield, Info, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { Shield, Info } from "lucide-react";
+import { useEffect, useState } from "react";
 import { GlassCard } from "../GlassCard";
 
 interface SecurityStepProps {
-  onNext: () => void;
   onBack: () => void;
+  onCanProceedChange: (canProceed: boolean) => void;
 }
 
 const SECURITY_ITEMS = [
@@ -22,11 +22,21 @@ const SECURITY_ITEMS = [
   },
 ];
 
-export function SecurityStep({ onNext }: SecurityStepProps) {
+export function SecurityStep({ onCanProceedChange }: SecurityStepProps) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
+  useEffect(() => {
+    onCanProceedChange(agreedToTerms);
+  }, [agreedToTerms, onCanProceedChange]);
+
+  // Gate: start disabled
+  useEffect(() => {
+    onCanProceedChange(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="max-w-xl mx-auto flex flex-col items-center text-center gap-6 mb-12">
+    <div className="max-w-xl mx-auto flex flex-col items-center text-center gap-4">
       {/* Icon */}
       <div className="size-20 bg-primary/10 dark:bg-primary/20 rounded-3xl flex items-center justify-center text-primary">
         <Shield className="w-10 h-10" />
@@ -91,15 +101,7 @@ export function SecurityStep({ onNext }: SecurityStepProps) {
         </button>
       </div>
 
-      {/* Continue button — gated on agreedToTerms */}
-      <button
-        onClick={onNext}
-        disabled={!agreedToTerms}
-        className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        Continue
-        <ArrowRight className="w-4 h-4" />
-      </button>
+
     </div>
   );
 }

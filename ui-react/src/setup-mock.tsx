@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useRef } from "react";
 import ReactDOM from "react-dom/client";
 import { SetupWizard } from "@/components/setup-wizard/index";
 import { ElectronWizardAdapter } from "@/adapters/ElectronWizardAdapter";
+import { useWizardStore } from "@/store/setup-wizard.store";
 import "./index.css";
 
 /**
@@ -19,6 +20,7 @@ const MOCK_STEPS = [
 ];
 
 let mockCurrentStepIndex = 0;
+const mockOAuthStartTime: Record<string, number> = {};
 
 const mockElectronBridge = {
   wizardRequest: async (method: string, params: unknown) => {
@@ -65,6 +67,52 @@ const mockElectronBridge = {
 
   restartGateway: async () => {
     console.log("[Mock IPC] restartGateway");
+    return { ok: true };
+  },
+
+  saveOnboardingConfig: async (cfg: unknown) => {
+    console.log("[Mock IPC] saveOnboardingConfig", cfg);
+    return { ok: true };
+  },
+
+  writeDebugLog: async (message: string) => {
+    console.log(`[Mock Debug] ${message}`);
+  },
+
+  validateApiKey: async (authMethod: string, apiKey: string) => {
+    console.log(`[Mock IPC] validateApiKey authMethod=${authMethod}`);
+    await new Promise((r) => setTimeout(r, 500));
+    if (!apiKey.trim()) {
+      return { ok: false, error: "API key cannot be empty." };
+    }
+    // Simulate invalid key if it's obviously a placeholder
+    if (apiKey.trim().length < 8) {
+      return { ok: false, error: "Invalid API key (too short)." };
+    }
+    return { ok: true };
+  },
+
+  oauthStart: async (authMethod: string) => {
+    console.log(`[Mock IPC] oauthStart authMethod=${authMethod}`);
+    await new Promise((r) => setTimeout(r, 300));
+    mockOAuthStartTime[authMethod] = Date.now();
+    return { ok: true };
+  },
+
+  oauthPoll: async (authMethod: string) => {
+    console.log(`[Mock IPC] oauthPoll authMethod=${authMethod}`);
+    // Simulate OAuth completing after ~4s (2 poll cycles)
+    const elapsed = Date.now() - (mockOAuthStartTime[authMethod] ?? Date.now());
+    if (elapsed < 4000) {
+      return { ok: false, error: "pending" };
+    }
+    return { ok: true, token: "mock-oauth-token-abc123" };
+  },
+
+  oauthCancel: async (authMethod: string) => {
+    console.log(`[Mock IPC] oauthCancel authMethod=${authMethod}`);
+    delete mockOAuthStartTime[authMethod];
+    return { ok: true };
   },
 };
 
@@ -72,21 +120,38 @@ const mockElectronBridge = {
 (window as unknown as { electronBridge: typeof mockElectronBridge }).electronBridge =
   mockElectronBridge;
 
-const adapter = new ElectronWizardAdapter({
-  onComplete: async () => {
-    console.log("[Setup Mock] Wizard completed");
-  },
-  onCancel: async () => {
-    console.log("[Setup Mock] Wizard cancelled");
-    await mockElectronBridge.notifyOnboardingComplete();
-  },
-});
+// Mock SetupApp — mirrors setup.tsx structure, adds getConfig so store data is persisted
+function MockSetupApp() {
+  const { wizardState } = useWizardStore();
+  const wizardStateRef = useRef(wizardState);
+  wizardStateRef.current = wizardState;
+
+  const adapter = React.useMemo(
+    () =>
+      new ElectronWizardAdapter({
+        onComplete: async () => {
+          console.log("[Setup Mock] Wizard completed, state:", wizardStateRef.current);
+        },
+        onCancel: async () => {
+          console.log("[Setup Mock] Wizard cancelled");
+          await mockElectronBridge.notifyOnboardingComplete();
+        },
+        getConfig: () => {
+          console.log("[Setup Mock] getConfig called:", wizardStateRef.current);
+          return wizardStateRef.current;
+        },
+      }),
+    [],
+  );
+
+  return <SetupWizard adapter={adapter} />;
+}
 
 const root = document.getElementById("root");
 if (!root) {throw new Error("Root element #root not found");}
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <SetupWizard adapter={adapter} />
+    <MockSetupApp />
   </React.StrictMode>,
 );

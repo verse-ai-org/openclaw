@@ -20,6 +20,21 @@ export class WebWizardAdapter implements WizardAdapter {
     }
   }
 
+  async validateApiKey(authMethod: string, apiKey: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${this.apiEndpoint}/validate-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authMethod, apiKey }),
+      });
+      if (!response.ok) { throw new Error(`HTTP ${response.status}`); }
+      return await response.json() as { ok: boolean; error?: string };
+    } catch (error) {
+      console.error('validateApiKey failed:', error);
+      return { ok: false, error: error instanceof Error ? error.message : 'Validation failed.' };
+    }
+  }
+
   async submitStep(stepData: unknown): Promise<boolean> {
     try {
       const response = await fetch(`${this.apiEndpoint}/wizard/step`, {

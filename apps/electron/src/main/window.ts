@@ -1,5 +1,16 @@
 import path from "node:path";
 import { app, BrowserWindow, shell, session } from "electron";
+import { mainLogSync } from "./onboarding.js";
+
+function wlog(msg: string): void {
+  console.log(msg);
+  mainLogSync(msg);
+}
+function wlogError(msg: string, detail?: unknown): void {
+  const d = detail !== undefined ? ` ${String(detail)}` : "";
+  console.error(msg + d);
+  mainLogSync(`[ERROR] ${msg}${d}`);
+}
 
 /**
  * 解析渲染页面的加载目标。
@@ -9,9 +20,18 @@ import { app, BrowserWindow, shell, session } from "electron";
  */
 const VITE_UI_REACT_URL = process.env.VITE_UI_REACT_URL?.replace(/\/$/, "");
 
-function resolveRendererUrl(page: string): { type: "url"; url: string } | { type: "file"; path: string } {
+function resolveRendererUrl(
+  page: string,
+): { type: "url"; url: string } | { type: "file"; path: string } {
   if (app.isPackaged) {
-    return { type: "file", path: path.join(process.resourcesPath, "control-ui-react", `${page}.html`) };
+    return {
+      type: "file",
+      path: path.join(
+        process.resourcesPath,
+        "control-ui-react",
+        `${page}.html`,
+      ),
+    };
   }
   if (VITE_UI_REACT_URL) {
     // For the main index page, load root "/" so React Router's createBrowserRouter
@@ -20,7 +40,14 @@ function resolveRendererUrl(page: string): { type: "url"; url: string } | { type
     return { type: "url", url: `${VITE_UI_REACT_URL}${urlPath}` };
   }
   // 静态产物模式（未设 VITE_UI_REACT_URL）
-  return { type: "file", path: path.resolve(__dirname, "../../dist/control-ui-react", `${page}.html`) };
+  return {
+    type: "file",
+    path: path.resolve(
+      __dirname,
+      "../../dist/control-ui-react",
+      `${page}.html`,
+    ),
+  };
 }
 
 /**
@@ -71,6 +98,33 @@ export function createWindow(): BrowserWindow {
     },
   });
 
+  // 监听渲染进程异常和日志
+  win.webContents.on("did-fail-load", (_e, code, desc, url) => {
+    wlogError(`[window] did-fail-load: code=${code} desc=${desc} url=${url}`);
+  });
+  win.webContents.on("render-process-gone", (_e, details) => {
+    wlogError(
+      `[window] render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`,
+    );
+  });
+  win.webContents.on("did-finish-load", () => {
+    wlog("[window] did-finish-load");
+  });
+  win.webContents.on("dom-ready", () => {
+    wlog("[window] dom-ready");
+  });
+  win.webContents.on(
+    "console-message",
+    (_e, level, message, line, sourceId) => {
+      // level: 0=verbose 1=info 2=warning 3=error
+      if (level >= 2) {
+        wlogError(
+          `[renderer] console(${level}): ${message} (${sourceId}:${line})`,
+        );
+      }
+    },
+  );
+
   // 拦截外链，在系统浏览器打开
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -94,22 +148,47 @@ export function loadRendererPage(
   opts?: { port: number; token: string },
 ): void {
   const target = resolveRendererUrl(page);
+  wlog(
+    `[window] loadRendererPage: page=${page} type=${target.type} path/url=${"path" in target ? target.path : target.url}`,
+  );
+
+  // 打包后检查 HTML 文件是否存在
+  if (target.type === "file") {
+    const fs = require("node:fs") as typeof import("node:fs");
+    const exists = fs.existsSync(target.path);
+    wlog(`[window] html file exists=${exists}: ${target.path}`);
+    if (!exists) {
+      wlogError(`[window] HTML 文件不存在：${target.path}`);
+    }
+  }
 
   // 构造携带 Gateway 连接信息的 hash
-  const hash =
-    opts
-      ? `#gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(opts.token)}`
-      : "";
+  const hash = opts
+    ? `#gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(opts.token)}`
+    : "";
 
-  win.once("ready-to-show", () => win.show());
+  // 备用超时：5s 内如果 ready-to-show 没有触发就强制显示窗口，避免永久黑屏
+  const showTimer = setTimeout(() => {
+    wlogError(`[window] ready-to-show 超时！强制显示窗口 (page=${page})`);
+    win.show();
+  }, 5000);
+
+  win.once("ready-to-show", () => {
+    clearTimeout(showTimer);
+    wlog(`[window] ready-to-show 触发，显示窗口 (page=${page})`);
+    win.show();
+  });
 
   if (target.type === "url") {
+    wlog(`[window] loadURL: ${target.url}${hash}`);
     void win.loadURL(`${target.url}${hash}`);
   } else {
     // file:// 协议不支持直接加 hash，需用 loadURL 拼 file:// 路径
     if (hash) {
+      wlog(`[window] loadURL (file+hash): file://${target.path}${hash}`);
       void win.loadURL(`file://${target.path}${hash}`);
     } else {
+      wlog(`[window] loadFile: ${target.path}`);
       void win.loadFile(target.path);
     }
   }

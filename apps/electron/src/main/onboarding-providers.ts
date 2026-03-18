@@ -69,6 +69,18 @@ export const PROVIDER_REGISTRY: Record<string, ProviderApiConfig> = {
     ],
   },
 
+  // ── MiniMax OAuth plugin (Global) — provider id used by minimax-portal-auth ──
+  "minimax-portal": {
+    baseUrl: "https://api.minimax.io/anthropic",
+    api: "anthropic-messages",
+    authHeader: true,
+    models: [
+      { id: "MiniMax-M2.5",           name: "MiniMax M2.5",           reasoning: true,  input: ["text"], cost: MINIMAX_API_COST, contextWindow: 200000, maxTokens: 8192 },
+      { id: "MiniMax-M2.5-highspeed", name: "MiniMax M2.5 Highspeed", reasoning: true,  input: ["text"], cost: MINIMAX_API_COST, contextWindow: 200000, maxTokens: 8192 },
+      { id: "MiniMax-M2.5-Lightning", name: "MiniMax M2.5 Lightning", reasoning: false, input: ["text"], cost: MINIMAX_API_COST, contextWindow: 200000, maxTokens: 8192 },
+    ],
+  },
+
   // ── MiniMax (China) ───────────────────────────────────────────────────────
   "minimax-cn": {
     baseUrl: "https://api.minimaxi.com/anthropic",
@@ -103,10 +115,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderApiConfig> = {
 
   // ── Moonshot / Kimi (global) ──────────────────────────────────────────────
   moonshot: {
-    baseUrl: "https://api.moonshot.cn/v1",
+    baseUrl: "https://api.moonshot.ai/v1",
     api: "openai-completions",
     models: [
-      { id: "kimi-k2-5-260127", name: "Kimi K2.5", reasoning: false, input: ["text", "image"], cost: FREE_COST, contextWindow: 256000, maxTokens: 4096 },
+      { id: "kimi-k2.5", name: "Kimi K2.5", reasoning: false, input: ["text", "image"], cost: FREE_COST, contextWindow: 256000, maxTokens: 4096 },
     ],
   },
 
@@ -115,7 +127,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderApiConfig> = {
     baseUrl: "https://api.moonshot.cn/v1",
     api: "openai-completions",
     models: [
-      { id: "kimi-k2-5-260127", name: "Kimi K2.5", reasoning: false, input: ["text", "image"], cost: FREE_COST, contextWindow: 256000, maxTokens: 4096 },
+      { id: "kimi-k2.5", name: "Kimi K2.5", reasoning: false, input: ["text", "image"], cost: FREE_COST, contextWindow: 256000, maxTokens: 4096 },
     ],
   },
 
@@ -222,15 +234,4 @@ export const PROVIDER_ENV_KEY_MAP: Record<string, string> = {
   litellm:      "LITELLM_API_KEY",
   venice:       "VENICE_API_KEY",
   huggingface:  "HF_TOKEN",
-};
-
-// ─── Legacy model map ────────────────────────────────────────────────────────
-//
-// Maps old-style selectedModel strings (from pre-wizard UI) to resolved IDs.
-// Only used as fallback when resolvedModelId is not provided.
-
-export const LEGACY_MODEL_MAP: Record<string, { resolvedModelId: string; provider: string }> = {
-  claude: { resolvedModelId: "anthropic/claude-sonnet-4-5", provider: "anthropic" },
-  gpt4:   { resolvedModelId: "openai/gpt-4o",               provider: "openai" },
-  gemini: { resolvedModelId: "google/gemini-2.0-flash",     provider: "google" },
 };

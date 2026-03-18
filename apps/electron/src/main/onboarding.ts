@@ -3,11 +3,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { randomBytes } from "node:crypto";
-import {
-  LEGACY_MODEL_MAP,
-  PROVIDER_ENV_KEY_MAP,
-  PROVIDER_REGISTRY,
-} from "./onboarding-providers.js";
+import { PROVIDER_REGISTRY } from "./onboarding-providers.js";
 
 /**
  * 解析 openclaw 配置文件路径。
@@ -25,18 +21,21 @@ function resolveConfigPath(): string {
  * 与 CLI 的 resolveOpenClawAgentDir() 保持一致。
  */
 function resolveAuthProfilesPath(): string {
-  const override = process.env.OPENCLAW_AGENT_DIR?.trim() ||
+  const override =
+    process.env.OPENCLAW_AGENT_DIR?.trim() ||
     process.env.PI_CODING_AGENT_DIR?.trim();
-  const agentDir = override ??
-    path.join(os.homedir(), ".openclaw", "agents", "main", "agent");
+  const agentDir =
+    override ?? path.join(os.homedir(), ".openclaw", "agents", "main", "agent");
   return path.join(agentDir, "auth-profiles.json");
 }
 
 export interface OnboardingConfig {
-  /** @deprecated Use resolvedModelId + authProviderGroup instead */
-  selectedModel: string;
-  /** Plaintext API key entered by the user */
+  /** Plaintext API key entered by the user, or OAuth access token */
   apiKey: string;
+  /** For OAuth flows: the refresh token */
+  oauthRefresh?: string;
+  /** For OAuth flows: token expiry (unix timestamp ms) */
+  oauthExpires?: number;
   /** Agent workspace directory (tilde-prefixed ok) */
   workspace: string;
   /** Optional feature flags */
@@ -74,13 +73,18 @@ async function writeAuthProfile(params: {
   profileId: string;
   provider: string;
   apiKey: string;
+  mode?: "api_key" | "oauth";
+  oauthExtra?: { refresh?: string; expires?: number };
 }): Promise<void> {
   const authPath = resolveAuthProfilesPath();
   await fsp.mkdir(path.dirname(authPath), { recursive: true });
 
   let store: Record<string, unknown> = { version: 1, profiles: {} };
   try {
-    store = JSON.parse(await fsp.readFile(authPath, "utf8")) as Record<string, unknown>;
+    store = JSON.parse(await fsp.readFile(authPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
     if (!store.profiles || typeof store.profiles !== "object") {
       store.profiles = {};
     }
@@ -89,33 +93,69 @@ async function writeAuthProfile(params: {
   }
 
   const profiles = store.profiles as Record<string, unknown>;
-  profiles[params.profileId] = {
-    type: "api_key",
-    provider: params.provider,
-    key: params.apiKey,
-  };
+  const profileMode = params.mode ?? "api_key";
+
+  if (profileMode === "oauth") {
+    // Match CLI's AuthProfileCredential format exactly (from buildOauthProviderAuthResult)
+    profiles[params.profileId] = {
+      type: "oauth",
+      provider: params.provider,
+      access: params.apiKey,
+      ...(params.oauthExtra?.refresh
+        ? { refresh: params.oauthExtra.refresh }
+        : {}),
+      ...(Number.isFinite(params.oauthExtra?.expires)
+        ? { expires: params.oauthExtra!.expires }
+        : {}),
+    };
+  } else {
+    profiles[params.profileId] = {
+      type: "api_key",
+      provider: params.provider,
+      key: params.apiKey,
+    };
+  }
 
   const tmpPath = `${authPath}.tmp`;
   await fsp.writeFile(tmpPath, JSON.stringify(store, null, 2), "utf8");
   await fsp.rename(tmpPath, authPath);
 
-  console.log(`[onboarding] Auth profile saved to ${authPath}`);
+  console.log(
+    `[onboarding] Auth profile "${params.profileId}" (mode=${profileMode}) saved to ${authPath}`,
+  );
 }
 
 // ─── Debug logging ───────────────────────────────────────────────────────────
 
-const debugLogPath = path.join(os.homedir(), ".openclaw", "electron-onboarding.log");
+/** 主进程统一日志文件：~/.openclaw/electron-main.log */
+export const MAIN_LOG_PATH = path.join(
+  os.homedir(),
+  ".openclaw",
+  "electron-main.log",
+);
 
-export async function writeDebugLog(message: string): Promise<void> {
+/**
+ * 写日志到 ~/.openclaw/electron-main.log（同步，避免异步竞态）。
+ * 打包后 stdout/stderr 不可见，必须落文件才能排查黑屏问题。
+ */
+export function mainLogSync(message: string): void {
   try {
-    const dir = path.dirname(debugLogPath);
-    await fsp.mkdir(dir, { recursive: true });
+    const dir = path.dirname(MAIN_LOG_PATH);
+    fs.mkdirSync(dir, { recursive: true });
     const line = `${new Date().toISOString()} ${message}\n`;
-    await fsp.appendFile(debugLogPath, line, "utf8");
+    fs.appendFileSync(MAIN_LOG_PATH, line, "utf8");
   } catch {
     // never throw from logging
   }
 }
+
+/** 异步版本（兼容旧调用） */
+export async function writeDebugLog(message: string): Promise<void> {
+  mainLogSync(message);
+}
+
+/** 日志路径（onboarding.log 保留作别名，指向同一文件） */
+export const debugLogPath = MAIN_LOG_PATH;
 
 // ─── Config builder ──────────────────────────────────────────────────────────
 
@@ -133,7 +173,9 @@ export function buildOpenClawConfig(
 ): Record<string, unknown> {
   // ── 1. Resolve gateway token ──────────────────────────────────────────────
   const existingGw = existing.gateway as Record<string, unknown> | undefined;
-  const existingGwAuth = existingGw?.auth as Record<string, unknown> | undefined;
+  const existingGwAuth = existingGw?.auth as
+    | Record<string, unknown>
+    | undefined;
   const existingToken =
     typeof existingGwAuth?.token === "string" && existingGwAuth.token.trim()
       ? existingGwAuth.token.trim()
@@ -144,26 +186,35 @@ export function buildOpenClawConfig(
     randomBytes(32).toString("hex");
 
   // ── 2. Resolve primary model id + env key ────────────────────────────────
-  let primaryModelId: string;
-  let provider: string;
+  // resolvedModelId is required; selectedModel (legacy) is no longer supported.
+  const rawModelId = cfg.resolvedModelId?.trim() || "anthropic/claude-opus-4-6";
 
-  if (cfg.resolvedModelId?.trim()) {
-    primaryModelId = cfg.resolvedModelId.trim();
-    provider =
-      cfg.authProviderGroup?.trim() ??
-      primaryModelId.split("/")[0] ??
-      "openai";
-  } else {
-    // Legacy fallback
-    const legacy =
-      LEGACY_MODEL_MAP[cfg.selectedModel] ?? LEGACY_MODEL_MAP["claude"];
-    primaryModelId = legacy.resolvedModelId;
-    provider = legacy.provider;
-  }
+  // OAuth plugin methods use a different provider id than the authProviderGroup.
+  // e.g. "minimax-portal" and "minimax-portal-cn" both use provider "minimax-portal".
+  // We must rewrite the model id prefix to match the plugin provider id.
+  const OAUTH_METHOD_PROVIDER_OVERRIDE: Record<string, string> = {
+    "minimax-portal": "minimax-portal",
+    "minimax-portal-cn": "minimax-portal",
+  };
+  const providerFromMethod = cfg.authMethod
+    ? OAUTH_METHOD_PROVIDER_OVERRIDE[cfg.authMethod]
+    : undefined;
 
-  const envKey =
-    PROVIDER_ENV_KEY_MAP[provider] ??
-    `${provider.toUpperCase()}_API_KEY`;
+  const provider =
+    providerFromMethod ??
+    cfg.authProviderGroup?.trim() ??
+    rawModelId.split("/")[0] ??
+    "openai";
+
+  // Rewrite model id prefix to match the resolved provider id.
+  // e.g. "minimax-cn/MiniMax-M2.5" → "minimax-portal/MiniMax-M2.5" when provider="minimax-portal"
+  const rawModelPrefix = rawModelId.includes("/")
+    ? rawModelId.split("/")[0]
+    : null;
+  const primaryModelId =
+    rawModelPrefix && rawModelPrefix !== provider
+      ? `${provider}/${rawModelId.split("/").slice(1).join("/")}`
+      : rawModelId;
 
   // modelId = the part after "provider/"
   const modelId = primaryModelId.includes("/")
@@ -171,6 +222,14 @@ export function buildOpenClawConfig(
     : primaryModelId;
 
   // ── 3. Build models.providers section ────────────────────────────────────
+  // For MiniMax OAuth CN, use the CN endpoint even though provider is "minimax-portal".
+  const OAUTH_METHOD_PROVIDER_BASE_URL_OVERRIDE: Record<string, string> = {
+    "minimax-portal-cn": "https://api.minimaxi.com/anthropic",
+  };
+  const providerBaseUrlOverride = cfg.authMethod
+    ? OAUTH_METHOD_PROVIDER_BASE_URL_OVERRIDE[cfg.authMethod]
+    : undefined;
+
   const providerCfg = PROVIDER_REGISTRY[provider] ?? null;
   const existingModels = existing.models as Record<string, unknown> | undefined;
   const existingProviders =
@@ -184,8 +243,9 @@ export function buildOpenClawConfig(
           providers: {
             ...existingProviders,
             [provider]: {
-              ...(existingProviders[provider] as Record<string, unknown> ?? {}),
-              baseUrl: providerCfg.baseUrl,
+              ...((existingProviders[provider] as Record<string, unknown>) ??
+                {}),
+              baseUrl: providerBaseUrlOverride ?? providerCfg.baseUrl,
               api: providerCfg.api,
               ...(providerCfg.authHeader ? { authHeader: true } : {}),
               models: providerCfg.models,
@@ -197,10 +257,12 @@ export function buildOpenClawConfig(
 
   // ── 4. Build agents section ───────────────────────────────────────────────
   const existingAgents = existing.agents as Record<string, unknown> | undefined;
-  const existingDefaults =
-    existingAgents?.defaults as Record<string, unknown> | undefined;
-  const existingAgentModels =
-    existingDefaults?.models as Record<string, unknown> | undefined;
+  const existingDefaults = existingAgents?.defaults as
+    | Record<string, unknown>
+    | undefined;
+  const existingAgentModels = existingDefaults?.models as
+    | Record<string, unknown>
+    | undefined;
 
   const agentsSection = {
     ...existingAgents,
@@ -212,7 +274,10 @@ export function buildOpenClawConfig(
       models: {
         ...existingAgentModels,
         [primaryModelId]: {
-          ...(existingAgentModels?.[primaryModelId] as Record<string, unknown> ?? {}),
+          ...((existingAgentModels?.[primaryModelId] as Record<
+            string,
+            unknown
+          >) ?? {}),
           alias: modelId,
         },
       },
@@ -220,15 +285,51 @@ export function buildOpenClawConfig(
   };
 
   // ── 5. Build auth.profiles section ───────────────────────────────────────
-  const existingAuthSection =
-    existing.auth as Record<string, unknown> | undefined;
+  // OAuth methods need mode: "oauth" (not "api_key") and plugin entry enabled.
+  const isOAuthMethod =
+    cfg.authMethod?.includes("-portal") ||
+    cfg.authMethod?.includes("-codex") ||
+    cfg.authMethod?.includes("-gemini-cli") ||
+    cfg.authMethod === "github-copilot";
+
+  const existingAuthSection = existing.auth as
+    | Record<string, unknown>
+    | undefined;
   const authSection = {
     ...existingAuthSection,
     profiles: {
       ...((existingAuthSection?.profiles as Record<string, unknown>) ?? {}),
-      [`${provider}:default`]: { provider, mode: "api_key" },
+      [`${provider}:default`]: isOAuthMethod
+        ? { provider, mode: "oauth" }
+        : { provider, mode: "api_key" },
     },
   };
+
+  // ── 5b. Build plugins section for OAuth providers ────────────────────────
+  // MiniMax portal OAuth requires the minimax-portal-auth plugin to be enabled.
+  const OAUTH_METHOD_PLUGIN: Record<string, string> = {
+    "minimax-portal": "minimax-portal-auth",
+    "minimax-portal-cn": "minimax-portal-auth",
+  };
+  const pluginId = cfg.authMethod
+    ? OAUTH_METHOD_PLUGIN[cfg.authMethod]
+    : undefined;
+  const existingPlugins = existing.plugins as
+    | Record<string, unknown>
+    | undefined;
+  const existingPluginEntries =
+    (existingPlugins?.entries as Record<string, unknown>) ?? {};
+  const pluginsSection = pluginId
+    ? {
+        plugins: {
+          ...existingPlugins,
+          entries: {
+            ...existingPluginEntries,
+            [pluginId]: { enabled: true },
+          },
+        },
+      }
+    : {};
 
   // ── 6. Assemble final config ──────────────────────────────────────────────
   return {
@@ -250,6 +351,7 @@ export function buildOpenClawConfig(
     agents: agentsSection,
     auth: authSection,
     ...modelsSection,
+    ...pluginsSection,
   };
 }
 
@@ -269,27 +371,68 @@ export async function saveOnboardingConfig(
 
   let existing: Record<string, unknown> = {};
   try {
-    existing = JSON.parse(await fsp.readFile(cfgPath, "utf8")) as Record<string, unknown>;
+    existing = JSON.parse(await fsp.readFile(cfgPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
   } catch {
     // File doesn't exist yet — start fresh
   }
 
   const nextConfig = buildOpenClawConfig(cfg, existing);
 
-  // Write API key to auth-profiles.json (CLI standard — not openclaw.json env section)
-  if (cfg.apiKey?.trim()) {
-    const provider =
-      cfg.authProviderGroup?.trim() ??
-      (cfg.resolvedModelId?.trim()
-        ? cfg.resolvedModelId.trim().split("/")[0]
-        : null) ??
-      (LEGACY_MODEL_MAP[cfg.selectedModel]?.provider) ??
-      "openai";
+  // Write API key / OAuth token to auth-profiles.json (CLI standard).
+  // Use the same provider resolution logic as buildOpenClawConfig.
+  const OAUTH_METHOD_PROVIDER_OVERRIDE: Record<string, string> = {
+    "minimax-portal": "minimax-portal",
+    "minimax-portal-cn": "minimax-portal",
+  };
+  const isOAuthMethod =
+    cfg.authMethod?.includes("-portal") ||
+    cfg.authMethod?.includes("-codex") ||
+    cfg.authMethod?.includes("-gemini-cli") ||
+    cfg.authMethod === "github-copilot";
+
+  const resolvedProvider =
+    (cfg.authMethod
+      ? OAUTH_METHOD_PROVIDER_OVERRIDE[cfg.authMethod]
+      : undefined) ??
+    cfg.authProviderGroup?.trim() ??
+    (cfg.resolvedModelId?.trim()
+      ? cfg.resolvedModelId.trim().split("/")[0]
+      : null) ??
+    "openai";
+
+  if (isOAuthMethod) {
+    // OAuth: write token to auth-profiles.json so the plugin can pick it up.
+    // Must match CLI's AuthProfileCredential format: access/refresh/expires (not "key").
+    if (cfg.apiKey?.trim()) {
+      await writeAuthProfile({
+        profileId: `${resolvedProvider}:default`,
+        provider: resolvedProvider,
+        apiKey: cfg.apiKey.trim(),
+        mode: "oauth",
+        oauthExtra: {
+          refresh: cfg.oauthRefresh,
+          expires: cfg.oauthExpires,
+        },
+      });
+    } else {
+      console.log(
+        `[onboarding] OAuth method "${cfg.authMethod ?? ""}": no token yet, skipping auth-profiles write`,
+      );
+    }
+  } else if (cfg.apiKey?.trim()) {
+    // API key: write in standard api_key format.
     await writeAuthProfile({
-      profileId: `${provider}:default`,
-      provider,
+      profileId: `${resolvedProvider}:default`,
+      provider: resolvedProvider,
       apiKey: cfg.apiKey.trim(),
     });
+  } else {
+    console.warn(
+      `[onboarding] No apiKey provided for method "${cfg.authMethod ?? ""}", skipping auth-profiles write`,
+    );
   }
 
   const tmpPath = `${cfgPath}.tmp`;
@@ -311,7 +454,10 @@ export async function saveOnboardingConfig(
 export function isFirstLaunch(): boolean {
   const cfgPath = resolveConfigPath();
   try {
-    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as Record<string, unknown>;
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
 
     const wizard = cfg?.wizard as Record<string, unknown> | undefined;
     if (typeof wizard?.lastRunAt === "string" && wizard.lastRunAt.trim()) {
@@ -321,9 +467,12 @@ export function isFirstLaunch(): boolean {
     const gateway = cfg?.gateway as Record<string, unknown> | undefined;
     const auth = gateway?.auth as Record<string, unknown> | undefined;
     if (auth) {
-      const hasMode = typeof auth.mode === "string" && auth.mode.trim().length > 0;
-      const hasToken = typeof auth.token === "string" && auth.token.trim().length > 0;
-      const hasPassword = typeof auth.password === "string" && auth.password.trim().length > 0;
+      const hasMode =
+        typeof auth.mode === "string" && auth.mode.trim().length > 0;
+      const hasToken =
+        typeof auth.token === "string" && auth.token.trim().length > 0;
+      const hasPassword =
+        typeof auth.password === "string" && auth.password.trim().length > 0;
       if (hasMode || hasToken || hasPassword) return false;
     }
 

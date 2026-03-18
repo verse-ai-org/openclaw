@@ -37,6 +37,10 @@ export interface WizardState {
 
   // ─── API Key ──────────────────────────────────────────────────────────────
   apiKey: string;
+  /** For OAuth flows: the refresh token returned by the provider */
+  oauthRefresh?: string;
+  /** For OAuth flows: token expiry (unix timestamp ms) */
+  oauthExpires?: number;
 
   // ─── Workspace ───────────────────────────────────────────────────────────
   workspace: string;

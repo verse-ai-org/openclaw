@@ -60,7 +60,7 @@ export function CompletionStep(_props: CompletionStepProps) {
   };
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 max-w-4xl mx-auto w-full">
+    <main className="flex-1 flex flex-col items-center justify-center px-6 max-w-2xl mx-auto w-full">
       <div className="mb-8 flex flex-col items-center">
         <div className="size-24 md:size-32 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-2xl shadow-primary/30 mb-8">
           <CheckCircle className="w-16 h-16 md:w-20 md:h-20 text-white" />
@@ -140,7 +140,7 @@ export function CompletionStep(_props: CompletionStepProps) {
           <span className="font-bold">Start Chatting</span>
           <span className="text-xs opacity-80 font-normal">Talk to your AI directly</span>
         </button>
-        <button
+        {/* <button
           onClick={handleViewTutorial}
           className="flex flex-col items-center justify-center gap-1 bg-slate-200/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-900 dark:text-slate-100 p-4 rounded-full transition-all"
         >
@@ -149,10 +149,10 @@ export function CompletionStep(_props: CompletionStepProps) {
           <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">
             Learn how to use OpenClaw
           </span>
-        </button>
+        </button> */}
       </div>
 
-      <footer className="py-10 flex justify-center opacity-50">
+      {/* <footer className="py-10 flex justify-center opacity-50">
         <div className="flex items-center gap-1 text-xs">
           <Info className="w-4 h-4" />
           <span>
@@ -163,7 +163,7 @@ export function CompletionStep(_props: CompletionStepProps) {
             .
           </span>
         </div>
-      </footer>
+      </footer> */}
     </main>
   );
 }

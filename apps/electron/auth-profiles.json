@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "profiles": {
+    "minimax-portal:default": {
+      "type": "oauth",
+      "provider": "minimax-portal",
+      "access": "sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k",
+      "refresh": "U-I5q5xsgv3ygk6aZM7wHsM2nxPhT-1KHQB9grAzUYs=",
+      "expires": 1805357068726
+    }
+  }
+}

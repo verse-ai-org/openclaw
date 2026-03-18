@@ -69,4 +69,27 @@ contextBridge.exposeInMainWorld("electronBridge", {
     provider: string,
   ): Promise<Array<{ provider: string; id: string; name?: string; contextWindow?: number; reasoning?: boolean }>> =>
     ipcRenderer.invoke("onboarding:fetchModelCatalog", provider),
+
+  /**
+   * Start an OAuth flow for the given auth method.
+   * The main process opens the provider's auth URL in the system browser.
+   * For MiniMax Device Code flow, also returns userCode and verificationUri.
+   */
+  oauthStart: (authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }> =>
+    ipcRenderer.invoke("onboarding:oauthStart", authMethod),
+
+  /**
+   * Poll for OAuth completion.
+   * Returns { ok: true, token } once the token is written to auth-profiles.json,
+   * { ok: false, error: "pending" } while still waiting,
+   * or { ok: false, error: "timeout" } after 5 minutes.
+   */
+  oauthPoll: (authMethod: string): Promise<{ ok: boolean; token?: string; refresh?: string; expires?: number; error?: string }> =>
+    ipcRenderer.invoke("onboarding:oauthPoll", authMethod),
+
+  /**
+   * Cancel an in-progress OAuth flow.
+   */
+  oauthCancel: (authMethod: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("onboarding:oauthCancel", authMethod),
 });

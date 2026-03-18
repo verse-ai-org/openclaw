@@ -1,5 +1,5 @@
-import { ExternalLink, Key, CheckCircle, XCircle, Shield, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { ExternalLink, Key, CheckCircle, XCircle, Shield, Loader2, RefreshCw } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { findAuthMethod, findProviderGroupForMethod } from "@/data/auth-choice-groups";
 import { useWizardStore } from "@/store/setup-wizard.store";
@@ -8,39 +8,211 @@ import { useWizardAdapter } from "@/context/AdapterContext";
 interface ApiKeyStepProps {
   onNext: () => void;
   onBack: () => void;
+  onCanProceedChange?: (canProceed: boolean) => void;
 }
 
 // ─── OAuth flow UI ─────────────────────────────────────────────────────────
 
+type OAuthPhase = "idle" | "opening" | "polling" | "success" | "error";
+
 function OAuthFlow({
-  methodLabel, hint, onComplete,
-}: { methodLabel: string; hint?: string; onComplete: () => void }) {
-  const [waiting, setWaiting] = useState(false);
+  methodId,
+  methodLabel,
+  hint,
+  onComplete,
+}: {
+  methodId: string;
+  methodLabel: string;
+  hint?: string;
+  onComplete: (token: string, refresh?: string, expires?: number) => void;
+}) {
+  const adapter = useWizardAdapter();
+  const [phase, setPhase] = useState<OAuthPhase>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [deviceCode, setDeviceCode] = useState<{ userCode: string; verificationUri: string } | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      void adapter.cancelOAuth?.(methodId);
+    };
+  }, [adapter, methodId]);
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  };
+
+  const startPolling = () => {
+    pollIntervalRef.current = setInterval(async () => {
+      if (!adapter.pollOAuth) {
+        // Adapter doesn't support polling — treat as manual confirmation
+        stopPolling();
+        return;
+      }
+      try {
+        const result = await adapter.pollOAuth(methodId);
+        if (result.ok) {
+          stopPolling();
+          setPhase("success");
+          setTimeout(() => onComplete(result.token ?? "", result.refresh, result.expires), 600);
+        } else if (result.error === "pending") {
+          // Still waiting — keep polling
+        } else if (result.error === "timeout") {
+          stopPolling();
+          setPhase("error");
+          setError("Authentication timed out. Please try again.");
+        } else {
+          stopPolling();
+          setPhase("error");
+          setError(result.error ?? "Authentication failed.");
+        }
+      } catch (err) {
+        stopPolling();
+        setPhase("error");
+        setError(err instanceof Error ? err.message : "Unexpected error.");
+      }
+    }, 2000);
+  };
+
+  const handleOpenBrowser = async () => {
+    setPhase("opening");
+    setError(null);
+    setDeviceCode(null);
+    try {
+      if (adapter.startOAuth) {
+        const result = await adapter.startOAuth(methodId);
+        if (!result.ok) {
+          setPhase("error");
+          setError(result.error ?? "Failed to open browser.");
+          return;
+        }
+        // Device Code flow — show user_code so user can enter it in the browser
+        if (result.userCode && result.verificationUri) {
+          setDeviceCode({ userCode: result.userCode, verificationUri: result.verificationUri });
+        }
+      }
+      setPhase("polling");
+      startPolling();
+    } catch (err) {
+      setPhase("error");
+      setError(err instanceof Error ? err.message : "Unexpected error.");
+    }
+  };
+
+  const handleManualContinue = () => {
+    // Fallback: adapter has no pollOAuth — user confirms manually
+    stopPolling();
+    setPhase("success");
+    setTimeout(() => onComplete(""), 300);
+  };
+
+  const handleRetry = async () => {
+    stopPolling();
+    await adapter.cancelOAuth?.(methodId);
+    setPhase("idle");
+    setError(null);
+  };
+
   return (
     <div className="space-y-8">
       <div className="text-center space-y-4 pt-12">
-        <h1 className="text-4xl font-extrabold tracking-tighter text-slate-900 dark:text-white">Authenticate with {methodLabel}</h1>
-        {hint && <p className="text-lg text-slate-500 dark:text-slate-400 max-w-md mx-auto">{hint}</p>}
+        <h1 className="text-4xl font-extrabold tracking-tighter text-slate-900 dark:text-white">
+          Authenticate with {methodLabel}
+        </h1>
+        {hint && (
+          <p className="text-lg text-slate-500 dark:text-slate-400 mx-auto">{hint}</p>
+        )}
       </div>
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
-        <div className="flex items-start gap-6">
-          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg flex-shrink-0">1</div>
+
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+        {/* Step 1: Open browser */}
+        <div className="flex items-start gap-2">
+          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg flex-shrink-0">
+            1
+          </div>
           <div className="space-y-3">
             <h3 className="text-xl font-bold">Open browser to authenticate</h3>
-            <p className="text-slate-500 dark:text-slate-400">Click the button below, complete sign-in, then return here.</p>
-            <button onClick={() => setWaiting(true)} className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-full hover:opacity-90">
-              <ExternalLink className="w-4 h-4" /> Open Authentication Page
+            <p className="text-slate-500 dark:text-slate-400">
+              Click the button below to open the sign-in page in your browser.
+            </p>
+            <button
+              onClick={() => { void handleOpenBrowser(); }}
+              disabled={phase !== "idle" && phase !== "error"}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {phase === "opening" ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Opening...</>
+              ) : (
+                <><ExternalLink className="w-4 h-4" /> Open Authentication Page</>
+              )}
             </button>
           </div>
         </div>
-        {waiting && (
+
+        {/* Step 2: Waiting / result */}
+        {(phase === "polling" || phase === "success" || phase === "error") && (
           <div className="flex items-start gap-6 border-t border-slate-100 dark:border-slate-800 pt-6">
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg flex-shrink-0">2</div>
-            <div className="space-y-3">
-              <h3 className="text-xl font-bold">Complete in browser, then continue</h3>
-              <button onClick={onComplete} className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-bold rounded-full hover:opacity-90">
-                <CheckCircle className="w-4 h-4" /> I&#39;ve authenticated — continue
-              </button>
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg flex-shrink-0">
+              2
+            </div>
+            <div className="space-y-3 flex-1">
+              {phase === "polling" && (
+                <>
+                  <h3 className="text-xl font-bold">Waiting for authentication...</h3>
+                  {deviceCode && (
+                    <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 space-y-2 border border-slate-100 dark:border-slate-700">
+                      <p className="text-sm text-slate-500 dark:text-slate-400">If prompted, enter this code in the browser:</p>
+                      <p className="text-2xl font-mono font-bold tracking-widest text-slate-900 dark:text-white">{deviceCode.userCode}</p>
+                      <a
+                        href={deviceCode.verificationUri}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        {deviceCode.verificationUri}
+                      </a>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <span>Complete sign-in in your browser. This page will update automatically.</span>
+                  </div>
+                  {!adapter.pollOAuth && (
+                    <button
+                      onClick={handleManualContinue}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-bold rounded-full hover:opacity-90"
+                    >
+                      <CheckCircle className="w-4 h-4" /> I&#39;ve authenticated — continue
+                    </button>
+                  )}
+                </>
+              )}
+              {phase === "success" && (
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle className="w-5 h-5" />
+                  <span className="font-semibold">Authentication successful!</span>
+                </div>
+              )}
+              {phase === "error" && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-red-500 dark:text-red-400">
+                    <XCircle className="w-5 h-5" />
+                    <span className="font-semibold">{error ?? "Authentication failed."}</span>
+                  </div>
+                  <button
+                    onClick={() => { void handleRetry(); }}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-sm"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Try again
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -51,7 +223,7 @@ function OAuthFlow({
 
 // ─── API-key flow UI ───────────────────────────────────────────────────────
 
-export function ApiKeyStep({ onNext, onBack: _onBack }: ApiKeyStepProps) {
+export function ApiKeyStep({ onNext, onBack: _onBack, onCanProceedChange }: ApiKeyStepProps) {
   const { wizardState, updateWizardState } = useWizardStore();
   const adapter = useWizardAdapter();
 
@@ -72,14 +244,25 @@ export function ApiKeyStep({ onNext, onBack: _onBack }: ApiKeyStepProps) {
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
-  // OAuth path — delegate to OAuthFlow
+  // Gate footer Continue until connection is tested successfully
+  useEffect(() => {
+    onCanProceedChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    onCanProceedChange?.(testResult === "success");
+  }, [testResult, onCanProceedChange]);
+
+  // OAuth path — delegate to OAuthFlow (OAuth auto-advances so no gate needed)
   if (isOAuth) {
     return (
       <OAuthFlow
+        methodId={authMethodId}
         methodLabel={methodDef?.label ?? authMethodId}
         hint={methodDef?.hint}
-        onComplete={() => {
-          updateWizardState({ apiKey: "" });
+        onComplete={(token, refresh, expires) => {
+          updateWizardState({ apiKey: token, oauthRefresh: refresh, oauthExpires: expires });
           onNext();
         }}
       />
@@ -122,27 +305,27 @@ export function ApiKeyStep({ onNext, onBack: _onBack }: ApiKeyStepProps) {
   };
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="text-center space-y-4 pt-12">
+      <div className="text-center space-y-4">
         <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tighter text-slate-900 dark:text-white">
           Connect your {providerLabel} account
         </h1>
-        <p className="text-lg text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+        <p className="text-lg text-slate-500 dark:text-slate-400 mx-auto">
           An API key is required to use {providerLabel}. It only takes a moment.
         </p>
       </div>
 
       {/* 3-Step Guide Container */}
-      <div className="space-y-8">
+      <div className="space-y-4">
         {/* Step 1: External Link */}
         {consoleUrl && (
-          <div className="relative group bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-primary/5 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-start gap-6">
+          <div className="relative group bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-primary/5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
                 1
               </div>
-              <div className="flex-1 space-y-4">
+              <div className="flex-1 space-y-2">
                 <div>
                   <h3 className="text-xl font-bold">Get your API key</h3>
                   <p className="text-slate-500 dark:text-slate-400 mt-1">
@@ -164,12 +347,12 @@ export function ApiKeyStep({ onNext, onBack: _onBack }: ApiKeyStepProps) {
         )}
 
         {/* Step 2: Input Field */}
-        <div className="relative group bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-primary/5 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-start gap-6">
+        <div className="relative group bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-primary/5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-start gap-4">
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
               {consoleUrl ? 2 : 1}
             </div>
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-2">
               <div>
                 <h3 className="text-xl font-bold">Paste your key</h3>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">
@@ -208,12 +391,12 @@ export function ApiKeyStep({ onNext, onBack: _onBack }: ApiKeyStepProps) {
         </div>
 
         {/* Step 3: Test + Continue */}
-        <div className="relative group bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-primary/5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="relative group bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-primary/5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-start gap-6">
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
               {consoleUrl ? 3 : 2}
             </div>
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-2">
               <div>
                 <h3 className="text-xl font-bold">Test connection</h3>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">
@@ -250,29 +433,9 @@ export function ApiKeyStep({ onNext, onBack: _onBack }: ApiKeyStepProps) {
                   </div>
                 )}
               </div>
-
-              {/* Continue button — only shown after successful test */}
-              {testResult === "success" && (
-                <div className="pt-2">
-                  <button
-                    onClick={onNext}
-                    className="px-10 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    <span>Continue</span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="text-center pt-12">
-        <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest font-semibold flex items-center justify-center gap-2">
-          <Shield className="w-4 h-4" />
-          Privacy First Architecture
-        </p>
       </div>
     </div>
   );

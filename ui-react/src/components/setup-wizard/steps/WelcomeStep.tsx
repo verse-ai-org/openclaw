@@ -32,11 +32,6 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
         <Utensils className="w-10 h-10" />
       </div>
 
-      {/* 进度标记 */}
-      <div className="mb-2 px-4 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">
-        0/5
-      </div>
-
       {/* 标题 */}
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">

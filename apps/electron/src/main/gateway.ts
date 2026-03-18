@@ -3,6 +3,25 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import { app } from "electron";
+import { mainLogSync } from "./onboarding.js";
+
+/**
+ * 同时写 console + 日志文件（打包后 console 不可见）。
+ */
+function log(msg: string): void {
+  console.log(msg);
+  mainLogSync(msg);
+}
+function logError(msg: string, err?: unknown): void {
+  const detail =
+    err instanceof Error
+      ? ` ${err.message}`
+      : err !== undefined
+        ? ` ${String(err)}`
+        : "";
+  console.error(msg + detail);
+  mainLogSync(`[ERROR] ${msg}${detail}`);
+}
 
 const DEFAULT_GATEWAY_PORT = 18789;
 const GATEWAY_READY_TIMEOUT_MS = 15_000;
@@ -27,10 +46,17 @@ export interface GatewayStartOptions {
  */
 function resolveBundledNode(): string {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, "node", "node");
+    const p = path.join(process.resourcesPath, "node", "node");
+    const exists = fs.existsSync(p);
+    log(`[gateway] resolveBundledNode (packaged): ${p} exists=${exists}`);
+    return p;
   }
   // 开发时使用系统 node
-  return process.execPath.includes("electron") ? "node" : process.execPath;
+  const devPath = process.execPath.includes("electron")
+    ? "node"
+    : process.execPath;
+  log(`[gateway] resolveBundledNode (dev): ${devPath}`);
+  return devPath;
 }
 
 /**
@@ -47,10 +73,16 @@ function resolveBundledNode(): string {
  */
 function resolveOpenclaw(): string {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, "openclaw", "openclaw.mjs");
+    const p = path.join(process.resourcesPath, "openclaw", "openclaw.mjs");
+    const exists = fs.existsSync(p);
+    log(`[gateway] resolveOpenclaw (packaged): ${p} exists=${exists}`);
+    return p;
   }
   // 开发时：__dirname = dist/main/，向上 4 级到 repo root
-  return path.resolve(__dirname, "../../../../openclaw.mjs");
+  const devPath = path.resolve(__dirname, "../../../../openclaw.mjs");
+  const exists = fs.existsSync(devPath);
+  log(`[gateway] resolveOpenclaw (dev): ${devPath} exists=${exists}`);
+  return devPath;
 }
 
 /**
@@ -59,17 +91,41 @@ function resolveOpenclaw(): string {
  * 如果未配置则返回 null，由调用方自行生成。
  */
 export function readExistingGatewayToken(): string | null {
-  const explicitPath = process.env.OPENCLAW_CONFIG_PATH?.trim() || process.env.CLAWDBOT_CONFIG_PATH?.trim();
-  const stateDir = process.env.OPENCLAW_STATE_DIR?.trim() || path.join(os.homedir(), ".openclaw");
-  const candidates = ["openclaw.json", "openclaw.json5", "config.json", "clawdbot.json"];
+  const explicitPath =
+    process.env.OPENCLAW_CONFIG_PATH?.trim() ||
+    process.env.CLAWDBOT_CONFIG_PATH?.trim();
+  const stateDir =
+    process.env.OPENCLAW_STATE_DIR?.trim() ||
+    path.join(os.homedir(), ".openclaw");
+  const candidates = [
+    "openclaw.json",
+    "openclaw.json5",
+    "config.json",
+    "clawdbot.json",
+  ];
   let cfg: Record<string, unknown> = {};
   if (explicitPath && fs.existsSync(explicitPath)) {
-    try { cfg = JSON.parse(fs.readFileSync(explicitPath, "utf8")) as Record<string, unknown>; } catch { return null; }
+    try {
+      cfg = JSON.parse(fs.readFileSync(explicitPath, "utf8")) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      return null;
+    }
   } else {
     for (const name of candidates) {
       const p = path.join(stateDir, name);
       if (fs.existsSync(p)) {
-        try { cfg = JSON.parse(fs.readFileSync(p, "utf8")) as Record<string, unknown>; break; } catch { return null; }
+        try {
+          cfg = JSON.parse(fs.readFileSync(p, "utf8")) as Record<
+            string,
+            unknown
+          >;
+          break;
+        } catch {
+          return null;
+        }
       }
     }
   }
@@ -84,24 +140,52 @@ export function readExistingGatewayToken(): string | null {
  * 如果未配置则返回 null。
  */
 export function readExistingGatewayPort(): number | null {
-  const explicitPath = process.env.OPENCLAW_CONFIG_PATH?.trim() || process.env.CLAWDBOT_CONFIG_PATH?.trim();
-  const stateDir = process.env.OPENCLAW_STATE_DIR?.trim() || path.join(os.homedir(), ".openclaw");
-  const candidates = ["openclaw.json", "openclaw.json5", "config.json", "clawdbot.json"];
+  const explicitPath =
+    process.env.OPENCLAW_CONFIG_PATH?.trim() ||
+    process.env.CLAWDBOT_CONFIG_PATH?.trim();
+  const stateDir =
+    process.env.OPENCLAW_STATE_DIR?.trim() ||
+    path.join(os.homedir(), ".openclaw");
+  const candidates = [
+    "openclaw.json",
+    "openclaw.json5",
+    "config.json",
+    "clawdbot.json",
+  ];
   let cfg: Record<string, unknown> = {};
   if (explicitPath && fs.existsSync(explicitPath)) {
-    try { cfg = JSON.parse(fs.readFileSync(explicitPath, "utf8")) as Record<string, unknown>; } catch { return null; }
+    try {
+      cfg = JSON.parse(fs.readFileSync(explicitPath, "utf8")) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      return null;
+    }
   } else {
     for (const name of candidates) {
       const p = path.join(stateDir, name);
       if (fs.existsSync(p)) {
-        try { cfg = JSON.parse(fs.readFileSync(p, "utf8")) as Record<string, unknown>; break; } catch { return null; }
+        try {
+          cfg = JSON.parse(fs.readFileSync(p, "utf8")) as Record<
+            string,
+            unknown
+          >;
+          break;
+        } catch {
+          return null;
+        }
       }
     }
   }
   const gw = cfg.gateway as Record<string, unknown> | undefined;
   const port = gw?.port;
-  if (typeof port === "number" && port > 0) {return port;}
-  if (typeof port === "string" && Number(port) > 0) {return Number(port);}
+  if (typeof port === "number" && port > 0) {
+    return port;
+  }
+  if (typeof port === "string" && Number(port) > 0) {
+    return Number(port);
+  }
   return null;
 }
 
@@ -119,7 +203,10 @@ async function isGatewayRunning(port: number): Promise<boolean> {
   }
 }
 
-async function waitForGatewayReady(port: number, timeoutMs: number): Promise<void> {
+async function waitForGatewayReady(
+  port: number,
+  timeoutMs: number,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   const url = `http://127.0.0.1:${port}/`;
   while (Date.now() < deadline) {
@@ -156,28 +243,59 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
     gatewayToken = existingToken;
     const running = await isGatewayRunning(configPort);
     if (running) {
-      console.log(`[gateway] 检测到端口 ${configPort} 已有 Gateway 运行，复用现有实例`);
+      log(`[gateway] 检测到端口 ${configPort} 已有 Gateway 运行，复用现有实例`);
       reusingExternalGateway = true;
       _activePort = configPort;
       return;
     }
     // 未运行，在配置端口启动（不带 --force，不干扰其他端口上的进程）
-    console.log(`[gateway] 配置端口 ${configPort} 无运行实例，启动新 Gateway`);
+    log(`[gateway] 配置端口 ${configPort} 无运行实例，启动新 Gateway`);
     _activePort = configPort;
-    await spawnGateway({ port: configPort, token: existingToken, force: false });
+    await spawnGateway({
+      port: configPort,
+      token: existingToken,
+      force: false,
+    });
   } else {
     // 无配置 token，在默认端口 18789 启动（带 --force），使用调用方提供的随机 token
     const port = opts.port ?? DEFAULT_GATEWAY_PORT;
     gatewayToken = opts.token;
     _activePort = port;
-    console.log(`[gateway] 无现有配置，在端口 ${port} 启动 Gateway`);
+    log(`[gateway] 无现有配置，在端口 ${port} 启动 Gateway`);
     await spawnGateway({ port, token: opts.token, force: true });
   }
 }
 
-async function spawnGateway(opts: { port: number; token: string; force: boolean }): Promise<void> {
+async function spawnGateway(opts: {
+  port: number;
+  token: string;
+  force: boolean;
+}): Promise<void> {
   const nodeBin = resolveBundledNode();
   const openclawEntry = resolveOpenclaw();
+
+  // 打包后验证关键路径是否存在
+  if (app.isPackaged) {
+    const nodeExists = fs.existsSync(nodeBin);
+    const entryExists = fs.existsSync(openclawEntry);
+    log(`[gateway] 路径检查: node=${nodeBin} exists=${nodeExists}`);
+    log(`[gateway] 路径检查: entry=${openclawEntry} exists=${entryExists}`);
+    if (!nodeExists || !entryExists) {
+      logError(
+        `[gateway] 关键文件缺失！node=${nodeExists} entry=${entryExists}`,
+      );
+      throw new Error(`打包资源缺失: node=${nodeExists}, entry=${entryExists}`);
+    }
+    // 列出 Resources 目录帮助调试
+    try {
+      const resourcesDir = process.resourcesPath;
+      const topItems = fs.readdirSync(resourcesDir);
+      log(`[gateway] Resources/ 目录内容: ${topItems.join(", ")}`);
+    } catch (e) {
+      log(`[gateway] 无法列出 Resources/: ${e}`);
+    }
+  }
+
   const args = [
     openclawEntry,
     "gateway",
@@ -191,7 +309,7 @@ async function spawnGateway(opts: { port: number; token: string; force: boolean 
     args.push("--force");
   }
 
-  console.log(`[gateway] 启动: ${nodeBin} ${args.join(" ")}`);
+  log(`[gateway] 启动: ${nodeBin} ${args.join(" ")}`);
 
   gatewayProcess = spawn(nodeBin, args, {
     env: {
@@ -204,24 +322,29 @@ async function spawnGateway(opts: { port: number; token: string; force: boolean 
   });
 
   gatewayProcess.stdout?.on("data", (data: Buffer) => {
-    process.stdout.write(`[gateway] ${data}`);
+    const text = data.toString();
+    process.stdout.write(`[gateway] ${text}`);
+    mainLogSync(`[gateway:stdout] ${text.trimEnd()}`);
   });
 
   gatewayProcess.stderr?.on("data", (data: Buffer) => {
-    process.stderr.write(`[gateway] ${data}`);
+    const text = data.toString();
+    process.stderr.write(`[gateway] ${text}`);
+    mainLogSync(`[gateway:stderr] ${text.trimEnd()}`);
   });
 
   gatewayProcess.on("exit", (code, signal) => {
-    console.log(`[gateway] 进程退出 code=${code} signal=${signal}`);
+    log(`[gateway] 进程退出 code=${code} signal=${signal}`);
     gatewayProcess = null;
   });
 
   gatewayProcess.on("error", (err) => {
-    console.error(`[gateway] 启动失败:`, err.message);
+    logError("[gateway] 启动失败:", err);
   });
 
+  log(`[gateway] 等待就绪中，端口 ${opts.port}…`);
   await waitForGatewayReady(opts.port, GATEWAY_READY_TIMEOUT_MS);
-  console.log(`[gateway] 就绪，端口 ${opts.port}`);
+  log(`[gateway] 就绪，端口 ${opts.port}`);
 }
 
 /**
@@ -230,11 +353,13 @@ async function spawnGateway(opts: { port: number; token: string; force: boolean 
  */
 export function stopGateway(): void {
   if (reusingExternalGateway) {
-    console.log("[gateway] 复用外部 Gateway，跳过停止操作");
+    log("[gateway] 复用外部 Gateway，跳过停止操作");
     return;
   }
-  if (!gatewayProcess) {return;}
-  console.log("[gateway] 正在停止...");
+  if (!gatewayProcess) {
+    return;
+  }
+  log("[gateway] 正在停止...");
   gatewayProcess.kill("SIGTERM");
   gatewayProcess = null;
 }

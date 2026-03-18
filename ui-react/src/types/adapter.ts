@@ -50,6 +50,27 @@ export interface WizardAdapter {
   validateApiKey?(authMethod: string, apiKey: string): Promise<{ ok: boolean; error?: string }>;
 
   /**
+   * Start an OAuth flow for the given auth method.
+   * The implementation should open the provider's auth URL in the system browser.
+   * Returns { ok: true } if browser was opened, { ok: false, error } otherwise.
+   * For Device Code flows (e.g. MiniMax), also returns userCode and verificationUri.
+   */
+  startOAuth?(authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }>;
+
+  /**
+   * Poll for OAuth completion.
+   * Called repeatedly (every ~2s) after startOAuth().
+   * Returns { ok: true, token } when complete, { ok: false, error: "pending" } while waiting,
+   * or { ok: false, error: "timeout" } / other error string when failed.
+   */
+  pollOAuth?(authMethod: string): Promise<{ ok: boolean; token?: string; refresh?: string; expires?: number; error?: string }>;
+
+  /**
+   * Cancel an in-progress OAuth flow.
+   */
+  cancelOAuth?(authMethod: string): Promise<void>;
+
+  /**
    * Fetch the model catalog for the given provider from the backend.
    * Used by DefaultModelStep to show available models.
    * If not implemented, the UI uses the built-in static list.

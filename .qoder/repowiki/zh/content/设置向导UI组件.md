@@ -2,33 +2,35 @@
 
 <cite>
 **本文档引用的文件**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx](file://packages/setup-wizard/src/components/setup-wizard/index.tsx)
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx)
-- [packages/setup-wizard/src/components/setup-wizard/Header.tsx](file://packages/setup-wizard/src/components/setup-wizard/Header.tsx)
-- [packages/setup-wizard/src/components/setup-wizard/ProgressBar.tsx](file://packages/setup-wizard/src/components/setup-wizard/ProgressBar.tsx)
-- [packages/setup-wizard/src/components/setup-wizard/GlassCard.tsx](file://packages/setup-wizard/src/components/setup-wizard/GlassCard.tsx)
-- [packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx](file://packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx)
-- [packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx](file://packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx)
-- [packages/setup-wizard/src/components/setup-wizard/steps/ModelSelectionStep.tsx](file://packages/setup-wizard/src/components/setup-wizard/steps/ModelSelectionStep.tsx)
-- [packages/setup-wizard/src/store/setup-wizard.store.ts](file://packages/setup-wizard/src/store/setup-wizard.store.ts)
-- [packages/setup-wizard/src/types/adapter.ts](file://packages/setup-wizard/src/types/adapter.ts)
-- [packages/setup-wizard/src/adapters/WebWizardAdapter.ts](file://packages/setup-wizard/src/adapters/WebWizardAdapter.ts)
-- [packages/setup-wizard/src/adapters/ElectronWizardAdapter.ts](file://packages/setup-wizard/src/adapters/ElectronWizardAdapter.ts)
-- [packages/setup-wizard/src/context/AdapterContext.tsx](file://packages/setup-wizard/src/context/AdapterContext.tsx)
-- [packages/setup-wizard/src/lib/utils.ts](file://packages/setup-wizard/src/lib/utils.ts)
-- [packages/setup-wizard/package.json](file://packages/setup-wizard/package.json)
-- [packages/setup-wizard/src/components/ui/button.tsx](file://packages/setup-wizard/src/components/ui/button.tsx)
-- [packages/setup-wizard/src/components/ui/input.tsx](file://packages/setup-wizard/src/components/ui/input.tsx)
-- [packages/setup-wizard/src/components/ui/select.tsx](file://packages/setup-wizard/src/components/ui/select.tsx)
-- [packages/setup-wizard/src/components/ui/checkbox.tsx](file://packages/setup-wizard/src/components/ui/checkbox.tsx)
-- [packages/setup-wizard/src/components/ui/card.tsx](file://packages/setup-wizard/src/components/ui/card.tsx)
-- [packages/setup-wizard/src/components/ui/sheet.tsx](file://packages/setup-wizard/src/components/ui/sheet.tsx)
+- [ui-react/src/components/setup-wizard/index.tsx](file://ui-react/src/components/setup-wizard/index.tsx)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx](file://ui-react/src/components/setup-wizard/WizardContainer.tsx)
+- [ui-react/src/components/setup-wizard/Header.tsx](file://ui-react/src/components/setup-wizard/Header.tsx)
+- [ui-react/src/components/setup-wizard/ProgressBar.tsx](file://ui-react/src/components/setup-wizard/ProgressBar.tsx)
+- [ui-react/src/components/setup-wizard/GlassCard.tsx](file://ui-react/src/components/setup-wizard/GlassCard.tsx)
+- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx)
+- [ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx](file://ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx)
+- [ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx](file://ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx)
+- [ui-react/src/store/setup-wizard.store.ts](file://ui-react/src/store/setup-wizard.store.ts)
+- [ui-react/src/types/adapter.ts](file://ui-react/src/types/adapter.ts)
+- [ui-react/src/adapters/WebWizardAdapter.ts](file://ui-react/src/adapters/WebWizardAdapter.ts)
+- [ui-react/src/adapters/ElectronWizardAdapter.ts](file://ui-react/src/adapters/ElectronWizardAdapter.ts)
+- [ui-react/src/context/AdapterContext.tsx](file://ui-react/src/context/AdapterContext.tsx)
+- [ui-react/src/lib/utils.ts](file://ui-react/src/lib/utils.ts)
+- [ui-react/package.json](file://ui-react/package.json)
+- [ui-react/src/components/ui/button.tsx](file://ui-react/src/components/ui/button.tsx)
+- [ui-react/src/components/ui/input.tsx](file://ui-react/src/components/ui/input.tsx)
+- [ui-react/src/components/ui/select.tsx](file://ui-react/src/components/ui/select.tsx)
+- [ui-react/src/components/ui/checkbox.tsx](file://ui-react/src/components/ui/checkbox.tsx)
+- [ui-react/src/components/ui/card.tsx](file://ui-react/src/components/ui/card.tsx)
+- [ui-react/src/components/ui/sheet.tsx](file://ui-react/src/components/ui/sheet.tsx)
+- [ui-react/src/components/ui/dialog.tsx](file://ui-react/src/components/ui/dialog.tsx)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增UI基础组件系统章节，详细介绍重构后的20+个基础组件
-- 更新核心组件部分，反映Button、Input、Select等组件的使用情况
+- 更新UI组件库位置：从packages/setup-wizard/src/components/ui/迁移到ui-react/src/components/ui/
+- 新增ApiKeyStep.tsx和ModelSelectionStep.tsx组件的详细分析
+- 更新核心组件部分，反映重构后的20+个基础UI组件
 - 新增UI组件架构图，展示基础组件与业务组件的关系
 - 更新依赖关系分析，包含新的UI组件依赖
 - 新增组件使用示例，展示如何在步骤组件中使用基础UI组件
@@ -59,7 +61,7 @@
 
 ```mermaid
 graph TD
-A["@openclaw/setup-wizard"] --> B["src/"]
+A["@openclaw/ui-react"] --> B["src/"]
 B --> C["components/"]
 B --> D["adapters/"]
 B --> E["store/"]
@@ -85,22 +87,23 @@ U --> X["select.tsx"]
 U --> Y["checkbox.tsx"]
 U --> Z["card.tsx"]
 U --> AA["sheet.tsx"]
-D --> AB["WebWizardAdapter.ts"]
-D --> AC["ElectronWizardAdapter.ts"]
-E --> AD["setup-wizard.store.ts"]
-E --> AE["index.ts"]
-F --> AF["adapter.ts"]
-F --> AG["index.ts"]
-G --> AH["AdapterContext.tsx"]
-H --> AI["utils.ts"]
+U --> AB["dialog.tsx"]
+D --> AC["WebWizardAdapter.ts"]
+D --> AD["ElectronWizardAdapter.ts"]
+E --> AE["setup-wizard.store.ts"]
+E --> AF["index.ts"]
+F --> AG["adapter.ts"]
+F --> AH["index.ts"]
+G --> AI["AdapterContext.tsx"]
+H --> AJ["utils.ts"]
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx:1-31](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L1-L31)
-- [packages/setup-wizard/src/components/ui/button.tsx:1-65](file://packages/setup-wizard/src/components/ui/button.tsx#L1-L65)
+- [ui-react/src/components/setup-wizard/index.tsx:1-31](file://ui-react/src/components/setup-wizard/index.tsx#L1-L31)
+- [ui-react/src/components/ui/button.tsx:1-56](file://ui-react/src/components/ui/button.tsx#L1-L56)
 
 **章节来源**
-- [packages/setup-wizard/package.json:1-58](file://packages/setup-wizard/package.json#L1-L58)
+- [ui-react/package.json:1-58](file://ui-react/package.json#L1-L58)
 
 ## UI基础组件系统
 
@@ -118,6 +121,7 @@ H --> AI["utils.ts"]
 #### 布局组件
 - **Card**：卡片组件，包含标题、描述、内容等子组件
 - **Sheet**：抽屉组件，支持多方向滑入动画
+- **Dialog**：对话框组件，支持模态交互
 - **Badge**：徽章标签组件
 - **Separator**：分隔线组件
 
@@ -165,9 +169,9 @@ BaseComponent <|-- Select
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/ui/button.tsx:7-39](file://packages/setup-wizard/src/components/ui/button.tsx#L7-L39)
-- [packages/setup-wizard/src/components/ui/input.tsx:4-18](file://packages/setup-wizard/src/components/ui/input.tsx#L4-L18)
-- [packages/setup-wizard/src/components/ui/select.tsx:25-49](file://packages/setup-wizard/src/components/ui/select.tsx#L25-L49)
+- [ui-react/src/components/ui/button.tsx:7-39](file://ui-react/src/components/ui/button.tsx#L7-L39)
+- [ui-react/src/components/ui/input.tsx:4-18](file://ui-react/src/components/ui/input.tsx#L4-L18)
+- [ui-react/src/components/ui/select.tsx:25-49](file://ui-react/src/components/ui/select.tsx#L25-L49)
 
 ### 组件变体系统
 
@@ -179,9 +183,9 @@ BaseComponent <|-- Select
 - **数据槽(data-slot)**：用于样式覆盖和主题定制
 
 **章节来源**
-- [packages/setup-wizard/src/components/ui/button.tsx:1-65](file://packages/setup-wizard/src/components/ui/button.tsx#L1-L65)
-- [packages/setup-wizard/src/components/ui/input.tsx:1-21](file://packages/setup-wizard/src/components/ui/input.tsx#L1-L21)
-- [packages/setup-wizard/src/components/ui/select.tsx:1-189](file://packages/setup-wizard/src/components/ui/select.tsx#L1-L189)
+- [ui-react/src/components/ui/button.tsx:1-56](file://ui-react/src/components/ui/button.tsx#L1-L56)
+- [ui-react/src/components/ui/input.tsx:1-21](file://ui-react/src/components/ui/input.tsx#L1-L21)
+- [ui-react/src/components/ui/select.tsx:1-189](file://ui-react/src/components/ui/select.tsx#L1-L189)
 
 ## 核心组件
 
@@ -208,10 +212,11 @@ BaseComponent <|-- Select
 **更新**：所有步骤组件现在都使用新的基础UI组件系统，提升了组件的一致性和可维护性。
 
 **章节来源**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx:1-31](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L1-L31)
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:1-114](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L1-L114)
-- [packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx:1-87](file://packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L87)
-- [packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx:1-191](file://packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx#L1-L191)
+- [ui-react/src/components/setup-wizard/index.tsx:1-31](file://ui-react/src/components/setup-wizard/index.tsx#L1-L31)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:1-114](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L1-L114)
+- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:1-87](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L87)
+- [ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx:1-280](file://ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx#L1-L280)
+- [ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx:1-398](file://ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx#L1-L398)
 
 ## 架构概览
 
@@ -232,24 +237,25 @@ G[Select]
 H[Checkbox]
 I[Card]
 J[Sheet]
+K[Dialog]
 end
 subgraph "状态管理层"
-K[Zustand Store]
-L[WizardState 接口]
+L[Zustand Store]
+M[WizardState 接口]
 end
 subgraph "适配器层"
-M[WizardAdapter 接口]
-N[WebWizardAdapter]
-O[ElectronWizardAdapter]
+N[WizardAdapter 接口]
+O[WebWizardAdapter]
+P[ElectronWizardAdapter]
 end
 subgraph "上下文层"
-P[AdapterContext]
-Q[AdapterProvider]
+Q[AdapterContext]
+R[AdapterProvider]
 end
 subgraph "外部服务"
-R[Web API]
-S[Electron IPC]
-T[本地存储]
+S[Web API]
+T[Electron IPC]
+U[本地存储]
 end
 A --> B
 B --> C
@@ -260,23 +266,24 @@ D --> G
 D --> H
 D --> I
 D --> J
-B --> K
-K --> L
-A --> P
-P --> Q
-Q --> M
-M --> N
-M --> O
-N --> R
+D --> K
+B --> L
+L --> M
+A --> Q
+Q --> R
+R --> N
+N --> O
+N --> P
 O --> S
-K --> T
+P --> T
+L --> U
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx:11-28](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L11-L28)
-- [packages/setup-wizard/src/components/ui/button.tsx:41-62](file://packages/setup-wizard/src/components/ui/button.tsx#L41-L62)
-- [packages/setup-wizard/src/components/ui/input.tsx:4-18](file://packages/setup-wizard/src/components/ui/input.tsx#L4-L18)
-- [packages/setup-wizard/src/components/ui/select.tsx:7-11](file://packages/setup-wizard/src/components/ui/select.tsx#L7-L11)
+- [ui-react/src/components/setup-wizard/index.tsx:11-28](file://ui-react/src/components/setup-wizard/index.tsx#L11-L28)
+- [ui-react/src/components/ui/button.tsx:41-56](file://ui-react/src/components/ui/button.tsx#L41-L56)
+- [ui-react/src/components/ui/input.tsx:4-18](file://ui-react/src/components/ui/input.tsx#L4-L18)
+- [ui-react/src/components/ui/select.tsx:7-11](file://ui-react/src/components/ui/select.tsx#L7-L11)
 
 ### 数据流图
 
@@ -303,8 +310,8 @@ Wizard-->>User : 显示新步骤
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:30-38](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L30-L38)
-- [packages/setup-wizard/src/store/setup-wizard.store.ts:56-85](file://packages/setup-wizard/src/store/setup-wizard.store.ts#L56-L85)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:30-38](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L30-L38)
+- [ui-react/src/store/setup-wizard.store.ts:56-85](file://ui-react/src/store/setup-wizard.store.ts#L56-L85)
 
 ## 详细组件分析
 
@@ -329,7 +336,7 @@ SetupWizard --> WizardContainer : 渲染子组件
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/index.tsx:6-30](file://packages/setup-wizard/src/components/setup-wizard/index.tsx#L6-L30)
+- [ui-react/src/components/setup-wizard/index.tsx:6-30](file://ui-react/src/components/setup-wizard/index.tsx#L6-L30)
 
 ### WizardContainer 容器组件
 
@@ -357,7 +364,7 @@ M --> O[结束]
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:24-73](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L24-L73)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:24-73](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L24-L73)
 
 ### 步骤组件分析
 
@@ -387,7 +394,7 @@ SetupStep --> GlassCard : 包装显示
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx:27-86](file://packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx#L27-L86)
+- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:27-86](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L27-L86)
 
 #### ApiKeyStep API密钥步骤
 
@@ -411,7 +418,7 @@ ApiKeyStep-->>User : 显示连接状态
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx:29-56](file://packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx#L29-L56)
+- [ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx:29-56](file://ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx#L29-L56)
 
 #### ModelSelectionStep 模型选择步骤
 
@@ -447,7 +454,7 @@ Select --> SelectItem : 包含选项
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/components/setup-wizard/steps/ModelSelectionStep.tsx:17-118](file://packages/setup-wizard/src/components/setup-wizard/steps/ModelSelectionStep.tsx#L17-L118)
+- [ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx:17-118](file://ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx#L17-L118)
 
 ### 状态管理系统
 
@@ -478,7 +485,7 @@ WizardStore ||--|| WizardState : contains
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/store/setup-wizard.store.ts:4-36](file://packages/setup-wizard/src/store/setup-wizard.store.ts#L4-L36)
+- [ui-react/src/store/setup-wizard.store.ts:4-36](file://ui-react/src/store/setup-wizard.store.ts#L4-L36)
 
 ### 适配器模式实现
 
@@ -509,15 +516,15 @@ WizardAdapter <|-- ElectronWizardAdapter
 ```
 
 **图表来源**
-- [packages/setup-wizard/src/types/adapter.ts:6-28](file://packages/setup-wizard/src/types/adapter.ts#L6-L28)
-- [packages/setup-wizard/src/adapters/WebWizardAdapter.ts:7-52](file://packages/setup-wizard/src/adapters/WebWizardAdapter.ts#L7-L52)
-- [packages/setup-wizard/src/adapters/ElectronWizardAdapter.ts:17-57](file://packages/setup-wizard/src/adapters/ElectronWizardAdapter.ts#L17-L57)
+- [ui-react/src/types/adapter.ts:6-28](file://ui-react/src/types/adapter.ts#L6-L28)
+- [ui-react/src/adapters/WebWizardAdapter.ts:7-52](file://ui-react/src/adapters/WebWizardAdapter.ts#L7-L52)
+- [ui-react/src/adapters/ElectronWizardAdapter.ts:17-57](file://ui-react/src/adapters/ElectronWizardAdapter.ts#L17-L57)
 
 **章节来源**
-- [packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx:1-87](file://packages/setup-wizard/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L87)
-- [packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx:1-191](file://packages/setup-wizard/src/components/setup-wizard/steps/ApiKeyStep.tsx#L1-L191)
-- [packages/setup-wizard/src/components/setup-wizard/steps/ModelSelectionStep.tsx:1-321](file://packages/setup-wizard/src/components/setup-wizard/steps/ModelSelectionStep.tsx#L1-L321)
-- [packages/setup-wizard/src/store/setup-wizard.store.ts:1-86](file://packages/setup-wizard/src/store/setup-wizard.store.ts#L1-L86)
+- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:1-87](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L87)
+- [ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx:1-280](file://ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx#L1-L280)
+- [ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx:1-398](file://ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx#L1-L398)
+- [ui-react/src/store/setup-wizard.store.ts:1-86](file://ui-react/src/store/setup-wizard.store.ts#L1-L86)
 
 ## 依赖关系分析
 
@@ -525,7 +532,7 @@ WizardAdapter <|-- ElectronWizardAdapter
 
 ```mermaid
 graph TD
-A["@openclaw/setup-wizard"] --> B["react (^19.0.0)"]
+A["@openclaw/ui-react"] --> B["react (^19.0.0)"]
 A --> C["lucide-react (^0.469.0)"]
 A --> D["zustand (^5.0.3)"]
 A --> E["tailwind-merge (^2.6.0)"]
@@ -553,7 +560,7 @@ A --> Q
 ```
 
 **图表来源**
-- [packages/setup-wizard/package.json:21-52](file://packages/setup-wizard/package.json#L21-L52)
+- [ui-react/package.json:21-52](file://ui-react/package.json#L21-L52)
 
 ### 外部依赖分析
 
@@ -571,7 +578,7 @@ A --> Q
 这些依赖的选择体现了组件包对性能、可访问性和开发体验的关注。
 
 **章节来源**
-- [packages/setup-wizard/package.json:1-58](file://packages/setup-wizard/package.json#L1-L58)
+- [ui-react/package.json:1-58](file://ui-react/package.json#L1-L58)
 
 ## 性能考虑
 
@@ -635,7 +642,7 @@ A --> Q
 3. 优化事件处理器绑定
 
 **章节来源**
-- [packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx:41-62](file://packages/setup-wizard/src/components/setup-wizard/WizardContainer.tsx#L41-L62)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:41-62](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L41-L62)
 
 ## 结论
 

@@ -6,14 +6,32 @@ import {
   getGatewayToken,
   getGatewayPort,
 } from "./gateway.js";
-import { isFirstLaunch, saveOnboardingConfig, writeDebugLog, type OnboardingConfig } from "./onboarding.js";
-import { generateToken } from "./token.js";
 import {
-  createWindow,
-  configureSession,
-  loadRendererPage,
-} from "./window.js";
+  isFirstLaunch,
+  saveOnboardingConfig,
+  writeDebugLog,
+  mainLogSync,
+  type OnboardingConfig,
+} from "./onboarding.js";
+import { validateApiKey } from "./onboarding-validate.js";
+import {
+  oauthStart,
+  oauthPoll,
+  clearOAuthSession,
+} from "./onboarding-oauth.js";
+import { generateToken } from "./token.js";
+import { createWindow, configureSession, loadRendererPage } from "./window.js";
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
+
+function mlog(msg: string): void {
+  console.log(msg);
+  mainLogSync(msg);
+}
+function mlogError(msg: string, err?: unknown): void {
+  const d = err !== undefined ? ` ${String(err)}` : "";
+  console.error(msg + d);
+  mainLogSync(`[ERROR] ${msg}${d}`);
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -21,7 +39,10 @@ let mainWindow: BrowserWindow | null = null;
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     mainWindow = createWindow();
-    loadRendererPage(mainWindow, "index", { port: getGatewayPort(), token: getGatewayToken() });
+    loadRendererPage(mainWindow, "index", {
+      port: getGatewayPort(),
+      token: getGatewayToken(),
+    });
   } else {
     mainWindow?.show();
   }
@@ -66,10 +87,12 @@ ipcMain.handle("onboarding:writeDebugLog", async (_, message: string) => {
 
 // IPC：Onboarding 保存配置（wizard 完成后，notifyOnboardingComplete 之前调用）
 ipcMain.handle("onboarding:saveConfig", async (_, cfg: OnboardingConfig) => {
-  await writeDebugLog(`[main] saveOnboardingConfig called: ${JSON.stringify(cfg).slice(0, 200)}`);
+  await writeDebugLog(
+    `[main] saveOnboardingConfig called: ${JSON.stringify(cfg).slice(0, 200)}`,
+  );
   try {
     await saveOnboardingConfig(cfg);
-    await writeDebugLog('[main] saveOnboardingConfig: success');
+    await writeDebugLog("[main] saveOnboardingConfig: success");
     return { ok: true };
   } catch (err) {
     const msg = String(err);
@@ -79,52 +102,113 @@ ipcMain.handle("onboarding:saveConfig", async (_, cfg: OnboardingConfig) => {
   }
 });
 
+// IPC：验证 API Key（发轻量探测请求到 provider 端点）
+ipcMain.handle(
+  "onboarding:validateApiKey",
+  async (_, authMethod: string, apiKey: string) => {
+    await writeDebugLog(`[main] validateApiKey: authMethod=${authMethod}`);
+    const result = await validateApiKey(authMethod, apiKey);
+    await writeDebugLog(
+      `[main] validateApiKey result: ${JSON.stringify(result)}`,
+    );
+    return result;
+  },
+);
+
+// IPC：OAuth 启动 — 打开浏览器跳转到 OAuth 页面
+ipcMain.handle("onboarding:oauthStart", async (_, authMethod: string) => {
+  await writeDebugLog(`[main] oauthStart: authMethod=${authMethod}`);
+  const result = await oauthStart(authMethod);
+  await writeDebugLog(`[main] oauthStart result: ${JSON.stringify(result)}`);
+  return result;
+});
+
+// IPC：OAuth 轮询 — 检测 auth-profiles.json 中是否有 token 写入
+ipcMain.handle("onboarding:oauthPoll", async (_, authMethod: string) => {
+  const result = await oauthPoll(authMethod);
+  if (result.ok || result.error !== "pending") {
+    await writeDebugLog(`[main] oauthPoll: ${JSON.stringify(result)}`);
+  }
+  return result;
+});
+
+// IPC：OAuth 取消 — 清理活跃会话
+ipcMain.handle("onboarding:oauthCancel", async (_, authMethod: string) => {
+  clearOAuthSession(authMethod);
+  await writeDebugLog(`[main] oauthCancel: authMethod=${authMethod}`);
+  return { ok: true };
+});
+
 // IPC：Onboarding 完成，切换到 ui-react 主界面
 ipcMain.handle("onboarding:complete", () => {
-  console.log("[main] Onboarding 完成，切换到 ui-react 主界面");
+  mlog("[main] Onboarding 完成，切换到 ui-react 主界面");
   // 注销 wizard IPC 并关闭 WS 连接
   unregisterWizardIpc();
   // 同一窗口切换到 ui-react 主界面，注入 Gateway 连接信息
   if (mainWindow) {
-    loadRendererPage(mainWindow, "index", { port: getGatewayPort(), token: getGatewayToken() });
+    loadRendererPage(mainWindow, "index", {
+      port: getGatewayPort(),
+      token: getGatewayToken(),
+    });
   }
   return { ok: true };
 });
 
 async function main() {
+  mlog("[main] app 就绪前…");
   await app.whenReady();
+  mlog(
+    `[main] app.whenReady 完成；platform=${process.platform} isPackaged=${app.isPackaged} resourcesPath=${process.resourcesPath ?? "n/a"}`,
+  );
 
   // 生成本次会话 token 备用（无配置时使用）
   const sessionToken = generateToken();
+  mlog("[main] sessionToken 已生成");
 
   // 启动 Gateway（内部决策：复用外部 / 使用配置端口 / 使用独立端口）
+  let gatewayStarted = false;
   try {
+    mlog("[main] 开始启动 Gateway…");
     await startGateway({ token: sessionToken });
+    gatewayStarted = true;
+    mlog("[main] Gateway 启动成功");
   } catch (err) {
-    console.error("[main] Gateway 启动失败:", err);
+    mlogError("[main] Gateway 启动失败:", err);
+    // Gateway 失败不阻止渲染，以便展示错误页面
   }
 
   const activePort = getGatewayPort();
   const activeToken = getGatewayToken();
+  mlog(`[main] activePort=${activePort} gatewayStarted=${gatewayStarted}`);
 
   // 配置 session CSP（使用实际端口）
   configureSession(activePort);
+  mlog("[main] session 已配置");
 
   // 创建主窗口
   mainWindow = createWindow();
+  mlog("[main] 主窗口已创建");
 
-  if (isFirstLaunch()) {
+  const firstLaunch = isFirstLaunch();
+  mlog(`[main] isFirstLaunch=${firstLaunch}`);
+
+  if (firstLaunch) {
     // 首次启动：加载 ui-react Setup Wizard 页面，注册 wizard IPC 中转
-    console.log("[main] 首次启动，加载 Setup Wizard");
+    mlog("[main] 首次启动，加载 Setup Wizard");
     registerWizardIpc(activePort, activeToken);
     loadRendererPage(mainWindow, "setup");
   } else {
     // 已配置：直接加载 ui-react 主界面，注入 Gateway 连接信息
-    loadRendererPage(mainWindow, "index", { port: activePort, token: activeToken });
+    mlog("[main] 已配置，加载主界面");
+    loadRendererPage(mainWindow, "index", {
+      port: activePort,
+      token: activeToken,
+    });
   }
+  mlog("[main] main() 完成");
 }
 
 main().catch((err) => {
-  console.error("[main] 未处理的错误:", err);
+  mlogError("[main] 未处理的错误:", err);
   app.quit();
 });

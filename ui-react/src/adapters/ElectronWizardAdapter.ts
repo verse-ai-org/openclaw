@@ -8,6 +8,10 @@ declare global {
       restartGateway(): Promise<{ ok: boolean; error?: string }>;
       saveOnboardingConfig(cfg: unknown): Promise<{ ok: boolean; error?: string }>;
       writeDebugLog(message: string): Promise<void>;
+      validateApiKey(authMethod: string, apiKey: string): Promise<{ ok: boolean; error?: string }>;
+      oauthStart(authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }>;
+      oauthPoll(authMethod: string): Promise<{ ok: boolean; token?: string; refresh?: string; expires?: number; error?: string }>;
+      oauthCancel(authMethod: string): Promise<{ ok: boolean }>;
     };
   }
 }
@@ -100,6 +104,25 @@ export class ElectronWizardAdapter implements WizardAdapter {
     } catch (err) {
       this.log(`notifyOnboardingComplete: threw — ${String(err)}`);
     }
+  }
+
+  async validateApiKey(authMethod: string, apiKey: string): Promise<{ ok: boolean; error?: string }> {
+    this.log(`validateApiKey: authMethod=${authMethod}`);
+    return window.electronBridge.validateApiKey(authMethod, apiKey);
+  }
+
+  async startOAuth(authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }> {
+    this.log(`startOAuth: authMethod=${authMethod}`);
+    return window.electronBridge.oauthStart(authMethod);
+  }
+
+  async pollOAuth(authMethod: string): Promise<{ ok: boolean; token?: string; error?: string }> {
+    return window.electronBridge.oauthPoll(authMethod);
+  }
+
+  async cancelOAuth(authMethod: string): Promise<void> {
+    this.log(`cancelOAuth: authMethod=${authMethod}`);
+    await window.electronBridge.oauthCancel(authMethod);
   }
 
   /**
