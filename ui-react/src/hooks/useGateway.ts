@@ -128,6 +128,7 @@ class GatewayClient {
       this.connectTimer = null;
     }
 
+    console.log(`[gateway:${this.serial}] sendConnect() token=${this.opts.token ? this.opts.token.slice(0, 8) + "..." : "(none)"} nonce=${this.connectNonce ?? "(none)"}`);
     const role = "operator";
     const scopes = ["operator.admin", "operator.approvals", "operator.pairing"];
 
@@ -458,6 +459,7 @@ export function useGateway() {
     setConnectingRef.current();
 
     const { gatewayUrl, token, password: pw } = settingsRef.current;
+    console.log(`[gateway] connect() using url=${gatewayUrl} token=${token ? token.slice(0, 8) + "..." : "(none)"}`);
     const client = new GatewayClient({
       url: gatewayUrl,
       token: token || undefined,
@@ -467,7 +469,7 @@ export function useGateway() {
         storeRef.current.setConnected(hello);
       },
       onClose: (info) => {
-        console.log("[gateway] closed", info.code, info.reason, info.error?.code);
+        console.log(`[gateway] closed code=${info.code} reason=${info.reason || "(none)"} errorCode=${info.error?.code ?? "(none)"} errorMsg=${info.error?.message ?? "(none)"}`);
         storeRef.current.setDisconnected(info);
       },
       onEvent: (evt) => storeRef.current.handleEvent(evt),

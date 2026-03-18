@@ -112,7 +112,6 @@ interface Props {
 export function GatewayChatRuntimeProvider({ children }: Props) {
   const chatMessages = useChatStore((s) => s.messages);
   const stream = useChatStore((s) => s.stream);
-  const _streamSegments = useChatStore((s) => s.streamSegments);
   const sending = useChatStore((s) => s.sending);
   const runId = useChatStore((s) => s.runId);
   const sessionKey = useChatStore((s) => s.sessionKey);
@@ -181,7 +180,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
               ? JSON.stringify(entry!.output, null, 2)
               : undefined,
         error: entry!.error,
-        phase: entry!.phase === "result" ? "result" : entry!.phase === "error" ? "error" : "call",
+        phase: (entry!.phase === "result" ? "result" : entry!.phase === "error" ? "error" : "call") as "call" | "result" | "error",
       }));
 
     return [

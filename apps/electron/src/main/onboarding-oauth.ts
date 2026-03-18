@@ -4,75 +4,58 @@
  * OAuth flow support for the onboarding wizard.
  *
  * MiniMax (Global + CN): Full Device Code Flow with PKCE.
- *   1. oauthStart → calls /oauth/code, gets user_code + verification_uri, opens browser
- *   2. oauthPoll  → calls /oauth/token to poll for completion
+ *   Implemented via the generic startDeviceCodeFlow / pollDeviceCodeFlow runner
+ *   in oauth-device-flow.ts. MiniMax-specific logic lives in MINIMAX_GLOBAL_FLOW
+ *   and MINIMAX_CN_FLOW config objects.
  *
  * Other providers: Simple URL-open flow.
- *   1. oauthStart → shell.openExternal(url)
- *   2. oauthPoll  → reads auth-profiles.json for written token
+ *   1. oauthStart → shell.openExternal(url?redirect_uri=openclaw://oauth/callback)
+ *   2. Provider redirects to openclaw://oauth/callback?code=xxx
+ *   3. handleOAuthProtocolCallback (called by index.ts open-url/second-instance)
+ *      stores the result in completedCallbacks
+ *   4. oauthPoll → checks completedCallbacks, returns token when available
  */
 
-import { randomBytes, createHash } from "node:crypto";
-import fsp from "node:fs/promises";
-import path from "node:path";
-import os from "node:os";
+import { generatePkce } from "./oauth-utils.js";
+import { randomBytes } from "node:crypto";
 import { shell } from "electron";
+import {
+  startDeviceCodeFlow,
+  pollDeviceCodeFlow,
+  MINIMAX_GLOBAL_FLOW,
+  MINIMAX_CN_FLOW,
+  type DeviceCodeSession,
+} from "./oauth-device-flow.js";
 
-// ─── MiniMax OAuth config ─────────────────────────────────────────────────────
-
-const MINIMAX_OAUTH_CONFIG = {
-  global: {
-    baseUrl: "https://api.minimax.io",
-    clientId: "78257093-7e40-4613-99e0-527b14b39113",
-  },
-  cn: {
-    baseUrl: "https://api.minimaxi.com",
-    clientId: "78257093-7e40-4613-99e0-527b14b39113",
-  },
-} as const;
-
-const MINIMAX_OAUTH_SCOPE = "group_id profile model.completion";
-const MINIMAX_OAUTH_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:user_code";
-
-// ─── PKCE helpers ─────────────────────────────────────────────────────────────
-
-function generatePkce(): { verifier: string; challenge: string; state: string } {
-  const verifier = randomBytes(32).toString("base64url");
-  const challenge = createHash("sha256").update(verifier).digest("base64url");
-  const state = randomBytes(16).toString("base64url");
-  return { verifier, challenge, state };
-}
-
-function toFormUrlEncoded(params: Record<string, string>): string {
-  return Object.entries(params)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join("&");
-}
-
-// ─── MiniMax Device Code session state ───────────────────────────────────────
-
-type MinimaxSession = {
-  kind: "minimax";
-  region: "global" | "cn";
-  userCode: string;
-  verificationUri: string;
-  verifier: string;
-  expiredIn: number;       // unix timestamp ms
-  pollIntervalMs: number;
-  startedAt: number;
-};
+// ─── Session state ────────────────────────────────────────────────────────────
 
 type SimpleSession = {
   kind: "simple";
   provider: string;
+  /** CSRF protection: must match state param in Protocol callback */
+  state: string;
   startedAt: number;
 };
 
-type OAuthSession = MinimaxSession | SimpleSession;
+type OAuthSession = DeviceCodeSession | SimpleSession;
 
 const activeSessions = new Map<string, OAuthSession>();
 
-// ─── Simple URL-open flow (non-MiniMax) ──────────────────────────────────────
+// ─── Protocol callback state ──────────────────────────────────────────────────
+//
+// When index.ts receives openclaw://oauth/callback, it calls
+// handleOAuthProtocolCallback which stores the result here.
+// oauthPoll reads and clears the result on the next poll.
+
+type OAuthCallbackResult = {
+  ok: boolean;
+  token?: string;
+  error?: string;
+};
+
+const completedCallbacks = new Map<string, OAuthCallbackResult>();
+
+// ─── Simple URL-open flow (non-Device-Code) ───────────────────────────────────
 
 const SIMPLE_OAUTH_URLS: Record<string, string> = {
   "openai-codex":      "https://platform.openai.com",
@@ -90,171 +73,67 @@ const SIMPLE_AUTH_METHOD_TO_PROVIDER: Record<string, string> = {
   chutes:              "chutes",
 };
 
-function resolveAuthProfilesPath(): string {
-  const override =
-    process.env.OPENCLAW_AGENT_DIR?.trim() ??
-    process.env.PI_CODING_AGENT_DIR?.trim();
-  const agentDir =
-    override ?? path.join(os.homedir(), ".openclaw", "agents", "main", "agent");
-  return path.join(agentDir, "auth-profiles.json");
-}
+// ─── Protocol callback handler ────────────────────────────────────────────────
 
-// ─── MiniMax Device Code Flow ─────────────────────────────────────────────────
-
-async function startMinimaxOAuth(
-  authMethod: string,
-  region: "global" | "cn",
-): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }> {
-  const config = MINIMAX_OAUTH_CONFIG[region];
-  const { verifier, challenge, state } = generatePkce();
-
-  console.log(`[onboarding-oauth] MiniMax ${region}: requesting device code from ${config.baseUrl}/oauth/code`);
-
-  let codeResp: Response;
+/**
+ * Called by index.ts when Electron receives an openclaw:// URL.
+ * URL format: openclaw://oauth/callback?auth_method=xxx&code=yyy&state=zzz
+ *             openclaw://oauth/callback?auth_method=xxx&error=access_denied
+ *
+ * Stores the result in completedCallbacks; oauthPoll reads it on next call.
+ */
+export function handleOAuthProtocolCallback(url: string): void {
+  let parsed: URL;
   try {
-    codeResp = await fetch(`${config.baseUrl}/oauth/code`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-        "x-request-id": randomBytes(16).toString("hex"),
-      },
-      body: toFormUrlEncoded({
-        response_type: "code",
-        client_id: config.clientId,
-        scope: MINIMAX_OAUTH_SCOPE,
-        code_challenge: challenge,
-        code_challenge_method: "S256",
-        state,
-      }),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[onboarding-oauth] MiniMax ${region}: /oauth/code network error: ${msg}`);
-    return { ok: false, error: `Network error: ${msg}` };
+    parsed = new URL(url);
+  } catch {
+    console.warn(`[onboarding-oauth] handleOAuthProtocolCallback: invalid URL "${url}"`);
+    return;
   }
 
-  if (!codeResp.ok) {
-    const text = await codeResp.text();
-    console.error(`[onboarding-oauth] MiniMax ${region}: /oauth/code HTTP ${codeResp.status}: ${text}`);
-    return { ok: false, error: `OAuth code request failed (HTTP ${codeResp.status}): ${text}` };
+  // Only handle openclaw://oauth/callback
+  if (parsed.hostname !== "oauth" || parsed.pathname !== "/callback") {
+    console.warn(`[onboarding-oauth] handleOAuthProtocolCallback: unexpected path in "${url}"`);
+    return;
   }
 
-  type CodePayload = {
-    user_code?: string;
-    verification_uri?: string;
-    expired_in?: number;
-    interval?: number;
-    state?: string;
-    error?: string;
-  };
-  const payload = await codeResp.json() as CodePayload;
-  console.log(`[onboarding-oauth] MiniMax ${region}: /oauth/code response: ${JSON.stringify({ ...payload, state: "[redacted]" })}`);
+  const authMethod = parsed.searchParams.get("auth_method") ?? "";
+  const code = parsed.searchParams.get("code");
+  const error = parsed.searchParams.get("error");
+  const stateParam = parsed.searchParams.get("state");
 
-  if (!payload.user_code || !payload.verification_uri) {
-    return { ok: false, error: payload.error ?? "OAuth code response missing user_code or verification_uri" };
-  }
-  if (payload.state !== state) {
-    return { ok: false, error: "OAuth state mismatch — possible CSRF" };
+  if (!authMethod) {
+    console.warn(`[onboarding-oauth] handleOAuthProtocolCallback: missing auth_method in "${url}"`);
+    return;
   }
 
-  const session: MinimaxSession = {
-    kind: "minimax",
-    region,
-    userCode: payload.user_code,
-    verificationUri: payload.verification_uri,
-    verifier,
-    expiredIn: payload.expired_in ?? Date.now() + 5 * 60 * 1000,
-    pollIntervalMs: (payload.interval ?? 2) * 1000,
-    startedAt: Date.now(),
-  };
-  activeSessions.set(authMethod, session);
-
-  console.log(`[onboarding-oauth] MiniMax ${region}: opening browser → ${payload.verification_uri}`);
-  try {
-    await shell.openExternal(payload.verification_uri);
-  } catch (err) {
-    console.warn(`[onboarding-oauth] MiniMax ${region}: shell.openExternal failed: ${String(err)}`);
+  const session = activeSessions.get(authMethod);
+  if (!session || session.kind !== "simple") {
+    console.warn(`[onboarding-oauth] handleOAuthProtocolCallback: no active simple session for "${authMethod}"`);
+    return;
   }
 
-  return {
-    ok: true,
-    userCode: payload.user_code,
-    verificationUri: payload.verification_uri,
-  };
-}
-
-async function pollMinimaxOAuth(
-  authMethod: string,
-  session: MinimaxSession,
-): Promise<{ ok: boolean; token?: string; error?: string }> {
-  if (Date.now() > session.expiredIn) {
+  // CSRF check
+  if (session.state && stateParam !== session.state) {
+    console.error(`[onboarding-oauth] handleOAuthProtocolCallback: state mismatch for "${authMethod}" — possible CSRF`);
+    completedCallbacks.set(authMethod, { ok: false, error: "OAuth state mismatch — possible CSRF" });
     activeSessions.delete(authMethod);
-    return { ok: false, error: "timeout" };
+    return;
   }
 
-  const config = MINIMAX_OAUTH_CONFIG[session.region];
-
-  let tokenResp: Response;
-  try {
-    tokenResp = await fetch(`${config.baseUrl}/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: toFormUrlEncoded({
-        grant_type: MINIMAX_OAUTH_GRANT_TYPE,
-        client_id: config.clientId,
-        user_code: session.userCode,
-        code_verifier: session.verifier,
-      }),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[onboarding-oauth] MiniMax ${session.region}: /oauth/token network error: ${msg}`);
-    return { ok: false, error: "pending" };
-  }
-
-  const text = await tokenResp.text();
-  type TokenPayload = {
-    status?: string;
-    access_token?: string;
-    refresh_token?: string;
-    expired_in?: number;
-    resource_url?: string;
-    base_resp?: { status_code?: number; status_msg?: string };
-  };
-  let payload: TokenPayload | undefined;
-  try { payload = JSON.parse(text) as TokenPayload; } catch { payload = undefined; }
-
-  console.log(`[onboarding-oauth] MiniMax ${session.region}: /oauth/token status=${tokenResp.status} payload_status=${payload?.status ?? "unknown"}`);
-
-  if (!tokenResp.ok) {
-    const msg = payload?.base_resp?.status_msg ?? text ?? `HTTP ${tokenResp.status}`;
-    return { ok: false, error: `OAuth token error: ${msg}` };
-  }
-
-  if (!payload) {
-    return { ok: false, error: "pending" };
-  }
-
-  if (payload.status === "error") {
-    return { ok: false, error: payload.base_resp?.status_msg ?? "MiniMax OAuth error" };
-  }
-
-  if (payload.status !== "success") {
-    // still pending
-    return { ok: false, error: "pending" };
-  }
-
-  if (!payload.access_token) {
-    return { ok: false, error: "OAuth succeeded but no access_token in response" };
+  if (error) {
+    console.warn(`[onboarding-oauth] handleOAuthProtocolCallback: error for "${authMethod}": ${error}`);
+    completedCallbacks.set(authMethod, { ok: false, error: `OAuth error: ${error}` });
+  } else if (code) {
+    console.log(`[onboarding-oauth] handleOAuthProtocolCallback: got code for "${authMethod}"`);
+    // For most Simple flows, the code IS the access token.
+    // Providers that require a token exchange step should be promoted to Device Code Flow.
+    completedCallbacks.set(authMethod, { ok: true, token: code });
+  } else {
+    completedCallbacks.set(authMethod, { ok: false, error: "OAuth callback missing code" });
   }
 
   activeSessions.delete(authMethod);
-  console.log(`[onboarding-oauth] MiniMax ${session.region}: OAuth complete, got access_token`);
-  return { ok: true, token: payload.access_token, refresh: payload.refresh_token ?? undefined, expires: payload.expired_in ?? undefined };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -262,26 +141,39 @@ async function pollMinimaxOAuth(
 export async function oauthStart(
   authMethod: string,
 ): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }> {
-  // MiniMax Device Code flows
+  // ── Device Code flows (via generic runner) ───────────────────────────────
   if (authMethod === "minimax-portal") {
-    return startMinimaxOAuth(authMethod, "global");
+    const result = await startDeviceCodeFlow(MINIMAX_GLOBAL_FLOW);
+    if (result.ok && result.session) activeSessions.set(authMethod, result.session);
+    return { ok: result.ok, userCode: result.userCode, verificationUri: result.verificationUri, error: result.error };
   }
   if (authMethod === "minimax-portal-cn") {
-    return startMinimaxOAuth(authMethod, "cn");
+    const result = await startDeviceCodeFlow(MINIMAX_CN_FLOW);
+    if (result.ok && result.session) activeSessions.set(authMethod, result.session);
+    return { ok: result.ok, userCode: result.userCode, verificationUri: result.verificationUri, error: result.error };
   }
 
-  // Simple URL-open flow
-  const url = SIMPLE_OAUTH_URLS[authMethod];
-  if (!url) {
+  // ── Simple URL-open flow ─────────────────────────────────────────────────
+  const baseUrl = SIMPLE_OAUTH_URLS[authMethod];
+  if (!baseUrl) {
     return { ok: false, error: `No OAuth URL configured for method "${authMethod}".` };
   }
 
   const provider = SIMPLE_AUTH_METHOD_TO_PROVIDER[authMethod] ?? authMethod;
-  activeSessions.set(authMethod, { kind: "simple", provider, startedAt: Date.now() });
+
+  // Generate CSRF state token
+  const { state } = generatePkce();
+
+  // Build redirect_uri pointing back to this app via URL Scheme
+  const callbackUrl = `openclaw://oauth/callback?auth_method=${encodeURIComponent(authMethod)}`;
+  const separator = baseUrl.includes("?") ? "&" : "?";
+  const fullUrl = `${baseUrl}${separator}redirect_uri=${encodeURIComponent(callbackUrl)}&state=${state}`;
+
+  activeSessions.set(authMethod, { kind: "simple", provider, state, startedAt: Date.now() });
 
   try {
-    await shell.openExternal(url);
-    console.log(`[onboarding-oauth] Opened OAuth URL for ${authMethod}: ${url}`);
+    await shell.openExternal(fullUrl);
+    console.log(`[onboarding-oauth] Simple OAuth: opened "${fullUrl}" for ${authMethod}`);
     return { ok: true };
   } catch (err) {
     activeSessions.delete(authMethod);
@@ -292,47 +184,50 @@ export async function oauthStart(
 
 export async function oauthPoll(
   authMethod: string,
-): Promise<{ ok: boolean; token?: string; error?: string }> {
+): Promise<{ ok: boolean; token?: string; refresh?: string; expires?: number; error?: string }> {
   const session = activeSessions.get(authMethod);
-  if (!session) {
-    return { ok: false, error: "No active OAuth session for this method." };
-  }
 
-  // MiniMax: poll /oauth/token directly
-  if (session.kind === "minimax") {
-    return pollMinimaxOAuth(authMethod, session);
-  }
-
-  // Simple: check auth-profiles.json
-  const elapsed = Date.now() - session.startedAt;
-  if (elapsed > 5 * 60 * 1000) {
-    activeSessions.delete(authMethod);
-    return { ok: false, error: "timeout" };
-  }
-
-  const profileId = `${session.provider}:default`;
-  const authPath = resolveAuthProfilesPath();
-
-  try {
-    const raw = await fsp.readFile(authPath, "utf8");
-    const store = JSON.parse(raw) as {
-      profiles?: Record<string, { type?: string; key?: string; token?: string }>;
-    };
-    const profile = store.profiles?.[profileId];
-    if (profile) {
-      const token = profile.key ?? profile.token ?? "";
-      if (token.trim()) {
-        activeSessions.delete(authMethod);
-        console.log(`[onboarding-oauth] Token found for ${profileId}`);
-        return { ok: true, token: token.trim() };
-      }
+  // ── Device Code flow (MiniMax and future providers) ──────────────────────
+  if (session?.kind === "device-code") {
+    const result = await pollDeviceCodeFlow(session);
+    if (result.ok || (result.error !== "pending" && result.error !== undefined)) {
+      // Terminal result (success or non-recoverable error): clear session
+      activeSessions.delete(authMethod);
     }
-    return { ok: false, error: "pending" };
-  } catch {
+    return result;
+  }
+
+  // ── Simple URL-open flow: check Protocol callback result ─────────────────
+  if (session?.kind === "simple") {
+    const elapsed = Date.now() - session.startedAt;
+    if (elapsed > 5 * 60 * 1000) {
+      activeSessions.delete(authMethod);
+      completedCallbacks.delete(authMethod);
+      return { ok: false, error: "timeout" };
+    }
+
+    const completed = completedCallbacks.get(authMethod);
+    if (completed) {
+      completedCallbacks.delete(authMethod);
+      return completed;
+    }
+
     return { ok: false, error: "pending" };
   }
+
+  // ── No active session ────────────────────────────────────────────────────
+  // Check if a Protocol callback arrived after the session was already cleared
+  // (race condition: callback arrives just as session times out)
+  const lateCallback = completedCallbacks.get(authMethod);
+  if (lateCallback) {
+    completedCallbacks.delete(authMethod);
+    return lateCallback;
+  }
+
+  return { ok: false, error: "No active OAuth session for this method." };
 }
 
 export function clearOAuthSession(authMethod: string): void {
   activeSessions.delete(authMethod);
+  completedCallbacks.delete(authMethod);
 }

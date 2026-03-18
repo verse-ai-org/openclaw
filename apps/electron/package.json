@@ -7,6 +7,7 @@
   "main": "dist/main/index.js",
   "scripts": {
     "build": "tsup",
+    "prepackage": "pnpm --filter openclaw-control-ui-react build",
     "dev": "concurrently -k \"tsup --watch\" \"pnpm --filter openclaw-control-ui-react dev\" \"sleep 6 && VITE_UI_REACT_URL=http://localhost:5174 electron .\"",
     "dev:static": "concurrently -k \"tsup --watch\" \"sleep 3 && electron .\"",
     "package": "pnpm build && electron-builder",

@@ -24,7 +24,6 @@ declare global {
  * 主进程会将其写入 ~/.openclaw/openclaw.json，确保下次启动不再走 wizard。
  */
 export class ElectronWizardAdapter implements WizardAdapter {
-  private sessionId: string | null = null;
   onComplete?: () => Promise<void>;
   onCancel?: () => Promise<void>;
   private getConfig?: () => unknown;
@@ -126,59 +125,21 @@ export class ElectronWizardAdapter implements WizardAdapter {
   }
 
   /**
-   * submitStep: 保留兼容性，但在 Electron 中 CompletionStep 应直接调 complete()。
-   * 这里不再依赖 wizard.next 返回 done，只是透传给 Gateway 做记录。
+   * submitStep: kept for WizardAdapter interface compatibility.
+   * CompletionStep should call complete() directly — that is the correct
+   * path for persisting config and switching to the main UI.
+   * This fallback delegates to finalizeOnboarding for any legacy callers.
    */
-  async submitStep(stepData: unknown): Promise<boolean> {
-    this.log(`submitStep: ${JSON.stringify(stepData)}`);
-    // 如果没有 session（wizard.start 未成功），直接完成
-    if (!this.sessionId) {
-      this.log('submitStep: no sessionId, calling finalizeOnboarding directly');
-      setTimeout(() => void this.finalizeOnboarding(), 0);
-      return true;
-    }
-    try {
-      const result = await window.electronBridge.wizardRequest('wizard.next', {
-        sessionId: this.sessionId,
-        answer: stepData,
-      });
-      this.log(`wizard.next result: ${JSON.stringify(result)}`);
-      if (result['done']) {
-        setTimeout(() => void this.finalizeOnboarding(), 1200);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      this.log(`wizard.next threw: ${String(error)} — falling back to finalizeOnboarding`);
-      // wizard session 失败也要完成 onboarding（配置已通过 complete() 保存）
-      setTimeout(() => void this.finalizeOnboarding(), 0);
-      return true;
-    }
+  async submitStep(_stepData: unknown): Promise<boolean> {
+    this.log('submitStep: delegating to finalizeOnboarding (legacy compat path)');
+    setTimeout(() => void this.finalizeOnboarding(), 0);
+    return true;
   }
 
   async getInitialState(): Promise<Record<string, unknown>> {
-    this.log('getInitialState: wizard.start');
-    try {
-      const result = await window.electronBridge.wizardRequest('wizard.start', { mode: 'local' });
-      this.log(`wizard.start result: ${JSON.stringify(result)}`);
-      if (result['sessionId']) {
-        this.sessionId = result['sessionId'] as string;
-        return (result['state'] as Record<string, unknown>) ?? {};
-      }
-      if (result['done']) {
-        // wizard.start says already done — but we are in the onboarding UI,
-        // which means the config was NOT yet saved (this is the first launch).
-        // Do NOT auto-finalize here; let the user complete the UI steps and
-        // click "Start Chatting" so getConfig() is called with real data.
-        this.log('wizard.start: returned done=true (stale session), ignoring — will finalize via complete()');
-        return {};
-      }
-      this.log('wizard.start: unexpected result, continuing without session');
-      return {};
-    } catch (error) {
-      this.log(`wizard.start threw: ${String(error)} — continuing without session`);
-      // gateway wizard session 失败不阻断前端流程
-      return {};
-    }
+    // No wizard session needed — the Electron UI drives all steps locally.
+    // Return empty state; the UI store (setup-wizard.store.ts) holds all state.
+    this.log('getInitialState: returning empty state (session-less mode)');
+    return {};
   }
 }

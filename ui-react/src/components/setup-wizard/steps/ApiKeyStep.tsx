@@ -1,4 +1,4 @@
-import { ExternalLink, Key, CheckCircle, XCircle, Shield, Loader2, RefreshCw } from "lucide-react";
+import { ExternalLink, Key, CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { findAuthMethod, findProviderGroupForMethod } from "@/data/auth-choice-groups";

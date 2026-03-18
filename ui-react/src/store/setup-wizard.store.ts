@@ -29,12 +29,6 @@ export interface WizardState {
    */
   secretInputMode: "plaintext" | "ref";
 
-  /**
-   * @deprecated Use authProviderGroup + authMethod + resolvedModelId instead.
-   * Kept for backwards compatibility with existing Electron onboarding.ts.
-   */
-  selectedModel: string;
-
   // ─── API Key ──────────────────────────────────────────────────────────────
   apiKey: string;
   /** For OAuth flows: the refresh token returned by the provider */
@@ -78,8 +72,6 @@ const DEFAULT_STATE: WizardState = {
   authMethod: "apiKey",
   resolvedModelId: "anthropic/claude-opus-4-5",
   secretInputMode: "plaintext",
-  // Legacy field — kept in sync by ModelSelectionStep
-  selectedModel: "claude",
   apiKey: "",
   workspace: "~/.openclaw/workspace",
   optionalFeatures: {
@@ -120,6 +112,16 @@ export const useWizardStore = create<WizardStore>()(
     }),
     {
       name: "openclaw-wizard-storage",
+      version: 2,
+      migrate(persistedState: unknown, version: number) {
+        // v1 → v2: remove deprecated selectedModel field
+        if (version < 2) {
+          const s = persistedState as Record<string, unknown>;
+          const ws = s["wizardState"] as Record<string, unknown> | undefined;
+          if (ws) delete ws["selectedModel"];
+        }
+        return persistedState as WizardStore;
+      },
       partialize: (state) => ({
         wizardState: state.wizardState,
       }),

@@ -71,6 +71,10 @@ function resolveDefaultGatewayUrl(): string {
     const port = import.meta.env.VITE_GATEWAY_PORT ?? "18789";
     return `ws://127.0.0.1:${port}`;
   }
+  // file:// protocol (Electron packaged): location.host is empty, default to loopback
+  if (location.protocol === "file:") {
+    return "ws://127.0.0.1:18789";
+  }
   const proto = location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${location.host}`;
 }
@@ -94,22 +98,22 @@ export function loadSettings(): UiSettings {
   let urlToken = "";
   let urlGatewayUrl = "";
   try {
-    const hashParams = new URLSearchParams(
-      location.hash.startsWith("#") ? location.hash.slice(1) : location.hash,
-    );
-    const rawToken = hashParams.get("token");
-    const rawGatewayUrl = hashParams.get("gatewayUrl");
+    // Read gatewayUrl and token from URL query string injected by Electron main process.
+    // (?gatewayUrl=ws://...&token=xxx) — query string avoids conflict with createHashRouter.
+    const searchParams = new URLSearchParams(location.search);
+    const rawToken = searchParams.get("token");
+    const rawGatewayUrl = searchParams.get("gatewayUrl");
     if (rawToken?.trim()) {
       urlToken = rawToken.trim();
-      hashParams.delete("token");
+      searchParams.delete("token");
     }
     if (rawGatewayUrl?.trim()) {
       urlGatewayUrl = rawGatewayUrl.trim();
-      hashParams.delete("gatewayUrl");
+      searchParams.delete("gatewayUrl");
     }
     if (urlToken || urlGatewayUrl) {
-      const newHash = hashParams.toString();
-      history.replaceState(null, "", newHash ? `#${newHash}` : location.pathname + location.search);
+      const newSearch = searchParams.toString();
+      history.replaceState(null, "", newSearch ? `?${newSearch}` : location.pathname);
       // Persist token to sessionStorage so it survives page refresh.
       if (urlToken) {
         persistSessionToken(urlGatewayUrl || defaultUrl, urlToken);

@@ -5,8 +5,6 @@ import {
   MessageCircle,
   Globe,
   Settings,
-  PlayCircle,
-  Info,
 } from "lucide-react";
 import { useWizardStore } from "@/store/setup-wizard.store";
 import { useOptionalWizardAdapter } from "@/context/AdapterContext";
@@ -18,10 +16,6 @@ interface CompletionStepProps {
 export function CompletionStep(_props: CompletionStepProps) {
   const { wizardState } = useWizardStore();
   const adapter = useOptionalWizardAdapter();
-
-  const handleViewTutorial = () => {
-    window.open("https://docs.openclaw.ai/start/getting-started", "_blank");
-  };
 
   const handleStartChat = async () => {
     if (adapter) {
@@ -51,12 +45,7 @@ export function CompletionStep(_props: CompletionStepProps) {
     if (wizardState.resolvedModelId) {
       return wizardState.resolvedModelId;
     }
-    const models: Record<string, string> = {
-      claude: "Claude 3.5 Sonnet",
-      gpt4: "GPT-4o",
-      gemini: "Gemini 2.0",
-    };
-    return models[wizardState.selectedModel] || "AI Model";
+    return "AI Model";
   };
 
   return (

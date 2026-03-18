@@ -21,6 +21,10 @@ echo "🖥  [2/5] 构建 Control UI (pnpm ui:build)"
 (cd "$ROOT_DIR" && node scripts/ui.js build)
 
 echo ""
+echo "⚛️  [2b/5] 构建 React Control UI (ui-react)"
+(cd "$ROOT_DIR" && pnpm --filter openclaw-control-ui-react build)
+
+echo ""
 echo "⬇️  [3/5] 下载 Node 22 二进制 ($ARCH)"
 bash "$ELECTRON_DIR/scripts/download-node.sh" "$ARCH"
 

@@ -3,7 +3,13 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { randomBytes } from "node:crypto";
-import { PROVIDER_REGISTRY } from "./onboarding-providers.js";
+import {
+  PROVIDER_REGISTRY,
+  OAUTH_AUTH_METHODS,
+  OAUTH_METHOD_PLUGIN,
+  OAUTH_METHOD_PROVIDER_OVERRIDE,
+  OAUTH_METHOD_BASE_URL_OVERRIDE,
+} from "./onboarding-providers.js";
 
 /**
  * 解析 openclaw 配置文件路径。
@@ -131,7 +137,7 @@ async function writeAuthProfile(params: {
 export const MAIN_LOG_PATH = path.join(
   os.homedir(),
   ".openclaw",
-  "electron-main.log",
+  "logs/electron-main.log",
 );
 
 /**
@@ -192,10 +198,7 @@ export function buildOpenClawConfig(
   // OAuth plugin methods use a different provider id than the authProviderGroup.
   // e.g. "minimax-portal" and "minimax-portal-cn" both use provider "minimax-portal".
   // We must rewrite the model id prefix to match the plugin provider id.
-  const OAUTH_METHOD_PROVIDER_OVERRIDE: Record<string, string> = {
-    "minimax-portal": "minimax-portal",
-    "minimax-portal-cn": "minimax-portal",
-  };
+  // Source of truth: OAUTH_METHOD_PROVIDER_OVERRIDE in onboarding-providers.ts.
   const providerFromMethod = cfg.authMethod
     ? OAUTH_METHOD_PROVIDER_OVERRIDE[cfg.authMethod]
     : undefined;
@@ -223,11 +226,9 @@ export function buildOpenClawConfig(
 
   // ── 3. Build models.providers section ────────────────────────────────────
   // For MiniMax OAuth CN, use the CN endpoint even though provider is "minimax-portal".
-  const OAUTH_METHOD_PROVIDER_BASE_URL_OVERRIDE: Record<string, string> = {
-    "minimax-portal-cn": "https://api.minimaxi.com/anthropic",
-  };
+  // Source of truth: OAUTH_METHOD_BASE_URL_OVERRIDE in onboarding-providers.ts.
   const providerBaseUrlOverride = cfg.authMethod
-    ? OAUTH_METHOD_PROVIDER_BASE_URL_OVERRIDE[cfg.authMethod]
+    ? OAUTH_METHOD_BASE_URL_OVERRIDE[cfg.authMethod]
     : undefined;
 
   const providerCfg = PROVIDER_REGISTRY[provider] ?? null;
@@ -286,11 +287,8 @@ export function buildOpenClawConfig(
 
   // ── 5. Build auth.profiles section ───────────────────────────────────────
   // OAuth methods need mode: "oauth" (not "api_key") and plugin entry enabled.
-  const isOAuthMethod =
-    cfg.authMethod?.includes("-portal") ||
-    cfg.authMethod?.includes("-codex") ||
-    cfg.authMethod?.includes("-gemini-cli") ||
-    cfg.authMethod === "github-copilot";
+  // Source of truth: OAUTH_AUTH_METHODS Set in onboarding-providers.ts.
+  const isOAuthMethod = OAUTH_AUTH_METHODS.has(cfg.authMethod ?? "");
 
   const existingAuthSection = existing.auth as
     | Record<string, unknown>
@@ -306,11 +304,7 @@ export function buildOpenClawConfig(
   };
 
   // ── 5b. Build plugins section for OAuth providers ────────────────────────
-  // MiniMax portal OAuth requires the minimax-portal-auth plugin to be enabled.
-  const OAUTH_METHOD_PLUGIN: Record<string, string> = {
-    "minimax-portal": "minimax-portal-auth",
-    "minimax-portal-cn": "minimax-portal-auth",
-  };
+  // Source of truth: OAUTH_METHOD_PLUGIN in onboarding-providers.ts.
   const pluginId = cfg.authMethod
     ? OAUTH_METHOD_PLUGIN[cfg.authMethod]
     : undefined;
@@ -332,8 +326,16 @@ export function buildOpenClawConfig(
     : {};
 
   // ── 6. Assemble final config ──────────────────────────────────────────────
+  // Strip plugins.slots from existing config to avoid stale/invalid plugin
+  // references (e.g. memory-core) that would cause Gateway startup failure.
+  const existingWithoutPluginSlots = { ...existing } as Record<string, unknown>;
+  if (existingPlugins) {
+    const { slots: _slots, ...pluginsWithoutSlots } = existingPlugins as Record<string, unknown>;
+    existingWithoutPluginSlots.plugins = pluginsWithoutSlots;
+  }
+
   return {
-    ...existing,
+    ...existingWithoutPluginSlots,
     wizard: {
       ...((existing.wizard as Record<string, unknown>) ?? {}),
       lastRunAt: new Date().toISOString(),
@@ -347,11 +349,29 @@ export function buildOpenClawConfig(
       port: cfg.gatewayPort ?? 18789,
       bind: cfg.gatewayBind ?? "loopback",
       auth: { mode: "token", token: gatewayToken },
+      controlUi: {
+        ...((existingGw?.controlUi as Record<string, unknown>) ?? {}),
+        // Allow Electron renderer (file:// with injected loopback Origin) to connect.
+        allowedOrigins: [
+          `http://127.0.0.1:${cfg.gatewayPort ?? 18789}`,
+          `http://localhost:${cfg.gatewayPort ?? 18789}`,
+          `file://`,
+        ],
+      },
     },
     agents: agentsSection,
     auth: authSection,
     ...modelsSection,
-    ...pluginsSection,
+    // Always override plugins entirely: drop stale entries (e.g. minimax-portal-auth
+    // from a previous CLI onboard) and only keep the one needed for this session.
+    plugins: pluginId
+      ? {
+          entries: { [pluginId]: { enabled: true } },
+        }
+      : {
+          // No plugin needed — write an empty entries object to clear stale refs.
+          entries: {},
+        },
   };
 }
 
@@ -382,16 +402,8 @@ export async function saveOnboardingConfig(
   const nextConfig = buildOpenClawConfig(cfg, existing);
 
   // Write API key / OAuth token to auth-profiles.json (CLI standard).
-  // Use the same provider resolution logic as buildOpenClawConfig.
-  const OAUTH_METHOD_PROVIDER_OVERRIDE: Record<string, string> = {
-    "minimax-portal": "minimax-portal",
-    "minimax-portal-cn": "minimax-portal",
-  };
-  const isOAuthMethod =
-    cfg.authMethod?.includes("-portal") ||
-    cfg.authMethod?.includes("-codex") ||
-    cfg.authMethod?.includes("-gemini-cli") ||
-    cfg.authMethod === "github-copilot";
+  // Uses the same constants as buildOpenClawConfig — single source of truth.
+  const isOAuthMethod = OAUTH_AUTH_METHODS.has(cfg.authMethod ?? "");
 
   const resolvedProvider =
     (cfg.authMethod

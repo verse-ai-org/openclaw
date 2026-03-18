@@ -1,4 +1,7 @@
 import { app, BrowserWindow, ipcMain } from "electron";
+import path from "node:path";
+import fs from "node:fs";
+import os from "node:os";
 import {
   startGateway,
   stopGateway,
@@ -18,10 +21,58 @@ import {
   oauthStart,
   oauthPoll,
   clearOAuthSession,
+  handleOAuthProtocolCallback,
 } from "./onboarding-oauth.js";
 import { generateToken } from "./token.js";
 import { createWindow, configureSession, loadRendererPage } from "./window.js";
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
+
+// ─── Single-instance lock (required for Windows second-instance protocol) ─────
+// Must be called before app.whenReady().
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+  // process.exit() is intentionally omitted; app.quit() is sufficient.
+}
+
+// ─── URL Scheme registration ──────────────────────────────────────────────────
+// In development (process.defaultApp), pass execPath + argv[1] so Electron
+// itself is registered as the handler, not the built app.
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("openclaw", process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+  }
+} else {
+  app.setAsDefaultProtocolClient("openclaw");
+}
+
+/** Shared handler for OAuth Protocol callbacks (macOS open-url + Windows second-instance) */
+function dispatchOAuthCallback(url: string): void {
+  if (url.startsWith("openclaw://oauth/")) {
+    mlog(`[main] OAuth protocol callback: ${url}`);
+    handleOAuthProtocolCallback(url);
+  }
+}
+
+// macOS / Linux: URL Scheme callback arrives via open-url event
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  dispatchOAuthCallback(url);
+});
+
+// Windows: second app instance receives the URL in argv
+app.on("second-instance", (_event, argv) => {
+  // The protocol URL is typically the last argument when launched via URL Scheme
+  const url = argv.find((arg) => arg.startsWith("openclaw://"));
+  if (url) dispatchOAuthCallback(url);
+  // Bring existing window to foreground
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
 
 function mlog(msg: string): void {
   console.log(msg);
@@ -154,6 +205,38 @@ ipcMain.handle("onboarding:complete", () => {
   return { ok: true };
 });
 
+/**
+ * 修补现有配置，确保 Electron renderer (file:// origin) 可以连接 Gateway。
+ * 在 startGateway 之前调用，对已配置和新配置均生效。
+ */
+function patchConfigForElectron(): void {
+  const override = process.env.OPENCLAW_CONFIG_DIR?.trim();
+  const baseDir = override || path.join(os.homedir(), ".openclaw");
+  const cfgPath = path.join(baseDir, "openclaw.json");
+  try {
+    const raw = fs.readFileSync(cfgPath, "utf8");
+    const cfg = JSON.parse(raw) as Record<string, unknown>;
+    const gw = (cfg.gateway ?? {}) as Record<string, unknown>;
+    const port = typeof gw.port === "number" ? gw.port : 18789;
+    const controlUi = (gw.controlUi ?? {}) as Record<string, unknown>;
+    const existing = Array.isArray(controlUi.allowedOrigins) ? controlUi.allowedOrigins as string[] : [];
+    const needed = [
+      `http://127.0.0.1:${port}`,
+      `http://localhost:${port}`,
+      "file://",
+    ];
+    const merged = Array.from(new Set([...existing, ...needed]));
+    if (merged.length !== existing.length || needed.some(o => !existing.includes(o))) {
+      gw.controlUi = { ...controlUi, allowedOrigins: merged };
+      cfg.gateway = gw;
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
+      mlog(`[main] patched gateway.controlUi.allowedOrigins in ${cfgPath}`);
+    }
+  } catch {
+    // Config doesn't exist yet (first launch) — skip
+  }
+}
+
 async function main() {
   mlog("[main] app 就绪前…");
   await app.whenReady();
@@ -169,6 +252,7 @@ async function main() {
   let gatewayStarted = false;
   try {
     mlog("[main] 开始启动 Gateway…");
+    patchConfigForElectron();
     await startGateway({ token: sessionToken });
     gatewayStarted = true;
     mlog("[main] Gateway 启动成功");
@@ -196,7 +280,10 @@ async function main() {
     // 首次启动：加载 ui-react Setup Wizard 页面，注册 wizard IPC 中转
     mlog("[main] 首次启动，加载 Setup Wizard");
     registerWizardIpc(activePort, activeToken);
-    loadRendererPage(mainWindow, "setup");
+    loadRendererPage(mainWindow, "setup", {
+      port: activePort,
+      token: activeToken,
+    });
   } else {
     // 已配置：直接加载 ui-react 主界面，注入 Gateway 连接信息
     mlog("[main] 已配置，加载主界面");

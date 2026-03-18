@@ -8,7 +8,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
   return {
-    base: "/",
+    base: "./",
     plugins: [react(), tailwindcss()],
     // Reuse public assets (favicons etc.) from the existing Lit UI
     publicDir: path.resolve(here, "../ui/public"),

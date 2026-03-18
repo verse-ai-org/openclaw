@@ -53,9 +53,24 @@ function resolveRendererUrl(
 /**
  * 配置 session 的 CSP。
  * 统一对所有响应追加宽松策略，允许 Gateway HTTP/WS 资源和 Vite dev server。
+ * 同时注入 Origin header，使 file:// 页面的 WS 请求能通过 Gateway origin 校验。
  */
 export function configureSession(port: number): void {
   const uiReactOrigin = VITE_UI_REACT_URL ?? "";
+
+  // Inject a valid Origin header for WebSocket requests from file:// pages.
+  // file:// pages send Origin: null which Gateway rejects. We rewrite it to
+  // the loopback origin so Gateway's allowedOrigins check passes.
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: [`ws://127.0.0.1:${port}/*`, `http://127.0.0.1:${port}/*`] },
+    (details, callback) => {
+      const headers = { ...details.requestHeaders };
+      if (!headers["Origin"] || headers["Origin"] === "null") {
+        headers["Origin"] = `http://127.0.0.1:${port}`;
+      }
+      callback({ requestHeaders: headers });
+    },
+  );
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -162,9 +177,9 @@ export function loadRendererPage(
     }
   }
 
-  // 构造携带 Gateway 连接信息的 hash
-  const hash = opts
-    ? `#gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(opts.token)}`
+  // 构造携带 Gateway 连接信息的 query string（避免与 createHashRouter 的 # 冲突）
+  const query = opts
+    ? `?gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(opts.token)}`
     : "";
 
   // 备用超时：5s 内如果 ready-to-show 没有触发就强制显示窗口，避免永久黑屏
@@ -180,13 +195,13 @@ export function loadRendererPage(
   });
 
   if (target.type === "url") {
-    wlog(`[window] loadURL: ${target.url}${hash}`);
-    void win.loadURL(`${target.url}${hash}`);
+    wlog(`[window] loadURL: ${target.url}${query}`);
+    void win.loadURL(`${target.url}${query}`);
   } else {
-    // file:// 协议不支持直接加 hash，需用 loadURL 拼 file:// 路径
-    if (hash) {
-      wlog(`[window] loadURL (file+hash): file://${target.path}${hash}`);
-      void win.loadURL(`file://${target.path}${hash}`);
+    // file:// 协议需用 loadURL 拼完整路径（query string 在 file:// 下可正常读取）
+    if (query) {
+      wlog(`[window] loadURL (file+query): file://${target.path}${query}`);
+      void win.loadURL(`file://${target.path}${query}`);
     } else {
       wlog(`[window] loadFile: ${target.path}`);
       void win.loadFile(target.path);

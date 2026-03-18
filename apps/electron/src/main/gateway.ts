@@ -376,7 +376,15 @@ export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
   stopGateway();
   // 等待端口释放
   await new Promise((resolve) => setTimeout(resolve, 800));
-  await startGateway(opts);
+
+  // 重启时始终用 force=true，避免旧进程残留占端口。
+  // 同时直接用 spawnGateway 绕过 readExistingGatewayToken() 分支，
+  // 确保使用调用方传入的最新 token，并强制在同端口上启动。
+  const port = _activePort;
+  const token = opts.token || gatewayToken;
+  gatewayToken = token;
+  log(`[gateway] 重启 Gateway，port=${port}`);
+  await spawnGateway({ port, token, force: true });
 }
 
 export function getGatewayToken(): string {

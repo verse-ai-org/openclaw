@@ -146,7 +146,7 @@ function CodeWithContext({ className, ...props }: React.ComponentPropsWithoutRef
 }
 
 export const mdComponents = memoizeMarkdownComponents({
-  ...sharedElements,
+  ...(sharedElements as Parameters<typeof memoizeMarkdownComponents>[0]),
   code: CodeWithContext,
 });
 

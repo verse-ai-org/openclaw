@@ -24,6 +24,10 @@ extraResources:
   - from: "../../openclaw.mjs"
     to: "openclaw/openclaw.mjs"
 
+  # 根 package.json（含 "type": "module"），Node 用它识别 dist/*.js 为 ESM
+  - from: "../../package.json"
+    to: "openclaw/package.json"
+
   # openclaw 编译产物（dist/）
   - from: "../../dist"
     to: "openclaw/dist"
@@ -51,6 +55,11 @@ mac:
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
   gatekeeperAssess: false
+  # URL Scheme for OAuth callbacks (openclaw://oauth/callback?...)
+  protocols:
+    - name: OpenClaw OAuth
+      schemes:
+        - openclaw
   # 支持 arm64（Apple Silicon）和 x64（Intel）
   target:
     - target: dmg
