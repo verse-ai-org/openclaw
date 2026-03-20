@@ -1,9 +1,9 @@
 # Profile 功能设计方案
 
-**版本**: v1.3  
-**状态**: 已实现（含文件上传解析功能）  
+**版本**: v1.5  
+**状态**: 已实现（覆盖模式保存）  
 **所属模块**: Dashboard > Profile  
-**最后更新**: 2026-03-17
+**最后更新**: 2026-03-20
 
 ---
 
@@ -41,8 +41,9 @@ OpenClaw 通过 workspace 目录下的一组 bootstrap 文件（`USER.md`、`MEM
 
 - 5 个固定职业模板 + 模板字段填写与保存
 - 功能二支持文字输入、URL 解析和**文件上传**（.md, .doc, .docx, .pdf）
-- 写入前必须经过预览确认界面
+- ~~写入前必须经过预览确认界面~~（已移除，直接保存）
 - 结果写入 `USER.md` 和 `MEMORY.md`，两者独立，不互相影响
+- **保存策略：覆盖模式**（直接替换文件内容，非追加）
 - 文件上传限制可配置（默认最大 5 个文件，单个最大 5MB）
 
 **暂缓（下期）：**
@@ -72,7 +73,8 @@ Dashboard 侧边栏
    └─ Profile Edit（子页面）
       ├─ USER.md 预览/编辑
       ├─ MEMORY.md 预览/编辑
-      └─ Add from Text/URL/File 输入区域
+      ├─ Save Changes 按钮（Cancel 按钮在解析后出现）
+      └─ Add from Text/URL/File 输入区域（默认展开）
 ```
 
 **导航说明：**
@@ -91,16 +93,15 @@ Dashboard 侧边栏
    - 无匹配时默认选中第一个模板
 ④ 模板表单默认展开，显示当前选中模板的字段
 ⑤ 字段内容预填模板默认值，用户按需修改
-⑥ 点击「Preview & Save」→ 弹出预览弹窗
-⑦ 用户确认 → 点击「Save to workspace」→ 写入 workspace → 成功提示 → 刷新 USER.md 展示
+⑥ 点击「Save」→ 直接写入 workspace → 成功提示 → 刷新 USER.md 展示
 ```
 
 **重要交互约定：**
 
 - 功能一的结果仅更新 `USER.md`，不影响 `MEMORY.md`
 - Profile Templates 页面**不展示 MEMORY.md**
-- 若 `USER.md` 已有内容，保存时采用**追加**策略（新内容追加到文件末尾），不覆盖
-- 用户可多次进入修改，每次保存均为追加
+- 若 `USER.md` 已有内容，保存时采用**覆盖**策略（直接替换文件内容）
+- 用户可多次进入修改，每次保存均为覆盖
 - Domains/Tools/Preferences 字段使用对话框交互：点击「+ Add」打开对话框，输入后添加
 
 ### 3.3 功能二：自由输入交互流程
@@ -110,22 +111,28 @@ Dashboard 侧边栏
 ② 页面直接展示：
    - USER.md 当前内容（Preview/Edit 模式可切换）
    - MEMORY.md 当前内容（Preview/Edit 模式可切换）
-③ 「Add from Text / URL / File」折叠面板：
-   - 展开后输入文字 + URL + 上传文件（三者可混合使用）
+③ 「Add from Text/URL or File」输入区域（默认展开）：
+   - Text or URLs 输入框（可选）
+   - Files 上传区域（可选，支持拖拽）
    - 支持文件格式：.md, .doc, .docx, .pdf
-   - 点击「Analyze & Append」→ 系统处理 → 展示 Loading
-④ 解析完成 → 弹出预览界面，展示两部分内容（均可编辑）：
-   - 将写入 USER.md 的结构化信息
-   - 将写入 MEMORY.md 的补充记忆内容
-⑤ 用户确认 → 点击「Save to workspace」→ 分别追加写入两个文件 → 成功提示 → 刷新页面内容
+   - 点击「Analyze」→ 系统处理 → 展示 Loading
+④ 解析完成 → 内容直接覆盖到编辑区域：
+   - USER.md 编辑区域显示解析后的结构化信息
+   - MEMORY.md 编辑区域显示解析后的补充记忆内容
+   - Cancel 按钮出现在 Save Changes 旁边
+⑤ 用户可选择：
+   - 点击「Cancel」→ 恢复原始内容，取消本次解析结果
+   - 点击「Save Changes」→ 分别覆盖写入两个文件 → 成功提示 → 刷新页面内容
 ```
 
 **重要交互约定：**
 
 - 功能二的结果写入 `USER.md`（结构化部分）和 `MEMORY.md`（非结构化补充部分）
 - 功能二与功能一**完全独立**，功能二不修改功能一填写的内容
-- 写入策略：追加到文件末尾
+- 写入策略：**覆盖模式**（直接替换文件内容）
 - 用户可直接编辑现有 USER.md / MEMORY.md 内容并保存
+- **Analyze 后不自动保存**：解析结果先展示在编辑区，用户需点击 Save Changes 才会保存
+- **Cancel 按钮**：解析后出现在 Save Changes 旁边，点击可恢复原始内容
 
 ---
 
@@ -432,16 +439,20 @@ profile?: {
 };
 ```
 
-### 5.9 文件写入策略（追加）
+### 5.9 文件写入策略（覆盖）
 
-写入时的合并逻辑（前端和后端均遵循）：
+写入时采用**覆盖模式**（直接替换文件内容）：
 
 ```typescript
-const existing =
-  (await client.request("agents.files.get", { agentId, name: "USER.md" }))?.file?.content ?? "";
-const merged = existing.trimEnd() ? `${existing.trimEnd()}\n\n${newSection}` : newSection;
-await client.request("agents.files.set", { agentId, name: "USER.md", content: merged });
+// 覆盖模式：直接写入新内容，不保留原有内容
+await state.client.request("agents.files.set", {
+  agentId,
+  name: "USER.md",
+  content: userMd.trim(), // 直接覆盖
+});
 ```
+
+**注意**：此模式会直接替换文件内容，原有内容将丢失。如需保留历史版本，请自行备份。
 
 ---
 
@@ -449,8 +460,8 @@ await client.request("agents.files.set", { agentId, name: "USER.md", content: me
 
 | 文件          | 功能一写入 | 功能二写入            | 备注                           |
 | ------------- | ---------- | --------------------- | ------------------------------ |
-| `USER.md`     | ✅ 追加    | ✅ 追加（结构化部分） | 主要画像文件                   |
-| `MEMORY.md`   | ❌ 不写入  | ✅ 追加（补充背景）   | 长期记忆文件                   |
+| `USER.md`     | ✅ 覆盖    | ✅ 覆盖（结构化部分） | 主要画像文件                   |
+| `MEMORY.md`   | ❌ 不写入  | ✅ 覆盖（补充背景）   | 长期记忆文件                   |
 | `AGENTS.md`   | ❌ 不写入  | ❌ 不写入             | 系统行为规则，不由用户画像决定 |
 | `SOUL.md`     | ❌ 不写入  | ❌ 不写入             | Agent 人格，独立于用户画像     |
 | `IDENTITY.md` | ❌ 不写入  | ❌ 不写入             | Agent 自我设定，Profile 不干预 |
@@ -459,8 +470,8 @@ await client.request("agents.files.set", { agentId, name: "USER.md", content: me
 **设计原则：**
 
 - 功能一仅写 `USER.md`，功能二写 `USER.md` 和 `MEMORY.md`
-- 功能一和功能二**相互独立**，各自追加，不互相覆盖
-- 所有写入操作必须经过预览确认步骤
+- 功能一和功能二**相互独立**，各自覆盖，不互相影响
+- ~~所有写入操作必须经过预览确认步骤~~（已移除预览步骤，直接保存）
 
 ---
 
@@ -468,7 +479,12 @@ await client.request("agents.files.set", { agentId, name: "USER.md", content: me
 
 ### Q1：内容冲突如何处理？
 
-采用**追加策略**，每次保存在文件末尾追加一个带时间戳的 section。代理读取文件时会综合所有内容，新内容自然优先（靠近文件底部，上下文中排序更靠后）。
+采用**覆盖策略**，每次保存直接替换文件内容。原有内容将被完全替换，不会保留历史版本。
+
+**变更记录：**
+
+- v1.3 之前：采用追加策略，每次保存在文件末尾追加内容
+- v1.4 及之后：采用覆盖策略，直接替换文件内容
 
 ### Q2：功能一和功能二是否共享字段？
 
@@ -619,6 +635,21 @@ if (files) {
 ---
 
 ## 十一、更新日志
+
+### v1.5 (2026-03-20)
+
+- ✅ **输入区域默认展开**：移除 Hide/Show 折叠按钮，输入区域默认直接展开
+- ✅ **可选标识提示**：Text or URLs 和 Files 字段添加 "(optional)" 标识，提示用户二者选其一即可
+- ✅ **Cancel 按钮位置优化**：从输入区域底部移至 Save Changes 按钮旁边
+- ✅ **Analyze 后不自动保存**：解析结果先展示在编辑区，用户需点击 Save Changes 才会保存
+- ✅ **状态修复**：修复进入 Profile Edit 页面时 `profileTab` 状态未正确设置导致自动保存的问题
+
+### v1.4 (2026-03-17)
+
+- ✅ **写入策略变更**：追加模式 → **覆盖模式**（直接替换文件内容）
+- ✅ **移除 Preview 弹窗**：Templates 和 Edit 页面均改为直接保存
+- ✅ **按钮简化**："Preview & Save" → "Save"，"Analyze & Append" → "Analyze"
+- ✅ **保存流程优化**：点击保存后立即写入，成功后显示文字提示并刷新内容
 
 ### v1.3 (2026-03-17)
 

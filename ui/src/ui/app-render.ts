@@ -92,11 +92,11 @@ import {
   renderProfileTemplates,
   renderProfileEdit,
   handleProfileTemplateSelect,
-  handleProfileTemplatePreview,
+  handleProfileTemplateSave,
   handleProfileFreeInputParse,
-  handleProfileSave,
   handleProfileEditLoad,
   handleProfileEditSaveDirect,
+  handleProfileEditCancel,
   handleProfileTemplateLoad,
   handleProfileTemplateUserMdSave,
 } from "./views/profile.ts";
@@ -1031,22 +1031,8 @@ export function renderApp(state: AppViewState) {
                 onFieldChange: (field, value) => {
                   (state as Record<string, unknown>)[field] = value;
                 },
-                onTemplatePreview: () => void handleProfileTemplatePreview(state),
+                onTemplateSave: () => void handleProfileTemplateSave(state),
                 onTemplateLoad: () => void handleProfileTemplateLoad(state),
-                onPreviewClose: () => {
-                  state.profilePreviewOpen = false;
-                },
-                onPreviewModeChange: (mode) => {
-                  state.profilePreviewMode = mode;
-                },
-                onPreviewDraftChange: (field, value) => {
-                  if (field === "user") {
-                    state.profilePreviewUserMdDraft = value;
-                  } else {
-                    state.profilePreviewMemoryMdDraft = value;
-                  }
-                },
-                onSave: (userMd, memoryMd) => void handleProfileSave(state, userMd, memoryMd),
                 onDomainDialogOpen: () => {
                   state.profileDomainDialogOpen = true;
                 },
@@ -1091,6 +1077,7 @@ export function renderApp(state: AppViewState) {
                   state.profileEditMemoryMd = value;
                 },
                 onEditSaveDirect: () => void handleProfileEditSaveDirect(state),
+                onEditCancel: () => handleProfileEditCancel(state),
                 onEditInputToggle: (open) => {
                   state.profileEditInputOpen = open;
                 },
@@ -1104,20 +1091,6 @@ export function renderApp(state: AppViewState) {
                 onFileRemove: (index) => {
                   state.profileFiles = state.profileFiles.filter((_, i) => i !== index);
                 },
-                onPreviewClose: () => {
-                  state.profilePreviewOpen = false;
-                },
-                onPreviewModeChange: (mode) => {
-                  state.profilePreviewMode = mode;
-                },
-                onPreviewDraftChange: (field, value) => {
-                  if (field === "user") {
-                    state.profilePreviewUserMdDraft = value;
-                  } else {
-                    state.profilePreviewMemoryMdDraft = value;
-                  }
-                },
-                onSave: (userMd, memoryMd) => void handleProfileSave(state, userMd, memoryMd),
               })
             : nothing
         }

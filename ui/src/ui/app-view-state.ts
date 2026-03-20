@@ -351,6 +351,10 @@ export type AppViewState = {
     profileEditLoading: boolean;
     profileEditInputOpen: boolean;
     profileEditViewMode: "preview" | "edit";
+    // For cancel functionality: store original content before analyze
+    profileEditUserMdOriginal: string;
+    profileEditMemoryMdOriginal: string;
+    profileEditHasAnalyzed: boolean;
     // Template tab: read-only USER.md preview
     profileTemplateUserMd: string;
     profileTemplateUserMdLoading: boolean;

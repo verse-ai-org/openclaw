@@ -45,6 +45,10 @@ export type ProfileState = {
   profileEditLoading: boolean;
   profileEditInputOpen: boolean;
   profileEditViewMode: "preview" | "edit";
+  // For cancel functionality: store original content before analyze
+  profileEditUserMdOriginal: string;
+  profileEditMemoryMdOriginal: string;
+  profileEditHasAnalyzed: boolean;
   // Template tab: read-only USER.md preview
   profileTemplateUserMd: string;
   profileTemplateUserMdLoading: boolean;
@@ -262,11 +266,6 @@ function buildUserMdSection(state: ProfileState): string {
   return lines.join("\n");
 }
 
-function mergeContent(existing: string, newSection: string): string {
-  const trimmed = existing.trimEnd();
-  return trimmed ? `${trimmed}\n\n${newSection}` : newSection;
-}
-
 // ─── Controller actions ───────────────────────────────────────────────────────
 
 export async function handleProfileTemplateSelect(
@@ -284,20 +283,13 @@ export async function handleProfileTemplateSelect(
   state.profileFormPreferences = [...tpl.defaultPreferences];
 }
 
-export async function handleProfileTemplatePreview(state: ProfileState): Promise<void> {
+export async function handleProfileTemplateSave(state: ProfileState): Promise<void> {
   if (!state.profileTemplateId) {
     state.profileError = "Please select a template first.";
     return;
   }
   const userMd = buildUserMdSection(state);
-  state.profilePreviewUserMd = userMd;
-  state.profilePreviewMemoryMd = "";
-  state.profilePreviewSkippedUrls = [];
-  state.profilePreviewOpen = true;
-  state.profilePreviewUserMdDraft = userMd;
-  state.profilePreviewMemoryMdDraft = "";
-  state.profilePreviewMode = "preview";
-  state.profileError = null;
+  await handleProfileSave(state, userMd, "");
 }
 
 export async function handleProfileFreeInputParse(state: ProfileState): Promise<void> {
@@ -335,25 +327,20 @@ export async function handleProfileFreeInputParse(state: ProfileState): Promise<
     }
 
     if (state.profileTab === "edit") {
-      // In edit tab: append directly to the in-memory content
-      state.profileEditUserMd = mergeContent(state.profileEditUserMd, result.userMdContent ?? "");
-      if (result.memoryContent) {
-        state.profileEditMemoryMd = mergeContent(state.profileEditMemoryMd, result.memoryContent);
-      }
-      // Collapse input area after successful parse
-      state.profileEditInputOpen = false;
+      // In edit tab: save original content first, then overwrite with parsed content
+      state.profileEditUserMdOriginal = state.profileEditUserMd;
+      state.profileEditMemoryMdOriginal = state.profileEditMemoryMd;
+      state.profileEditUserMd = result.userMdContent ?? "";
+      state.profileEditMemoryMd = result.memoryContent ?? "";
+      state.profileEditHasAnalyzed = true;
+      // Keep input area open so user can see the result and decide to save or cancel
       state.profileFreeInput = "";
       state.profileFiles = []; // Clear files after successful parse
     } else {
-      // In template tab: use preview modal flow
-      state.profilePreviewUserMd = result.userMdContent ?? "";
-      state.profilePreviewMemoryMd = result.memoryContent ?? "";
-      state.profilePreviewSkippedUrls = result.skippedUrls ?? [];
-      state.profilePreviewSkippedFiles = result.skippedFiles ?? [];
-      state.profilePreviewOpen = true;
-      state.profilePreviewUserMdDraft = result.userMdContent ?? "";
-      state.profilePreviewMemoryMdDraft = result.memoryContent ?? "";
-      state.profilePreviewMode = "preview";
+      // In template tab: overwrite content directly (no preview modal)
+      await handleProfileSave(state, result.userMdContent ?? "", result.memoryContent ?? "");
+      state.profileFreeInput = "";
+      state.profileFiles = []; // Clear files after successful save
     }
 
     const warnings: string[] = [];
@@ -373,6 +360,16 @@ export async function handleProfileFreeInputParse(state: ProfileState): Promise<
   }
 }
 
+export function handleProfileEditCancel(state: ProfileState): void {
+  // Restore original content
+  state.profileEditUserMd = state.profileEditUserMdOriginal;
+  state.profileEditMemoryMd = state.profileEditMemoryMdOriginal;
+  state.profileEditHasAnalyzed = false;
+  state.profileEditUserMdOriginal = "";
+  state.profileEditMemoryMdOriginal = "";
+  state.profileError = null;
+}
+
 export async function handleProfileSave(
   state: ProfileState,
   userMd: string,
@@ -387,30 +384,20 @@ export async function handleProfileSave(
   state.profileSaving = true;
   state.profileError = null;
   try {
-    // Save USER.md
+    // Save USER.md (overwrite mode)
     if (userMd.trim()) {
-      const getRes = await state.client.request<{
-        file?: { content?: string };
-      } | null>("agents.files.get", { agentId, name: "USER.md" });
-      const existing = getRes?.file?.content ?? "";
-      const merged = mergeContent(existing, userMd.trim());
       await state.client.request("agents.files.set", {
         agentId,
         name: "USER.md",
-        content: merged,
+        content: userMd.trim(),
       });
     }
-    // Save MEMORY.md if provided
+    // Save MEMORY.md if provided (overwrite mode)
     if (memoryMd.trim()) {
-      const getRes = await state.client.request<{
-        file?: { content?: string };
-      } | null>("agents.files.get", { agentId, name: "MEMORY.md" });
-      const existing = getRes?.file?.content ?? "";
-      const merged = mergeContent(existing, memoryMd.trim());
       await state.client.request("agents.files.set", {
         agentId,
         name: "MEMORY.md",
-        content: merged,
+        content: memoryMd.trim(),
       });
     }
     state.profilePreviewOpen = false;
@@ -465,6 +452,8 @@ export async function handleProfileEditLoad(state: ProfileState): Promise<void> 
   const agentId = state.agentsList?.defaultId ?? state.agentsList?.agents?.[0]?.id ?? "main";
   state.profileEditLoading = true;
   state.profileError = null;
+  // Ensure we're in edit tab mode so analyze doesn't auto-save
+  state.profileTab = "edit";
   try {
     const [userRes, memRes] = await Promise.all([
       state.client.request<{ file?: { content?: string } } | null>("agents.files.get", {
@@ -833,145 +822,6 @@ function renderTemplateForm(
   `;
 }
 
-function renderPreviewModal(
-  state: ProfileState,
-  onClose: () => void,
-  onSave: (userMd: string, memoryMd: string) => void,
-  onModeChange: (mode: "preview" | "edit") => void,
-  onDraftChange: (field: "user" | "memory", value: string) => void,
-) {
-  if (!state.profilePreviewOpen) {
-    return nothing;
-  }
-
-  const isPreview = state.profilePreviewMode === "preview";
-
-  const renderSection = (
-    label: string,
-    draft: string,
-    field: "user" | "memory",
-    rows: number,
-  ) => html`
-    <div class="field" style="margin-bottom: 16px;">
-      <div
-        style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;"
-      >
-        <span>${label}</span>
-        <div class="preview-mode-tabs" style="display:flex; gap:4px;">
-          <button
-            class="btn btn-xs ${isPreview ? "active" : ""}"
-            style="padding:2px 8px; font-size:12px;"
-            @click=${() => onModeChange("preview")}
-          >
-            Preview
-          </button>
-          <button
-            class="btn btn-xs ${!isPreview ? "active" : ""}"
-            style="padding:2px 8px; font-size:12px;"
-            @click=${() => onModeChange("edit")}
-          >
-            Edit
-          </button>
-        </div>
-      </div>
-      ${
-        isPreview
-          ? html`<div
-            class="markdown-preview"
-            style="
-              min-height: ${rows * 24}px;
-              padding: 12px 14px;
-              background: var(--surface-2, #f9f9f9);
-              border: 1px solid var(--border, #e0e0e0);
-              border-radius: 6px;
-              font-size: 13px;
-              line-height: 1.6;
-              overflow: auto;
-            "
-          >
-            ${unsafeHTML(toSanitizedMarkdownHtml(draft))}
-          </div>`
-          : html`<textarea
-            rows=${rows}
-            style="font-family: monospace; font-size: 13px; width:100%; box-sizing:border-box;"
-            .value=${draft}
-            @input=${(e: Event) => onDraftChange(field, (e.target as HTMLTextAreaElement).value)}
-          ></textarea>`
-      }
-    </div>
-  `;
-
-  return html`
-    <div class="modal-overlay" @click=${onClose}>
-      <div class="modal-box" @click=${(e: Event) => e.stopPropagation()}>
-        <div class="modal-header">
-          <div class="modal-title">Preview & Confirm</div>
-          <button class="btn" @click=${onClose}>✕</button>
-        </div>
-
-        ${
-          state.profilePreviewSkippedUrls.length > 0 || state.profilePreviewSkippedFiles.length > 0
-            ? html`
-              <div class="callout warn" style="margin-bottom: 12px;">
-                ${
-                  state.profilePreviewSkippedUrls.length > 0
-                    ? html`<div>
-                      ⚠️ Could not fetch URLs:
-                      ${state.profilePreviewSkippedUrls.join(", ")}
-                    </div>`
-                    : nothing
-                }
-                ${
-                  state.profilePreviewSkippedFiles.length > 0
-                    ? html`<div>
-                      ⚠️ Could not process files:
-                      ${state.profilePreviewSkippedFiles.join(", ")}
-                    </div>`
-                    : nothing
-                }
-              </div>
-            `
-            : nothing
-        }
-        ${renderSection(
-          "USER.md content (will be appended)",
-          state.profilePreviewUserMdDraft,
-          "user",
-          8,
-        )}
-        ${
-          state.profilePreviewMemoryMdDraft
-            ? renderSection(
-                "MEMORY.md content (will be appended)",
-                state.profilePreviewMemoryMdDraft,
-                "memory",
-                6,
-              )
-            : nothing
-        }
-
-        <div class="modal-footer">
-          <button
-            class="btn"
-            @click=${onClose}
-            ?disabled=${state.profileSaving}
-          >
-            Cancel
-          </button>
-          <button
-            class="btn primary"
-            ?disabled=${state.profileSaving}
-            @click=${() =>
-              onSave(state.profilePreviewUserMdDraft, state.profilePreviewMemoryMdDraft)}
-          >
-            ${state.profileSaving ? "Saving…" : "Save to workspace"}
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 // ─── Profile Home (Entry Point) ───────────────────────────────────────────────
 
 export type ProfileHomeProps = {
@@ -1069,12 +919,8 @@ export type ProfileTemplatesProps = {
   onBack: () => void;
   onTemplateSelect: (id: string) => void;
   onFieldChange: (field: string, value: unknown) => void;
-  onTemplatePreview: () => void;
+  onTemplateSave: () => void;
   onTemplateLoad: () => void;
-  onPreviewClose: () => void;
-  onPreviewModeChange: (mode: "preview" | "edit") => void;
-  onPreviewDraftChange: (field: "user" | "memory", value: string) => void;
-  onSave: (userMd: string, memoryMd: string) => void;
   onDomainDialogOpen: () => void;
   onDomainDialogClose: () => void;
   onToolDialogOpen: () => void;
@@ -1239,9 +1085,10 @@ export function renderProfileTemplates(props: ProfileTemplatesProps) {
                 <button
                   class="btn primary"
                   style="margin-top: 16px;"
-                  @click=${props.onTemplatePreview}
+                  ?disabled=${state.profileSaving}
+                  @click=${props.onTemplateSave}
                 >
-                  Preview & Save
+                  ${state.profileSaving ? "Saving…" : "Save"}
                 </button>
               </div>
             `
@@ -1249,15 +1096,6 @@ export function renderProfileTemplates(props: ProfileTemplatesProps) {
         }
       </div>
     </section>
-
-    <!-- Preview modal -->
-    ${renderPreviewModal(
-      state,
-      props.onPreviewClose,
-      props.onSave,
-      props.onPreviewModeChange,
-      props.onPreviewDraftChange,
-    )}
   `;
 }
 
@@ -1271,15 +1109,12 @@ export type ProfileEditProps = {
   onEditUserMdChange: (value: string) => void;
   onEditMemoryMdChange: (value: string) => void;
   onEditSaveDirect: () => void;
+  onEditCancel: () => void;
   onEditInputToggle: (open: boolean) => void;
   onFreeInputChange: (text: string) => void;
   onFreeInputParse: () => void;
   onFileSelect: (files: Array<{ name: string; content: string }>) => void;
   onFileRemove: (index: number) => void;
-  onPreviewClose: () => void;
-  onPreviewModeChange: (mode: "preview" | "edit") => void;
-  onPreviewDraftChange: (field: "user" | "memory", value: string) => void;
-  onSave: (userMd: string, memoryMd: string) => void;
 };
 
 export function renderProfileEdit(props: ProfileEditProps) {
@@ -1342,14 +1177,28 @@ export function renderProfileEdit(props: ProfileEditProps) {
               ${
                 state.profileEditUserMd || state.profileEditMemoryMd
                   ? html`
-                    <button
-                      class="btn primary"
-                      style="margin-bottom: 16px;"
-                      ?disabled=${state.profileSaving}
-                      @click=${props.onEditSaveDirect}
-                    >
-                      ${state.profileSaving ? "Saving…" : "Save Changes"}
-                    </button>
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                      <button
+                        class="btn primary"
+                        ?disabled=${state.profileSaving}
+                        @click=${props.onEditSaveDirect}
+                      >
+                        ${state.profileSaving ? "Saving…" : "Save Changes"}
+                      </button>
+                      ${
+                        state.profileEditHasAnalyzed
+                          ? html`
+                            <button
+                              class="btn"
+                              ?disabled=${state.profileSaving}
+                              @click=${props.onEditCancel}
+                            >
+                              Cancel
+                            </button>
+                          `
+                          : nothing
+                      }
+                    </div>
                   `
                   : nothing
               }
@@ -1358,171 +1207,163 @@ export function renderProfileEdit(props: ProfileEditProps) {
               <div
                 style="margin-top: 4px; border-top: 1px solid var(--border, #e0e0e0); padding-top: 16px;"
               >
-                <button
-                  class="btn"
-                  style="margin-bottom: 12px; display:flex; align-items:center; gap:6px;"
-                  @click=${() => props.onEditInputToggle(!state.profileEditInputOpen)}
+                <div
+                  style="font-size: 13px; color: var(--text-muted, #666); margin-bottom: 12px;"
                 >
-                  <span>${state.profileEditInputOpen ? "▲" : "▼"}</span>
-                  <span
-                    >${state.profileEditInputOpen ? "Hide" : "Add from Text / URL / File"}</span
+                  Add from Text/URL or File
+                  <span style="color: var(--text-muted, #999);"
+                    >(choose one or both)</span
                   >
-                </button>
+                </div>
 
-                ${
-                  state.profileEditInputOpen
-                    ? html`
-                      <label class="field">
-                        <span>Text or URLs</span>
-                        <textarea
-                          rows="5"
-                          placeholder="Paste your bio, website URL, or any description about yourself…"
-                          .value=${state.profileFreeInput}
-                          @input=${(e: Event) =>
-                            props.onFreeInputChange((e.target as HTMLTextAreaElement).value)}
-                        ></textarea>
-                      </label>
+                <label class="field">
+                  <span
+                    >Text or URLs
+                    <span
+                      style="font-weight: normal; color: var(--text-muted, #999);"
+                      >(optional)</span
+                    ></span
+                  >
+                  <textarea
+                    rows="5"
+                    placeholder="Paste your bio, website URL, or any description about yourself…"
+                    .value=${state.profileFreeInput}
+                    @input=${(e: Event) =>
+                      props.onFreeInputChange((e.target as HTMLTextAreaElement).value)}
+                  ></textarea>
+                </label>
 
-                      <!-- File upload section -->
-                      <div class="field" style="margin-top: 16px;">
-                        <span>Files</span>
-                        <div
-                          style="
-                            border: 2px dashed var(--border, #e0e0e0);
-                            border-radius: 6px;
-                            padding: 16px;
-                            text-align: center;
-                            background: var(--surface-2, #f9f9f9);
-                            cursor: pointer;
-                            transition: border-color 0.2s;
-                          "
-                          @dragover=${(e: DragEvent) => {
-                            e.preventDefault();
-                            (e.currentTarget as HTMLElement).style.borderColor =
-                              "var(--primary, #0066cc)";
-                          }}
-                          @dragleave=${(e: DragEvent) => {
-                            e.preventDefault();
-                            (e.currentTarget as HTMLElement).style.borderColor =
-                              "var(--border, #e0e0e0)";
-                          }}
-                          @drop=${(e: DragEvent) => {
-                            e.preventDefault();
-                            (e.currentTarget as HTMLElement).style.borderColor =
-                              "var(--border, #e0e0e0)";
-                            const files = e.dataTransfer?.files;
-                            if (files) {
-                              void handleFileSelect(files, state, props.onFileSelect);
-                            }
-                          }}
-                          @click=${() => {
-                            const input = document.createElement("input");
-                            input.type = "file";
-                            input.multiple = true;
-                            input.accept = ".md,.doc,.docx,.pdf";
-                            input.addEventListener("change", (e) => {
-                              const files = (e.target as HTMLInputElement).files;
-                              if (files) {
-                                void handleFileSelect(files, state, props.onFileSelect);
-                              }
-                            });
-                            input.click();
-                          }}
-                        >
-                          <div style="font-size: 24px; margin-bottom: 8px;">
-                            📁
-                          </div>
-                          <div
-                            style="font-size: 13px; color: var(--text-muted, #666);"
-                          >
-                            Click to select or drag files here
-                          </div>
-                          <div
-                            style="font-size: 12px; color: var(--text-muted, #999); margin-top: 4px;"
-                          >
-                            Supports: .md, .doc, .docx, .pdf
-                          </div>
-                          <div
-                            style="font-size: 11px; color: var(--text-muted, #999); margin-top: 2px;"
-                          >
-                            Max ${state.profileFilesMaxCount} files,
-                            ${formatBytes(state.profileFilesMaxSize)} each
-                          </div>
-                        </div>
+                <!-- File upload section -->
+                <div class="field" style="margin-top: 16px;">
+                  <span
+                    >Files
+                    <span
+                      style="font-weight: normal; color: var(--text-muted, #999);"
+                      >(optional)</span
+                    ></span
+                  >
+                  <div
+                    style="
+                      border: 2px dashed var(--border, #e0e0e0);
+                      border-radius: 6px;
+                      padding: 16px;
+                      text-align: center;
+                      background: var(--surface-2, #f9f9f9);
+                      cursor: pointer;
+                      transition: border-color 0.2s;
+                    "
+                    @dragover=${(e: DragEvent) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).style.borderColor =
+                        "var(--primary, #0066cc)";
+                    }}
+                    @dragleave=${(e: DragEvent) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).style.borderColor = "var(--border, #e0e0e0)";
+                    }}
+                    @drop=${(e: DragEvent) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).style.borderColor = "var(--border, #e0e0e0)";
+                      const files = e.dataTransfer?.files;
+                      if (files) {
+                        void handleFileSelect(files, state, props.onFileSelect);
+                      }
+                    }}
+                    @click=${() => {
+                      const input = document.createElement("input");
+                      input.type = "file";
+                      input.multiple = true;
+                      input.accept = ".md,.doc,.docx,.pdf";
+                      input.addEventListener("change", (e) => {
+                        const files = (e.target as HTMLInputElement).files;
+                        if (files) {
+                          void handleFileSelect(files, state, props.onFileSelect);
+                        }
+                      });
+                      input.click();
+                    }}
+                  >
+                    <div style="font-size: 24px; margin-bottom: 8px;">📁</div>
+                    <div
+                      style="font-size: 13px; color: var(--text-muted, #666);"
+                    >
+                      Click to select or drag files here
+                    </div>
+                    <div
+                      style="font-size: 12px; color: var(--text-muted, #999); margin-top: 4px;"
+                    >
+                      Supports: .md, .doc, .docx, .pdf
+                    </div>
+                    <div
+                      style="font-size: 11px; color: var(--text-muted, #999); margin-top: 2px;"
+                    >
+                      Max ${state.profileFilesMaxCount} files,
+                      ${formatBytes(state.profileFilesMaxSize)} each
+                    </div>
+                  </div>
 
-                        <!-- Selected files list -->
-                        ${
-                          state.profileFiles.length > 0
-                            ? html`
-                              <div style="margin-top: 12px;">
-                                ${state.profileFiles.map(
-                                  (file, index) => html`
-                                    <div
-                                      style="
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: space-between;
-                                    padding: 8px 12px;
-                                    background: var(--surface-1, #fff);
-                                    border: 1px solid var(--border, #e0e0e0);
-                                    border-radius: 4px;
-                                    margin-bottom: 6px;
-                                    font-size: 13px;
-                                  "
-                                    >
-                                      <span
-                                        style="display: flex; align-items: center; gap: 6px;"
-                                      >
-                                        <span>${getFileIcon(file.name)}</span>
-                                        <span
-                                          style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-                                        >
-                                          ${file.name}
-                                        </span>
-                                      </span>
-                                      <button
-                                        class="btn btn-xs"
-                                        style="padding: 2px 8px; font-size: 12px;"
-                                        @click=${() => props.onFileRemove(index)}
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                  `,
-                                )}
+                  <!-- Selected files list -->
+                  ${
+                    state.profileFiles.length > 0
+                      ? html`
+                        <div style="margin-top: 12px;">
+                          ${state.profileFiles.map(
+                            (file, index) => html`
+                              <div
+                                style="
+                                  display: flex;
+                                  align-items: center;
+                                  justify-content: space-between;
+                                  padding: 8px 12px;
+                                  background: var(--surface-1, #fff);
+                                  border: 1px solid var(--border, #e0e0e0);
+                                  border-radius: 4px;
+                                  margin-bottom: 6px;
+                                  font-size: 13px;
+                                "
+                              >
+                                <span
+                                  style="display: flex; align-items: center; gap: 6px;"
+                                >
+                                  <span>${getFileIcon(file.name)}</span>
+                                  <span
+                                    style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                  >
+                                    ${file.name}
+                                  </span>
+                                </span>
+                                <button
+                                  class="btn btn-xs"
+                                  style="padding: 2px 8px; font-size: 12px;"
+                                  @click=${() => props.onFileRemove(index)}
+                                >
+                                  ✕
+                                </button>
                               </div>
-                            `
-                            : nothing
-                        }
-                      </div>
+                            `,
+                          )}
+                        </div>
+                      `
+                      : nothing
+                  }
+                </div>
 
-                      <button
-                        class="btn primary"
-                        style="margin-top: 16px;"
-                        ?disabled=${
-                          state.profileLoading ||
-                          (state.profileFreeInput.trim() === "" && state.profileFiles.length === 0)
-                        }
-                        @click=${props.onFreeInputParse}
-                      >
-                        ${state.profileLoading ? "Analyzing…" : "Analyze & Append"}
-                      </button>
-                    `
-                    : nothing
-                }
+                <div style="margin-top: 16px;">
+                  <button
+                    class="btn primary"
+                    ?disabled=${
+                      state.profileLoading ||
+                      (state.profileFreeInput.trim() === "" && state.profileFiles.length === 0)
+                    }
+                    @click=${props.onFreeInputParse}
+                  >
+                    ${state.profileLoading ? "Analyzing…" : "Analyze"}
+                  </button>
+                </div>
               </div>
             `
         }
       </div>
     </section>
-
-    <!-- Preview modal -->
-    ${renderPreviewModal(
-      state,
-      props.onPreviewClose,
-      props.onSave,
-      props.onPreviewModeChange,
-      props.onPreviewDraftChange,
-    )}
   `;
 }

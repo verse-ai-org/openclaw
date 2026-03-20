@@ -414,6 +414,9 @@ export class OpenClawApp extends LitElement {
   @state() profileEditLoading = false;
   @state() profileEditInputOpen = false;
   @state() profileEditViewMode: "preview" | "edit" = "preview";
+  @state() profileEditUserMdOriginal = "";
+  @state() profileEditMemoryMdOriginal = "";
+  @state() profileEditHasAnalyzed = false;
   @state() profileTemplateUserMd = "";
   @state() profileTemplateUserMdLoading = false;
   @state() profileTemplateUserMdViewMode: "preview" | "edit" = "preview";
