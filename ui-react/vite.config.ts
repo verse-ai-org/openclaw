@@ -18,6 +18,12 @@ export default defineConfig(() => {
       "import.meta.env.VITE_GATEWAY_PORT": JSON.stringify(
         process.env.VITE_GATEWAY_PORT ?? "18789",
       ),
+      // Optional dev token: set VITE_GATEWAY_TOKEN in ui-react/.env.local so
+      // the UI can connect when opened directly in a browser without Electron.
+      // Never baked into production builds (only active in DEV mode).
+      "import.meta.env.VITE_GATEWAY_TOKEN": JSON.stringify(
+        process.env.VITE_GATEWAY_TOKEN ?? "",
+      ),
     },
     resolve: {
       alias: {

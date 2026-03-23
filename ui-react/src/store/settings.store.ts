@@ -111,6 +111,18 @@ function isDevGatewayOverrideActive(): boolean {
   );
 }
 
+function resolveDevToken(): string {
+  // In Vite dev mode, read VITE_GATEWAY_TOKEN baked at build time.
+  // Users configure this in ui-react/.env.local (git-ignored).
+  // Returns empty string in production so it never leaks into packaged builds.
+  if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
+    return (
+      (import.meta.env.VITE_GATEWAY_TOKEN as string | undefined)?.trim() ?? ""
+    );
+  }
+  return "";
+}
+
 export function loadSettings(): UiSettings {
   const defaultUrl = resolveDefaultGatewayUrl();
 
@@ -161,9 +173,11 @@ export function loadSettings(): UiSettings {
 
   // Effective gateway URL: hash param > localStorage > default
   const resolvedGatewayUrl = urlGatewayUrl || defaultUrl;
+  // Token priority: URL param > sessionStorage > VITE_GATEWAY_TOKEN (dev-only env)
+  const devToken = resolveDevToken();
   const defaults: UiSettings = {
     gatewayUrl: resolvedGatewayUrl,
-    token: urlToken || loadSessionToken(resolvedGatewayUrl),
+    token: urlToken || loadSessionToken(resolvedGatewayUrl) || devToken,
     sessionKey: "main",
     lastActiveSessionKey: "main",
     theme: "system",
@@ -196,7 +210,7 @@ export function loadSettings(): UiSettings {
     })();
     return {
       gatewayUrl,
-      token: urlToken || loadSessionToken(gatewayUrl),
+      token: urlToken || loadSessionToken(gatewayUrl) || devToken,
       sessionKey:
         typeof parsed.sessionKey === "string" && parsed.sessionKey.trim()
           ? parsed.sessionKey.trim()

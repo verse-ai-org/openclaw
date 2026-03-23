@@ -35,14 +35,19 @@
 - [ThreadView.tsx](file://ui-react/src/components/chat/ThreadView.tsx)
 - [session.md](file://docs/concepts/session.md)
 - [session-management-compaction.md](file://docs/reference/session-management-compaction.md)
+- [storage.ts](file://ui/src/ui/storage.ts)
+- [token.ts](file://apps/electron/src/main/token.ts)
+- [window.ts](file://apps/electron/src/main/window.ts)
+- [gateway.ts](file://apps/electron/src/main/gateway.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增UI会话管理器的小幅改进分析：useSessionManager.ts的更新优化了会话处理逻辑
-- 更新会话管理相关组件的响应性和稳定性说明
-- 增强会话切换和历史加载的错误处理机制
-- 完善会话管理器与聊天事件桥接的集成
+- 增强了 UI 设置存储的网关 URL 解析逻辑，包括更好的 Electron 应用程序网关 URL 处理
+- 新增了令牌持久化和 URL 标准化的功能
+- 改进了开发环境检测机制
+- 优化了 Electron 应用程序的网关 URL 处理逻辑
+- 增强了 URL 标准化和令牌作用域管理
 
 ## 目录
 1. [简介](#简介)
@@ -62,7 +67,7 @@ OpenClaw的UI组件系统是一个现代化的双框架架构，提供了两种�
 - **Lit-based传统UI**：基于Web Components的轻量级实现，使用Lit框架构建响应式组件
 - **React-based新UI**：基于React 19的现代化实现，采用shadcn/ui设计系统、Radix UI组件库和Zustand状态管理
 
-该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。**新增的UI会话管理器改进**显著提升了用户界面的响应性和稳定性，特别是在会话切换和历史加载方面。
+该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。**新增的增强UI设置存储功能**显著提升了用户界面的稳定性和可靠性，特别是在网关URL解析、令牌持久化和开发环境检测方面。
 
 ## 项目结构
 
@@ -103,6 +108,10 @@ T --> DD[useSessionManager.ts - 会话管理器]
 DD --> EE[会话列表管理]
 DD --> FF[历史记录加载]
 DD --> GG[会话切换处理]
+T --> HH[settings.store.ts - 增强设置存储]
+HH --> II[网关URL解析]
+HH --> JJ[令牌持久化]
+HH --> KK[URL标准化]
 end
 ```
 
@@ -113,6 +122,7 @@ end
 - [sidebar.tsx:1-694](file://ui-react/src/components/ui/sidebar.tsx#L1-L694)
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 - [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
+- [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
 
 **章节来源**
 - [README.md:185-212](file://README.md#L185-L212)
@@ -166,7 +176,7 @@ OpenClawApp --> I18nController : 使用
 
 ### React UI核心组件（shadcn/ui设计系统）
 
-React实现已完全迁移到shadcn/ui设计系统，采用了现代化的组件架构，使用Zustand进行状态管理，并引入了新的UI组件和会话管理器：
+React实现已完全迁移到shadcn/ui设计系统，采用了现代化的组件架构，使用Zustand进行状态管理，并引入了新的UI组件和增强的设置存储系统：
 
 ```mermaid
 classDiagram
@@ -215,6 +225,8 @@ class SettingsStore {
 +updateSettings() void
 +setPassword() void
 +applyTheme() void
++loadSettings() UiSettings
++persistSettings() void
 }
 class AppShell {
 +useGateway() void
@@ -252,6 +264,18 @@ class SessionManager {
 +switchSession() void
 +newSession() void
 }
+class EnhancedSettingsStore {
++STORAGE_KEY : string
++ELECTRON_GATEWAY_URL_KEY : string
++normalizeGatewayTokenScope() string
++loadSessionToken() string
++persistSessionToken() void
++resolveDefaultGatewayUrl() string
++isDevGatewayOverrideActive() boolean
++loadSettings() UiSettings
++persistSettings() void
+}
+EnhancedSettingsStore <|-- SettingsStore : 扩展
 ChatStore <.. ChatPage : 状态管理
 SkillsStore <.. SkillsPage : 状态管理
 GatewayStore <.. SkillsPage : 网关连接
@@ -270,16 +294,18 @@ SessionManager <.. ChatPage : 会话管理
 - [ChatPage.tsx:6-21](file://ui-react/src/pages/ChatPage.tsx#L6-L21)
 - [SkillsPage.tsx:10-31](file://ui-react/src/pages/SkillsPage.tsx#L10-L31)
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
+- [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
 
 **章节来源**
 - [app.ts:110-630](file://ui/src/ui/app.ts#L110-L630)
 - [chat.store.ts:135-230](file://ui-react/src/store/chat.store.ts#L135-L230)
 - [skills.store.ts:16-32](file://ui-react/src/store/skills.store.ts#L16-L32)
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
+- [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
 
 ## 架构概览
 
-UI组件系统采用分层架构设计，实现了清晰的关注点分离，**新增了基于shadcn/ui设计系统的统一组件库和优化的会话管理器**：
+UI组件系统采用分层架构设计，实现了清晰的关注点分离，**新增了基于增强设置存储的统一配置管理和优化的会话管理器**：
 
 ```mermaid
 graph TB
@@ -297,66 +323,69 @@ N[布局系统] --> O[AppSidebar]
 N --> P[ChatSidebar]
 N --> Q[新Sidebar组件]
 end
+subgraph "增强设置存储层"
+R[SettingsStore] --> S[网关URL解析]
+R --> T[令牌持久化]
+R --> U[URL标准化]
+S --> V[开发环境检测]
+S --> W[Electron应用程序处理]
+T --> X[会话存储管理]
+T --> Y[令牌作用域隔离]
+U --> Z[URL规范化]
+V --> AA[端口检测]
+W --> AB[协议处理]
+end
 subgraph "会话管理层"
-R[会话管理器] --> S[会话列表获取]
-R --> T[历史记录加载]
-R --> U[会话切换处理]
-R --> V[新会话创建]
-S --> W[错误回退机制]
-T --> X[工具结果合并]
-U --> Y[设置会话键]
-V --> Z[会话持久化]
+AC[会话管理器] --> AD[会话列表获取]
+AC --> AE[历史记录加载]
+AC --> AF[会话切换处理]
+AC --> AG[新会话创建]
+AD --> AH[错误回退机制]
+AE --> AI[工具结果合并]
+AF --> AJ[设置会话键]
+AG --> AK[会话持久化]
 end
 subgraph "shadcn/ui组件层"
-AA[基础UI组件] --> BB[Checkbox]
-AA --> CC[Sheet]
-AA --> DD[Switch]
-AA --> EE[Button]
-AA --> FF[Input]
-AA --> GG[Separator]
-AA --> HH[Tooltip]
+AL[基础UI组件] --> AM[Checkbox]
+AL --> AN[Sheet]
+AL --> AO[Switch]
+AL --> AP[Button]
+AL --> AQ[Input]
+AL --> AR[Separator]
+AL --> AS[Tooltip]
 end
 subgraph "状态管理层"
-II[Zustand Store] --> JJ[聊天状态]
-II --> KK[技能状态]
-II --> LL[网关连接]
-II --> MM[用户设置]
-NN[Lit Reactive Properties] --> OO[应用状态]
-NN --> PP[主题切换]
-NN --> QQ[语言切换]
+AT[Zustand Store] --> AU[聊天状态]
+AT --> AV[技能状态]
+AT --> AW[网关连接]
+AT --> AX[用户设置]
+AY[Lit Reactive Properties] --> AZ[应用状态]
+AY --> BA[主题切换]
+AY --> BB[语言切换]
 end
 subgraph "数据传输层"
-RR[WebSocket客户端] --> SS[实时事件]
-RR --> TT[流式响应]
-RR --> UU[批量更新]
-VV[HTTP API] --> WW[配置读取]
-VV --> XX[日志获取]
-VV --> YY[会话列表]
-VV --> ZZ[技能状态查询]
+BC[WebSocket客户端] --> BD[实时事件]
+BC --> BE[流式响应]
+BC --> BF[批量更新]
+BG[HTTP API] --> BH[配置读取]
+BG --> BI[日志获取]
+BG --> BJ[会话列表]
+BG --> BK[技能状态查询]
 end
 subgraph "外部集成"
-AAA[Gateway协议] --> RR
-BBB[浏览器API] --> CC[剪贴板]
-BBB --> DD[文件上传]
-BBB --> EE[通知权限]
-FFF[移动端检测] --> GG[useIsMobile钩子]
-GG --> HH[响应式设计]
-III[会话事件桥接] --> JJ[历史重载回调]
-JJ --> KK[聊天状态同步]
-LLL[会话管理器] --> MM[会话持久化]
-end
-A --> II
-D --> II
-H --> NN
-K --> NN
-N --> AA
-AA --> FFF
-II --> RR
-NN --> RR
-KK --> VV
-LL --> MMM
-MMM --> III
-FFF --> N
+BL[Gateway协议] --> BC
+BM[浏览器API] --> BN[剪贴板]
+BM --> BO[文件上传]
+BM --> BP[通知权限]
+BQ[移动端检测] --> BR[useIsMobile钩子]
+BR --> BS[响应式设计]
+BT[会话事件桥接] --> BU[历史重载回调]
+BU --> BV[聊天状态同步]
+BW[设置存储集成] --> BX[URL解析]
+BW --> BY[令牌管理]
+BW --> BZ[配置持久化]
+BT --> BW
+BQ --> BT
 ```
 
 **图表来源**
@@ -370,6 +399,7 @@ FFF --> N
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 - [useChatEventBridge.ts:1-200](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L200)
+- [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
 
 ## 详细组件分析
 
@@ -430,6 +460,103 @@ L --> M
 - [app.ts:497-506](file://ui/src/ui/app.ts#L497-L506)
 - [ChatPage.tsx:6-21](file://ui-react/src/pages/ChatPage.tsx#L6-L21)
 - [chat.store.ts:166-229](file://ui-react/src/store/chat.store.ts#L166-L229)
+
+### 增强设置存储系统
+
+**新增** 基于增强设置存储的统一配置管理，显著提升了网关URL解析、令牌持久化和开发环境检测能力：
+
+```mermaid
+classDiagram
+class EnhancedSettingsStore {
++STORAGE_KEY : string
++ELECTRON_GATEWAY_URL_KEY : string
++TOKEN_SESSION_KEY_PREFIX : string
++LEGACY_TOKEN_SESSION_KEY : string
++normalizeGatewayTokenScope() string
++tokenSessionKey() string
++loadSessionToken() string
++persistSessionToken() void
++resolveDefaultGatewayUrl() string
++isDevGatewayOverrideActive() boolean
++loadSettings() UiSettings
++persistSettings() void
+}
+class UiSettings {
++gatewayUrl : string
++token : string
++sessionKey : string
++lastActiveSessionKey : string
++theme : ThemeMode
++chatFocusMode : boolean
++chatShowThinking : boolean
++splitRatio : number
++navCollapsed : boolean
++navGroupsCollapsed : Record~string, boolean~
++locale : string
+}
+class TokenManagement {
++normalizeGatewayTokenScope() string
++tokenSessionKeyForGateway() string
++loadSessionToken() string
++persistSessionToken() void
+}
+class GatewayUrlResolution {
++resolveDefaultGatewayUrl() string
++isDevGatewayOverrideActive() boolean
++handleDevelopmentEnv() string
++handleElectronEnv() string
++handleStandardEnv() string
+}
+EnhancedSettingsStore --> UiSettings : 管理
+EnhancedSettingsStore --> TokenManagement : 集成
+EnhancedSettingsStore --> GatewayUrlResolution : 集成
+```
+
+**图表来源**
+- [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
+- [storage.ts:11-23](file://ui/src/ui/storage.ts#L11-L23)
+- [token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
+
+#### 增强设置存储特性
+
+```mermaid
+flowchart TD
+A[增强设置存储] --> B[网关URL解析]
+A --> C[令牌持久化]
+A --> D[URL标准化]
+B --> E[开发环境检测]
+B --> F[Electron应用程序处理]
+C --> G[会话存储管理]
+C --> H[令牌作用域隔离]
+D --> I[URL规范化]
+E --> J[Vite开发服务器检测]
+E --> K[端口冲突处理]
+F --> L[file://协议处理]
+F --> M[http://127.0.0.1协议处理]
+G --> N[localStorage持久化]
+G --> O[sessionStorage临时存储]
+H --> P[tokenSessionKey生成]
+H --> Q[normalizeGatewayTokenScope]
+I --> R[协议标准化]
+I --> S[主机名规范化]
+I --> T[pathname清理]
+J --> U[localhost:5174端口检测]
+K --> V[VITE_GATEWAY_PORT环境变量]
+L --> W[ELECTRON_GATEWAY_URL_KEY存储]
+M --> X[persisted Gateway URL恢复]
+N --> Y[跨页面刷新支持]
+O --> Z[页面刷新生存期]
+```
+
+**图表来源**
+- [settings.store.ts:65-102](file://ui-react/src/store/settings.store.ts#L65-L102)
+- [settings.store.ts:35-63](file://ui-react/src/store/settings.store.ts#L35-L63)
+- [settings.store.ts:114-175](file://ui-react/src/store/settings.store.ts#L114-L175)
+
+**章节来源**
+- [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
+- [storage.ts:11-23](file://ui/src/ui/storage.ts#L11-L23)
+- [token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
 
 ### 会话管理器组件
 
@@ -923,11 +1050,34 @@ AA --> CC[响应式设计]
 DD[useSessionManager钩子] --> EE[会话管理]
 DD --> FF[历史加载]
 DD --> GG[错误回退]
+EH[增强设置存储] --> EI[网关URL解析]
+EH --> EJ[令牌持久化]
+EH --> EK[URL标准化]
+EI --> EL[开发环境检测]
+EI --> EM[Electron处理]
+EJ --> EN[会话存储]
+EJ --> EO[令牌作用域]
+EK --> EP[URL规范化]
+EL --> EQ[Vite开发检测]
+EM --> ER[file://协议处理]
+EN --> ES[localStorage]
+EO --> ET[sessionStorage]
 end
 subgraph "开发工具"
-HH[vite] --> II[构建工具]
-JJ[typescript] --> KK[类型检查]
-LL[vitest] --> MM[测试框架]
+HU[vite] --> HV[构建工具]
+HW[typescript] --> HX[类型检查]
+HY[vitest] --> HZ[测试框架]
+end
+subgraph "Electron集成"
+IB[Electron主进程] --> IC[window.ts]
+IB --> ID[gateway.ts]
+IB --> IE[token.ts]
+IC --> IF[URL注入]
+ID --> IG[网关管理]
+IE --> IH[令牌生成]
+IF --> II[settings.store.ts]
+IG --> II
+IH --> II
 end
 ```
 
@@ -936,6 +1086,10 @@ end
 - [package.json:11-55](file://ui-react/package.json#L11-L55)
 - [components.json:1-22](file://ui-react/components.json#L1-22)
 - [useSessionManager.ts:1-12](file://ui-react/src/hooks/useSessionManager.ts#L1-L12)
+- [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
+- [window.ts:245-295](file://apps/electron/src/main/window.ts#L245-L295)
+- [gateway.ts:496-500](file://apps/electron/src/main/gateway.ts#L496-L500)
+- [token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
 
 ### 版本兼容性
 
@@ -952,12 +1106,14 @@ end
 | 国际化 | ✅ 支持 | ✅ 支持 | ✅ 功能相同 |
 | 响应式设计 | ❌ 不支持 | ✅ 完全支持 | ✅ 移动端优化 |
 | **会话管理** | ❌ 不支持 | ✅ **优化支持** | ✅ **显著改进** |
+| **设置存储增强** | ❌ 不支持 | ✅ **全新功能** | ✅ **重大改进** |
 
 **章节来源**
 - [package.json:11-26](file://ui/package.json#L11-L26)
 - [package.json:11-55](file://ui-react/package.json#L11-L55)
 - [components.json:1-22](file://ui-react/components.json#L1-22)
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
+- [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
 
 ## 性能考虑
 
@@ -969,7 +1125,8 @@ end
 4. **流式更新**：聊天消息采用流式渲染，提供更好的用户体验
 5. **技能分组缓存**：技能列表的分组和筛选结果进行缓存，避免重复计算
 6. **Sidebar性能优化**：新的Sidebar组件使用CSS变量和条件渲染，提升移动端性能
-7. ****会话管理优化**：**useSessionManager.ts的更新优化了会话处理逻辑，提升了响应性和稳定性**
+7. **增强设置存储优化**：**优化的设置存储系统减少了不必要的URL解析和令牌管理开销**
+8. **Electron集成优化**：**改进的Electron URL注入和令牌持久化减少了页面刷新时的配置丢失**
 
 ### 内存管理
 
@@ -991,7 +1148,8 @@ D --> H[继续渲染]
 - **缓存策略**：对静态资源和配置数据实施智能缓存
 - **技能状态缓存**：技能状态和报告进行本地缓存，减少网络请求
 - **组件懒加载**：shadcn/ui组件按需加载，减少初始包体积
-- ****会话历史缓存**：**优化的会话管理器减少了不必要的历史加载请求**
+- **增强设置存储缓存**：**优化的设置存储减少了重复的URL解析和令牌查找操作**
+- **Electron URL缓存**：**改进的localStorage缓存机制减少了页面刷新时的配置重新解析**
 
 ## 故障排除指南
 
@@ -1001,16 +1159,19 @@ D --> H[继续渲染]
    - 检查网关URL和认证令牌
    - 验证防火墙和代理设置
    - 查看WebSocket连接状态
+   - **检查增强设置存储的URL解析是否正确**
 
 2. **渲染问题**
    - 检查浏览器控制台错误
    - 验证CSS样式加载
    - 确认JavaScript执行环境
+   - **验证增强设置存储的令牌持久化是否正常**
 
 3. **性能问题**
    - 监控内存使用情况
    - 检查渲染帧率
    - 分析网络请求时间
+   - **检查增强设置存储的缓存机制是否有效**
 
 4. **技能管理问题**
    - 检查技能API密钥是否正确
@@ -1033,10 +1194,22 @@ D --> H[继续渲染]
    - **确认会话切换时的设置更新**
    - **监控新会话创建的API调用**
 
-8. **会话事件桥接问题**
-   - **检查历史重载回调的注册和注销**
-   - **验证聊天状态同步机制**
-   - **确认会话管理器与聊天事件的集成**
+8. **设置存储问题**
+   - **验证网关URL解析逻辑是否正确**
+   - **检查令牌持久化是否正常工作**
+   - **确认URL标准化功能是否生效**
+   - **验证开发环境检测是否准确**
+
+9. **Electron集成问题**
+   - **检查URL注入机制是否正常**
+   - **验证令牌生成和传递流程**
+   - **确认网关管理功能是否正常**
+   - **检查CSP配置和Origin头注入**
+
+10. **会话事件桥接问题**
+    - **检查历史重载回调的注册和注销**
+    - **验证聊天状态同步机制**
+    - **确认会话管理器与聊天事件的集成**
 
 ### 调试工具
 
@@ -1055,12 +1228,20 @@ K[组件检查] --> L[React DevTools]
 K --> M[组件树分析]
 L --> N[Props检查]
 M --> N
-O[会话管理调试] --> P[会话列表加载]
-O --> Q[历史记录加载]
-O --> R[会话切换]
-P --> S[错误回退检查]
-Q --> T[工具结果合并]
-R --> U[设置更新验证]
+O[设置存储调试] --> P[URL解析检查]
+O --> Q[令牌持久化检查]
+O --> R[配置加载检查]
+P --> S[开发环境检测]
+P --> T[Electron URL处理]
+Q --> U[localStorage检查]
+Q --> V[sessionStorage检查]
+R --> W[配置合并逻辑]
+X[Electron集成调试] --> Y[URL注入检查]
+X --> Z[令牌传递检查]
+X --> AA[网关管理检查]
+Y --> BB[window.ts检查]
+Z --> CC[gateway.ts检查]
+AA --> DD[token.ts检查]
 ```
 
 **章节来源**
@@ -1069,6 +1250,11 @@ R --> U[设置更新验证]
 - [use-mobile.ts:8-16](file://ui-react/src/hooks/use-mobile.ts#L8-L16)
 - [useSessionManager.ts:37-41](file://ui-react/src/hooks/useSessionManager.ts#L37-L41)
 - [useSessionManager.ts:76-79](file://ui-react/src/hooks/useSessionManager.ts#L76-L79)
+- [settings.store.ts:65-102](file://ui-react/src/store/settings.store.ts#L65-L102)
+- [settings.store.ts:35-63](file://ui-react/src/store/settings.store.ts#L35-L63)
+- [window.ts:245-295](file://apps/electron/src/main/window.ts#L245-L295)
+- [gateway.ts:496-500](file://apps/electron/src/main/gateway.ts#L496-L500)
+- [token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
 
 ## 结论
 
@@ -1081,16 +1267,20 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 5. **响应式设计**：新增use-mobile钩子和新的Sidebar组件，提供优秀的移动端体验
 6. **可维护性**：清晰的架构设计便于长期维护
 
+**新增的增强设置存储系统**显著提升了用户界面的稳定性和可靠性，特别是在网关URL解析、令牌持久化和开发环境检测方面。这些改进包括：
+
+- **增强的网关URL解析逻辑**：支持开发环境检测、Electron应用程序处理和URL标准化
+- **改进的令牌持久化机制**：提供会话存储管理和令牌作用域隔离
+- **优化的URL标准化功能**：确保网关URL的一致性和兼容性
+- **增强的开发环境检测**：准确识别Vite开发服务器和端口冲突情况
+- **改进的Electron集成**：优化URL注入、令牌传递和网关管理流程
+
 **新增的UI会话管理器改进**显著提升了用户界面的响应性和稳定性，特别是在会话切换和历史加载方面。useSessionManager.ts的更新优化了会话处理逻辑，包括：
 
 - **增强的错误处理机制**：在会话列表加载失败时提供默认会话创建
 - **优化的历史加载流程**：改进了工具结果合并和消息标准化过程
 - **稳定的会话切换处理**：确保会话切换时的设置更新和状态同步
 - **可靠的会话创建流程**：提供API调用失败时的回退机制
-
-这些改进使得用户在切换不同会话时能够获得更流畅的体验，减少了因网络问题或API故障导致的界面卡顿。会话管理器与聊天事件桥接的深度集成确保了会话状态的实时同步和一致性。
-
-**新增的shadcn/ui设计系统**提供了统一的设计语言和组件库，包括全新的Sidebar组件、Checkbox、Sheet、Switch等基础UI组件，以及use-mobile钩子的引入，显著提升了用户体验和开发效率。这个设计系统与现有的聊天和配置管理功能无缝集成，形成了一个完整的AI助手管理平台。
 
 **新增的Sidebar组件系统**具有以下优势：
 - 响应式设计：自动适配桌面端和移动端
@@ -1105,4 +1295,12 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 - Switch：支持不同尺寸和状态的开关组件
 - 统一的设计语言：基于shadcn/ui的设计规范
 
-**新增的会话管理器优化**进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。**优化的会话管理器**的引入进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。
+**新增的增强设置存储系统**进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。**优化的设置存储系统**的引入进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。
+
+**增强的Electron集成**提供了更好的应用程序体验，包括：
+- **改进的URL注入机制**：确保Electron应用程序中的URL正确传递
+- **优化的令牌生成和管理**：提供安全的令牌生命周期管理
+- **增强的网关管理功能**：支持自管理网关和外部网关的灵活切换
+- **改进的安全策略**：通过CSP配置和Origin头注入确保网络安全
+
+这些增强功能共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。

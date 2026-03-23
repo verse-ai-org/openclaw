@@ -14,6 +14,13 @@
 - [scripts/create-dmg.sh](file://scripts/create-dmg.sh)
 - [scripts/release-mac-local.sh](file://scripts/release-mac-local.sh)
 - [extensions/memory-core/openclaw.plugin.json](file://extensions/memory-core/openclaw.plugin.json)
+- [extensions/device-pair/openclaw.plugin.json](file://extensions/device-pair/openclaw.plugin.json)
+- [extensions/qwen-portal-auth/openclaw.plugin.json](file://extensions/qwen-portal-auth/openclaw.plugin.json)
+- [extensions/minimax-portal-auth/openclaw.plugin.json](file://extensions/minimax-portal-auth/openclaw.plugin.json)
+- [extensions/google-gemini-cli-auth/openclaw.plugin.json](file://extensions/google-gemini-cli-auth/openclaw.plugin.json)
+- [extensions/copilot-proxy/openclaw.plugin.json](file://extensions/copilot-proxy/openclaw.plugin.json)
+- [extensions/telegram/openclaw.plugin.json](file://extensions/telegram/openclaw.plugin.json)
+- [extensions/discord/openclaw.plugin.json](file://extensions/discord/openclaw.plugin.json)
 - [extensions/memory-core/package.json](file://extensions/memory-core/package.json)
 - [extensions/memory-core/index.ts](file://extensions/memory-core/index.ts)
 - [src/plugins/bundled-dir.ts](file://src/plugins/bundled-dir.ts)
@@ -22,11 +29,11 @@
 
 ## 更新摘要
 **所做更改**
-- 新增了 memory-core 插件自动捆绑功能的详细说明
-- 更新了打包配置中插件捆绑部分的架构图
-- 增强了插件系统与打包流程的集成说明
-- 添加了插件发现和捆绑机制的技术细节
-- 更新了插件自动捆绑配置的实现细节
+- 新增了更全面的扩展捆绑功能，涵盖多个核心扩展的自动捆绑配置
+- 更新了打包配置中插件捆绑部分的架构图，展示完整的扩展生态系统
+- 增强了插件系统与打包流程的集成说明，包括基础设施、认证和通信渠道扩展
+- 添加了扩展分类组织的详细说明和技术实现细节
+- 更新了扩展自动捆绑配置的完整实现列表
 
 ## 目录
 1. [简介](#简介)
@@ -34,16 +41,17 @@
 3. [核心组件分析](#核心组件分析)
 4. [架构总览](#架构总览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考虑](#性能考虑)
-8. [故障排除指南](#故障排除指南)
-9. [结论](#结论)
+6. [扩展捆绑系统](#扩展捆绑系统)
+7. [依赖关系分析](#依赖关系分析)
+8. [性能考虑](#性能考虑)
+9. [故障排除指南](#故障排除指南)
+10. [结论](#结论)
 
 ## 简介
 
 OpenClaw 项目的 Electron 打包配置是一个完整的桌面应用程序构建系统，专注于提供跨平台的桌面客户端体验。该配置实现了现代化的打包流程，集成了 Node.js 环境、React 前端界面以及本地 Gateway 服务。
 
-**更新** 新增了 memory-core 插件的自动捆绑功能，确保扩展插件在打包的应用程序中可用，解决了之前需要手动干预的问题。这一改进通过 electron-builder 的自动发现机制，实现了真正的"零配置"插件捆绑。
+**更新** 新增了更全面的扩展捆绑功能，实现了对多个核心扩展的自动捆绑配置。该系统现已支持包括 memory-core、device-pair、qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy、telegram 和 discord 等在内的完整扩展生态系统，确保用户在安装时即可获得开箱即用的完整功能体验。
 
 该打包配置的主要特点包括：
 - 多平台支持（macOS、Windows、Linux）
@@ -52,7 +60,7 @@ OpenClaw 项目的 Electron 打包配置是一个完整的桌面应用程序构�
 - OAuth 认证流程支持
 - 硬化运行时配置
 - 自动更新机制
-- **插件自动捆绑功能**（新增）
+- **全面的扩展自动捆绑功能**（新增）
 
 ## 项目结构概览
 
@@ -84,21 +92,29 @@ T[openclaw.json] --> U[用户配置]
 T --> V[认证配置]
 T --> W[模型配置]
 end
-subgraph "插件系统"
-U1[memory-core 插件] --> U2[插件清单]
-U1 --> U3[插件实现]
-U1 --> U4[插件配置]
+subgraph "扩展捆绑系统"
+U1[基础设施扩展] --> U2[memory-core]
+U1 --> U3[device-pair]
+U1 --> U4[基础功能]
+U5[认证扩展] --> U6[qwen-portal-auth]
+U5 --> U7[minimax-portal-auth]
+U5 --> U8[google-gemini-cli-auth]
+U5 --> U9[copilot-proxy]
+U10[通信渠道扩展] --> U11[telegram]
+U10 --> U12[discord]
+U13[扩展清单] --> U14[插件发现机制]
+U13 --> U15[自动捆绑配置]
 end
 ```
 
 **图表来源**
 - [apps/electron/package.json:1-39](file://apps/electron/package.json#L1-L39)
-- [apps/electron/electron-builder.yml:1-104](file://apps/electron/electron-builder.yml#L1-L104)
+- [apps/electron/electron-builder.yml:1-124](file://apps/electron/electron-builder.yml#L1-L124)
 - [extensions/memory-core/openclaw.plugin.json:1-10](file://extensions/memory-core/openclaw.plugin.json#L1-L10)
 
 **章节来源**
 - [apps/electron/package.json:1-39](file://apps/electron/package.json#L1-L39)
-- [apps/electron/electron-builder.yml:1-104](file://apps/electron/electron-builder.yml#L1-L104)
+- [apps/electron/electron-builder.yml:1-124](file://apps/electron/electron-builder.yml#L1-L124)
 
 ## 核心组件分析
 
@@ -192,13 +208,15 @@ subgraph "系统层"
 D[Node.js 运行时]
 E[Gateway 服务]
 F[OAuth 流程]
-G[插件系统]
+G[扩展捆绑系统]
 end
 subgraph "资源层"
 H[React 控制界面]
 I[静态资源]
 J[配置文件]
-K[memory-core 插件]
+K[基础设施扩展]
+L[认证扩展]
+M[通信渠道扩展]
 end
 A --> D
 A --> E
@@ -209,6 +227,16 @@ C --> A
 D --> I
 E --> J
 G --> K
+G --> L
+G --> M
+K --> N[memory-core]
+K --> O[device-pair]
+L --> P[qwen-portal-auth]
+L --> Q[minimax-portal-auth]
+L --> R[google-gemini-cli-auth]
+L --> S[copilot-proxy]
+M --> T[telegram]
+M --> U[discord]
 ```
 
 **图表来源**
@@ -219,7 +247,7 @@ G --> K
 
 ### 打包配置详解
 
-electron-builder.yml 定义了完整的打包配置：
+electron-builder.yml 定义了完整的打包配置，现已支持更全面的扩展捆绑：
 
 ```mermaid
 flowchart TD
@@ -231,23 +259,36 @@ E --> F[添加额外资源]
 F --> G[配置 macOS 特定选项]
 G --> H[设置硬化工作者]
 H --> I[配置 DMG 创建]
-I --> J[添加插件捆绑]
-J --> K[捆绑 memory-core 插件]
-K --> L[配置插件过滤规则]
-L --> M[完成打包]
-N[extraResources 配置] --> O[Node 二进制文件]
-O --> P[CLI 入口脚本]
-P --> Q[根 package.json]
-Q --> R[编译产物 dist/]
-R --> S[捆绑插件]
-S --> T[控制界面构建产物]
-T --> U[ui-react 构建产物]
+I --> J[添加扩展捆绑]
+J --> K[捆绑基础设施扩展]
+K --> L[memory-core 插件]
+L --> M[device-pair 插件]
+M --> N[捆绑认证扩展]
+N --> O[qwen-portal-auth 插件]
+O --> P[minimax-portal-auth 插件]
+P --> Q[google-gemini-cli-auth 插件]
+Q --> R[copilot-proxy 插件]
+R --> S[捆绑通信渠道扩展]
+S --> T[telegram 插件]
+T --> U[discord 插件]
+U --> V[配置插件过滤规则]
+V --> W[完成打包]
+X[extraResources 配置] --> Y[Node 二进制文件]
+Y --> Z[CLI 入口脚本]
+Z --> AA[根 package.json]
+AA --> BB[编译产物 dist/]
+BB --> CC[捆绑扩展]
+CC --> DD[控制界面构建产物]
+DD --> EE[ui-react 构建产物]
 ```
 
-**更新** 新增了 memory-core 插件的自动捆绑配置，位于第42-52行，确保插件在打包时自动包含。
+**更新** 新增了更全面的扩展捆绑配置，包括：
+- **基础设施扩展**：memory-core、device-pair
+- **认证扩展**：qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy
+- **通信渠道扩展**：telegram、discord
 
 **图表来源**
-- [apps/electron/electron-builder.yml:1-104](file://apps/electron/electron-builder.yml#L1-L104)
+- [apps/electron/electron-builder.yml:1-124](file://apps/electron/electron-builder.yml#L1-L124)
 
 ### 构建工具配置
 
@@ -265,7 +306,7 @@ tsup.config.ts 定义了 TypeScript 编译配置：
 | bundle | true | 启用打包 |
 
 **章节来源**
-- [apps/electron/electron-builder.yml:1-104](file://apps/electron/electron-builder.yml#L1-L104)
+- [apps/electron/electron-builder.yml:1-124](file://apps/electron/electron-builder.yml#L1-L124)
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
 
 ### macOS 硬化运行时配置
@@ -302,37 +343,100 @@ openclaw.json 包含了完整的用户配置信息：
 | models | 模型配置 | providers, models, contextWindow |
 | agents | 代理配置 | defaults, workspace |
 | gateway | 网关配置 | port, mode, auth, nodes |
+| **plugins** | **扩展配置** | **entries, minimax-portal-auth: enabled** |
 
 **章节来源**
 - [apps/electron/openclaw.json:1-142](file://apps/electron/openclaw.json#L1-L142)
 
+## 扩展捆绑系统
+
+**更新** 新增了更全面的扩展捆绑系统，实现了对多个核心扩展的自动捆绑配置。
+
+### 扩展分类组织
+
+扩展捆绑系统按照功能分类进行组织，确保用户获得完整的功能体验：
+
+```mermaid
+graph TB
+subgraph "扩展捆绑分类"
+A[基础设施扩展] --> B[memory-core]
+A --> C[device-pair]
+A --> D[基础功能]
+E[认证扩展] --> F[qwen-portal-auth]
+E --> G[minimax-portal-auth]
+E --> H[google-gemini-cli-auth]
+E --> I[copilot-proxy]
+J[通信渠道扩展] --> K[telegram]
+J --> L[discord]
+M[扩展发现机制] --> N[resolveBundledPluginsDir]
+M --> O[discoverOpenClawPlugins]
+M --> P[loadPluginManifest]
+end
+```
+
+**图表来源**
+- [apps/electron/electron-builder.yml:44-75](file://apps/electron/electron-builder.yml#L44-L75)
+- [src/plugins/bundled-dir.ts:5-41](file://src/plugins/bundled-dir.ts#L5-L41)
+
+### 扩展捆绑配置详解
+
+**更新** electron-builder.yml 中的扩展捆绑配置现已覆盖多个核心扩展：
+
+#### 基础设施扩展
+- **memory-core**：核心内存管理功能
+- **device-pair**：设备配对和连接管理
+
+#### 认证扩展
+- **qwen-portal-auth**：通义千问门户认证
+- **minimax-portal-auth**：MiniMax 门户认证  
+- **google-gemini-cli-auth**：Google Gemini 命令行认证
+- **copilot-proxy**：GitHub Copilot 代理
+
+#### 通信渠道扩展
+- **telegram**：Telegram 消息通道
+- **discord**：Discord 消息通道
+
+**章节来源**
+- [apps/electron/electron-builder.yml:44-75](file://apps/electron/electron-builder.yml#L44-L75)
+
 ### 插件自动捆绑机制
 
-**新增** memory-core 插件的自动捆绑功能通过以下机制实现：
+**更新** 扩展捆绑系统通过以下机制实现：
 
 ```mermaid
 flowchart TD
 A[打包过程开始] --> B[解析 electron-builder.yml]
 B --> C[扫描 extraResources 配置]
-C --> D{检测插件捆绑条目}
-D --> |找到| E[读取 extensions/memory-core]
+C --> D{检测扩展捆绑条目}
+D --> |找到| E[读取扩展目录]
 E --> F[应用过滤规则]
-F --> G[复制插件文件]
-G --> H[更新插件清单]
+F --> G[复制扩展文件]
+G --> H[更新扩展清单]
 H --> I[完成捆绑]
 D --> |未找到| J[跳过捆绑]
 J --> K[继续其他资源]
+L[扩展发现机制] --> M[resolveBundledPluginsDir]
+M --> N[discoverOpenClawPlugins]
+N --> O[loadPluginManifest]
+O --> P[注册扩展到系统]
 ```
 
-**插件捆绑配置详情**：
+**扩展捆绑配置详情**：
 - **源路径**：`../../extensions`
 - **目标路径**：`openclaw/extensions`
 - **过滤规则**：排除 node_modules 和 .map 文件
-- **插件 ID**：`memory-core`
+- **扩展 ID 列表**：memory-core、device-pair、qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy、telegram、discord
 
 **章节来源**
-- [apps/electron/electron-builder.yml:39-52](file://apps/electron/electron-builder.yml#L39-L52)
+- [apps/electron/electron-builder.yml:44-75](file://apps/electron/electron-builder.yml#L44-L75)
 - [extensions/memory-core/openclaw.plugin.json:1-10](file://extensions/memory-core/openclaw.plugin.json#L1-L10)
+- [extensions/device-pair/openclaw.plugin.json:1-21](file://extensions/device-pair/openclaw.plugin.json#L1-L21)
+- [extensions/qwen-portal-auth/openclaw.plugin.json:1-10](file://extensions/qwen-portal-auth/openclaw.plugin.json#L1-L10)
+- [extensions/minimax-portal-auth/openclaw.plugin.json:1-10](file://extensions/minimax-portal-auth/openclaw.plugin.json#L1-L10)
+- [extensions/google-gemini-cli-auth/openclaw.plugin.json:1-10](file://extensions/google-gemini-cli-auth/openclaw.plugin.json#L1-L10)
+- [extensions/copilot-proxy/openclaw.plugin.json:1-10](file://extensions/copilot-proxy/openclaw.plugin.json#L1-L10)
+- [extensions/telegram/openclaw.plugin.json:1-10](file://extensions/telegram/openclaw.plugin.json#L1-L10)
+- [extensions/discord/openclaw.plugin.json:1-10](file://extensions/discord/openclaw.plugin.json#L1-L10)
 
 ## 依赖关系分析
 
@@ -355,18 +459,28 @@ I[concurrently@9.1.2]
 J[tailwindcss@4.2.1]
 K[@tailwindcss/vite@4.2.1]
 end
-subgraph "插件系统"
+subgraph "扩展系统"
 L[memory-core 插件]
-M[bundled-dir.ts]
-N[bundled-sources.ts]
+M[device-pair 插件]
+N[qwen-portal-auth 插件]
+O[minimax-portal-auth 插件]
+P[google-gemini-cli-auth 插件]
+Q[copilot-proxy 插件]
+R[telegram 插件]
+S[discord 插件]
+T[bundled-dir.ts]
+U[bundled-sources.ts]
 end
 A --> J
 B --> K
 C --> L
-M --> N
-O[electron-builder] --> P[打包输出]
-Q[tsup] --> R[主进程打包]
-S[插件捆绑] --> T[自动发现机制]
+T --> U
+V[electron-builder] --> W[打包输出]
+X[tsup] --> Y[主进程打包]
+Z[扩展捆绑] --> AA[自动发现机制]
+AA --> BB[resolveBundledPluginsDir]
+BB --> CC[discoverOpenClawPlugins]
+CC --> DD[loadPluginManifest]
 ```
 
 **图表来源**
@@ -385,22 +499,23 @@ S[插件捆绑] --> T[自动发现机制]
 2. **资源分离**：`.node` 文件不被打包，保持可执行权限
 3. **条件加载**：开发和生产环境采用不同的加载策略
 4. **缓存机制**：静态服务器端口缓存避免重复启动
-5. **插件智能捆绑**：仅捆绑必要的插件，减少包体大小
+5. **智能扩展捆绑**：仅捆绑必要的扩展，减少包体大小
 
 ### 内存管理
 
 - 预加载脚本限制渲染进程访问 Node.js API
 - 主进程管理所有系统级操作
 - 窗口生命周期管理，避免内存泄漏
-- **插件自动发现机制**：通过 `resolveBundledPluginsDir()` 函数智能定位插件目录
+- **扩展自动发现机制**：通过 `resolveBundledPluginsDir()` 函数智能定位扩展目录
 
-### 插件系统优化
+### 扩展系统优化
 
-**新增** 插件自动捆绑功能的性能优势：
-- **减少手动干预**：无需手动指定插件路径
-- **智能路径解析**：支持多种插件目录布局
+**更新** 扩展自动捆绑功能的性能优势：
+- **减少手动干预**：无需手动指定扩展路径
+- **智能路径解析**：支持多种扩展目录布局
 - **条件加载**：仅在开发模式下启用某些功能
-- **缓存机制**：插件发现结果可被缓存和复用
+- **缓存机制**：扩展发现结果可被缓存和复用
+- **分组优化**：按功能分类组织扩展，便于维护和更新
 
 **章节来源**
 - [src/plugins/bundled-dir.ts:5-41](file://src/plugins/bundled-dir.ts#L5-L41)
@@ -416,8 +531,10 @@ S[插件捆绑] --> T[自动发现机制]
 | OAuth 重定向失败 | 回调 URL 无效 | 验证 URL Scheme 配置 |
 | 权限问题 | 文件访问被拒绝 | 检查 entitlements 配置 |
 | 网络连接失败 | Gateway 无法连接 | 验证防火墙设置 |
-| **插件未加载** | memory-core 插件不可用 | **检查插件捆绑配置** |
-| **插件路径错误** | 插件路径解析失败 | **验证 bundled-dir.ts 配置** |
+| **扩展未加载** | 多个核心扩展不可用 | **检查扩展捆绑配置** |
+| **扩展路径错误** | 扩展路径解析失败 | **验证 bundled-dir.ts 配置** |
+| **认证失败** | AI Provider 认证异常 | **检查认证扩展捆绑** |
+| **通信失败** | Telegram/Discord 连接问题 | **验证通信扩展配置** |
 
 ### 调试技巧
 
@@ -425,12 +542,13 @@ S[插件捆绑] --> T[自动发现机制]
 2. **开发者工具**：使用 `Ctrl+Shift+I` 打开开发者工具
 3. **网络监控**：观察 WebSocket 连接状态
 4. **文件权限**：验证资源文件可执行权限
-5. **插件调试**：检查 `patchConfigForElectron` 日志输出
+5. **扩展调试**：检查 `patchConfigForElectron` 日志输出
 
-**更新** 插件相关调试：
+**更新** 扩展相关调试：
 - 查看 `[main] patchConfigForElectron: non-bundled plugin entries present (kept)` 日志
-- 验证 `BUNDLED_PLUGIN_IDS` 集合包含 "memory-core"
-- 检查插件捆绑路径是否正确
+- 验证 `BUNDLED_PLUGIN_IDS` 集合包含所有核心扩展 ID
+- 检查扩展捆绑路径是否正确
+- 验证扩展清单文件格式是否正确
 
 **章节来源**
 - [apps/electron/src/main/index.ts:77-85](file://apps/electron/src/main/index.ts#L77-L85)
@@ -445,21 +563,31 @@ OpenClaw 的 Electron 打包配置展现了现代桌面应用开发的最佳实�
 - **安全性保障**：严格的上下文隔离和权限控制
 - **跨平台兼容**：统一的构建流程支持多平台部署
 - **用户体验优化**：流畅的启动流程和错误处理机制
-- **插件系统集成**：**自动化的插件捆绑功能**（新增）
+- **扩展系统集成**：**全面的自动扩展捆绑功能**（新增）
 
-**更新总结** 新增的 memory-core 插件自动捆绑功能显著提升了用户体验：
+**更新总结** 新增的全面扩展捆绑功能显著提升了用户体验：
 
-- **自动化程度高**：无需手动干预即可包含插件
-- **智能路径解析**：支持多种插件目录布局
+- **自动化程度高**：无需手动干预即可包含多个核心扩展
+- **智能路径解析**：支持多种扩展目录布局
+- **分组组织清晰**：按功能分类组织扩展，便于维护
 - **配置简洁**：通过 electron-builder.yml 简单配置即可实现
-- **向后兼容**：不影响现有插件安装和管理机制
+- **向后兼容**：不影响现有扩展安装和管理机制
+- **功能完整性**：提供基础设施、认证和通信渠道的完整功能体验
 
 该配置为桌面应用开发提供了完整的参考模板，涵盖了从打包配置到运行时管理的各个方面。通过持续的优化和维护，该系统能够为用户提供稳定可靠的桌面应用体验。
 
 **新增功能亮点**：
-- **零配置插件捆绑**：通过 electron-builder 的自动发现机制，实现了真正的"零配置"插件捆绑
+- **多扩展自动捆绑**：通过 electron-builder 的自动发现机制，实现了对多个核心扩展的批量捆绑
+- **功能分类组织**：按照基础设施、认证和通信渠道进行分类，提供完整的功能体验
 - **智能过滤规则**：自动排除测试文件和不必要的构建产物，优化包体大小
-- **向后兼容性**：现有的插件管理机制完全不受影响，新增功能平滑集成
-- **开发体验提升**：开发者无需关心插件打包细节，专注于功能开发
+- **向后兼容性**：现有的扩展管理机制完全不受影响，新增功能平滑集成
+- **开发体验提升**：开发者无需关心扩展打包细节，专注于功能开发
 
 这一改进体现了现代软件工程中"约定优于配置"的设计理念，通过智能化的默认行为减少了开发者的配置负担，同时保持了系统的灵活性和可扩展性。
+
+**扩展 ID 列表**：
+- 基础设施：memory-core、device-pair
+- 认证：qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy
+- 通信：telegram、discord
+
+这些扩展的自动捆绑确保用户在安装时即可获得完整的 OpenClaw 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道。
