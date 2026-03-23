@@ -26,7 +26,12 @@ import {
   handleOAuthProtocolCallback,
 } from "./onboarding-oauth.js";
 import { generateToken } from "./token.js";
-import { createWindow, configureSession, loadRendererPage, startStaticServer } from "./window.js";
+import {
+  createWindow,
+  configureSession,
+  loadRendererPage,
+  startStaticServer,
+} from "./window.js";
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
 
 // ─── Single-instance lock (required for Windows second-instance protocol) ─────
@@ -246,7 +251,9 @@ function patchConfigForElectron(staticServerPort: number): void {
         cfg.plugins = plugins;
       }
       dirty = true;
-      mlog("[main] patchConfigForElectron: removed plugins.slots.memory=none restriction");
+      mlog(
+        "[main] patchConfigForElectron: removed plugins.slots.memory=none restriction",
+      );
     } else {
       cfg.plugins = plugins;
     }
@@ -257,18 +264,35 @@ function patchConfigForElectron(staticServerPort: number): void {
     // even though the Electron app itself only ships memory-core. Deleting these
     // entries would silently destroy the user's CLI-configured plugin settings.
     // Gateway will emit its own warn/error diagnostics for truly missing plugins.
-    const BUNDLED_PLUGIN_IDS = new Set(["memory-core"]);
+    // Core extensions bundled in the Electron app (see electron-builder.yml extraResources).
+    // Keep in sync with the extensions listed there.
+    const BUNDLED_PLUGIN_IDS = new Set([
+      "memory-core",
+      "device-pair",
+      "qwen-portal-auth",
+      "minimax-portal-auth",
+      "google-gemini-cli-auth",
+      "copilot-proxy",
+      "telegram",
+      "discord",
+    ]);
     const entries = (plugins.entries ?? {}) as Record<string, unknown>;
-    const nonBundledEntries = Object.keys(entries).filter(id => !BUNDLED_PLUGIN_IDS.has(id));
+    const nonBundledEntries = Object.keys(entries).filter(
+      (id) => !BUNDLED_PLUGIN_IDS.has(id),
+    );
     if (nonBundledEntries.length > 0) {
-      mlog(`[main] patchConfigForElectron: non-bundled plugin entries present (kept): ${nonBundledEntries.join(", ")}`);
+      mlog(
+        `[main] patchConfigForElectron: non-bundled plugin entries present (kept): ${nonBundledEntries.join(", ")}`,
+      );
     }
 
     // 2. Add controlUi.allowedOrigins — static server origin + loopback + file:// fallback
     const gw = (cfg.gateway ?? {}) as Record<string, unknown>;
     const gatewayPort = typeof gw.port === "number" ? gw.port : 18789;
     const controlUi = (gw.controlUi ?? {}) as Record<string, unknown>;
-    const existing = Array.isArray(controlUi.allowedOrigins) ? controlUi.allowedOrigins as string[] : [];
+    const existing = Array.isArray(controlUi.allowedOrigins)
+      ? (controlUi.allowedOrigins as string[])
+      : [];
     const needed = [
       `http://127.0.0.1:${gatewayPort}`,
       `http://localhost:${gatewayPort}`,
@@ -276,11 +300,16 @@ function patchConfigForElectron(staticServerPort: number): void {
       ...(staticServerPort > 0 ? [`http://127.0.0.1:${staticServerPort}`] : []),
     ];
     const merged = Array.from(new Set([...existing, ...needed]));
-    if (merged.length !== existing.length || needed.some(o => !existing.includes(o))) {
+    if (
+      merged.length !== existing.length ||
+      needed.some((o) => !existing.includes(o))
+    ) {
       gw.controlUi = { ...controlUi, allowedOrigins: merged };
       cfg.gateway = gw;
       dirty = true;
-      mlog(`[main] patchConfigForElectron: updated controlUi.allowedOrigins=${JSON.stringify(merged)}`);
+      mlog(
+        `[main] patchConfigForElectron: updated controlUi.allowedOrigins=${JSON.stringify(merged)}`,
+      );
     }
 
     if (dirty) {

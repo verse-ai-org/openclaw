@@ -7,6 +7,9 @@ import type { ThemeMode, UiSettings } from "@/types/gateway";
 const STORAGE_KEY = "openclaw.control.settings.v1";
 const TOKEN_SESSION_KEY_PREFIX = "openclaw.control.token.v1:";
 const LEGACY_TOKEN_SESSION_KEY = "openclaw.control.token.v1";
+// Persists the gateway URL injected by Electron so it survives page refresh
+// even when the static server port changes between launches.
+const ELECTRON_GATEWAY_URL_KEY = "openclaw.control.electron-gateway-url.v1";
 
 function normalizeGatewayTokenScope(gatewayUrl: string): string {
   const trimmed = gatewayUrl.trim();
@@ -20,7 +23,9 @@ function normalizeGatewayTokenScope(gatewayUrl: string): string {
         : undefined;
     const parsed = base ? new URL(trimmed, base) : new URL(trimmed);
     const pathname =
-      parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/+$/, "") || parsed.pathname;
+      parsed.pathname === "/"
+        ? ""
+        : parsed.pathname.replace(/\/+$/, "") || parsed.pathname;
     return `${parsed.protocol}//${parsed.host}${pathname}`;
   } catch {
     return trimmed;
@@ -75,6 +80,23 @@ function resolveDefaultGatewayUrl(): string {
   if (location.protocol === "file:") {
     return "ws://127.0.0.1:18789";
   }
+  // Electron packaged with embedded static HTTP server: the page is served from
+  // http://127.0.0.1:<static-server-port>/ which is NOT the Gateway port.
+  // Using location.host here would produce ws://127.0.0.1:<static-port>, which
+  // is wrong and causes the sessionStorage token key to mismatch on refresh.
+  // Instead, prefer the Gateway URL persisted by Electron on first load, then
+  // fall back to the default loopback Gateway port.
+  if (location.protocol === "http:" && location.hostname === "127.0.0.1") {
+    try {
+      const persisted = localStorage.getItem(ELECTRON_GATEWAY_URL_KEY);
+      if (persisted?.trim()) {
+        return persisted.trim();
+      }
+    } catch {
+      // best-effort
+    }
+    return "ws://127.0.0.1:18789";
+  }
   const proto = location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${location.host}`;
 }
@@ -113,7 +135,21 @@ export function loadSettings(): UiSettings {
     }
     if (urlToken || urlGatewayUrl) {
       const newSearch = searchParams.toString();
-      history.replaceState(null, "", newSearch ? `?${newSearch}` : location.pathname);
+      history.replaceState(
+        null,
+        "",
+        newSearch ? `?${newSearch}` : location.pathname,
+      );
+      // Persist the Electron-injected gateway URL to localStorage so that
+      // resolveDefaultGatewayUrl() can recover it on page refresh, even when
+      // the embedded static server port changes between launches.
+      if (urlGatewayUrl) {
+        try {
+          localStorage.setItem(ELECTRON_GATEWAY_URL_KEY, urlGatewayUrl);
+        } catch {
+          // best-effort
+        }
+      }
       // Persist token to sessionStorage so it survives page refresh.
       if (urlToken) {
         persistSessionToken(urlGatewayUrl || defaultUrl, urlToken);
@@ -166,25 +202,35 @@ export function loadSettings(): UiSettings {
           ? parsed.sessionKey.trim()
           : "main",
       lastActiveSessionKey:
-        typeof parsed.lastActiveSessionKey === "string" && parsed.lastActiveSessionKey.trim()
+        typeof parsed.lastActiveSessionKey === "string" &&
+        parsed.lastActiveSessionKey.trim()
           ? parsed.lastActiveSessionKey.trim()
           : "main",
       theme:
-        parsed.theme === "light" || parsed.theme === "dark" || parsed.theme === "system"
+        parsed.theme === "light" ||
+        parsed.theme === "dark" ||
+        parsed.theme === "system"
           ? parsed.theme
           : "system",
-      chatFocusMode: typeof parsed.chatFocusMode === "boolean" ? parsed.chatFocusMode : false,
+      chatFocusMode:
+        typeof parsed.chatFocusMode === "boolean"
+          ? parsed.chatFocusMode
+          : false,
       chatShowThinking:
-        typeof parsed.chatShowThinking === "boolean" ? parsed.chatShowThinking : true,
+        typeof parsed.chatShowThinking === "boolean"
+          ? parsed.chatShowThinking
+          : true,
       splitRatio:
         typeof parsed.splitRatio === "number" &&
         parsed.splitRatio >= 0.4 &&
         parsed.splitRatio <= 0.7
           ? parsed.splitRatio
           : 0.6,
-      navCollapsed: typeof parsed.navCollapsed === "boolean" ? parsed.navCollapsed : false,
+      navCollapsed:
+        typeof parsed.navCollapsed === "boolean" ? parsed.navCollapsed : false,
       navGroupsCollapsed:
-        typeof parsed.navGroupsCollapsed === "object" && parsed.navGroupsCollapsed !== null
+        typeof parsed.navGroupsCollapsed === "object" &&
+        parsed.navGroupsCollapsed !== null
           ? parsed.navGroupsCollapsed
           : {},
       locale: parsed.locale,
@@ -204,7 +250,9 @@ function persistSettings(settings: UiSettings) {
 // Theme helpers
 // ---------------------------------------------------------------------------
 function resolveSystemTheme(): "light" | "dark" {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 function applyThemeToDom(theme: ThemeMode) {

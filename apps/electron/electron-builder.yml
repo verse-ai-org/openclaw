@@ -36,15 +36,43 @@ extraResources:
       - "!**/*.map"        # 生产环境不需要 sourcemap
       - "!**/test*"
 
-  # 捆绑插件（extensions/）
-  # resolveBundledPluginsDir() 从 dist/ 往上找 extensions/ 目录
-  # 打包时放在 openclaw/extensions/ 下，路径: openclaw/dist/../extensions/ = openclaw/extensions/
+  # workspace 模板文件（AGENTS.md, SOUL.md, TOOLS.md 等）
+  - from: "../../docs/reference/templates"
+    to: "openclaw/docs/reference/templates"
+    filter: ["**/*"]
+
+  # 核心扩展（随安装包预装，保证开箱即用的基本功能）
+  # 可选扩展由用户通过扩展管理界面按需安装到 ~/.openclaw/extensions/
+
+  # 基础设施
   - from: "../../extensions/memory-core"
     to: "openclaw/extensions/memory-core"
-    filter:
-      - "**/*"
-      - "!node_modules/**"
-      - "!**/*.map"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/device-pair"
+    to: "openclaw/extensions/device-pair"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+
+  # AI Provider 认证
+  - from: "../../extensions/qwen-portal-auth"
+    to: "openclaw/extensions/qwen-portal-auth"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/minimax-portal-auth"
+    to: "openclaw/extensions/minimax-portal-auth"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/google-gemini-cli-auth"
+    to: "openclaw/extensions/google-gemini-cli-auth"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/copilot-proxy"
+    to: "openclaw/extensions/copilot-proxy"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+
+  # 消息通道
+  - from: "../../extensions/telegram"
+    to: "openclaw/extensions/telegram"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/discord"
+    to: "openclaw/extensions/discord"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
 
   # Control UI 构建产物
   - from: "../../dist/control-ui"
@@ -54,9 +82,6 @@ extraResources:
   - from: "../../dist/control-ui-react"
     to: "control-ui-react"
 
-  # Electron 专属渲染页面（React Onboarding 等）
-  - from: "renderer/dist"
-    to: "renderer"
 
 mac:
   category: public.app-category.productivity

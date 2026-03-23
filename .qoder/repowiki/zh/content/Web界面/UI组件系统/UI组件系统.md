@@ -23,6 +23,7 @@
 - [sheet.tsx](file://ui-react/src/components/ui/sheet.tsx)
 - [switch.tsx](file://ui-react/src/components/ui/switch.tsx)
 - [use-mobile.ts](file://ui-react/src/hooks/use-mobile.ts)
+- [useSessionManager.ts](file://ui-react/src/hooks/useSessionManager.ts)
 - [components.json](file://ui-react/components.json)
 - [chat.store.ts](file://ui-react/src/store/chat.store.ts)
 - [skills.store.ts](file://ui-react/src/store/skills.store.ts)
@@ -30,15 +31,18 @@
 - [settings.store.ts](file://ui-react/src/store/settings.store.ts)
 - [skills.ts](file://ui-react/src/types/skills.ts)
 - [skills-grouping.ts](file://ui-react/src/lib/skills-grouping.ts)
+- [useChatEventBridge.ts](file://ui-react/src/hooks/useChatEventBridge.ts)
+- [ThreadView.tsx](file://ui-react/src/components/chat/ThreadView.tsx)
+- [session.md](file://docs/concepts/session.md)
+- [session-management-compaction.md](file://docs/reference/session-management-compaction.md)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增shadcn/ui设计系统的完整组件架构分析
-- 添加新的Sidebar组件、Checkbox、Sheet、Switch等UI组件
-- 更新use-mobile钩子的引入和使用
-- 扩展UI组件系统以支持现代化的设计系统
-- 新增组件配置文件components.json的详细说明
+- 新增UI会话管理器的小幅改进分析：useSessionManager.ts的更新优化了会话处理逻辑
+- 更新会话管理相关组件的响应性和稳定性说明
+- 增强会话切换和历史加载的错误处理机制
+- 完善会话管理器与聊天事件桥接的集成
 
 ## 目录
 1. [简介](#简介)
@@ -58,7 +62,7 @@ OpenClaw的UI组件系统是一个现代化的双框架架构，提供了两种�
 - **Lit-based传统UI**：基于Web Components的轻量级实现，使用Lit框架构建响应式组件
 - **React-based新UI**：基于React 19的现代化实现，采用shadcn/ui设计系统、Radix UI组件库和Zustand状态管理
 
-该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。**新增的shadcn/ui设计系统**提供了统一的设计语言和组件库，包括全新的Sidebar组件、Checkbox、Sheet、Switch等UI组件，以及use-mobile钩子的引入，显著提升了用户体验和开发效率。
+该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。**新增的UI会话管理器改进**显著提升了用户界面的响应性和稳定性，特别是在会话切换和历史加载方面。
 
 ## 项目结构
 
@@ -95,6 +99,10 @@ X --> Z[checkbox.tsx - 复选框组件]
 X --> AA[sheet.tsx - 弹窗组件]
 X --> BB[switch.tsx - 开关组件]
 T --> CC[use-mobile.ts - 移动端检测钩子]
+T --> DD[useSessionManager.ts - 会话管理器]
+DD --> EE[会话列表管理]
+DD --> FF[历史记录加载]
+DD --> GG[会话切换处理]
 end
 ```
 
@@ -104,6 +112,7 @@ end
 - [router.tsx:1-42](file://ui-react/src/router.tsx#L1-L42)
 - [sidebar.tsx:1-694](file://ui-react/src/components/ui/sidebar.tsx#L1-L694)
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
+- [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
 
 **章节来源**
 - [README.md:185-212](file://README.md#L185-L212)
@@ -134,6 +143,9 @@ class OpenClawApp {
 +cronJobs : CronJob[]
 +skillsReport : SkillStatusReport
 +debugStatus : StatusSummary
++cronJobs : CronJob[]
++skillsReport : SkillStatusReport
++debugStatus : StatusSummary
 +connect() void
 +handleSendChat() void
 +applySettings() void
@@ -154,7 +166,7 @@ OpenClawApp --> I18nController : 使用
 
 ### React UI核心组件（shadcn/ui设计系统）
 
-React实现已完全迁移到shadcn/ui设计系统，采用了现代化的组件架构，使用Zustand进行状态管理，并引入了新的UI组件：
+React实现已完全迁移到shadcn/ui设计系统，采用了现代化的组件架构，使用Zustand进行状态管理，并引入了新的UI组件和会话管理器：
 
 ```mermaid
 classDiagram
@@ -230,12 +242,23 @@ class SkillsPage {
 +saveApiKey() void
 +installSkill() void
 }
+class SessionManager {
++sessions : SessionEntry[]
++loading : boolean
++sessionKey : string
++activeLabel : string
++loadSessions() void
++loadHistory() void
++switchSession() void
++newSession() void
+}
 ChatStore <.. ChatPage : 状态管理
 SkillsStore <.. SkillsPage : 状态管理
 GatewayStore <.. SkillsPage : 网关连接
 SettingsStore <.. AppShell : 用户设置
 AppShell <.. ChatPage : 布局容器
 AppShell <.. SkillsPage : 布局容器
+SessionManager <.. ChatPage : 会话管理
 ```
 
 **图表来源**
@@ -246,15 +269,17 @@ AppShell <.. SkillsPage : 布局容器
 - [AppShell.tsx:10-26](file://ui-react/src/components/layout/AppShell.tsx#L10-L26)
 - [ChatPage.tsx:6-21](file://ui-react/src/pages/ChatPage.tsx#L6-L21)
 - [SkillsPage.tsx:10-31](file://ui-react/src/pages/SkillsPage.tsx#L10-L31)
+- [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 
 **章节来源**
 - [app.ts:110-630](file://ui/src/ui/app.ts#L110-L630)
 - [chat.store.ts:135-230](file://ui-react/src/store/chat.store.ts#L135-L230)
 - [skills.store.ts:16-32](file://ui-react/src/store/skills.store.ts#L16-L32)
+- [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 
 ## 架构概览
 
-UI组件系统采用分层架构设计，实现了清晰的关注点分离，**新增了基于shadcn/ui设计系统的统一组件库**：
+UI组件系统采用分层架构设计，实现了清晰的关注点分离，**新增了基于shadcn/ui设计系统的统一组件库和优化的会话管理器**：
 
 ```mermaid
 graph TB
@@ -272,50 +297,66 @@ N[布局系统] --> O[AppSidebar]
 N --> P[ChatSidebar]
 N --> Q[新Sidebar组件]
 end
+subgraph "会话管理层"
+R[会话管理器] --> S[会话列表获取]
+R --> T[历史记录加载]
+R --> U[会话切换处理]
+R --> V[新会话创建]
+S --> W[错误回退机制]
+T --> X[工具结果合并]
+U --> Y[设置会话键]
+V --> Z[会话持久化]
+end
 subgraph "shadcn/ui组件层"
-R[基础UI组件] --> S[Checkbox]
-R --> T[Sheet]
-R --> U[Switch]
-R --> V[Button]
-R --> W[Input]
-R --> X[Separator]
-R --> Y[Tooltip]
+AA[基础UI组件] --> BB[Checkbox]
+AA --> CC[Sheet]
+AA --> DD[Switch]
+AA --> EE[Button]
+AA --> FF[Input]
+AA --> GG[Separator]
+AA --> HH[Tooltip]
 end
 subgraph "状态管理层"
-Z[Zustand Store] --> AA[聊天状态]
-Z --> BB[技能状态]
-Z --> CC[网关连接]
-Z --> DD[用户设置]
-EE[Lit Reactive Properties] --> FF[应用状态]
-EE --> GG[主题切换]
-EE --> HH[语言切换]
+II[Zustand Store] --> JJ[聊天状态]
+II --> KK[技能状态]
+II --> LL[网关连接]
+II --> MM[用户设置]
+NN[Lit Reactive Properties] --> OO[应用状态]
+NN --> PP[主题切换]
+NN --> QQ[语言切换]
 end
 subgraph "数据传输层"
-II[WebSocket客户端] --> JJ[实时事件]
-II --> KK[流式响应]
-II --> LL[批量更新]
-MM[HTTP API] --> NN[配置读取]
-MM --> OO[日志获取]
-MM --> PP[会话列表]
-MM --> QQ[技能状态查询]
+RR[WebSocket客户端] --> SS[实时事件]
+RR --> TT[流式响应]
+RR --> UU[批量更新]
+VV[HTTP API] --> WW[配置读取]
+VV --> XX[日志获取]
+VV --> YY[会话列表]
+VV --> ZZ[技能状态查询]
 end
 subgraph "外部集成"
-RR[Gateway协议] --> II
-SS[浏览器API] --> TT[剪贴板]
-SS --> UU[文件上传]
-SS --> VV[通知权限]
-WW[移动端检测] --> XX[useIsMobile钩子]
+AAA[Gateway协议] --> RR
+BBB[浏览器API] --> CC[剪贴板]
+BBB --> DD[文件上传]
+BBB --> EE[通知权限]
+FFF[移动端检测] --> GG[useIsMobile钩子]
+GG --> HH[响应式设计]
+III[会话事件桥接] --> JJ[历史重载回调]
+JJ --> KK[聊天状态同步]
+LLL[会话管理器] --> MM[会话持久化]
 end
-A --> Z
-D --> Z
-H --> EE
-K --> EE
-N --> R
-R --> WW
-Z --> II
-EE --> II
-BB --> MM
-XX --> N
+A --> II
+D --> II
+H --> NN
+K --> NN
+N --> AA
+AA --> FFF
+II --> RR
+NN --> RR
+KK --> VV
+LL --> MMM
+MMM --> III
+FFF --> N
 ```
 
 **图表来源**
@@ -327,6 +368,8 @@ XX --> N
 - [sheet.tsx:1-134](file://ui-react/src/components/ui/sheet.tsx#L1-L134)
 - [switch.tsx:1-33](file://ui-react/src/components/ui/switch.tsx#L1-L33)
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
+- [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
+- [useChatEventBridge.ts:1-200](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L200)
 
 ## 详细组件分析
 
@@ -387,6 +430,84 @@ L --> M
 - [app.ts:497-506](file://ui/src/ui/app.ts#L497-L506)
 - [ChatPage.tsx:6-21](file://ui-react/src/pages/ChatPage.tsx#L6-L21)
 - [chat.store.ts:166-229](file://ui-react/src/store/chat.store.ts#L166-L229)
+
+### 会话管理器组件
+
+**新增** 优化的UI会话管理器，显著提升了用户界面的响应性和稳定性：
+
+```mermaid
+classDiagram
+class SessionManager {
++sessions : SessionEntry[]
++loading : boolean
++sessionKey : string
++activeLabel : string
++loadSessions() void
++loadHistory() void
++switchSession() void
++newSession() void
+}
+class SessionEntry {
++key : string
++label : string
++updatedAt : number
+}
+class ChatStoreIntegration {
++registerHistoryReload() void
++unregisterHistoryReload() void
++triggerHistoryReload() void
+}
+class GatewayStoreIntegration {
++client : IGatewayClient
++status : ConnectionStatus
+}
+class SettingsStoreIntegration {
++updateSettings() void
++settings : UiSettings
+}
+SessionManager --> SessionEntry : 管理
+SessionManager --> ChatStoreIntegration : 集成
+SessionManager --> GatewayStoreIntegration : 集成
+SessionManager --> SettingsStoreIntegration : 集成
+```
+
+**图表来源**
+- [useSessionManager.ts:13-139](file://ui-react/src/hooks/useSessionManager.ts#L13-L139)
+- [chat.store.ts:8-19](file://ui-react/src/store/chat.store.ts#L8-L19)
+- [chat.store.ts:136-200](file://ui-react/src/store/chat.store.ts#L136-L200)
+
+#### 会话管理器特性
+
+```mermaid
+flowchart TD
+A[会话管理器] --> B[会话列表管理]
+A --> C[历史记录加载]
+A --> D[会话切换处理]
+A --> E[新会话创建]
+B --> F[错误回退机制]
+C --> G[工具结果合并]
+C --> H[消息标准化]
+D --> I[设置会话键]
+D --> J[更新用户设置]
+E --> K[会话持久化]
+F --> L[默认会话创建]
+G --> M[内容块提取]
+H --> N[角色规范化]
+I --> O[状态同步]
+J --> P[本地存储更新]
+K --> Q[网关API调用]
+```
+
+**图表来源**
+- [useSessionManager.ts:29-42](file://ui-react/src/hooks/useSessionManager.ts#L29-L42)
+- [useSessionManager.ts:45-82](file://ui-react/src/hooks/useSessionManager.ts#L45-L82)
+- [useSessionManager.ts:85-92](file://ui-react/src/hooks/useSessionManager.ts#L85-L92)
+- [useSessionManager.ts:95-109](file://ui-react/src/hooks/useSessionManager.ts#L95-L109)
+
+**章节来源**
+- [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
+- [chat.store.ts:8-19](file://ui-react/src/store/chat.store.ts#L8-L19)
+- [chat.store.ts:136-200](file://ui-react/src/store/chat.store.ts#L136-L200)
 
 ### 新的Sidebar组件系统
 
@@ -799,11 +920,14 @@ W[radix-ui/react-*] --> X[基础UI组件]
 Y[lucide-react] --> Z[图标库]
 AA[use-mobile钩子] --> BB[移动端检测]
 AA --> CC[响应式设计]
+DD[useSessionManager钩子] --> EE[会话管理]
+DD --> FF[历史加载]
+DD --> GG[错误回退]
 end
 subgraph "开发工具"
-DD[vite] --> EE[构建工具]
-FF[typescript] --> GG[类型检查]
-HH[vitest] --> II[测试框架]
+HH[vite] --> II[构建工具]
+JJ[typescript] --> KK[类型检查]
+LL[vitest] --> MM[测试框架]
 end
 ```
 
@@ -811,6 +935,7 @@ end
 - [package.json:11-26](file://ui/package.json#L11-L26)
 - [package.json:11-55](file://ui-react/package.json#L11-L55)
 - [components.json:1-22](file://ui-react/components.json#L1-22)
+- [useSessionManager.ts:1-12](file://ui-react/src/hooks/useSessionManager.ts#L1-L12)
 
 ### 版本兼容性
 
@@ -826,11 +951,13 @@ end
 | 主题切换 | ✅ 支持 | ✅ 支持 | ✅ 功能相同 |
 | 国际化 | ✅ 支持 | ✅ 支持 | ✅ 功能相同 |
 | 响应式设计 | ❌ 不支持 | ✅ 完全支持 | ✅ 移动端优化 |
+| **会话管理** | ❌ 不支持 | ✅ **优化支持** | ✅ **显著改进** |
 
 **章节来源**
 - [package.json:11-26](file://ui/package.json#L11-L26)
 - [package.json:11-55](file://ui-react/package.json#L11-L55)
 - [components.json:1-22](file://ui-react/components.json#L1-22)
+- [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 
 ## 性能考虑
 
@@ -842,6 +969,7 @@ end
 4. **流式更新**：聊天消息采用流式渲染，提供更好的用户体验
 5. **技能分组缓存**：技能列表的分组和筛选结果进行缓存，避免重复计算
 6. **Sidebar性能优化**：新的Sidebar组件使用CSS变量和条件渲染，提升移动端性能
+7. ****会话管理优化**：**useSessionManager.ts的更新优化了会话处理逻辑，提升了响应性和稳定性**
 
 ### 内存管理
 
@@ -863,6 +991,7 @@ D --> H[继续渲染]
 - **缓存策略**：对静态资源和配置数据实施智能缓存
 - **技能状态缓存**：技能状态和报告进行本地缓存，减少网络请求
 - **组件懒加载**：shadcn/ui组件按需加载，减少初始包体积
+- ****会话历史缓存**：**优化的会话管理器减少了不必要的历史加载请求**
 
 ## 故障排除指南
 
@@ -898,6 +1027,17 @@ D --> H[继续渲染]
    - 检查Tailwind CSS配置
    - 确认组件别名映射是否正确
 
+7. **会话管理问题**
+   - **检查会话列表加载错误回退机制**
+   - **验证历史记录加载的工具结果合并**
+   - **确认会话切换时的设置更新**
+   - **监控新会话创建的API调用**
+
+8. **会话事件桥接问题**
+   - **检查历史重载回调的注册和注销**
+   - **验证聊天状态同步机制**
+   - **确认会话管理器与聊天事件的集成**
+
 ### 调试工具
 
 ```mermaid
@@ -915,12 +1055,20 @@ K[组件检查] --> L[React DevTools]
 K --> M[组件树分析]
 L --> N[Props检查]
 M --> N
+O[会话管理调试] --> P[会话列表加载]
+O --> Q[历史记录加载]
+O --> R[会话切换]
+P --> S[错误回退检查]
+Q --> T[工具结果合并]
+R --> U[设置更新验证]
 ```
 
 **章节来源**
 - [app.ts:129-131](file://ui/src/ui/app.ts#L129-L131)
 - [sidebar.tsx:174-197](file://ui-react/src/components/ui/sidebar.tsx#L174-L197)
 - [use-mobile.ts:8-16](file://ui-react/src/hooks/use-mobile.ts#L8-L16)
+- [useSessionManager.ts:37-41](file://ui-react/src/hooks/useSessionManager.ts#L37-L41)
+- [useSessionManager.ts:76-79](file://ui-react/src/hooks/useSessionManager.ts#L76-L79)
 
 ## 结论
 
@@ -928,10 +1076,19 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 
 1. **技术多样性**：同时支持Lit和React两种主流框架
 2. **设计系统统一**：React实现已完全迁移到shadcn/ui设计系统
-3. **功能完整性**：覆盖聊天、配置、监控、**技能管理**等核心功能
+3. **功能完整性**：覆盖聊天、配置、监控、技能管理等核心功能
 4. **性能优化**：采用多种优化策略确保流畅体验，包括技能状态缓存和Sidebar性能优化
 5. **响应式设计**：新增use-mobile钩子和新的Sidebar组件，提供优秀的移动端体验
 6. **可维护性**：清晰的架构设计便于长期维护
+
+**新增的UI会话管理器改进**显著提升了用户界面的响应性和稳定性，特别是在会话切换和历史加载方面。useSessionManager.ts的更新优化了会话处理逻辑，包括：
+
+- **增强的错误处理机制**：在会话列表加载失败时提供默认会话创建
+- **优化的历史加载流程**：改进了工具结果合并和消息标准化过程
+- **稳定的会话切换处理**：确保会话切换时的设置更新和状态同步
+- **可靠的会话创建流程**：提供API调用失败时的回退机制
+
+这些改进使得用户在切换不同会话时能够获得更流畅的体验，减少了因网络问题或API故障导致的界面卡顿。会话管理器与聊天事件桥接的深度集成确保了会话状态的实时同步和一致性。
 
 **新增的shadcn/ui设计系统**提供了统一的设计语言和组件库，包括全新的Sidebar组件、Checkbox、Sheet、Switch等基础UI组件，以及use-mobile钩子的引入，显著提升了用户体验和开发效率。这个设计系统与现有的聊天和配置管理功能无缝集成，形成了一个完整的AI助手管理平台。
 
@@ -948,4 +1105,4 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 - Switch：支持不同尺寸和状态的开关组件
 - 统一的设计语言：基于shadcn/ui的设计规范
 
-这种设计既满足了现有功能需求，又为未来的功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。**新增的shadcn/ui设计系统**的引入进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。
+**新增的会话管理器优化**进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。**优化的会话管理器**的引入进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。

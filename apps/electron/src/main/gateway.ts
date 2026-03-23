@@ -23,6 +23,135 @@ function logError(msg: string, err?: unknown): void {
   mainLogSync(`[ERROR] ${msg}${detail}`);
 }
 
+/**
+ * Structured gateway log line for easier grep/filter.
+ * Example: [gateway][spawn] port=18789 force=false
+ */
+function logEvent(event: string, fields?: Record<string, unknown>): void {
+  if (!fields || Object.keys(fields).length === 0) {
+    log(`[gateway][${event}]`);
+    return;
+  }
+  const kv = Object.entries(fields)
+    .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+    .join(" ");
+  log(`[gateway][${event}] ${kv}`);
+}
+
+/**
+ * Normalise child process output so each line is independently prefixed.
+ */
+function writeChildStream(tag: "stdout" | "stderr", text: string): void {
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue;
+    if (tag === "stdout") {
+      process.stdout.write(`[gateway:${tag}] ${line}\n`);
+    } else {
+      process.stderr.write(`[gateway:${tag}] ${line}\n`);
+    }
+    mainLogSync(`[gateway:${tag}] ${line}`);
+  }
+}
+
+/**
+ * 启动时扫描并报告 bundled extensions 的状态。
+ * 帮助诊断"plugin not found"问题。
+ */
+function auditBundledExtensions(): void {
+  const extensionsDir = app.isPackaged
+    ? path.join(process.resourcesPath, "openclaw", "extensions")
+    : path.resolve(__dirname, "../../../../extensions");
+
+  if (!fs.existsSync(extensionsDir)) {
+    logEvent("audit-extensions", { status: "missing", path: extensionsDir });
+    return;
+  }
+
+  try {
+    const entries = fs.readdirSync(extensionsDir, { withFileTypes: true });
+    const extensions: Array<{
+      id: string;
+      hasManifest: boolean;
+      hasPackageJson: boolean;
+    }> = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const id = entry.name;
+      const extDir = path.join(extensionsDir, id);
+      const manifestPath = path.join(extDir, "openclaw.plugin.json");
+      const packagePath = path.join(extDir, "package.json");
+
+      extensions.push({
+        id,
+        hasManifest: fs.existsSync(manifestPath),
+        hasPackageJson: fs.existsSync(packagePath),
+      });
+    }
+
+    const summary = extensions
+      .map(
+        (e) =>
+          `${e.id}(manifest=${e.hasManifest ? "✓" : "✗"} pkg=${e.hasPackageJson ? "✓" : "✗"})`,
+      )
+      .join(" ");
+
+    logEvent("audit-extensions", {
+      status: "ok",
+      count: extensions.length,
+      list: summary,
+    });
+  } catch (err) {
+    logEvent("audit-extensions", {
+      status: "error",
+      error: String(err),
+    });
+  }
+}
+
+/**
+ * 检查配置中引用的插件是否存在。
+ */
+function auditConfigPlugins(cfg: Record<string, unknown>): void {
+  const plugins = cfg.plugins as Record<string, unknown> | undefined;
+  if (!plugins) {
+    logEvent("audit-config-plugins", { status: "no-plugins-section" });
+    return;
+  }
+
+  const entries = (plugins.entries as Record<string, unknown>) ?? {};
+  const entryIds = Object.keys(entries);
+
+  if (entryIds.length === 0) {
+    logEvent("audit-config-plugins", { status: "no-entries" });
+    return;
+  }
+
+  const extensionsDir = app.isPackaged
+    ? path.join(process.resourcesPath, "openclaw", "extensions")
+    : path.resolve(__dirname, "../../../../extensions");
+
+  const missing: string[] = [];
+  const found: string[] = [];
+
+  for (const id of entryIds) {
+    const extDir = path.join(extensionsDir, id);
+    const manifestPath = path.join(extDir, "openclaw.plugin.json");
+    if (fs.existsSync(manifestPath)) {
+      found.push(id);
+    } else {
+      missing.push(id);
+    }
+  }
+
+  logEvent("audit-config-plugins", {
+    status: missing.length === 0 ? "ok" : "missing",
+    total: entryIds.length,
+    found: found.length,
+    missing: missing.length > 0 ? missing.join(",") : undefined,
+  });
+}
+
 const DEFAULT_GATEWAY_PORT = 18789;
 
 /**
@@ -312,21 +441,40 @@ async function waitForGatewayReady(
  *      - 在独立端口 18790 启动（带 --force 仅针对该端口），使用随机 token
  */
 export async function startGateway(opts: GatewayStartOptions): Promise<void> {
+  logEvent("start-gateway", { phase: "begin" });
+
+  // 审计 bundled extensions 和配置中的插件引用
+  auditBundledExtensions();
+
   const existingToken = readExistingGatewayToken();
   const configPort = readExistingGatewayPort() ?? DEFAULT_GATEWAY_PORT;
+
+  // 读取配置并审计
+  const cfgPath = path.join(os.homedir(), ".openclaw", "openclaw.json");
+  if (fs.existsSync(cfgPath)) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as Record<
+        string,
+        unknown
+      >;
+      auditConfigPlugins(cfg);
+    } catch (err) {
+      logEvent("audit-config-plugins", { status: "parse-error", error: String(err) });
+    }
+  }
 
   if (existingToken) {
     // 有配置 token，尝试复用已有 Gateway
     gatewayToken = existingToken;
     const running = await isGatewayRunning(configPort);
     if (running) {
-      log(`[gateway] 检测到端口 ${configPort} 已有 Gateway 运行，复用现有实例`);
+      logEvent("reuse-gateway", { port: configPort });
       reusingExternalGateway = true;
       _activePort = configPort;
       return;
     }
     // 未运行，在配置端口启动（不带 --force，不干扰其他端口上的进程）
-    log(`[gateway] 配置端口 ${configPort} 无运行实例，启动新 Gateway`);
+    logEvent("spawn-gateway", { port: configPort, force: false, reason: "config-port-no-instance" });
     _activePort = configPort;
     await spawnGateway({
       port: configPort,
@@ -338,9 +486,11 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
     const port = opts.port ?? DEFAULT_GATEWAY_PORT;
     gatewayToken = opts.token;
     _activePort = port;
-    log(`[gateway] 无现有配置，在端口 ${port} 启动 Gateway`);
+    logEvent("spawn-gateway", { port, force: true, reason: "no-config-token" });
     await spawnGateway({ port, token: opts.token, force: true });
   }
+
+  logEvent("start-gateway", { phase: "complete", port: _activePort });
 }
 
 async function spawnGateway(opts: {
@@ -355,21 +505,27 @@ async function spawnGateway(opts: {
   if (app.isPackaged) {
     const nodeExists = fs.existsSync(nodeBin);
     const entryExists = fs.existsSync(openclawEntry);
-    log(`[gateway] 路径检查: node=${nodeBin} exists=${nodeExists}`);
-    log(`[gateway] 路径检查: entry=${openclawEntry} exists=${entryExists}`);
+    logEvent("path-check", {
+      node: nodeExists ? "✓" : "✗",
+      entry: entryExists ? "✓" : "✗",
+    });
     if (!nodeExists || !entryExists) {
-      logError(
-        `[gateway] 关键文件缺失！node=${nodeExists} entry=${entryExists}`,
-      );
+      logEvent("path-check-failed", {
+        node: nodeBin,
+        entry: openclawEntry,
+      });
       throw new Error(`打包资源缺失: node=${nodeExists}, entry=${entryExists}`);
     }
     // 列出 Resources 目录帮助调试
     try {
       const resourcesDir = process.resourcesPath;
       const topItems = fs.readdirSync(resourcesDir);
-      log(`[gateway] Resources/ 目录内容: ${topItems.join(", ")}`);
+      logEvent("resources-dir", {
+        count: topItems.length,
+        items: topItems.slice(0, 10).join(","),
+      });
     } catch (e) {
-      log(`[gateway] 无法列出 Resources/: ${e}`);
+      logEvent("resources-dir-error", { error: String(e) });
     }
   }
 
@@ -382,11 +538,15 @@ async function spawnGateway(opts: {
     "--allow-unconfigured",
   ];
   if (opts.force) {
-    // --force: 自动 kill 占用同端口的已有进程
     args.push("--force");
   }
 
-  log(`[gateway] 启动: ${nodeBin} ${args.join(" ")}`);
+  logEvent("spawn", {
+    node: nodeBin,
+    entry: openclawEntry,
+    port: opts.port,
+    force: opts.force,
+  });
 
   // Merge login shell env (already cached by warmLoginShellEnv) so that
   // variables set in ~/.zshrc / ~/.bash_profile (API keys, custom PATH, etc.)
@@ -406,36 +566,32 @@ async function spawnGateway(opts: {
   });
 
   gatewayProcess.stdout?.on("data", (data: Buffer) => {
-    const text = data.toString();
-    process.stdout.write(`[gateway] ${text}`);
-    mainLogSync(`[gateway:stdout] ${text.trimEnd()}`);
+    writeChildStream("stdout", data.toString());
   });
 
   gatewayProcess.stderr?.on("data", (data: Buffer) => {
-    const text = data.toString();
-    process.stderr.write(`[gateway] ${text}`);
-    mainLogSync(`[gateway:stderr] ${text.trimEnd()}`);
+    writeChildStream("stderr", data.toString());
   });
 
   gatewayProcess.on("exit", (code, signal) => {
-    log(`[gateway] 进程退出 code=${code} signal=${signal}`);
+    logEvent("exit", { code, signal });
     gatewayProcess = null;
     // Distinguish deliberate stop (SIGTERM from stopGateway) from unexpected crashes.
     // Reusing an external Gateway is never managed by us, so no crash notification.
     if (!_intentionalStop && !reusingExternalGateway && (code !== 0 || signal !== null && signal !== "SIGTERM")) {
-      log(`[gateway] 意外崩溃，触发 onGatewayCrash 回调 code=${code} signal=${signal}`);
+      logEvent("crash", { code, signal, intentionalStop: _intentionalStop, reusingExternal: reusingExternalGateway });
       _onGatewayCrash?.(code, signal);
     }
     _intentionalStop = false;
   });
 
   gatewayProcess.on("error", (err) => {
-    logError("[gateway] 启动失败:", err);
+    logEvent("spawn-error", { error: err.message });
   });
 
-  log(`[gateway] 等待就绪中，端口 ${opts.port}…`);
+  logEvent("wait-ready", { port: opts.port, timeoutMs: GATEWAY_READY_TIMEOUT_MS });
   await waitForGatewayReady(opts.port, GATEWAY_READY_TIMEOUT_MS);
-  log(`[gateway] 就绪，端口 ${opts.port}`);
+  logEvent("ready", { port: opts.port });
 }
 
 /**
@@ -444,13 +600,14 @@ async function spawnGateway(opts: {
  */
 export function stopGateway(): void {
   if (reusingExternalGateway) {
-    log("[gateway] 复用外部 Gateway，跳过停止操作");
+    logEvent("stop", { status: "skipped", reason: "reusing-external" });
     return;
   }
   if (!gatewayProcess) {
+    logEvent("stop", { status: "skipped", reason: "no-process" });
     return;
   }
-  log("[gateway] 正在停止...");
+  logEvent("stop", { status: "sending-sigterm" });
   _intentionalStop = true;
   gatewayProcess.kill("SIGTERM");
   gatewayProcess = null;
@@ -461,8 +618,9 @@ export function stopGateway(): void {
  * 若当前为复用外部 Gateway，则仍复用（不重启）。
  */
 export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
+  logEvent("restart", { phase: "begin", port: _activePort });
   if (reusingExternalGateway) {
-    console.log("[gateway] 复用外部 Gateway，跳过重启操作");
+    logEvent("restart", { status: "skipped", reason: "reusing-external" });
     return;
   }
   stopGateway();
@@ -475,8 +633,9 @@ export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
   const port = _activePort;
   const token = opts.token || gatewayToken;
   gatewayToken = token;
-  log(`[gateway] 重启 Gateway，port=${port}`);
+  logEvent("restart", { phase: "spawning", port });
   await spawnGateway({ port, token, force: true });
+  logEvent("restart", { phase: "complete", port });
 }
 
 export function getGatewayToken(): string {

@@ -184,7 +184,9 @@ export function createEmptyPluginRegistry(): PluginRegistry {
 
 export function createPluginRegistry(registryParams: PluginRegistryParams) {
   const registry = createEmptyPluginRegistry();
-  const coreGatewayMethods = new Set(Object.keys(registryParams.coreGatewayHandlers ?? {}));
+  const coreGatewayMethods = new Set(
+    Object.keys(registryParams.coreGatewayHandlers ?? {}),
+  );
 
   const pushDiagnostic = (diag: PluginDiagnostic) => {
     registry.diagnostics.push(diag);
@@ -198,7 +200,9 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     const names = opts?.names ?? (opts?.name ? [opts.name] : []);
     const optional = opts?.optional === true;
     const factory: OpenClawPluginToolFactory =
-      typeof tool === "function" ? tool : (_ctx: OpenClawPluginToolContext) => tool;
+      typeof tool === "function"
+        ? tool
+        : (_ctx: OpenClawPluginToolContext) => tool;
 
     if (typeof tool !== "function") {
       names.push(tool.name);
@@ -225,7 +229,9 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     config: OpenClawPluginApi["config"],
   ) => {
     const eventList = Array.isArray(events) ? events : [events];
-    const normalizedEvents = eventList.map((event) => event.trim()).filter(Boolean);
+    const normalizedEvents = eventList
+      .map((event) => event.trim())
+      .filter(Boolean);
     const entry = opts?.entry ?? null;
     const name = entry?.hook.name ?? opts?.name?.trim();
     if (!name) {
@@ -309,13 +315,18 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     record.gatewayMethods.push(trimmed);
   };
 
-  const describeHttpRouteOwner = (entry: PluginHttpRouteRegistration): string => {
+  const describeHttpRouteOwner = (
+    entry: PluginHttpRouteRegistration,
+  ): string => {
     const plugin = entry.pluginId?.trim() || "unknown-plugin";
     const source = entry.source?.trim() || "unknown-source";
     return `${plugin} (${source})`;
   };
 
-  const registerHttpRoute = (record: PluginRecord, params: OpenClawPluginHttpRouteParams) => {
+  const registerHttpRoute = (
+    record: PluginRecord,
+    params: OpenClawPluginHttpRouteParams,
+  ) => {
     const normalizedPath = normalizePluginHttpPath(params.path);
     if (!normalizedPath) {
       pushDiagnostic({
@@ -336,10 +347,13 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       return;
     }
     const match = params.match ?? "exact";
-    const overlappingRoute = findOverlappingPluginHttpRoute(registry.httpRoutes, {
-      path: normalizedPath,
-      match,
-    });
+    const overlappingRoute = findOverlappingPluginHttpRoute(
+      registry.httpRoutes,
+      {
+        path: normalizedPath,
+        match,
+      },
+    );
     if (overlappingRoute && overlappingRoute.auth !== params.auth) {
       pushDiagnostic({
         level: "error",
@@ -404,11 +418,15 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     registration: OpenClawPluginChannelRegistration | ChannelPlugin,
   ) => {
     const normalized =
-      typeof (registration as OpenClawPluginChannelRegistration).plugin === "object"
+      typeof (registration as OpenClawPluginChannelRegistration).plugin ===
+      "object"
         ? (registration as OpenClawPluginChannelRegistration)
         : { plugin: registration as ChannelPlugin };
     const plugin = normalized.plugin;
-    const id = typeof plugin?.id === "string" ? plugin.id.trim() : String(plugin?.id ?? "").trim();
+    const id =
+      typeof plugin?.id === "string"
+        ? plugin.id.trim()
+        : String(plugin?.id ?? "").trim();
     if (!id) {
       pushDiagnostic({
         level: "error",
@@ -438,7 +456,9 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       });
       return;
     }
-    const existing = registry.providers.find((entry) => entry.provider.id === id);
+    const existing = registry.providers.find(
+      (entry) => entry.provider.id === id,
+    );
     if (existing) {
       pushDiagnostic({
         level: "error",
@@ -461,7 +481,9 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     registrar: OpenClawPluginCliRegistrar,
     opts?: { commands?: string[] },
   ) => {
-    const commands = (opts?.commands ?? []).map((cmd) => cmd.trim()).filter(Boolean);
+    const commands = (opts?.commands ?? [])
+      .map((cmd) => cmd.trim())
+      .filter(Boolean);
     record.cliCommands.push(...commands);
     registry.cliRegistrars.push({
       pluginId: record.id,
@@ -471,7 +493,10 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     });
   };
 
-  const registerService = (record: PluginRecord, service: OpenClawPluginService) => {
+  const registerService = (
+    record: PluginRecord,
+    service: OpenClawPluginService,
+  ) => {
     const id = service.id.trim();
     if (!id) {
       return;
@@ -484,7 +509,10 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     });
   };
 
-  const registerCommand = (record: PluginRecord, command: OpenClawPluginCommandDefinition) => {
+  const registerCommand = (
+    record: PluginRecord,
+    command: OpenClawPluginCommandDefinition,
+  ) => {
     const name = command.name.trim();
     if (!name) {
       pushDiagnostic({
@@ -533,7 +561,10 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       return;
     }
     let effectiveHandler = handler;
-    if (policy?.allowPromptInjection === false && isPromptInjectionHookName(hookName)) {
+    if (
+      policy?.allowPromptInjection === false &&
+      isPromptInjectionHookName(hookName)
+    ) {
       if (hookName === "before_prompt_build") {
         pushDiagnostic({
           level: "warn",
@@ -596,11 +627,13 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       registerHttpRoute: (params) => registerHttpRoute(record, params),
       registerChannel: (registration) => registerChannel(record, registration),
       registerProvider: (provider) => registerProvider(record, provider),
-      registerGatewayMethod: (method, handler) => registerGatewayMethod(record, method, handler),
+      registerGatewayMethod: (method, handler) =>
+        registerGatewayMethod(record, method, handler),
       registerCli: (registrar, opts) => registerCli(record, registrar, opts),
       registerService: (service) => registerService(record, service),
       registerCommand: (command) => registerCommand(record, command),
-      registerContextEngine: (id, factory) => registerContextEngine(id, factory),
+      registerContextEngine: (id, factory) =>
+        registerContextEngine(id, factory),
       resolvePath: (input: string) => resolveUserPath(input),
       on: (hookName, handler, opts) =>
         registerTypedHook(record, hookName, handler, opts, params.hookPolicy),

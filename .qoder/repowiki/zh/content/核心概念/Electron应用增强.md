@@ -22,6 +22,9 @@
 
 ## 更新摘要
 **变更内容**
+- 新增登录shell环境缓存功能，解决macOS打包应用丢失PATH变量问题
+- 新增静态HTTP服务器功能，解决origin相关问题
+- 新增网关崩溃检测和通知机制
 - OAuth系统重大重构：新增设备代码流框架和通用运行器
 - 单实例锁机制：新增文件锁和单实例保护功能
 - URL方案注册改进：增强的URL协议处理和回调机制
@@ -41,16 +44,22 @@
 8. [单实例锁机制](#单实例锁机制)
 9. [URL方案注册改进](#url方案注册改进)
 10. [配置修补功能](#配置修补功能)
-11. [依赖关系分析](#依赖关系分析)
-12. [性能考虑](#性能考虑)
-13. [故障排除指南](#故障排除指南)
-14. [结论](#结论)
+11. [登录shell环境缓存](#登录shell环境缓存)
+12. [静态HTTP服务器](#静态http服务器)
+13. [网关崩溃检测](#网关崩溃检测)
+14. [依赖关系分析](#依赖关系分析)
+15. [性能考虑](#性能考虑)
+16. [故障排除指南](#故障排除指南)
+17. [结论](#结论)
 
 ## 简介
 
 OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务和React控制界面。该应用通过Electron框架提供跨平台支持，包含完整的设置向导、网关管理和实时通信功能。
 
 **最新增强功能：**
+- **登录shell环境缓存**：解决macOS打包应用丢失PATH变量问题
+- **静态HTTP服务器**：提供有效的loopback HTTP origin，解决origin相关问题
+- **网关崩溃检测**：实时监控Gateway进程状态并通知渲染进程
 - **OAuth系统重构**：全新的设备代码流框架和通用运行器
 - **单实例保护**：基于文件锁的多平台单实例机制
 - **URL协议增强**：改进的openclaw://协议处理和回调管理
@@ -68,6 +77,7 @@ OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务�
 - 完整的OAuth认证流程
 - 增强的错误处理和调试功能
 - 单实例锁保护机制
+- 实时网关状态监控
 
 ## 项目结构
 
@@ -123,6 +133,7 @@ end
 - OAuth认证流程管理
 - 调试日志记录
 - 单实例锁保护
+- 网关崩溃监控
 
 ### 预加载脚本
 
@@ -134,6 +145,7 @@ end
 - 提供类型安全的接口
 - 支持OAuth认证流程
 - 单实例锁状态同步
+- 网关崩溃状态通知
 
 ### 网关管理器
 
@@ -144,7 +156,9 @@ end
 - 支持动态端口配置
 - 进程监控和错误处理
 - 令牌管理和认证
+- 登录shell环境缓存
 - 增强的错误恢复机制
+- 网关崩溃检测回调
 
 ### OAuth认证系统
 
@@ -179,43 +193,58 @@ E[预加载脚本]
 F[OAuth适配器]
 G[设备代码流框架]
 H[单实例锁管理器]
+I[静态HTTP服务器]
+J[登录shell环境缓存]
+K[网关崩溃检测器]
 end
 subgraph "服务层"
-I[Gateway子进程]
-J[本地HTTP服务器]
-K[OAuth认证服务]
-L[文件锁服务]
+L[Gateway子进程]
+M[本地HTTP服务器]
+N[OAuth认证服务]
+O[文件锁服务]
+P[环境变量服务]
+Q[崩溃监控服务]
 end
 subgraph "系统集成层"
-M[Node.js API]
-N[Electron API]
-O[操作系统服务]
-P[Web API]
-Q[文件系统API]
+R[Node.js API]
+S[Electron API]
+T[操作系统服务]
+U[Web API]
+V[文件系统API]
+W[网络API]
 end
 A --> E
 B --> D
 C --> F
-D --> I
-E --> N
-F --> P
-G --> P
-H --> Q
-I --> M
-J --> O
-K --> P
-L --> Q
+D --> L
+E --> S
+F --> U
+G --> U
+H --> V
+I --> W
+J --> P
+K --> Q
+L --> R
+M --> W
+N --> U
+O --> V
+P --> T
+Q --> T
 subgraph "IPC通信"
-R[IPC消息]
-S[WebSocket连接]
-T[OAuth回调]
-U[文件锁通知]
+X[IPC消息]
+Y[WebSocket连接]
+Z[OAuth回调]
+AA[文件锁通知]
+BB[崩溃通知]
 end
-E -.-> R
-D -.-> S
-F -.-> T
-G -.-> T
-H -.-> U
+E -.-> X
+D -.-> Y
+F -.-> Z
+G -.-> Z
+H -.-> AA
+I -.-> BB
+J -.-> BB
+K -.-> BB
 ```
 
 **图表来源**
@@ -238,6 +267,7 @@ participant OAuth as OAuth服务
 participant DeviceFlow as 设备代码流
 participant Gateway as Gateway服务
 participant Window as 窗口管理
+participant StaticServer as 静态服务器
 UI->>Adapter : 用户操作
 Adapter->>Preload : IPC请求
 Preload->>Main : OAuth请求
@@ -246,6 +276,8 @@ OAuth->>DeviceFlow : 设备代码流
 DeviceFlow-->>OAuth : 设备代码结果
 OAuth-->>Main : 认证结果
 Main->>Gateway : 更新配置
+Gateway->>StaticServer : 启动静态服务器
+StaticServer-->>Gateway : 服务器就绪
 Gateway-->>Main : 确认更新
 Main->>Window : 更新UI状态
 Window-->>UI : 渲染更新
@@ -270,19 +302,26 @@ A[应用启动] --> B[生成会话令牌]
 B --> C[配置会话安全策略]
 C --> D[启动单实例锁检查]
 D --> E{单实例检查通过?}
-E --> |是| F[启动Gateway子进程]
+E --> |是| F[启动登录shell环境缓存]
 E --> |否| G[退出应用]
-F --> H{首次启动?}
-H --> |是| I[加载设置向导]
-H --> |否| J[加载控制界面]
-I --> K[注册IPC向导处理器]
-K --> L[建立OAuth认证支持]
-L --> M[等待向导完成]
-M --> N[注销IPC向导处理器]
-N --> O[切换到控制界面]
-J --> P[建立WebSocket连接]
-O --> P
-P --> Q[应用就绪]
+F --> H[启动静态HTTP服务器]
+H --> I{静态服务器启动成功?}
+I --> |是| J[获取服务器端口]
+I --> |否| K[继续启动但不使用静态服务器]
+J --> L[启动Gateway子进程]
+K --> L
+L --> M{首次启动?}
+M --> |是| N[加载设置向导]
+M --> |否| O[加载控制界面]
+N --> P[注册IPC向导处理器]
+P --> Q[建立OAuth认证支持]
+Q --> R[等待向导完成]
+R --> S[注销IPC向导处理器]
+S --> T[切换到控制界面]
+O --> U[建立WebSocket连接]
+T --> U
+U --> V[注册网关崩溃检测]
+V --> W[应用就绪]
 ```
 
 **图表来源**
@@ -303,6 +342,9 @@ class WindowManager {
 +configureSession(port) void
 +loadRendererPage(page, opts) void
 +loadGatewayUI(opts) void
++startStaticServer(rootDir) Promise~number~
++stopStaticServer() void
++getStaticServerPort() number
 -resolveRendererUrl(page) UrlType
 +handleLoadErrors() void
 +handleRenderProcessGone() void
@@ -321,9 +363,15 @@ class ErrorLogger {
 +wlog(msg) void
 +wlogError(msg, detail) void
 }
+class StaticServer {
++startStaticServer(rootDir) Promise~number~
++stopStaticServer() void
++getStaticServerPort() number
+}
 WindowManager --> SessionConfig : "配置CSP"
 WindowManager --> UrlResolver : "解析URL"
 WindowManager --> ErrorLogger : "错误日志"
+WindowManager --> StaticServer : "静态服务器"
 ```
 
 **图表来源**
@@ -342,6 +390,9 @@ participant Main as 主进程
 participant Gateway as Gateway进程
 participant FS as 文件系统
 participant Node as Node.js运行时
+participant ShellEnv as 登录shell环境
+Main->>ShellEnv : 预热环境缓存
+ShellEnv-->>Main : 环境变量就绪
 Main->>FS : 检查配置文件
 FS-->>Main : 返回配置信息
 Main->>Node : 启动Node进程
@@ -735,6 +786,165 @@ ConfigPatchManager --> ProviderRegistry : "使用提供商配置"
 **章节来源**
 - [apps/electron/src/main/onboarding-providers.ts:1-253](file://apps/electron/src/main/onboarding-providers.ts#L1-L253)
 
+## 登录shell环境缓存
+
+**新增功能：** 登录shell环境变量缓存机制，解决macOS打包应用丢失PATH变量问题。
+
+### 环境缓存架构
+
+```mermaid
+flowchart TD
+A[应用启动] --> B[预热登录shell环境]
+B --> C{环境缓存已存在?}
+C --> |是| D[直接使用缓存]
+C --> |否| E[执行shell命令获取环境变量]
+E --> F[解析环境变量输出]
+F --> G[存储到缓存]
+G --> H[合并到进程环境]
+D --> H
+H --> I[启动Gateway子进程]
+I --> J[应用环境变量到子进程]
+```
+
+**图表来源**
+- [apps/electron/src/main/gateway.ts:42-78](file://apps/electron/src/main/gateway.ts#L42-L78)
+- [apps/electron/src/main/gateway.ts:84-86](file://apps/electron/src/main/gateway.ts#L84-L86)
+
+### 环境变量解析
+
+登录shell环境缓存通过执行登录shell命令获取完整的环境变量：
+
+```mermaid
+classDiagram
+class LoginShellEnvCache {
++_loginShellEnv : Record~string, string~ | null
++resolveLoginShellEnv() : Promise~Record~string, string~~
++warmLoginShellEnv() : Promise~void~
++spawnGatewayWithEnv() : Promise~ChildProcess~
+}
+class ShellEnvironmentParser {
++parseEnvOutput(output) : Record~string, string~
++extractKeyValue(line) : [string, string]
+}
+LoginShellEnvCache --> ShellEnvironmentParser : "解析环境变量"
+```
+
+**图表来源**
+- [apps/electron/src/main/gateway.ts:42-78](file://apps/electron/src/main/gateway.ts#L42-L78)
+
+**章节来源**
+- [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
+
+## 静态HTTP服务器
+
+**新增功能：** 内置静态HTTP服务器，提供有效的loopback HTTP origin，解决origin相关问题。
+
+### 静态服务器架构
+
+```mermaid
+flowchart TD
+A[应用启动] --> B{打包模式?}
+B --> |是| C[启动静态HTTP服务器]
+B --> |否| D[使用开发服务器]
+C --> E[监听随机端口]
+E --> F[映射路由到HTML文件]
+F --> G[处理SPA回退到index.html]
+G --> H[设置正确的MIME类型]
+H --> I[返回静态资源]
+D --> J[使用VITE_UI_REACT_URL]
+I --> K[配置CSP和Origin头]
+J --> K
+K --> L[应用就绪]
+```
+
+**图表来源**
+- [apps/electron/src/main/window.ts:35-69](file://apps/electron/src/main/window.ts#L35-L69)
+- [apps/electron/src/main/window.ts:99-136](file://apps/electron/src/main/window.ts#L99-L136)
+
+### 服务器配置
+
+静态HTTP服务器提供完整的静态文件服务：
+
+```mermaid
+classDiagram
+class StaticHttpServer {
++_staticServer : http.Server | null
++_staticServerPort : number
++startStaticServer(rootDir) : Promise~number~
++stopStaticServer() : void
++getStaticServerPort() : number
++handleRequest(req, res) : void
+}
+class MimeTypes {
++MIME : Record~string, string~
++getMimeType(ext) : string
+}
+class SpaFallbackHandler {
++serveIndexHtml(filePath) : void
++handleUnknownRoute(req, res) : void
+}
+StaticHttpServer --> MimeTypes : "使用MIME类型"
+StaticHttpServer --> SpaFallbackHandler : "处理SPA回退"
+```
+
+**图表来源**
+- [apps/electron/src/main/window.ts:15-79](file://apps/electron/src/main/window.ts#L15-L79)
+
+**章节来源**
+- [apps/electron/src/main/window.ts:1-226](file://apps/electron/src/main/window.ts#L1-L226)
+
+## 网关崩溃检测
+
+**新增功能：** 实时监控Gateway进程状态并在崩溃时通知渲染进程。
+
+### 崩溃检测架构
+
+```mermaid
+flowchart TD
+A[启动Gateway进程] --> B[注册崩溃回调]
+B --> C[监控进程退出事件]
+C --> D{进程正常退出?}
+D --> |SIGTERM| E[预期停止，不通知]
+D --> |其他原因| F[意外崩溃，触发回调]
+F --> G[发送崩溃通知到渲染进程]
+G --> H[渲染进程显示重连提示]
+E --> I[应用正常关闭]
+H --> J[用户选择重连或重启]
+```
+
+**图表来源**
+- [apps/electron/src/main/gateway.ts:90-103](file://apps/electron/src/main/gateway.ts#L90-L103)
+- [apps/electron/src/main/gateway.ts:420-430](file://apps/electron/src/main/gateway.ts#L420-L430)
+
+### 崩溃处理机制
+
+网关崩溃检测器提供完整的崩溃监控和通知功能：
+
+```mermaid
+classDiagram
+class GatewayCrashDetector {
++_onGatewayCrash : ((code, signal) => void) | null
++_intentionalStop : boolean
++_reusingExternalGateway : boolean
++onGatewayCrash(cb) : void
++detectCrash(code, signal) : void
++isIntentionalStop() : boolean
++isReusingExternalGateway() : boolean
+}
+class CrashNotificationSystem {
++sendCrashNotification(code, signal) : void
++showReconnectPrompt() : void
++handleUserAction(action) : void
+}
+GatewayCrashDetector --> CrashNotificationSystem : "发送通知"
+```
+
+**图表来源**
+- [apps/electron/src/main/gateway.ts:90-103](file://apps/electron/src/main/gateway.ts#L90-L103)
+
+**章节来源**
+- [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
+
 ## 依赖关系分析
 
 应用的依赖关系体现了清晰的层次结构和模块化设计：
@@ -749,44 +959,57 @@ D[OAuth适配器]
 E[设备代码流框架]
 F[单实例锁管理器]
 G[配置修补器]
+H[静态HTTP服务器]
+I[登录shell环境缓存]
+J[网关崩溃检测器]
 end
 subgraph "服务层"
-H[Gateway服务]
-I[Node.js运行时]
-J[本地HTTP服务]
-K[OAuth认证服务]
-L[文件锁服务]
-M[配置服务]
+K[Gateway服务]
+L[Node.js运行时]
+M[本地HTTP服务]
+N[OAuth认证服务]
+O[文件锁服务]
+P[配置服务]
+Q[环境变量服务]
+R[崩溃监控服务]
 end
 subgraph "基础设施层"
-N[Electron框架]
-O[React框架]
-P[WebSocket库]
-Q[文件系统]
-R[Web API]
-S[加密库]
+S[Electron框架]
+T[React框架]
+U[WebSocket库]
+V[文件系统]
+W[Web API]
+X[加密库]
+Y[网络库]
 end
-A --> H
-A --> N
+A --> K
+A --> S
 B --> A
-B --> O
+B --> T
 C --> B
 D --> B
-E --> K
-F --> Q
-G --> M
-H --> I
-H --> J
-J --> P
-K --> R
-L --> Q
-M --> S
-A --> Q
-B --> Q
-D --> K
-E --> R
-F --> Q
-G --> M
+E --> N
+F --> V
+G --> P
+H --> M
+I --> Q
+J --> R
+K --> L
+K --> M
+M --> U
+N --> W
+O --> V
+P --> X
+Q --> Y
+A --> V
+B --> V
+D --> N
+E --> W
+F --> V
+G --> P
+H --> Y
+I --> Y
+J --> Y
 ```
 
 **图表来源**
@@ -830,6 +1053,9 @@ G --> M
 - OAuth会话状态管理
 - 设备代码流会话缓存
 - 单实例锁状态管理
+- 登录shell环境缓存
+- 静态HTTP服务器端口缓存
+- 网关崩溃检测回调缓存
 
 ### 启动性能
 
@@ -840,6 +1066,8 @@ G --> M
 - 缓存策略优化
 - OAuth会话缓存
 - 文件锁快速检查
+- 登录shell环境预热
+- 静态服务器并行启动
 
 ### 网络性能
 
@@ -850,6 +1078,8 @@ G --> M
 - 错误恢复策略
 - OAuth轮询优化
 - 设备代码流轮询间隔自适应
+- 静态资源缓存
+- CORS配置优化
 
 ### OAuth性能优化
 
@@ -860,6 +1090,7 @@ G --> M
 - 超时和重试机制
 - 错误状态快速失败
 - PKCE参数复用优化
+- 登录shell环境缓存预热
 
 **章节来源**
 - [apps/electron/src/main/onboarding-oauth.ts:187-258](file://apps/electron/src/main/onboarding-oauth.ts#L187-L258)
@@ -875,18 +1106,22 @@ G --> M
 - 验证Node.js运行时完整性
 - 查看进程日志输出
 - 确认防火墙设置
+- 验证登录shell环境缓存
+- 检查静态HTTP服务器状态
 
 **IPC通信异常**
 - 验证预加载脚本加载
 - 检查contextBridge配置
 - 确认IPC处理器注册
 - 排查WebSocket连接状态
+- 验证网关崩溃检测回调
 
 **窗口加载问题**
 - 检查CSP配置
 - 验证URL解析逻辑
 - 确认文件路径正确性
 - 查看开发服务器连接
+- 验证静态HTTP服务器端口
 
 **OAuth认证失败**
 - 检查网络连接
@@ -895,6 +1130,7 @@ G --> M
 - 确认auth-profiles.json写入
 - 检查设备代码流配置
 - 验证PKCE参数生成
+- 验证登录shell环境变量
 
 **单实例锁冲突**
 - 检查锁文件是否存在
@@ -908,25 +1144,19 @@ G --> M
 - 确认模型ID匹配
 - 查看修补验证结果
 
-### 调试工具
+**静态HTTP服务器问题**
+- 检查服务器端口占用
+- 验证静态文件路径
+- 确认MIME类型配置
+- 查看SPA回退逻辑
+- 验证CORS配置
 
-**开发模式调试**
-- 使用Electron DevTools
-- 启用详细日志记录
-- 监控进程状态
-- 分析内存使用情况
-- OAuth会话追踪
-- 设备代码流调试
-- 文件锁状态监控
-
-**生产环境监控**
-- 进程健康检查
-- 网络连接监控
-- 错误日志收集
-- 性能指标跟踪
-- OAuth认证监控
-- 单实例锁监控
-- 配置修补监控
+**网관崩溃检测失效**
+- 检查崩溃回调注册
+- 验证进程退出事件监听
+- 确认SIGTERM信号处理
+- 查看预期停止标志
+- 验证外部Gateway复用状态
 
 **章节来源**
 - [apps/electron/src/main/gateway.ts:140-147](file://apps/electron/src/main/gateway.ts#L140-L147)
@@ -946,6 +1176,9 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 增强的错误处理能力
 - 单实例锁保护机制
 - 动态配置修补功能
+- 登录shell环境缓存机制
+- 静态HTTP服务器服务
+- 实时网关崩溃检测
 
 **用户体验：**
 - 流畅的启动体验
@@ -954,6 +1187,9 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 稳定的连接管理
 - 无缝的OAuth认证体验
 - 可靠的单实例保护
+- 智能的环境变量处理
+- 平滑的静态资源加载
+- 实时的崩溃通知
 
 **扩展性：**
 - 插件化架构支持
@@ -962,8 +1198,12 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 可维护的代码结构
 - 易于添加新的OAuth提供商
 - 支持动态配置更新
+- 可扩展的崩溃检测机制
 
 **新增功能价值：**
+- 登录shell环境缓存解决了macOS打包应用的PATH变量问题
+- 静态HTTP服务器提供了有效的loopback HTTP origin，改善了origin相关问题
+- 网关崩溃检测机制提供了实时的状态监控和用户通知
 - OAuth设备代码流框架的完整实现
 - 单实例锁机制的可靠保护
 - URL协议处理的增强功能
@@ -972,4 +1212,4 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 改进的用户认证体验
 - 更好的安全性和可靠性
 
-该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。OAuth认证系统的重构、单实例锁机制的引入以及配置修补功能的实现，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择和更灵活的配置管理能力。
+该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。新增的登录shell环境缓存、静态HTTP服务器和网关崩溃检测功能，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力。
