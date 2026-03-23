@@ -36,6 +36,16 @@ extraResources:
       - "!**/*.map"        # 生产环境不需要 sourcemap
       - "!**/test*"
 
+  # 捆绑插件（extensions/）
+  # resolveBundledPluginsDir() 从 dist/ 往上找 extensions/ 目录
+  # 打包时放在 openclaw/extensions/ 下，路径: openclaw/dist/../extensions/ = openclaw/extensions/
+  - from: "../../extensions/memory-core"
+    to: "openclaw/extensions/memory-core"
+    filter:
+      - "**/*"
+      - "!node_modules/**"
+      - "!**/*.map"
+
   # Control UI 构建产物
   - from: "../../dist/control-ui"
     to: "control-ui"

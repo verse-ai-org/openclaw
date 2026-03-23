@@ -15,16 +15,20 @@
 - [apps/electron/src/main/token.ts](file://apps/electron/src/main/token.ts)
 - [apps/electron/src/main/onboarding-oauth.ts](file://apps/electron/src/main/onboarding-oauth.ts)
 - [apps/electron/src/main/onboarding-providers.ts](file://apps/electron/src/main/onboarding-providers.ts)
+- [apps/electron/src/main/oauth-device-flow.ts](file://apps/electron/src/main/oauth-device-flow.ts)
+- [apps/electron/src/main/oauth-utils.ts](file://apps/electron/src/main/oauth-utils.ts)
 - [ui-react/src/adapters/ElectronWizardAdapter.ts](file://ui-react/src/adapters/ElectronWizardAdapter.ts)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 增强窗口管理系统，新增错误处理和日志记录功能
-- 改进预加载桥接功能，新增OAuth验证适配器支持
-- 新增完整的OAuth验证流程，支持多种认证提供商
-- 优化IPC通信机制，增强错误恢复能力
-- 改进调试日志系统，提供更好的故障排除能力
+- OAuth系统重大重构：新增设备代码流框架和通用运行器
+- 单实例锁机制：新增文件锁和单实例保护功能
+- URL方案注册改进：增强的URL协议处理和回调机制
+- 配置修补功能：新增配置合并补丁和模型修补能力
+- 增强的错误处理和日志记录系统
+- 改进的预加载桥接功能和OAuth验证适配器支持
+- 优化的IPC通信机制和错误恢复能力
 
 ## 目录
 1. [简介](#简介)
@@ -33,18 +37,25 @@
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
 6. [OAuth认证系统](#oauth认证系统)
-7. [依赖关系分析](#依赖关系分析)
-8. [性能考虑](#性能考虑)
-9. [故障排除指南](#故障排除指南)
-10. [结论](#结论)
+7. [设备代码流框架](#设备代码流框架)
+8. [单实例锁机制](#单实例锁机制)
+9. [URL方案注册改进](#url方案注册改进)
+10. [配置修补功能](#配置修补功能)
+11. [依赖关系分析](#依赖关系分析)
+12. [性能考虑](#性能考虑)
+13. [故障排除指南](#故障排除指南)
+14. [结论](#结论)
 
 ## 简介
 
 OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务和React控制界面。该应用通过Electron框架提供跨平台支持，包含完整的设置向导、网关管理和实时通信功能。
 
 **最新增强功能：**
-- **增强的窗口管理**：新增全面的错误处理和日志记录系统
-- **OAuth认证支持**：完整的OAuth验证流程，支持多种认证提供商
+- **OAuth系统重构**：全新的设备代码流框架和通用运行器
+- **单实例保护**：基于文件锁的多平台单实例机制
+- **URL协议增强**：改进的openclaw://协议处理和回调管理
+- **配置修补**：动态配置合并和模型修补功能
+- **增强的窗口管理**：全面的错误处理和日志记录系统
 - **改进的预加载桥接**：增强的安全通信机制和错误处理
 - **优化的IPC通信**：改进的消息传递和错误恢复机制
 
@@ -56,6 +67,7 @@ OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务�
 - 安全的IPC通信机制
 - 完整的OAuth认证流程
 - 增强的错误处理和调试功能
+- 单实例锁保护机制
 
 ## 项目结构
 
@@ -78,10 +90,12 @@ F --> L[onboarding.ts - 设置向导]
 F --> M[token.ts - 令牌管理]
 F --> N[onboarding-oauth.ts - OAuth认证]
 F --> O[onboarding-providers.ts - 提供商配置]
-G --> P[index.ts - 预加载脚本]
-C --> Q[ui-react/ - React构建产物]
-D --> R[图标和权限文件]
-E --> S[编译输出]
+F --> P[oauth-device-flow.ts - 设备代码流]
+F --> Q[oauth-utils.ts - OAuth工具]
+G --> R[index.ts - 预加载脚本]
+C --> S[ui-react/ - React构建产物]
+D --> T[图标和权限文件]
+E --> U[编译输出]
 end
 ```
 
@@ -108,6 +122,7 @@ end
 - 安全策略配置
 - OAuth认证流程管理
 - 调试日志记录
+- 单实例锁保护
 
 ### 预加载脚本
 
@@ -118,6 +133,7 @@ end
 - 隐藏Node.js内部实现细节
 - 提供类型安全的接口
 - 支持OAuth认证流程
+- 单实例锁状态同步
 
 ### 网关管理器
 
@@ -132,7 +148,7 @@ end
 
 ### OAuth认证系统
 
-**新增功能：** 完整的OAuth认证流程，支持多种认证提供商。
+**新增功能：** 全新的OAuth认证系统，支持多种认证提供商。
 
 **支持的认证方式：**
 - API密钥认证
@@ -144,7 +160,7 @@ end
 - [apps/electron/src/main/index.ts:1-215](file://apps/electron/src/main/index.ts#L1-L215)
 - [apps/electron/src/preload/index.ts:1-96](file://apps/electron/src/preload/index.ts#L1-L96)
 - [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
-- [apps/electron/src/main/onboarding-oauth.ts:1-339](file://apps/electron/src/main/onboarding-oauth.ts#L1-L339)
+- [apps/electron/src/main/onboarding-oauth.ts:1-234](file://apps/electron/src/main/onboarding-oauth.ts#L1-L234)
 
 ## 架构概览
 
@@ -161,35 +177,45 @@ subgraph "应用逻辑层"
 D[主进程]
 E[预加载脚本]
 F[OAuth适配器]
+G[设备代码流框架]
+H[单实例锁管理器]
 end
 subgraph "服务层"
-G[Gateway子进程]
-H[本地HTTP服务器]
-I[OAuth认证服务]
+I[Gateway子进程]
+J[本地HTTP服务器]
+K[OAuth认证服务]
+L[文件锁服务]
 end
 subgraph "系统集成层"
-J[Node.js API]
-K[Electron API]
-L[操作系统服务]
-M[Web API]
+M[Node.js API]
+N[Electron API]
+O[操作系统服务]
+P[Web API]
+Q[文件系统API]
 end
 A --> E
 B --> D
 C --> F
-D --> G
-E --> K
-F --> M
-G --> J
-H --> L
+D --> I
+E --> N
+F --> P
+G --> P
+H --> Q
 I --> M
+J --> O
+K --> P
+L --> Q
 subgraph "IPC通信"
-N[IPC消息]
-O[WebSocket连接]
-P[OAuth回调]
+R[IPC消息]
+S[WebSocket连接]
+T[OAuth回调]
+U[文件锁通知]
 end
-E -.-> N
-D -.-> O
-F -.-> P
+E -.-> R
+D -.-> S
+F -.-> T
+G -.-> T
+H -.-> U
 ```
 
 **图表来源**
@@ -209,12 +235,15 @@ participant Adapter as OAuth适配器
 participant Preload as 预加载脚本
 participant Main as 主进程
 participant OAuth as OAuth服务
+participant DeviceFlow as 设备代码流
 participant Gateway as Gateway服务
 participant Window as 窗口管理
 UI->>Adapter : 用户操作
 Adapter->>Preload : IPC请求
 Preload->>Main : OAuth请求
 Main->>OAuth : 认证流程
+OAuth->>DeviceFlow : 设备代码流
+DeviceFlow-->>OAuth : 设备代码结果
 OAuth-->>Main : 认证结果
 Main->>Gateway : 更新配置
 Gateway-->>Main : 确认更新
@@ -239,18 +268,21 @@ Note over Main,Gateway : 双向通信通过WebSocket实现
 flowchart TD
 A[应用启动] --> B[生成会话令牌]
 B --> C[配置会话安全策略]
-C --> D[启动Gateway子进程]
-D --> E{首次启动?}
-E --> |是| F[加载设置向导]
-E --> |否| G[加载控制界面]
-F --> H[注册IPC向导处理器]
-H --> I[建立OAuth认证支持]
-I --> J[等待向导完成]
-J --> K[注销IPC向导处理器]
-K --> L[切换到控制界面]
-G --> M[建立WebSocket连接]
-L --> M
-M --> N[应用就绪]
+C --> D[启动单实例锁检查]
+D --> E{单实例检查通过?}
+E --> |是| F[启动Gateway子进程]
+E --> |否| G[退出应用]
+F --> H{首次启动?}
+H --> |是| I[加载设置向导]
+H --> |否| J[加载控制界面]
+I --> K[注册IPC向导处理器]
+K --> L[建立OAuth认证支持]
+L --> M[等待向导完成]
+M --> N[注销IPC向导处理器]
+N --> O[切换到控制界面]
+J --> P[建立WebSocket连接]
+O --> P
+P --> Q[应用就绪]
 ```
 
 **图表来源**
@@ -374,7 +406,7 @@ O --> P
 
 ## OAuth认证系统
 
-**新增功能：** 完整的OAuth认证流程，支持多种认证提供商。
+**新增功能：** 全新的OAuth认证系统，支持多种认证提供商。
 
 ### OAuth认证架构
 
@@ -382,18 +414,20 @@ O --> P
 flowchart TD
 A[用户选择认证方式] --> B{认证类型?}
 B --> |API密钥| C[直接输入密钥]
-B --> |OAuth设备代码| D[MiniMax设备代码流程]
+B --> |OAuth设备代码| D[设备代码流程]
 B --> |简单OAuth| E[URL打开流程]
-D --> F[获取user_code]
-F --> G[打开验证URL]
-G --> H[轮询令牌]
-H --> I[保存认证信息]
-E --> J[打开浏览器]
-J --> K[轮询auth-profiles.json]
-K --> I
-C --> I
-I --> L[更新Gateway配置]
-L --> M[重启Gateway服务]
+D --> F[设备代码流运行器]
+F --> G[获取user_code]
+G --> H[打开验证URL]
+H --> I[轮询令牌]
+I --> J[保存认证信息]
+E --> K[生成CSRF状态]
+K --> L[打开浏览器]
+L --> M[处理回调]
+M --> I
+C --> J
+J --> N[更新Gateway配置]
+N --> O[重启Gateway服务]
 ```
 
 **图表来源**
@@ -434,7 +468,7 @@ ElectronWizardAdapter --> OAuthFlow : "委托OAuth处理"
 
 **章节来源**
 - [ui-react/src/adapters/ElectronWizardAdapter.ts:1-185](file://ui-react/src/adapters/ElectronWizardAdapter.ts#L1-L185)
-- [apps/electron/src/main/onboarding-oauth.ts:1-339](file://apps/electron/src/main/onboarding-oauth.ts#L1-L339)
+- [apps/electron/src/main/onboarding-oauth.ts:1-234](file://apps/electron/src/main/onboarding-oauth.ts#L1-L234)
 - [apps/electron/src/main/onboarding-providers.ts:1-253](file://apps/electron/src/main/onboarding-providers.ts#L1-L253)
 
 ### OAuth提供商支持
@@ -451,6 +485,256 @@ ElectronWizardAdapter --> OAuthFlow : "委托OAuth处理"
 - [apps/electron/src/main/onboarding-providers.ts:72-81](file://apps/electron/src/main/onboarding-providers.ts#L72-L81)
 - [apps/electron/src/main/onboarding-oauth.ts:77-91](file://apps/electron/src/main/onboarding-oauth.ts#L77-L91)
 
+## 设备代码流框架
+
+**新增功能：** 全新的设备代码流框架，支持标准的OAuth 2.0设备代码流程。
+
+### 设备代码流架构
+
+```mermaid
+flowchart TD
+A[startDeviceCodeFlow] --> B[生成PKCE参数]
+B --> C[构造设备代码请求]
+C --> D[发送POST到codeEndpoint]
+D --> E[解析设备代码响应]
+E --> F[验证state回显]
+F --> G[打开浏览器访问验证URL]
+G --> H[pollDeviceCodeFlow]
+H --> I[轮询tokenEndpoint]
+I --> J{状态检查}
+J --> |success| K[返回访问令牌]
+J --> |pending| L[继续轮询]
+J --> |error| M[返回错误]
+J --> |timeout| N[返回超时]
+```
+
+**图表来源**
+- [apps/electron/src/main/oauth-device-flow.ts:94-182](file://apps/electron/src/main/oauth-device-flow.ts#L94-L182)
+- [apps/electron/src/main/oauth-device-flow.ts:184-258](file://apps/electron/src/main/oauth-device-flow.ts#L184-L258)
+
+### 设备代码流配置
+
+设备代码流框架通过配置对象实现供应商特定逻辑：
+
+```mermaid
+classDiagram
+class DeviceCodeFlowConfig {
++name : string
++codeEndpoint : string
++tokenEndpoint : string
++clientId : string
++scope : string
++grantType : string
++usePKCE : boolean
++extraCodeHeaders() : Record
++parseCodeResponse(raw) : CodeResponse
++parseTokenResponse(raw) : TokenResponse
+}
+class MiniMaxGlobalFlow {
++name : "MiniMax Global"
++codeEndpoint : "https : //api.minimax.io/oauth/code"
++tokenEndpoint : "https : //api.minimax.io/oauth/token"
++clientId : "78257093-7e40-4613-99e0-527b14b39113"
++scope : "group_id profile model.completion"
++grantType : "urn : ietf : params : oauth : grant-type : user_code"
++usePKCE : true
+}
+class MiniMaxCNFlow {
++name : "MiniMax CN"
++codeEndpoint : "https : //api.minimaxi.com/oauth/code"
++tokenEndpoint : "https : //api.minimaxi.com/oauth/token"
+}
+DeviceCodeFlowConfig <|-- MiniMaxGlobalFlow
+DeviceCodeFlowConfig <|-- MiniMaxCNFlow
+```
+
+**图表来源**
+- [apps/electron/src/main/oauth-device-flow.ts:20-58](file://apps/electron/src/main/oauth-device-flow.ts#L20-L58)
+- [apps/electron/src/main/oauth-device-flow.ts:262-329](file://apps/electron/src/main/oauth-device-flow.ts#L262-L329)
+
+**章节来源**
+- [apps/electron/src/main/oauth-device-flow.ts:1-329](file://apps/electron/src/main/oauth-device-flow.ts#L1-L329)
+
+### OAuth工具函数
+
+**新增功能：** OAuth工具函数提供PKCE和表单编码支持。
+
+```mermaid
+classDiagram
+class OAuthUtils {
++generatePkce() : {verifier, challenge, state}
++toFormUrlEncoded(params) : string
+}
+class PKCEGenerator {
++verifier : string
++challenge : string
++state : string
+}
+OAuthUtils --> PKCEGenerator : "生成PKCE参数"
+```
+
+**图表来源**
+- [apps/electron/src/main/oauth-utils.ts:19-24](file://apps/electron/src/main/oauth-utils.ts#L19-L24)
+
+**章节来源**
+- [apps/electron/src/main/oauth-utils.ts:1-34](file://apps/electron/src/main/oauth-utils.ts#L1-L34)
+
+## 单实例锁机制
+
+**新增功能：** 基于文件锁的单实例保护机制，防止多个实例同时运行。
+
+### 单实例锁架构
+
+```mermaid
+flowchart TD
+A[应用启动] --> B[尝试获取文件锁]
+B --> C{锁获取成功?}
+C --> |是| D[继续应用初始化]
+C --> |否| E[显示错误并退出]
+D --> F[创建锁文件]
+F --> G[注册锁清理处理器]
+G --> H[应用正常运行]
+H --> I[应用关闭]
+I --> J[释放文件锁]
+J --> K[删除锁文件]
+```
+
+**图表来源**
+- [apps/electron/src/main/index.ts:157-209](file://apps/electron/src/main/index.ts#L157-L209)
+
+### 文件锁实现
+
+单实例锁机制通过文件系统实现跨平台保护：
+
+```mermaid
+classDiagram
+class FileLock {
++lockPath : string
++lockFile : FileHandle
++acquire() : Promise~boolean~
++release() : Promise~void~
++isLocked() : boolean
+}
+class SingleInstanceGuard {
++lock : FileLock
++checkInstance() : Promise~boolean~
++cleanup() : Promise~void~
+}
+SingleInstanceGuard --> FileLock : "使用文件锁"
+```
+
+**图表来源**
+- [apps/electron/src/main/index.ts:157-209](file://apps/electron/src/main/index.ts#L157-L209)
+
+**章节来源**
+- [apps/electron/src/main/index.ts:1-215](file://apps/electron/src/main/index.ts#L1-L215)
+
+## URL方案注册改进
+
+**新增功能：** 增强的URL协议处理和回调机制，支持openclaw://协议。
+
+### URL协议处理架构
+
+```mermaid
+flowchart TD
+A[用户点击OAuth链接] --> B[系统调用openclaw://协议]
+B --> C[Electron接收URL事件]
+C --> D{URL格式验证}
+D --> |有效| E[解析查询参数]
+D --> |无效| F[忽略并记录警告]
+E --> G{认证方法检查}
+G --> |存在| H[验证CSRF状态]
+G --> |不存在| I[记录错误]
+H --> |通过| J[存储回调结果]
+H --> |失败| K[标记CSRF攻击]
+I --> L[清理会话状态]
+J --> M[触发轮询检查]
+K --> M
+M --> N[返回认证状态]
+```
+
+**图表来源**
+- [apps/electron/src/main/onboarding-oauth.ts:78-137](file://apps/electron/src/main/onboarding-oauth.ts#L78-L137)
+
+### 协议回调管理
+
+**新增功能：** 专门的协议回调处理器管理OAuth回调：
+
+```mermaid
+classDiagram
+class OAuthCallbackHandler {
++activeSessions : Map~string, Session~
++completedCallbacks : Map~string, Result~
++handleOAuthProtocolCallback(url) : void
++clearOAuthSession(authMethod) : void
+}
+class SessionManager {
++getSession(authMethod) : Session
++setSession(authMethod, session) : void
++clearSession(authMethod) : void
+}
+OAuthCallbackHandler --> SessionManager : "管理会话状态"
+```
+
+**图表来源**
+- [apps/electron/src/main/onboarding-oauth.ts:30-56](file://apps/electron/src/main/onboarding-oauth.ts#L30-L56)
+
+**章节来源**
+- [apps/electron/src/main/onboarding-oauth.ts:1-234](file://apps/electron/src/main/onboarding-oauth.ts#L1-L234)
+
+## 配置修补功能
+
+**新增功能：** 动态配置合并和模型修补功能，支持配置的增量更新。
+
+### 配置修补架构
+
+```mermaid
+flowchart TD
+A[配置更新请求] --> B[解析修补数据]
+B --> C{修补类型检查}
+C --> |merge-patch| D[执行合并修补]
+C --> |model-patch| E[应用模型修补]
+C --> |auth-patch| F[更新认证配置]
+D --> G[验证修补结果]
+E --> G
+F --> G
+G --> H{验证通过?}
+H --> |是| I[应用到运行时配置]
+H --> |否| J[返回错误信息]
+I --> K[触发配置重新加载]
+K --> L[更新所有相关组件]
+```
+
+**图表来源**
+- [apps/electron/src/main/onboarding-providers.ts:113-253](file://apps/electron/src/main/onboarding-providers.ts#L113-L253)
+
+### 修补功能实现
+
+**新增功能：** 配置修补功能支持多种修补类型：
+
+```mermaid
+classDiagram
+class ConfigPatchManager {
++mergePatch(data) : PatchResult
++modelPatch(models) : PatchResult
++authPatch(credentials) : PatchResult
++validatePatch(patch) : ValidationResult
+}
+class ProviderRegistry {
++PROVIDER_REGISTRY : Record~string, ProviderApiConfig~
++OAUTH_AUTH_METHODS : Set~string~
++OAUTH_METHOD_PLUGIN : Record~string, string~
++OAUTH_METHOD_PROVIDER_OVERRIDE : Record~string, string~
+}
+ConfigPatchManager --> ProviderRegistry : "使用提供商配置"
+```
+
+**图表来源**
+- [apps/electron/src/main/onboarding-providers.ts:17-112](file://apps/electron/src/main/onboarding-providers.ts#L17-L112)
+
+**章节来源**
+- [apps/electron/src/main/onboarding-providers.ts:1-253](file://apps/electron/src/main/onboarding-providers.ts#L1-L253)
+
 ## 依赖关系分析
 
 应用的依赖关系体现了清晰的层次结构和模块化设计：
@@ -462,33 +746,47 @@ A[Electron主进程]
 B[预加载脚本]
 C[渲染进程]
 D[OAuth适配器]
+E[设备代码流框架]
+F[单实例锁管理器]
+G[配置修补器]
 end
 subgraph "服务层"
-E[Gateway服务]
-F[Node.js运行时]
-G[本地HTTP服务]
-H[OAuth认证服务]
+H[Gateway服务]
+I[Node.js运行时]
+J[本地HTTP服务]
+K[OAuth认证服务]
+L[文件锁服务]
+M[配置服务]
 end
 subgraph "基础设施层"
-I[Electron框架]
-J[React框架]
-K[WebSocket库]
-L[文件系统]
-M[Web API]
+N[Electron框架]
+O[React框架]
+P[WebSocket库]
+Q[文件系统]
+R[Web API]
+S[加密库]
 end
-A --> E
-A --> I
+A --> H
+A --> N
 B --> A
-B --> J
+B --> O
 C --> B
 D --> B
-E --> F
-E --> G
-G --> K
-H --> M
-A --> L
-B --> L
-D --> H
+E --> K
+F --> Q
+G --> M
+H --> I
+H --> J
+J --> P
+K --> R
+L --> Q
+M --> S
+A --> Q
+B --> Q
+D --> K
+E --> R
+F --> Q
+G --> M
 ```
 
 **图表来源**
@@ -530,6 +828,8 @@ D --> H
 - 进程间通信的异步处理
 - 按需加载渲染页面
 - OAuth会话状态管理
+- 设备代码流会话缓存
+- 单实例锁状态管理
 
 ### 启动性能
 
@@ -539,6 +839,7 @@ D --> H
 - 条件加载和延迟初始化
 - 缓存策略优化
 - OAuth会话缓存
+- 文件锁快速检查
 
 ### 网络性能
 
@@ -548,6 +849,7 @@ D --> H
 - 超时和重试机制
 - 错误恢复策略
 - OAuth轮询优化
+- 设备代码流轮询间隔自适应
 
 ### OAuth性能优化
 
@@ -557,10 +859,12 @@ D --> H
 - 并发OAuth请求处理
 - 超时和重试机制
 - 错误状态快速失败
+- PKCE参数复用优化
 
 **章节来源**
 - [apps/electron/src/main/onboarding-oauth.ts:187-258](file://apps/electron/src/main/onboarding-oauth.ts#L187-L258)
 - [apps/electron/src/main/onboarding-oauth.ts:293-334](file://apps/electron/src/main/onboarding-oauth.ts#L293-L334)
+- [apps/electron/src/main/oauth-device-flow.ts:184-258](file://apps/electron/src/main/oauth-device-flow.ts#L184-L258)
 
 ## 故障排除指南
 
@@ -589,6 +893,20 @@ D --> H
 - 验证提供商配置
 - 查看OAuth会话状态
 - 确认auth-profiles.json写入
+- 检查设备代码流配置
+- 验证PKCE参数生成
+
+**单实例锁冲突**
+- 检查锁文件是否存在
+- 验证文件权限设置
+- 确认应用程序是否意外退出
+- 查看锁文件清理状态
+
+**配置修补失败**
+- 验证修补数据格式
+- 检查提供商配置有效性
+- 确认模型ID匹配
+- 查看修补验证结果
 
 ### 调试工具
 
@@ -598,6 +916,8 @@ D --> H
 - 监控进程状态
 - 分析内存使用情况
 - OAuth会话追踪
+- 设备代码流调试
+- 文件锁状态监控
 
 **生产环境监控**
 - 进程健康检查
@@ -605,6 +925,8 @@ D --> H
 - 错误日志收集
 - 性能指标跟踪
 - OAuth认证监控
+- 单实例锁监控
+- 配置修补监控
 
 **章节来源**
 - [apps/electron/src/main/gateway.ts:140-147](file://apps/electron/src/main/gateway.ts#L140-L147)
@@ -622,6 +944,8 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 跨平台兼容性
 - 完整的OAuth认证支持
 - 增强的错误处理能力
+- 单实例锁保护机制
+- 动态配置修补功能
 
 **用户体验：**
 - 流畅的启动体验
@@ -629,6 +953,7 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 简洁的设置流程
 - 稳定的连接管理
 - 无缝的OAuth认证体验
+- 可靠的单实例保护
 
 **扩展性：**
 - 插件化架构支持
@@ -636,11 +961,15 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 灵活的配置选项
 - 可维护的代码结构
 - 易于添加新的OAuth提供商
+- 支持动态配置更新
 
 **新增功能价值：**
-- OAuth认证系统的完整实现
+- OAuth设备代码流框架的完整实现
+- 单实例锁机制的可靠保护
+- URL协议处理的增强功能
+- 配置修补系统的灵活更新
 - 增强的错误处理和调试能力
 - 改进的用户认证体验
 - 更好的安全性和可靠性
 
-该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。OAuth认证系统的集成进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择。
+该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。OAuth认证系统的重构、单实例锁机制的引入以及配置修补功能的实现，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择和更灵活的配置管理能力。

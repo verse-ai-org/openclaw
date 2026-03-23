@@ -140,14 +140,29 @@ export const MAIN_LOG_PATH = path.join(
   "logs/electron-main.log",
 );
 
+/** 日志轮转阈值：5 MB */
+const LOG_ROTATE_BYTES = 5 * 1024 * 1024;
+
 /**
- * 写日志到 ~/.openclaw/electron-main.log（同步，避免异步竞态）。
+ * 写日志到 ~/.openclaw/logs/electron-main.log（同步，避免异步竞态）。
  * 打包后 stdout/stderr 不可见，必须落文件才能排查黑屏问题。
+ * 文件超过 5 MB 时轮转：重命名为 .1（覆盖旧备份），然后写新文件。
+ * 只保留最近 2 个文件，无需额外依赖。
  */
 export function mainLogSync(message: string): void {
   try {
     const dir = path.dirname(MAIN_LOG_PATH);
     fs.mkdirSync(dir, { recursive: true });
+    // Rotate if current log exceeds threshold.
+    try {
+      const stat = fs.statSync(MAIN_LOG_PATH);
+      if (stat.size >= LOG_ROTATE_BYTES) {
+        const rotated = `${MAIN_LOG_PATH}.1`;
+        fs.renameSync(MAIN_LOG_PATH, rotated);
+      }
+    } catch {
+      // File may not exist yet — ignore.
+    }
     const line = `${new Date().toISOString()} ${message}\n`;
     fs.appendFileSync(MAIN_LOG_PATH, line, "utf8");
   } catch {
@@ -362,16 +377,7 @@ export function buildOpenClawConfig(
     agents: agentsSection,
     auth: authSection,
     ...modelsSection,
-    // Always override plugins entirely: drop stale entries (e.g. minimax-portal-auth
-    // from a previous CLI onboard) and only keep the one needed for this session.
-    plugins: pluginId
-      ? {
-          entries: { [pluginId]: { enabled: true } },
-        }
-      : {
-          // No plugin needed — write an empty entries object to clear stale refs.
-          entries: {},
-        },
+    ...pluginsSection,
   };
 }
 

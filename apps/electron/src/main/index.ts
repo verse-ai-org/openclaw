@@ -8,6 +8,8 @@ import {
   restartGateway,
   getGatewayToken,
   getGatewayPort,
+  warmLoginShellEnv,
+  onGatewayCrash,
 } from "./gateway.js";
 import {
   isFirstLaunch,
@@ -24,7 +26,7 @@ import {
   handleOAuthProtocolCallback,
 } from "./onboarding-oauth.js";
 import { generateToken } from "./token.js";
-import { createWindow, configureSession, loadRendererPage } from "./window.js";
+import { createWindow, configureSession, loadRendererPage, startStaticServer } from "./window.js";
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
 
 // ─── Single-instance lock (required for Windows second-instance protocol) ─────
@@ -66,10 +68,14 @@ app.on("open-url", (event, url) => {
 app.on("second-instance", (_event, argv) => {
   // The protocol URL is typically the last argument when launched via URL Scheme
   const url = argv.find((arg) => arg.startsWith("openclaw://"));
-  if (url) dispatchOAuthCallback(url);
+  if (url) {
+    dispatchOAuthCallback(url);
+  }
   // Bring existing window to foreground
   if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
     mainWindow.focus();
   }
 });
@@ -206,34 +212,86 @@ ipcMain.handle("onboarding:complete", () => {
 });
 
 /**
- * 修补现有配置，确保 Electron renderer (file:// origin) 可以连接 Gateway。
+ * 修补现有配置，确保 Electron renderer 可以连接 Gateway。
  * 在 startGateway 之前调用，对已配置和新配置均生效。
+ * 使用内嵌静态 HTTP server 后，renderer origin 是 http://127.0.0.1:PORT，
+ * Gateway 的 loopback 检查会直接放行，无需 file:// 特殊处理。
  */
-function patchConfigForElectron(): void {
+function patchConfigForElectron(staticServerPort: number): void {
   const override = process.env.OPENCLAW_CONFIG_DIR?.trim();
   const baseDir = override || path.join(os.homedir(), ".openclaw");
   const cfgPath = path.join(baseDir, "openclaw.json");
   try {
     const raw = fs.readFileSync(cfgPath, "utf8");
     const cfg = JSON.parse(raw) as Record<string, unknown>;
+    let dirty = false;
+
+    // 1. If plugins.slots.memory is explicitly set to "memory-core" (a plugin
+    // not bundled in the Electron app), remove it so Gateway uses its default
+    // resolution. If memory-core IS available (future), this is a no-op.
+    // Note: with the static HTTP server approach, memory-core CAN load normally
+    // because the renderer origin is now a valid loopback HTTP origin.
+    const plugins = (cfg.plugins ?? {}) as Record<string, unknown>;
+    const slots = (plugins.slots ?? {}) as Record<string, unknown>;
+    if (slots.memory === "none") {
+      // Previously we set this to "none" to work around the file:// origin issue.
+      // Now that we use a static HTTP server, remove the restriction so
+      // memory-core can load if available.
+      const { memory: _m, ...restSlots } = slots;
+      if (Object.keys(restSlots).length === 0) {
+        const { slots: _s, ...restPlugins } = plugins;
+        cfg.plugins = restPlugins;
+      } else {
+        plugins.slots = restSlots;
+        cfg.plugins = plugins;
+      }
+      dirty = true;
+      mlog("[main] patchConfigForElectron: removed plugins.slots.memory=none restriction");
+    } else {
+      cfg.plugins = plugins;
+    }
+
+    // 1b. Log any plugins.entries that reference extensions not bundled in the
+    // Electron app, but do NOT remove them. Extensions installed globally
+    // (~/.openclaw/extensions/) or via plugins.load.paths are valid at runtime
+    // even though the Electron app itself only ships memory-core. Deleting these
+    // entries would silently destroy the user's CLI-configured plugin settings.
+    // Gateway will emit its own warn/error diagnostics for truly missing plugins.
+    const BUNDLED_PLUGIN_IDS = new Set(["memory-core"]);
+    const entries = (plugins.entries ?? {}) as Record<string, unknown>;
+    const nonBundledEntries = Object.keys(entries).filter(id => !BUNDLED_PLUGIN_IDS.has(id));
+    if (nonBundledEntries.length > 0) {
+      mlog(`[main] patchConfigForElectron: non-bundled plugin entries present (kept): ${nonBundledEntries.join(", ")}`);
+    }
+
+    // 2. Add controlUi.allowedOrigins — static server origin + loopback + file:// fallback
     const gw = (cfg.gateway ?? {}) as Record<string, unknown>;
-    const port = typeof gw.port === "number" ? gw.port : 18789;
+    const gatewayPort = typeof gw.port === "number" ? gw.port : 18789;
     const controlUi = (gw.controlUi ?? {}) as Record<string, unknown>;
     const existing = Array.isArray(controlUi.allowedOrigins) ? controlUi.allowedOrigins as string[] : [];
     const needed = [
-      `http://127.0.0.1:${port}`,
-      `http://localhost:${port}`,
+      `http://127.0.0.1:${gatewayPort}`,
+      `http://localhost:${gatewayPort}`,
       "file://",
+      ...(staticServerPort > 0 ? [`http://127.0.0.1:${staticServerPort}`] : []),
     ];
     const merged = Array.from(new Set([...existing, ...needed]));
     if (merged.length !== existing.length || needed.some(o => !existing.includes(o))) {
       gw.controlUi = { ...controlUi, allowedOrigins: merged };
       cfg.gateway = gw;
-      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
-      mlog(`[main] patched gateway.controlUi.allowedOrigins in ${cfgPath}`);
+      dirty = true;
+      mlog(`[main] patchConfigForElectron: updated controlUi.allowedOrigins=${JSON.stringify(merged)}`);
     }
-  } catch {
+
+    if (dirty) {
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
+      mlog(`[main] patchConfigForElectron: wrote ${cfgPath}`);
+    } else {
+      mlog("[main] patchConfigForElectron: no changes needed");
+    }
+  } catch (err) {
     // Config doesn't exist yet (first launch) — skip
+    mlog(`[main] patchConfigForElectron: skipped (${String(err)})`);
   }
 }
 
@@ -248,14 +306,40 @@ async function main() {
   const sessionToken = generateToken();
   mlog("[main] sessionToken 已生成");
 
+  // Pre-warm login shell env in parallel with static server startup so it's
+  // ready before spawnGateway() needs it. Errors are handled inside warmLoginShellEnv.
+  const shellEnvWarm = warmLoginShellEnv();
+  mlog("[main] warmLoginShellEnv 启动");
+
+  // 启动内嵌静态 HTTP server（打包时提供 ui-react，使 renderer origin 为 http://127.0.0.1:PORT）
+  let staticServerPort = 0;
+  if (app.isPackaged) {
+    try {
+      const uiReactDir = path.join(process.resourcesPath, "control-ui-react");
+      staticServerPort = await startStaticServer(uiReactDir);
+      mlog(`[main] 静态 server 已启动，端口: ${staticServerPort}`);
+    } catch (err) {
+      mlogError("[main] 静态 server 启动失败:", err);
+    }
+  }
+
+  // Ensure shell env is resolved before spawning Gateway subprocess.
+  await shellEnvWarm;
+  mlog("[main] warmLoginShellEnv 完成");
+
   // 启动 Gateway（内部决策：复用外部 / 使用配置端口 / 使用独立端口）
   let gatewayStarted = false;
   try {
     mlog("[main] 开始启动 Gateway…");
-    patchConfigForElectron();
+    patchConfigForElectron(staticServerPort);
     await startGateway({ token: sessionToken });
     gatewayStarted = true;
     mlog("[main] Gateway 启动成功");
+    // Register crash handler so the renderer can show a reconnect prompt.
+    onGatewayCrash((code, signal) => {
+      mlog(`[main] Gateway 崩溃: code=${code} signal=${signal}，通知渲染进程`);
+      mainWindow?.webContents.send("gateway:crashed", { code, signal });
+    });
   } catch (err) {
     mlogError("[main] Gateway 启动失败:", err);
     // Gateway 失败不阻止渲染，以便展示错误页面

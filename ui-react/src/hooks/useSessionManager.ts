@@ -32,7 +32,7 @@ export function useSessionManager() {
     }
     setLoading(true);
     try {
-      const result = await client.request<{ sessions?: SessionEntry[] }>("chat.sessions.list", {});
+      const result = await client.request<{ sessions?: SessionEntry[] }>("sessions.list", {});
       setSessions(result?.sessions ?? []);
     } catch {
       setSessions([{ key: sessionKey }]);

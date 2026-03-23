@@ -24,9 +24,86 @@ function logError(msg: string, err?: unknown): void {
 }
 
 const DEFAULT_GATEWAY_PORT = 18789;
+
+/**
+ * Cache for the login shell environment variables.
+ * Populated once at startup; undefined means not yet resolved.
+ */
+let _loginShellEnv: Record<string, string> | null = null;
+
+/**
+ * Reads environment variables from the user's login shell (bash -l).
+ * This is necessary on macOS packaged apps where process.env lacks PATH
+ * entries from ~/.zshrc / ~/.bash_profile (Homebrew, nvm, API keys, etc.).
+ *
+ * Falls back to an empty object on failure — callers always spread process.env
+ * as a baseline, so the fallback is safe.
+ */
+async function resolveLoginShellEnv(): Promise<Record<string, string>> {
+  if (_loginShellEnv !== null) {
+    return _loginShellEnv;
+  }
+  return new Promise((resolve) => {
+    // Use login shell so ~/.zshrc / ~/.bash_profile / ~/.profile are sourced.
+    const shell = process.env.SHELL ?? "/bin/bash";
+    const child = spawn(shell, ["-l", "-c", "env"], {
+      env: { HOME: os.homedir(), PATH: process.env.PATH ?? "" },
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 5000,
+    });
+    let output = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    child.on("close", () => {
+      const result: Record<string, string> = {};
+      for (const line of output.split("\n")) {
+        const eq = line.indexOf("=");
+        if (eq > 0) {
+          const key = line.slice(0, eq);
+          const val = line.slice(eq + 1);
+          result[key] = val;
+        }
+      }
+      _loginShellEnv = result;
+      log(`[gateway] resolveLoginShellEnv: loaded ${Object.keys(result).length} vars from login shell`);
+      resolve(result);
+    });
+    child.on("error", (err) => {
+      logError("[gateway] resolveLoginShellEnv failed:", err);
+      _loginShellEnv = {};
+      resolve({});
+    });
+  });
+}
+
+/**
+ * Pre-warms the login shell env cache. Call once at app startup so
+ * spawnGateway() doesn't have to wait for it.
+ */
+export async function warmLoginShellEnv(): Promise<void> {
+  await resolveLoginShellEnv();
+}
 const GATEWAY_READY_TIMEOUT_MS = 15_000;
 const GATEWAY_READY_POLL_MS = 200;
 
+/** Optional callback invoked when the self-managed Gateway process crashes unexpectedly. */
+let _onGatewayCrash: ((code: number | null, signal: NodeJS.Signals | null) => void) | null = null;
+
+/**
+ * Register a callback that fires when the Gateway subprocess exits with a
+ * non-zero code and it was not caused by a deliberate stopGateway() call.
+ * The callback is typically used by the Electron main process to notify the
+ * renderer (via webContents.send) so the UI can show a reconnect prompt.
+ */
+export function onGatewayCrash(
+  cb: (code: number | null, signal: NodeJS.Signals | null) => void,
+): void {
+  _onGatewayCrash = cb;
+}
+
+/** Set to true just before a deliberate SIGTERM so exit handler can distinguish. */
+let _intentionalStop = false;
 let gatewayProcess: ChildProcess | null = null;
 let gatewayToken = "";
 /** 当前实际使用的 Gateway 端口 */
@@ -311,8 +388,15 @@ async function spawnGateway(opts: {
 
   log(`[gateway] 启动: ${nodeBin} ${args.join(" ")}`);
 
+  // Merge login shell env (already cached by warmLoginShellEnv) so that
+  // variables set in ~/.zshrc / ~/.bash_profile (API keys, custom PATH, etc.)
+  // are visible to the Gateway subprocess. process.env takes precedence over
+  // the shell snapshot so any explicit Electron env overrides are preserved.
+  const shellEnv = _loginShellEnv ?? {};
   gatewayProcess = spawn(nodeBin, args, {
     env: {
+      HOME: os.homedir(),
+      ...shellEnv,
       ...process.env,
       // Token 通过环境变量注入，不出现在进程参数里
       OPENCLAW_GATEWAY_TOKEN: opts.token,
@@ -336,6 +420,13 @@ async function spawnGateway(opts: {
   gatewayProcess.on("exit", (code, signal) => {
     log(`[gateway] 进程退出 code=${code} signal=${signal}`);
     gatewayProcess = null;
+    // Distinguish deliberate stop (SIGTERM from stopGateway) from unexpected crashes.
+    // Reusing an external Gateway is never managed by us, so no crash notification.
+    if (!_intentionalStop && !reusingExternalGateway && (code !== 0 || signal !== null && signal !== "SIGTERM")) {
+      log(`[gateway] 意外崩溃，触发 onGatewayCrash 回调 code=${code} signal=${signal}`);
+      _onGatewayCrash?.(code, signal);
+    }
+    _intentionalStop = false;
   });
 
   gatewayProcess.on("error", (err) => {
@@ -360,6 +451,7 @@ export function stopGateway(): void {
     return;
   }
   log("[gateway] 正在停止...");
+  _intentionalStop = true;
   gatewayProcess.kill("SIGTERM");
   gatewayProcess = null;
 }
@@ -388,6 +480,18 @@ export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
 }
 
 export function getGatewayToken(): string {
+  // When reusing an external Gateway the token may rotate (e.g. the user
+  // restarted the CLI gateway with a new config). Re-read from disk every time
+  // so the Electron UI always sends a valid token without requiring an app
+  // restart. For self-managed gateways we generated the token ourselves and
+  // it never changes, so we return the cached value directly.
+  if (reusingExternalGateway) {
+    const fresh = readExistingGatewayToken();
+    if (fresh && fresh !== gatewayToken) {
+      log(`[gateway] getGatewayToken: token rotated, updating cached value`);
+      gatewayToken = fresh;
+    }
+  }
   return gatewayToken;
 }
 

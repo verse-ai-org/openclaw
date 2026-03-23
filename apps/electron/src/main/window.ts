@@ -1,6 +1,82 @@
 import path from "node:path";
+import http from "node:http";
+import fs from "node:fs";
 import { app, BrowserWindow, shell, session } from "electron";
 import { mainLogSync } from "./onboarding.js";
+
+// ---------------------------------------------------------------------------
+// Static file server for packaged ui-react build
+// Serves control-ui-react/ over http://127.0.0.1:PORT so the renderer
+// origin is a valid loopback HTTP origin (not file://) — this lets Gateway's
+// origin check pass without needing allowedOrigins hacks, and allows
+// memory-core and other plugins to load normally.
+// ---------------------------------------------------------------------------
+
+let _staticServer: http.Server | null = null;
+let _staticServerPort = 0;
+
+const MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".eot": "application/vnd.ms-fontobject",
+};
+
+export function startStaticServer(rootDir: string): Promise<number> {
+  if (_staticServer) {
+    return Promise.resolve(_staticServerPort);
+  }
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      // Strip query string and hash for file lookup
+      const urlPath = (req.url ?? "/").split("?")[0].split("#")[0];
+      // Map / to /index.html; other paths serve directly or fall back to index.html (SPA)
+      let filePath = path.join(rootDir, urlPath === "/" ? "index.html" : urlPath);
+      if (!fs.existsSync(filePath)) {
+        // SPA fallback: serve index.html for unknown routes
+        filePath = path.join(rootDir, "index.html");
+      }
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = MIME[ext] ?? "application/octet-stream";
+      try {
+        const data = fs.readFileSync(filePath);
+        res.writeHead(200, { "Content-Type": contentType });
+        res.end(data);
+      } catch {
+        res.writeHead(404);
+        res.end("Not found");
+      }
+    });
+    server.listen(0, "127.0.0.1", () => {
+      const addr = server.address() as { port: number };
+      _staticServerPort = addr.port;
+      _staticServer = server;
+      wlog(`[window] static server listening on http://127.0.0.1:${_staticServerPort}`);
+      resolve(_staticServerPort);
+    });
+    server.on("error", reject);
+  });
+}
+
+export function stopStaticServer(): void {
+  _staticServer?.close();
+  _staticServer = null;
+  _staticServerPort = 0;
+}
+
+export function getStaticServerPort(): number {
+  return _staticServerPort;
+}
 
 function wlog(msg: string): void {
   console.log(msg);
@@ -24,6 +100,15 @@ function resolveRendererUrl(
   page: string,
 ): { type: "url"; url: string } | { type: "file"; path: string } {
   if (app.isPackaged) {
+    // Use the embedded static server (http://127.0.0.1:PORT) so the renderer
+    // has a valid loopback HTTP origin — avoids file:// origin issues with
+    // Gateway's origin check and allows plugins like memory-core to load.
+    const port = getStaticServerPort();
+    if (port > 0) {
+      const urlPath = page === "index" ? "/" : `/${page}.html`;
+      return { type: "url", url: `http://127.0.0.1:${port}${urlPath}` };
+    }
+    // Fallback to file:// if static server not started yet
     return {
       type: "file",
       path: path.join(
