@@ -253,6 +253,7 @@
     "electron:dev": "pnpm ui:build && pnpm --filter openclaw-electron dev",
     "electron:dev:static": "pnpm --filter openclaw-electron renderer:static",
     "electron:package": "bash apps/electron/scripts/package-electron.sh",
+    "electron:package:local": "LOCAL_FAST=1 bash apps/electron/scripts/package-electron.sh",
     "format": "oxfmt --write",
     "format:all": "pnpm format && pnpm format:swift",
     "format:check": "oxfmt --check",

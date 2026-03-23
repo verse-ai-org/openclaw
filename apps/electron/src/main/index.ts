@@ -8,6 +8,7 @@ import {
   restartGateway,
   getGatewayToken,
   getGatewayPort,
+  readExistingGatewayToken,
   warmLoginShellEnv,
   onGatewayCrash,
 } from "./gateway.js";
@@ -125,7 +126,10 @@ app.on("before-quit", () => {
 // IPC：渲染进程请求重启 Gateway（Onboarding 完成后调用）
 ipcMain.handle("gateway:restart", async () => {
   try {
-    await restartGateway({ token: getGatewayToken() });
+    // Wizard 完成后 openclaw.json 已写入新 token，需从磁盘读取以保持同步。
+    // 若读取失败（文件不存在等），退化为使用内存缓存的 token。
+    const freshToken = readExistingGatewayToken() || getGatewayToken();
+    await restartGateway({ token: freshToken });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String(err) };

@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "description": "OpenClaw Electron desktop client",
   "type": "commonjs",
-  "main": "dist/main/index.js",
+  "main": "dist/main/index.cjs",
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown --config-loader unrun --config tsdown.config.electron.ts",
     "prepackage": "pnpm --filter openclaw-control-ui-react build",
-    "dev": "concurrently -k \"tsup --watch\" \"pnpm --filter openclaw-control-ui-react dev\" \"sleep 6 && VITE_UI_REACT_URL=http://localhost:5174 electron .\"",
-    "dev:static": "concurrently -k \"tsup --watch\" \"sleep 3 && electron .\"",
+    "dev": "concurrently -k \"tsdown --config-loader unrun --config tsdown.config.electron.ts --watch\" \"pnpm --filter openclaw-control-ui-react dev\" \"sleep 6 && VITE_UI_REACT_URL=http://localhost:5174 electron .\"",
+    "dev:static": "concurrently -k \"tsdown --config-loader unrun --config tsdown.config.electron.ts --watch\" \"sleep 3 && electron .\"",
     "package": "pnpm build && electron-builder",
     "package:mac": "pnpm build && electron-builder --mac",
     "postinstall": "electron-builder install-app-deps"
@@ -32,7 +32,7 @@
     "electron": "31.7.7",
     "electron-builder": "^25.1.8",
     "tailwindcss": "^4.2.1",
-    "tsup": "^8.4.0",
+    "tsdown": "0.21.0",
     "typescript": "^5.8.3"
   }
 }

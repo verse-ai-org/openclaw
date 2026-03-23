@@ -73,6 +73,7 @@ apps/ios/fastlane/.env
 
 apps/electron/release/**
 apps/electron/resources/node-arm64/**
+apps/electron/resources/prod-node_modules/**
 
 # fastlane build artifacts (local)
 apps/ios/*.ipa

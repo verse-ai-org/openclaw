@@ -80,10 +80,23 @@ const tryImport = async (specifier) => {
   }
 };
 
-if (await tryImport("./dist/entry.js")) {
-  // OK
-} else if (await tryImport("./dist/entry.mjs")) {
-  // OK
-} else {
-  throw new Error("openclaw: missing dist/entry.(m)js (build output).");
+const startupCandidates = [
+  "./dist/entry.js",
+  "./dist/entry.mjs",
+  "./dist/index.js",
+  "./dist/index.mjs",
+];
+
+let started = false;
+for (const candidate of startupCandidates) {
+  if (await tryImport(candidate)) {
+    started = true;
+    break;
+  }
+}
+
+if (!started) {
+  throw new Error(
+    `openclaw: missing startup bundle. Tried: ${startupCandidates.join(", ")}`,
+  );
 }

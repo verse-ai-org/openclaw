@@ -36,6 +36,21 @@ extraResources:
       - "!**/*.map"        # 生产环境不需要 sourcemap
       - "!**/test*"
 
+  # 运行时原生依赖（tsdown bundle 已内联大部分 JS 依赖，此处仅含含 .node 绑定的原生模块）
+  # 由 package-electron.sh 中的 pnpm deploy --prod + 精简过滤展开到 resources/prod-node_modules/
+  # 原生模块列表见 tsdown.config.electron.ts 的 NATIVE_EXTERNALS
+  - from: "resources/prod-node_modules/node_modules"
+    to: "openclaw/node_modules"
+    filter:
+      - "**/*"
+      - "!**/*.map"
+      - "!**/test/**"
+      - "!**/tests/**"
+      - "!**/__tests__/**"
+      - "!**/docs/**"
+      - "!**/example/**"
+      - "!**/examples/**"
+
   # workspace 模板文件（AGENTS.md, SOUL.md, TOOLS.md 等）
   - from: "../../docs/reference/templates"
     to: "openclaw/docs/reference/templates"

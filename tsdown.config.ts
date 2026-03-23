@@ -37,6 +37,14 @@ function nodeBuildConfig(config: Record<string, unknown>) {
     fixedExtension: false,
     platform: "node",
     inputOptions: buildInputOptions,
+    outputOptions: {
+      entryFileNames: ({ name }: { name?: string }) => {
+        if (name === "index" || name === "entry" || name === "warning-filter") {
+          return "[name].js";
+        }
+        return "[name]-[hash].js";
+      },
+    },
   };
 }
 
