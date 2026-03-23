@@ -553,11 +553,24 @@ async function spawnGateway(opts: {
   // are visible to the Gateway subprocess. process.env takes precedence over
   // the shell snapshot so any explicit Electron env overrides are preserved.
   const shellEnv = _loginShellEnv ?? {};
+
+  // Ensure bundled Node is discoverable by runtime exec commands.
+  // This makes `exec` commands like `node script.mjs` work in packaged apps
+  // even when GUI login shell PATH does not include a system Node install.
+  const packagedNodeDir = app.isPackaged
+    ? path.join(process.resourcesPath, "node")
+    : null;
+  const basePath =
+    process.env.PATH ?? shellEnv.PATH ?? "/usr/local/bin:/usr/bin:/bin";
+  const mergedPath =
+    packagedNodeDir != null ? `${packagedNodeDir}${path.delimiter}${basePath}` : basePath;
+
   gatewayProcess = spawn(nodeBin, args, {
     env: {
       HOME: os.homedir(),
       ...shellEnv,
       ...process.env,
+      PATH: mergedPath,
       // Token 通过环境变量注入，不出现在进程参数里
       OPENCLAW_GATEWAY_TOKEN: opts.token,
       OPENCLAW_GATEWAY_PORT: String(opts.port),
