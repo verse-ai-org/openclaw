@@ -12,6 +12,7 @@ declare global {
       oauthStart(authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }>;
       oauthPoll(authMethod: string): Promise<{ ok: boolean; token?: string; refresh?: string; expires?: number; error?: string }>;
       oauthCancel(authMethod: string): Promise<{ ok: boolean }>;
+      validateInviteCode(code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }>;
     };
   }
 }
@@ -122,6 +123,27 @@ export class ElectronWizardAdapter implements WizardAdapter {
   async cancelOAuth(authMethod: string): Promise<void> {
     this.log(`cancelOAuth: authMethod=${authMethod}`);
     await window.electronBridge.oauthCancel(authMethod);
+  }
+
+  /**
+   * Validate an invite code and return the associated API key and model.
+   * Delegates to the Electron bridge which calls the backend API.
+   */
+  async validateInviteCode(code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }> {
+    this.log(`validateInviteCode: code=${code.substring(0, 8)}...`);
+    try {
+      const result = await window.electronBridge.validateInviteCode(code);
+      if (result.ok && result.apiKey && result.model) {
+        this.log(`validateInviteCode: success, model=${result.model}`);
+        return { ok: true, apiKey: result.apiKey, model: result.model };
+      } else {
+        this.log(`validateInviteCode: failed - ${result.error ?? 'unknown error'}`);
+        return { ok: false, error: result.error ?? 'Validation failed' };
+      }
+    } catch (err) {
+      this.log(`validateInviteCode: threw - ${String(err)}`);
+      return { ok: false, error: `Network error: ${String(err)}` };
+    }
   }
 
   /**

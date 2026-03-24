@@ -36,6 +36,13 @@ export interface WizardState {
   /** For OAuth flows: token expiry (unix timestamp ms) */
   oauthExpires?: number;
 
+  // ─── Invite Code ──────────────────────────────────────────────────────────
+  /**
+   * Whether the current setup came from an invite code (true) or manual config (false).
+   * Used to track the setup path for analytics and UX purposes.
+   */
+  usedInviteCode?: boolean;
+
   // ─── Workspace ───────────────────────────────────────────────────────────
   workspace: string;
 

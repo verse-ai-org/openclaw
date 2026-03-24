@@ -114,6 +114,25 @@ const mockElectronBridge = {
     delete mockOAuthStartTime[authMethod];
     return { ok: true };
   },
+
+  validateInviteCode: async (code: string) => {
+    console.log(`[Mock IPC] validateInviteCode code=${code}`);
+    await new Promise((r) => setTimeout(r, 500));
+    
+    // Mock validation: accept codes matching pattern BOSS-XXXX-XXXX
+    const pattern = /^BOSS-[A-Z0-9]{4}-[A-Z0-9]{4}$/i;
+    if (!pattern.test(code)) {
+      return { ok: false, error: "Invalid invite code format. Expected: BOSS-XXXX-XXXX" };
+    }
+    
+    // Mock success: return a sample API key and model
+    // In real scenario, this would come from the backend
+    return {
+      ok: true,
+      apiKey: "sk-mock-invite-code-" + code.replace(/-/g, "").toLowerCase(),
+      model: "anthropic/claude-opus-4-6"
+    };
+  },
 };
 
 // 注入 mock bridge

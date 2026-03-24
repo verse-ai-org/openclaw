@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { ProgressBar } from "./ProgressBar";
+import { AccessStep } from "./steps/AccessStep";
 import { ApiKeyStep } from "./steps/ApiKeyStep";
 import { CompletionStep } from "./steps/CompletionStep";
 import { ModelSelectionStep } from "./steps/ModelSelectionStep";
@@ -8,11 +9,12 @@ import { OptionalFeaturesStep } from "./steps/OptionalFeaturesStep";
 import { SecurityStep } from "./steps/SecurityStep";
 import { WelcomeStep } from "./steps/WelcomeStep";
 
-export type WizardStep = "welcome" | "security" | "model" | "api-key" | "features" | "completion";
+export type WizardStep = "welcome" | "security" | "access" | "model" | "api-key" | "features" | "completion";
 
 const STEPS: { id: WizardStep; label: string }[] = [
   { id: "welcome", label: "Welcome" },
   { id: "security", label: "Security" },
+  { id: "access", label: "Access" },
   { id: "model", label: "Model" },
   { id: "api-key", label: "API Key" },
   { id: "features", label: "Features" },
@@ -23,6 +25,8 @@ export function WizardContainer() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("welcome");
   // canProceed lets individual steps gate the footer Continue button
   const [canProceed, setCanProceed] = useState(true);
+  // Track whether user came via invite code path (affects back navigation)
+  const [usedInvitePath, setUsedInvitePath] = useState(false);
 
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
@@ -38,7 +42,10 @@ export function WizardContainer() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const shouldShowFooter = currentStep !== "welcome" && currentStep !== "completion";
+  const shouldShowFooter =
+    currentStep !== "welcome" &&
+    currentStep !== "completion" &&
+    currentStep !== "access";
 
   const renderStep = () => {
     switch (currentStep) {
@@ -51,11 +58,21 @@ export function WizardContainer() {
             onCanProceedChange={setCanProceed}
           />
         );
+      case "access":
+        return (
+          <AccessStep
+            // Invite code path: skip model + api-key, go straight to features
+            onNextInvite={() => { setUsedInvitePath(true); handleNext("features"); }}
+            // Manual path: go through normal model + api-key steps
+            onNextManual={() => { setUsedInvitePath(false); handleNext("model"); }}
+            onBack={() => handleBack("security")}
+          />
+        );
       case "model":
         return (
           <ModelSelectionStep
             onNext={() => handleNext("api-key")}
-            onBack={() => handleBack("security")}
+            onBack={() => handleBack("access")}
           />
         );
       case "api-key":
@@ -69,7 +86,8 @@ export function WizardContainer() {
       case "features":
         return (
           <OptionalFeaturesStep
-            onBack={() => handleBack("api-key")}
+            // Invite path: back to access; manual path: back to api-key
+            onBack={() => handleBack(usedInvitePath ? "access" : "api-key")}
           />
         );
       case "completion":

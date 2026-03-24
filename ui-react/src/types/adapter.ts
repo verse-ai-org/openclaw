@@ -76,6 +76,14 @@ export interface WizardAdapter {
    * If not implemented, the UI uses the built-in static list.
    */
   fetchModelCatalog?(provider: string): Promise<ModelCatalogEntry[]>;
+
+  /**
+   * Validate an invite code and return the associated API key and model.
+   * Returns { ok: true, apiKey, model } on success.
+   * Returns { ok: false, error } on failure.
+   * If not implemented, the UI will show an error message.
+   */
+  validateInviteCode?(code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }>;
 }
 
 /**

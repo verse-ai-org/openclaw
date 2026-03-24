@@ -268,3 +268,74 @@ export async function validateApiKey(
     return { ok: false, error: `Network error: ${msg}` };
   }
 }
+
+// ─── Invite code validation ───────────────────────────────────────────────────
+
+/**
+ * Validate a BOSS-style invite code against the backend API.
+ * The code is expected to be in the format: BOSS-XXXX-XXXX
+ * On success, returns the associated apiKey and model.
+ */
+export async function validateInviteCode(
+  code: string,
+): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }> {
+  const trimmed = code.trim().toUpperCase();
+  if (!trimmed) {
+    return { ok: false, error: "Invite code cannot be empty." };
+  }
+
+  // Validate basic format: BOSS-XXXX-XXXX (letters/digits in each segment)
+  if (!/^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/.test(trimmed)) {
+    return { ok: false, error: "Invalid invite code format. Expected format: BOSS-XXXX-XXXX" };
+  }
+
+  console.log(`[onboarding-validate] validateInviteCode: code=${trimmed.substring(0, 8)}...`);
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
+    const response = await fetch("https://api.boss-simulator.ai/v1/invite/validate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "openclaw-electron/onboarding",
+      },
+      body: JSON.stringify({ code: trimmed }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.warn(`[onboarding-validate] validateInviteCode: HTTP ${response.status} — ${text.slice(0, 200)}`);
+      if (response.status === 404 || response.status === 410) {
+        return { ok: false, error: "Invite code not found or already used." };
+      }
+      if (response.status === 429) {
+        return { ok: false, error: "Too many attempts. Please try again later." };
+      }
+      return { ok: false, error: `Validation failed (HTTP ${response.status}).` };
+    }
+
+    const data = (await response.json()) as Record<string, unknown>;
+    console.log(`[onboarding-validate] validateInviteCode: response=${JSON.stringify(data).slice(0, 200)}`);
+
+    const apiKey = typeof data.apiKey === "string" ? data.apiKey : typeof data.api_key === "string" ? data.api_key : undefined;
+    const model = typeof data.model === "string" ? data.model : undefined;
+
+    if (!apiKey || !model) {
+      return { ok: false, error: "Invalid response from server: missing apiKey or model." };
+    }
+
+    return { ok: true, apiKey, model };
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { ok: false, error: "Connection timed out. Check your network." };
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[onboarding-validate] validateInviteCode: network error — ${msg}`);
+    return { ok: false, error: `Network error: ${msg}` };
+  }
+}

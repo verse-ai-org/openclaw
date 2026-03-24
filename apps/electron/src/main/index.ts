@@ -19,7 +19,7 @@ import {
   mainLogSync,
   type OnboardingConfig,
 } from "./onboarding.js";
-import { validateApiKey } from "./onboarding-validate.js";
+import { validateApiKey, validateInviteCode } from "./onboarding-validate.js";
 import {
   oauthStart,
   oauthPoll,
@@ -203,6 +203,20 @@ ipcMain.handle("onboarding:oauthCancel", async (_, authMethod: string) => {
   clearOAuthSession(authMethod);
   await writeDebugLog(`[main] oauthCancel: authMethod=${authMethod}`);
   return { ok: true };
+});
+
+// IPC：验证邀请码 — 调用后端 API 返回关联的 apiKey 和 model
+ipcMain.handle("onboarding:validateInviteCode", async (_, code: string) => {
+  await writeDebugLog(`[main] validateInviteCode: code=${code.substring(0, 8)}...`);
+  try {
+    const result = await validateInviteCode(code);
+    await writeDebugLog(`[main] validateInviteCode result: ${JSON.stringify(result)}`);
+    return result;
+  } catch (err) {
+    const msg = String(err);
+    await writeDebugLog(`[main] validateInviteCode: threw — ${msg}`);
+    return { ok: false, error: msg };
+  }
 });
 
 // IPC：Onboarding 完成，切换到 ui-react 主界面

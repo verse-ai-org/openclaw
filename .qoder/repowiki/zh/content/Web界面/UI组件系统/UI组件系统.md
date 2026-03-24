@@ -6,6 +6,11 @@
 - [package.json](file://ui/package.json)
 - [main.ts](file://ui/src/main.ts)
 - [app.ts](file://ui/src/ui/app.ts)
+- [app-invite-code.ts](file://ui/src/ui/app-invite-code.ts)
+- [invite-code-client.ts](file://ui/src/ui/invite-code-client.ts)
+- [app-render.ts](file://ui/src/ui/app-render.ts)
+- [app-view-state.ts](file://ui/src/ui/app-view-state.ts)
+- [profile.ts](file://ui/src/ui/views/profile.ts)
 - [package.json](file://ui-react/package.json)
 - [main.tsx](file://ui-react/src/main.tsx)
 - [App.tsx](file://ui-react/src/App.tsx)
@@ -39,15 +44,21 @@
 - [token.ts](file://apps/electron/src/main/token.ts)
 - [window.ts](file://apps/electron/src/main/window.ts)
 - [gateway.ts](file://apps/electron/src/main/gateway.ts)
+- [navigation.ts](file://ui/src/ui/navigation.ts)
+- [profile.ts](file://ui/src/ui/views/profile.ts)
+- [en.ts](file://ui/src/i18n/locales/en.ts)
+- [gateway.ts](file://ui-react/src/types/gateway.ts)
+- [tabs.ts](file://ui-react/src/lib/tabs.ts)
+- [invite-code-api-design.md](file://docs/features/invite-code-api-design.md)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 增强了 UI 设置存储的网关 URL 解析逻辑，包括更好的 Electron 应用程序网关 URL 处理
-- 新增了令牌持久化和 URL 标准化的功能
-- 改进了开发环境检测机制
-- 优化了 Electron 应用程序的网关 URL 处理逻辑
-- 增强了 URL 标准化和令牌作用域管理
+- 新增邀请码验证UI组件系统，包括完整的验证流程和错误处理
+- 集成增强的Profile界面组件，支持邀请码验证功能
+- 新增邀请码输入控件，提供格式验证和实时反馈
+- 更新UI组件系统架构，支持邀请码验证的完整实现
+- 增强Profile功能的API密钥管理和模型配置支持
 
 ## 目录
 1. [简介](#简介)
@@ -67,7 +78,7 @@ OpenClaw的UI组件系统是一个现代化的双框架架构，提供了两种�
 - **Lit-based传统UI**：基于Web Components的轻量级实现，使用Lit框架构建响应式组件
 - **React-based新UI**：基于React 19的现代化实现，采用shadcn/ui设计系统、Radix UI组件库和Zustand状态管理
 
-该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。**新增的增强UI设置存储功能**显著提升了用户界面的稳定性和可靠性，特别是在网关URL解析、令牌持久化和开发环境检测方面。
+该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。**新增的邀请码验证功能**显著扩展了用户界面的能力，提供了API密钥获取和模型配置管理功能，同时增强了Profile界面的完整性和国际化支持。
 
 ## 项目结构
 
@@ -112,7 +123,17 @@ T --> HH[settings.store.ts - 增强设置存储]
 HH --> II[网关URL解析]
 HH --> JJ[令牌持久化]
 HH --> KK[URL标准化]
-end
+T --> LL[Profile相关组件]
+LL --> MM[Profile导航标签]
+LL --> NN[Profile界面组件]
+NN --> OO[Profile模板系统]
+NN --> PP[Profile编辑器]
+OO --> QQ[预设模板库]
+PP --> RR[Markdown编辑器]
+T --> SS[邀请码验证组件]
+SS --> TT[InviteCodeClient]
+SS --> UU[verifyInviteCode函数]
+SS --> VV[handleInviteCodeVerify函数]
 ```
 
 **图表来源**
@@ -123,6 +144,10 @@ end
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 - [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
 - [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
+- [navigation.ts:1-176](file://ui/src/ui/navigation.ts#L1-L176)
+- [profile.ts:1-1370](file://ui/src/ui/views/profile.ts#L1-L1370)
+- [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
+- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
 
 **章节来源**
 - [README.md:185-212](file://README.md#L185-L212)
@@ -163,16 +188,31 @@ class OpenClawApp {
 +setTheme() void
 +scrollToBottom() void
 +handleOpenSidebar() void
++handleInviteCodeVerify() void
++handleInviteCodeInput() void
 }
 class I18nController {
 +setLocale() void
 +translate() string
 }
+class InviteCodeVerification {
++inviteCode : string
++inviteCodeVerifying : boolean
++inviteCodeVerified : boolean
++inviteCodeError : string | null
++llmApiKey : string | null
++llmModel : string | null
++verifyInviteCode() void
++handleInviteCodeVerify() void
++handleInviteCodeInput() void
+}
 OpenClawApp --> I18nController : 使用
+OpenClawApp --> InviteCodeVerification : 集成
 ```
 
 **图表来源**
 - [app.ts:110-630](file://ui/src/ui/app.ts#L110-L630)
+- [app-invite-code.ts:132-186](file://ui/src/ui/app-invite-code.ts#L132-L186)
 
 ### React UI核心组件（shadcn/ui设计系统）
 
@@ -305,7 +345,7 @@ SessionManager <.. ChatPage : 会话管理
 
 ## 架构概览
 
-UI组件系统采用分层架构设计，实现了清晰的关注点分离，**新增了基于增强设置存储的统一配置管理和优化的会话管理器**：
+UI组件系统采用分层架构设计，实现了清晰的关注点分离，**新增了基于增强设置存储的统一配置管理和优化的会话管理器，以及完整的邀请码验证系统**：
 
 ```mermaid
 graph TB
@@ -322,70 +362,95 @@ K --> M[执行审批]
 N[布局系统] --> O[AppSidebar]
 N --> P[ChatSidebar]
 N --> Q[新Sidebar组件]
+R[Profile界面] --> S[模板选择]
+R --> T[表单编辑]
+R --> U[文件上传]
+R --> V[Markdown渲染]
+R --> W[邀请码验证]
+W --> X[邀请码输入控件]
+W --> Y[API密钥获取]
+W --> Z[模型配置管理]
 end
 subgraph "增强设置存储层"
-R[SettingsStore] --> S[网关URL解析]
-R --> T[令牌持久化]
-R --> U[URL标准化]
-S --> V[开发环境检测]
-S --> W[Electron应用程序处理]
-T --> X[会话存储管理]
-T --> Y[令牌作用域隔离]
-U --> Z[URL规范化]
-V --> AA[端口检测]
-W --> AB[协议处理]
+W[SettingsStore] --> X[网关URL解析]
+W --> Y[令牌持久化]
+W --> Z[URL标准化]
+X --> AA[开发环境检测]
+X --> AB[Electron应用程序处理]
+Y --> AC[会话存储管理]
+Y --> AD[令牌作用域隔离]
+Z --> AE[URL规范化]
+AA --> AF[端口检测]
+AB --> AG[协议处理]
 end
 subgraph "会话管理层"
-AC[会话管理器] --> AD[会话列表获取]
-AC --> AE[历史记录加载]
-AC --> AF[会话切换处理]
-AC --> AG[新会话创建]
-AD --> AH[错误回退机制]
-AE --> AI[工具结果合并]
-AF --> AJ[设置会话键]
-AG --> AK[会话持久化]
+AH[会话管理器] --> AI[会话列表获取]
+AH --> AJ[历史记录加载]
+AH --> AK[会话切换处理]
+AH --> AL[新会话创建]
+AI --> AM[错误回退机制]
+AJ --> AN[工具结果合并]
+AK --> AO[设置会话键]
+AL --> AP[会话持久化]
 end
 subgraph "shadcn/ui组件层"
-AL[基础UI组件] --> AM[Checkbox]
-AL --> AN[Sheet]
-AL --> AO[Switch]
-AL --> AP[Button]
-AL --> AQ[Input]
-AL --> AR[Separator]
-AL --> AS[Tooltip]
+AQ[基础UI组件] --> AR[Checkbox]
+AQ --> AS[Sheet]
+AQ --> AT[Switch]
+AQ --> AU[Button]
+AQ --> AV[Input]
+AQ --> AW[Separator]
+AQ --> AX[Tooltip]
 end
 subgraph "状态管理层"
-AT[Zustand Store] --> AU[聊天状态]
-AT --> AV[技能状态]
-AT --> AW[网关连接]
-AT --> AX[用户设置]
-AY[Lit Reactive Properties] --> AZ[应用状态]
-AY --> BA[主题切换]
-AY --> BB[语言切换]
+AY[Zustand Store] --> AZ[聊天状态]
+AY --> BA[技能状态]
+AY --> BB[网关连接]
+AY --> BC[用户设置]
+BD[Lit Reactive Properties] --> BE[应用状态]
+BD --> BF[主题切换]
+BD --> BG[语言切换]
+BH[Profile状态管理] --> BI[模板状态]
+BH --> BJ[编辑状态]
+BH --> BK[文件状态]
+BH --> BL[分析状态]
+BH --> BM[邀请码状态]
 end
 subgraph "数据传输层"
-BC[WebSocket客户端] --> BD[实时事件]
-BC --> BE[流式响应]
-BC --> BF[批量更新]
-BG[HTTP API] --> BH[配置读取]
-BG --> BI[日志获取]
-BG --> BJ[会话列表]
-BG --> BK[技能状态查询]
+BN[WebSocket客户端] --> BO[实时事件]
+BN --> BP[流式响应]
+BN --> BQ[批量更新]
+BR[HTTP API] --> BS[配置读取]
+BR --> BT[日志获取]
+BR --> BU[会话列表]
+BR --> BV[技能状态查询]
+BW[Profile API] --> BX[模板加载]
+BW --> BY[文件上传]
+BW --> BZ[内容保存]
+BW --> CA[邀请码验证]
+CA --> CB[API密钥获取]
+CA --> CC[模型配置]
 end
 subgraph "外部集成"
-BL[Gateway协议] --> BC
-BM[浏览器API] --> BN[剪贴板]
-BM --> BO[文件上传]
-BM --> BP[通知权限]
-BQ[移动端检测] --> BR[useIsMobile钩子]
-BR --> BS[响应式设计]
-BT[会话事件桥接] --> BU[历史重载回调]
-BU --> BV[聊天状态同步]
-BW[设置存储集成] --> BX[URL解析]
-BW --> BY[令牌管理]
-BW --> BZ[配置持久化]
-BT --> BW
-BQ --> BT
+CD[Gateway协议] --> BN
+CE[浏览器API] --> CF[剪贴板]
+CE --> CG[文件上传]
+CE --> CH[通知权限]
+CI[移动端检测] --> CJ[useIsMobile钩子]
+CJ --> CK[响应式设计]
+CL[会话事件桥接] --> CM[历史重载回调]
+CM --> CN[聊天状态同步]
+CO[设置存储集成] --> CP[URL解析]
+CO --> CQ[令牌管理]
+CO --> CR[配置持久化]
+CS[Profile集成] --> CT[导航标签]
+CS --> CU[界面组件]
+CS --> CV[国际化支持]
+CW[邀请码集成] --> CX[InviteCodeClient]
+CW --> CY[verifyInviteCode函数]
+CW --> CZ[handleInviteCodeVerify函数]
+CL --> CO
+CI --> CL
 ```
 
 **图表来源**
@@ -400,6 +465,10 @@ BQ --> BT
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 - [useChatEventBridge.ts:1-200](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L200)
 - [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
+- [navigation.ts:1-176](file://ui/src/ui/navigation.ts#L1-L176)
+- [profile.ts:1-1370](file://ui/src/ui/views/profile.ts#L1-L1370)
+- [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
+- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
 
 ## 详细组件分析
 
@@ -460,6 +529,308 @@ L --> M
 - [app.ts:497-506](file://ui/src/ui/app.ts#L497-L506)
 - [ChatPage.tsx:6-21](file://ui-react/src/pages/ChatPage.tsx#L6-L21)
 - [chat.store.ts:166-229](file://ui-react/src/store/chat.store.ts#L166-L229)
+
+### 邀请码验证系统
+
+**新增** 完整的邀请码验证UI组件系统，提供了API密钥获取和模型配置管理功能：
+
+```mermaid
+classDiagram
+class InviteCodeClient {
++config : ClientConfig
++redeem(code) InviteCodeRedeemResponse
++validateCodeFormat(code) boolean
++generateSignature() string
++generateNonce() string
++getTimestamp() string
+}
+class InviteCodeVerificationResponse {
++llm_api_key : string
++llm_model : string
++tts_api_key : string
++[key : string] : string | undefined
+}
+class InviteCodeVerificationResult {
++success : boolean
++data : InviteCodeVerificationResponse
++error : string
+}
+class InviteCodeState {
++inviteCode : string
++inviteCodeVerifying : boolean
++inviteCodeVerified : boolean
++inviteCodeError : string | null
++llmApiKey : string | null
++llmModel : string | null
+}
+class InviteCodeVerification {
++verifyInviteCode(host, inviteCode) InviteCodeVerificationResult
++handleInviteCodeVerify(host) void
++handleInviteCodeInput(host, code) void
+}
+InviteCodeClient --> InviteCodeVerificationResponse : 生成
+InviteCodeVerificationResponse --> InviteCodeVerificationResult : 包装
+InviteCodeState --> InviteCodeVerification : 管理
+InviteCodeVerification --> InviteCodeClient : 使用
+```
+
+**图表来源**
+- [invite-code-client.ts:125-230](file://ui/src/ui/invite-code-client.ts#L125-L230)
+- [app-invite-code.ts:8-19](file://ui/src/ui/app-invite-code.ts#L8-L19)
+- [app-invite-code.ts:15-19](file://ui/src/ui/app-invite-code.ts#L15-L19)
+- [app-invite-code.ts:31-106](file://ui/src/ui/app-invite-code.ts#L31-L106)
+- [app-invite-code.ts:133-186](file://ui/src/ui/app-invite-code.ts#L133-L186)
+
+#### 邀请码验证流程
+
+```mermaid
+flowchart TD
+A[用户输入邀请码] --> B[格式验证]
+B --> |无效| C[显示错误信息]
+B --> |有效| D[调用verifyInviteCode函数]
+D --> E[调用InviteCodeClient.redeem]
+E --> F{请求成功?}
+F --> |否| G[处理业务错误码]
+F --> |是| H[验证响应数据结构]
+H --> |缺失字段| I[显示错误信息]
+H --> |完整数据| J[保存API密钥和模型配置]
+G --> K[错误消息映射]
+K --> L[显示用户友好错误]
+J --> M[设置验证成功状态]
+M --> N[更新UI显示]
+C --> O[清除错误状态]
+I --> P[清除错误状态]
+O --> A
+P --> A
+```
+
+**图表来源**
+- [app-invite-code.ts:31-106](file://ui/src/ui/app-invite-code.ts#L31-L106)
+- [app-invite-code.ts:116-127](file://ui/src/ui/app-invite-code.ts#L116-L127)
+- [app-invite-code.ts:146-176](file://ui/src/ui/app-invite-code.ts#L146-L176)
+
+#### 邀请码输入控件
+
+```mermaid
+classDiagram
+class InviteCodeInput {
++value : string
++placeholder : string
++disabled : boolean
++onInput : Function
++render() ReactNode
+}
+class InviteCodeVerificationUI {
++state : InviteCodeState
++onInviteCodeInput : Function
++onInviteCodeVerify : Function
++render() HTMLElement
+}
+class InviteCodeClient {
++baseUrl : string
++appId : string
++appSecret : string
++redeem(code) InviteCodeRedeemResponse
++validateCodeFormat(code) boolean
+}
+InviteCodeInput --> InviteCodeVerificationUI : 触发
+InviteCodeVerificationUI --> InviteCodeClient : 调用
+```
+
+**图表来源**
+- [profile.ts:866-889](file://ui/src/ui/views/profile.ts#L866-L889)
+- [app-invite-code.ts:178-186](file://ui/src/ui/app-invite-code.ts#L178-L186)
+- [invite-code-client.ts:208-213](file://ui/src/ui/invite-code-client.ts#L208-L213)
+
+**章节来源**
+- [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
+- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
+- [profile.ts:848-919](file://ui/src/ui/views/profile.ts#L848-L919)
+
+### Profile界面组件系统
+
+**新增** 基于Lit框架的完整Profile界面组件系统，提供了个人资料管理和模板编辑功能，**集成了邀请码验证功能**：
+
+```mermaid
+classDiagram
+class ProfileState {
++client : GatewayBrowserClient
++connected : boolean
++profileTab : "template" | "edit"
++profileTemplateId : string
++profileFormName : string
++profileFormRole : string
++profileFormDomains : string[]
++profileFormTools : string[]
++profileFormPreferences : string[]
++profileFormCustomFields : Record~string, string~
++profileFreeInput : string
++profileFiles : object[]
++profileFilesMaxCount : number
++profileFilesMaxSize : number
++profileLoading : boolean
++profileError : string
++profilePreviewOpen : boolean
++profilePreviewUserMd : string
++profilePreviewMemoryMd : string
++profilePreviewSkippedUrls : string[]
++profilePreviewSkippedFiles : string[]
++profileSaving : boolean
++profileSaveSuccess : boolean
++profilePreviewUserMdDraft : string
++profilePreviewMemoryMdDraft : string
++profilePreviewMode : "preview" | "edit"
++profileEditUserMd : string
++profileEditMemoryMd : string
++profileEditLoading : boolean
++profileEditInputOpen : boolean
++profileEditViewMode : "preview" | "edit"
++profileEditUserMdOriginal : string
++profileEditMemoryMdOriginal : string
++profileEditHasAnalyzed : boolean
++profileTemplateUserMd : string
++profileTemplateUserMdLoading : boolean
++profileTemplateUserMdViewMode : "preview" | "edit"
++profileTemplateUserMdDraft : string
++profileDomainDialogOpen : boolean
++profileToolDialogOpen : boolean
++profilePreferenceDialogOpen : boolean
++agentsList : object
++inviteCode : string
++inviteCodeVerifying : boolean
++inviteCodeVerified : boolean
++inviteCodeError : string | null
++llmApiKey : string | null
++llmModel : string | null
+}
+class ProfileTemplate {
++id : string
++emoji : string
++title : string
++defaultRole : string
++defaultDomains : string[]
++defaultTools : string[]
++defaultPreferences : string[]
+}
+class ProfileHome {
++onNavigateToTemplates() void
++onNavigateToEdit() void
+}
+class ProfileTemplates {
++state : ProfileState
++onBack() void
++onTemplateSelect() void
++onFieldChange() void
++onTemplateSave() void
++onTemplateLoad() void
++onDomainDialogOpen() void
++onDomainDialogClose() void
++onToolDialogOpen() void
++onToolDialogClose() void
++onPreferenceDialogOpen() void
++onPreferenceDialogClose() void
++onTemplateUserMdViewModeChange() void
++onTemplateUserMdDraftChange() void
++onTemplateUserMdSave() void
+}
+class ProfileEdit {
++state : ProfileState
++onBack() void
++onEditLoad() void
++onEditViewModeChange() void
++onEditUserMdChange() void
++onEditMemoryMdChange() void
++onEditSaveDirect() void
++onEditCancel() void
++onEditInputToggle() void
++onFreeInputChange() void
++onFreeInputParse() void
++onFileSelect() void
++onFileRemove() void
+}
+class ProfileNavigation {
++TAB_GROUPS : object[]
++TAB_PATHS : object
++iconForTab() string
++titleForTab() string
++subtitleForTab() string
+}
+ProfileState --> ProfileTemplate : 使用
+ProfileHome --> ProfileTemplates : 导航
+ProfileHome --> ProfileEdit : 导航
+ProfileTemplates --> ProfileState : 状态管理
+ProfileEdit --> ProfileState : 状态管理
+ProfileNavigation --> ProfileTemplates : 导航
+ProfileNavigation --> ProfileEdit : 导航
+```
+
+**图表来源**
+- [profile.ts:8-70](file://ui/src/ui/views/profile.ts#L8-L70)
+- [profile.ts:842-996](file://ui/src/ui/views/profile.ts#L842-L996)
+- [profile.ts:1019-1453](file://ui/src/ui/views/profile.ts#L1019-L1453)
+- [navigation.ts:4-13](file://ui/src/ui/navigation.ts#L4-L13)
+
+#### Profile界面特性
+
+```mermaid
+flowchart TD
+A[Profile界面系统] --> B[模板选择]
+A --> C[表单编辑]
+A --> D[文件上传]
+A --> E[Markdown渲染]
+A --> F[邀请码验证]
+F --> G[邀请码输入控件]
+F --> H[API密钥获取]
+F --> I[模型配置管理]
+B --> J[预设模板库]
+B --> K[角色模板]
+B --> L[领域模板]
+B --> M[工具模板]
+B --> N[偏好模板]
+C --> O[用户信息编辑]
+C --> P[角色编辑]
+C --> Q[领域标签]
+C --> R[工具标签]
+C --> S[偏好标签]
+D --> T[文件选择]
+D --> U[拖拽上传]
+D --> V[格式限制]
+D --> W[大小限制]
+E --> X[实时预览]
+E --> Y[Markdown语法]
+E --> Z[安全渲染]
+G --> AA[格式验证]
+G --> BB[实时反馈]
+H --> CC[LLM API Key]
+H --> DD[TTS API Key]
+I --> EE[模型配置]
+I --> FF[基础URL]
+J --> GG[内容生成]
+K --> HH[自动填充]
+L --> II[智能匹配]
+M --> JJ[工具推荐]
+N --> KK[偏好建议]
+O --> LL[即时保存]
+P --> MM[模板关联]
+Q --> NN[标签管理]
+R --> OO[工具集成]
+S --> PP[偏好定制]
+CC --> QQ[API密钥存储]
+DD --> RR[TTS密钥存储]
+EE --> SS[模型选择]
+FF --> TT[API端点配置]
+```
+
+**图表来源**
+- [profile.ts:77-123](file://ui/src/ui/views/profile.ts#L77-L123)
+- [profile.ts:271-284](file://ui/src/ui/views/profile.ts#L271-L284)
+- [profile.ts:314-361](file://ui/src/ui/views/profile.ts#L314-L361)
+- [profile.ts:448-475](file://ui/src/ui/views/profile.ts#L448-L475)
+- [profile.ts:858-919](file://ui/src/ui/views/profile.ts#L858-L919)
+
+**章节来源**
+- [profile.ts:1-1370](file://ui/src/ui/views/profile.ts#L1-L1370)
+- [navigation.ts:1-176](file://ui/src/ui/navigation.ts#L1-L176)
 
 ### 增强设置存储系统
 
@@ -1021,6 +1392,94 @@ stateDiagram-v2
 - [app.ts:183-204](file://ui/src/ui/app.ts#L183-L204)
 - [app.ts:164-179](file://ui/src/ui/app.ts#L164-L179)
 
+### 国际化支持增强
+
+**新增** 增强的国际化支持系统，包括Profile相关的标签和字幕翻译：
+
+```mermaid
+classDiagram
+class I18nController {
++currentLocale : string
++translations : TranslationMap
++setLocale() void
++translate() string
++loadTranslations() void
+}
+class TranslationMap {
++common : object
++nav : object
++tabs : object
++subtitles : object
++overview : object
++chat : object
++languages : object
++cron : object
+}
+class ProfileTranslations {
++tabs : object
++subtitles : object
+}
+class LocaleFiles {
++en : TranslationMap
++zhCN : TranslationMap
++zhTW : TranslationMap
++ptBR : TranslationMap
++de : TranslationMap
++es : TranslationMap
+}
+I18nController --> TranslationMap : 使用
+TranslationMap --> ProfileTranslations : 包含
+ProfileTranslations --> LocaleFiles : 来源
+```
+
+**图表来源**
+- [en.ts:3-40](file://ui/src/i18n/locales/en.ts#L3-L40)
+
+#### 国际化特性
+
+```mermaid
+flowchart TD
+A[国际化系统] --> B[多语言支持]
+A --> C[动态切换]
+A --> D[翻译映射]
+B --> E[英语]
+B --> F[简体中文]
+B --> G[繁体中文]
+B --> H[葡萄牙语]
+B --> I[德语]
+B --> J[西班牙语]
+C --> K[运行时切换]
+C --> L[状态同步]
+D --> M[标签翻译]
+D --> N[字幕翻译]
+D --> O[界面文本]
+M --> P[Profile标签]
+M --> Q[导航标签]
+N --> R[Profile字幕]
+N --> S[功能说明]
+O --> T[用户提示]
+O --> U[错误信息]
+P --> V[Profile]
+P --> W[Profile Templates]
+P --> X[Profile Edit]
+Q --> Y[Profile导航]
+Q --> Z[Profile功能]
+R --> AA[Profile更新]
+R --> BB[Profile管理]
+S --> CC[个人资料]
+S --> DD[记忆文件]
+T --> EE[操作提示]
+T --> FF[状态信息]
+U --> GG[错误提示]
+U --> HH[警告信息]
+```
+
+**图表来源**
+- [en.ts:25-56](file://ui/src/i18n/locales/en.ts#L25-L56)
+
+**章节来源**
+- [en.ts:1-341](file://ui/src/i18n/locales/en.ts#L1-L341)
+
 ## 依赖关系分析
 
 ### 依赖图谱
@@ -1032,53 +1491,92 @@ A[lit] --> B[Web Components]
 C[@lit-labs/signals] --> D[响应式信号]
 E[marked] --> F[Markdown渲染]
 G[dompurify] --> H[HTML清理]
+I[ui/src/ui/views/profile.ts] --> J[Profile界面组件]
+I --> K[模板系统]
+I --> L[文件上传]
+I --> M[Markdown编辑]
+I --> N[邀请码验证]
+N --> O[InviteCodeClient]
+N --> P[verifyInviteCode函数]
+N --> Q[handleInviteCodeVerify函数]
+R[ui/src/ui/navigation.ts] --> S[Profile导航标签]
+R --> T[用户图标]
+U[ui/src/i18n/locales/en.ts] --> V[Profile翻译]
+U --> W[标签翻译]
+U --> X[字幕翻译]
+Y[ui/src/ui/app-invite-code.ts] --> Z[邀请码验证逻辑]
+Y --> AA[handleInviteCodeVerify函数]
+Y --> AB[handleInviteCodeInput函数]
+AC[ui/src/ui/invite-code-client.ts] --> AD[InviteCodeClient类]
+AC --> AE[签名生成]
+AC --> AF[格式验证]
 end
 subgraph "React UI依赖shadcn/ui"
-I[react] --> J[JSX渲染]
-K[zustand] --> L[状态管理]
-M[react-router] --> N[路由管理]
-O[@assistant-ui/react] --> P[AI聊天组件]
-Q[shadcn/ui] --> R[设计系统]
-R --> S[sidebar组件]
-R --> T[checkbox组件]
-R --> U[sheet组件]
-R --> V[switch组件]
-W[radix-ui/react-*] --> X[基础UI组件]
-Y[lucide-react] --> Z[图标库]
-AA[use-mobile钩子] --> BB[移动端检测]
-AA --> CC[响应式设计]
-DD[useSessionManager钩子] --> EE[会话管理]
-DD --> FF[历史加载]
-DD --> GG[错误回退]
-EH[增强设置存储] --> EI[网关URL解析]
-EH --> EJ[令牌持久化]
-EH --> EK[URL标准化]
-EI --> EL[开发环境检测]
-EI --> EM[Electron处理]
-EJ --> EN[会话存储]
-EJ --> EO[令牌作用域]
-EK --> EP[URL规范化]
-EL --> EQ[Vite开发检测]
-EM --> ER[file://协议处理]
-EN --> ES[localStorage]
-EO --> ET[sessionStorage]
+BB[react] --> CC[JSX渲染]
+DD[zustand] --> EE[状态管理]
+FF[react-router] --> GG[路由管理]
+HH[@assistant-ui/react] --> II[AI聊天组件]
+JJ[shadcn/ui] --> KK[设计系统]
+KK --> LL[sidebar组件]
+KK --> MM[checkbox组件]
+KK --> NN[sheet组件]
+KK --> OO[switch组件]
+PP[radix-ui/react-*] --> QQ[基础UI组件]
+RR[lucide-react] --> SS[图标库]
+TT[use-mobile钩子] --> UU[移动端检测]
+TT --> VV[响应式设计]
+WW[useSessionManager钩子] --> XX[会话管理]
+WW --> YY[历史加载]
+WW --> ZZ[错误回退]
+AAA[增强设置存储] --> BBB[网关URL解析]
+AAA --> CCC[令牌持久化]
+AAA --> DDD[URL标准化]
+BBB --> EEE[开发环境检测]
+BBB --> FFF[Electron处理]
+CCC --> GGG[会话存储]
+CCC --> HHH[令牌作用域]
+DDD --> III[URL规范化]
+EEE --> JJJ[Vite开发检测]
+FFF --> KKK[file://协议处理]
+GGG --> LLL[localStorage]
+HHH --> MMM[sessionStorage]
+NNN[React导航系统] --> OOO[路由配置]
+NNN[React导航系统] --> PPP[导航组件]
+NNN[React导航系统] --> QQQ[图标系统]
+NNN[React导航系统] --> RRR[标签系统]
+SSS[React国际化] --> TTT[翻译映射]
+SSS[React国际化] --> UUU[动态切换]
+SSS[React国际化] --> VVV[多语言支持]
 end
 subgraph "开发工具"
-HU[vite] --> HV[构建工具]
-HW[typescript] --> HX[类型检查]
-HY[vitest] --> HZ[测试框架]
+WWW[vite] --> XXX[构建工具]
+YYY[typescript] --> ZZZ[类型检查]
+AAA[vitest] --> BBB[测试框架]
 end
 subgraph "Electron集成"
-IB[Electron主进程] --> IC[window.ts]
-IB --> ID[gateway.ts]
-IB --> IE[token.ts]
-IC --> IF[URL注入]
-ID --> IG[网关管理]
-IE --> IH[令牌生成]
-IF --> II[settings.store.ts]
-IG --> II
-IH --> II
-end
+CCC[Electron主进程] --> DDD[window.ts]
+CCC --> EEE[gateway.ts]
+CCC --> FFF[token.ts]
+DDD --> GGG[URL注入]
+EEE --> HHH[网关管理]
+FFF --> III[令牌生成]
+GGG --> JJJ[settings.store.ts]
+HHH --> JJJ
+III --> JJJ
+KKK[Profile集成] --> LLL[导航标签]
+KKK[Profile集成] --> MMM[界面组件]
+KKK[Profile集成] --> NNN[国际化支持]
+KKK[邀请码集成] --> OOO[InviteCodeClient]
+KKK[邀请码集成] --> PPP[verifyInviteCode函数]
+KKK[邀请码集成] --> QQQ[handleInviteCodeVerify函数]
+LLL --> RRR[TAB_GROUPS]
+MMM --> SSS[ProfileState]
+MMM --> TTT[ProfileTemplates]
+MMM --> UUU[ProfileEdit]
+NNN --> VVV[I18nController]
+OOO --> WWW[InviteCodeClient]
+PPP --> XXX[verifyInviteCode函数]
+QQQ --> YYY[handleInviteCodeVerify函数]
 ```
 
 **图表来源**
@@ -1090,6 +1588,11 @@ end
 - [window.ts:245-295](file://apps/electron/src/main/window.ts#L245-L295)
 - [gateway.ts:496-500](file://apps/electron/src/main/gateway.ts#L496-L500)
 - [token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
+- [navigation.ts:1-176](file://ui/src/ui/navigation.ts#L1-L176)
+- [profile.ts:1-1370](file://ui/src/ui/views/profile.ts#L1-L1370)
+- [en.ts:1-341](file://ui/src/i18n/locales/en.ts#L1-L341)
+- [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
+- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
 
 ### 版本兼容性
 
@@ -1103,10 +1606,13 @@ end
 | 日志查看 | ✅ 基础支持 | ✅ 增强支持 | ✅ 功能相当 |
 | 技能管理 | ❌ 不支持 | ✅ 完全支持 | ✅ 新功能 |
 | 主题切换 | ✅ 支持 | ✅ 支持 | ✅ 功能相同 |
-| 国际化 | ✅ 支持 | ✅ 支持 | ✅ 功能相同 |
+| 国际化 | ✅ 基础支持 | ✅ 增强支持 | ✅ 功能相当 |
 | 响应式设计 | ❌ 不支持 | ✅ 完全支持 | ✅ 移动端优化 |
 | **会话管理** | ❌ 不支持 | ✅ **优化支持** | ✅ **显著改进** |
 | **设置存储增强** | ❌ 不支持 | ✅ **全新功能** | ✅ **重大改进** |
+| **Profile界面** | ✅ **全新功能** | ❌ 不支持 | ✅ **独立实现** |
+| **国际化增强** | ✅ **基础支持** | ✅ **增强支持** | ✅ **功能完善** |
+| **邀请码验证** | ✅ **全新功能** | ❌ 不支持 | ✅ **独立实现** |
 
 **章节来源**
 - [package.json:11-26](file://ui/package.json#L11-L26)
@@ -1114,6 +1620,11 @@ end
 - [components.json:1-22](file://ui-react/components.json#L1-22)
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 - [settings.store.ts:1-295](file://ui-react/src/store/settings.store.ts#L1-L295)
+- [navigation.ts:1-176](file://ui/src/ui/navigation.ts#L1-L176)
+- [profile.ts:1-1370](file://ui/src/ui/views/profile.ts#L1-L1370)
+- [en.ts:1-341](file://ui/src/i18n/locales/en.ts#L1-L341)
+- [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
+- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
 
 ## 性能考虑
 
@@ -1127,6 +1638,10 @@ end
 6. **Sidebar性能优化**：新的Sidebar组件使用CSS变量和条件渲染，提升移动端性能
 7. **增强设置存储优化**：**优化的设置存储系统减少了不必要的URL解析和令牌管理开销**
 8. **Electron集成优化**：**改进的Electron URL注入和令牌持久化减少了页面刷新时的配置丢失**
+9. **Profile界面优化**：**模板选择和表单编辑采用防抖机制，减少不必要的API调用**
+10. **国际化缓存**：**翻译映射进行缓存，避免重复的字符串查找操作**
+11. **邀请码验证优化**：**邀请码输入控件采用实时验证，减少无效请求**
+12. **API密钥缓存**：**邀请码验证成功后的API密钥进行本地缓存，避免重复验证**
 
 ### 内存管理
 
@@ -1139,6 +1654,17 @@ C --> E[保留最近N条]
 E --> F[释放远古消息]
 F --> G[垃圾回收触发]
 D --> H[继续渲染]
+I[Profile状态] --> J{内存占用}
+J --> |高| K[清理临时文件]
+J --> |正常| L[保持活跃状态]
+K --> M[释放base64内容]
+M --> N[重置表单状态]
+L --> O[继续渲染]
+P[邀请码状态] --> Q{内存占用}
+Q --> |高| R[清理验证状态]
+Q --> |正常| S[保持验证结果]
+R --> T[重置错误状态]
+S --> U[继续渲染]
 ```
 
 ### 网络优化
@@ -1150,6 +1676,10 @@ D --> H[继续渲染]
 - **组件懒加载**：shadcn/ui组件按需加载，减少初始包体积
 - **增强设置存储缓存**：**优化的设置存储减少了重复的URL解析和令牌查找操作**
 - **Electron URL缓存**：**改进的localStorage缓存机制减少了页面刷新时的配置重新解析**
+- **Profile模板缓存**：**模板数据进行本地缓存，避免重复加载**
+- **国际化缓存**：**翻译数据进行内存缓存，提升切换速度**
+- **邀请码验证缓存**：**邀请码验证结果进行本地缓存，避免重复验证**
+- **API密钥缓存**：**成功验证的API密钥进行本地存储，支持离线使用**
 
 ## 故障排除指南
 
@@ -1206,7 +1736,27 @@ D --> H[继续渲染]
    - **确认网关管理功能是否正常**
    - **检查CSP配置和Origin头注入**
 
-10. **会话事件桥接问题**
+10. **Profile界面问题**
+    - **检查模板加载是否正常**
+    - **验证文件上传功能**
+    - **确认Markdown渲染效果**
+    - **检查国际化翻译是否正确**
+    - **验证邀请码验证功能**
+
+11. **邀请码验证问题**
+    - **检查邀请码格式验证是否正确**
+    - **验证InviteCodeClient配置**
+    - **确认API请求头签名生成**
+    - **检查错误消息映射**
+    - **验证API密钥存储机制**
+
+12. **国际化问题**
+    - **验证翻译文件加载**
+    - **检查语言切换功能**
+    - **确认翻译映射是否正确**
+    - **验证动态翻译更新**
+
+13. **会话事件桥接问题**
     - **检查历史重载回调的注册和注销**
     - **验证聊天状态同步机制**
     - **确认会话管理器与聊天事件的集成**
@@ -1221,27 +1771,39 @@ A --> D[性能面板]
 B --> E[断点调试]
 C --> F[请求监控]
 D --> G[渲染分析]
-E --> H[状态检查]
-F --> I[响应时间]
-G --> J[帧率监控]
-K[组件检查] --> L[React DevTools]
-K --> M[组件树分析]
-L --> N[Props检查]
-M --> N
-O[设置存储调试] --> P[URL解析检查]
-O --> Q[令牌持久化检查]
-O --> R[配置加载检查]
-P --> S[开发环境检测]
-P --> T[Electron URL处理]
-Q --> U[localStorage检查]
-Q --> V[sessionStorage检查]
-R --> W[配置合并逻辑]
-X[Electron集成调试] --> Y[URL注入检查]
-X --> Z[令牌传递检查]
-X --> AA[网关管理检查]
-Y --> BB[window.ts检查]
-Z --> CC[gateway.ts检查]
-AA --> DD[token.ts检查]
+H[组件检查] --> I[React DevTools]
+H --> J[组件树分析]
+I --> K[Props检查]
+J --> K
+L[设置存储调试] --> M[URL解析检查]
+L[设置存储调试] --> N[令牌持久化检查]
+L[设置存储调试] --> O[配置加载检查]
+M --> P[开发环境检测]
+M --> Q[Electron URL处理]
+N --> R[localStorage检查]
+N --> S[sessionStorage检查]
+O --> T[配置合并逻辑]
+U[Profile调试] --> V[模板加载检查]
+U[Profile调试] --> W[文件上传检查]
+U[Profile调试] --> X[Markdown渲染检查]
+Y[国际化调试] --> Z[翻译文件检查]
+Y[国际化调试] --> AA[语言切换检查]
+Y[国际化调试] --> BB[动态翻译检查]
+CC[Electron集成调试] --> DD[URL注入检查]
+CC[Electron集成调试] --> EE[令牌传递检查]
+CC[Electron集成调试] --> FF[网关管理检查]
+DD --> GG[window.ts检查]
+EE --> HH[gateway.ts检查]
+FF --> II[token.ts检查]
+JJ[邀请码验证调试] --> KK[InviteCodeClient检查]
+JJ[邀请码验证调试] --> LL[verifyInviteCode函数检查]
+JJ[邀请码验证调试] --> MM[handleInviteCodeVerify函数检查]
+KK --> NN[签名生成检查]
+KK --> OO[格式验证检查]
+LL --> PP[请求头检查]
+LL --> QQ[响应处理检查]
+MM --> RR[状态更新检查]
+MM --> SS[错误处理检查]
 ```
 
 **章节来源**
@@ -1255,6 +1817,11 @@ AA --> DD[token.ts检查]
 - [window.ts:245-295](file://apps/electron/src/main/window.ts#L245-L295)
 - [gateway.ts:496-500](file://apps/electron/src/main/gateway.ts#L496-L500)
 - [token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
+- [navigation.ts:1-176](file://ui/src/ui/navigation.ts#L1-L176)
+- [profile.ts:1-1370](file://ui/src/ui/views/profile.ts#L1-L1370)
+- [en.ts:1-341](file://ui/src/i18n/locales/en.ts#L1-L341)
+- [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
+- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
 
 ## 结论
 
@@ -1267,13 +1834,40 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 5. **响应式设计**：新增use-mobile钩子和新的Sidebar组件，提供优秀的移动端体验
 6. **可维护性**：清晰的架构设计便于长期维护
 
+**新增的邀请码验证功能**显著扩展了用户界面的能力，提供了API密钥获取和模型配置管理功能，包括：
+
+- **完整的邀请码验证系统**：支持格式验证、签名生成、错误处理和状态管理
+- **InviteCodeClient类**：提供完整的API客户端功能，包括HMAC-SHA256签名认证
+- **verifyInviteCode函数**：封装验证逻辑，处理业务错误码和响应数据结构
+- **handleInviteCodeVerify函数**：集成到OpenClawApp中，提供用户界面交互
+- **邀请码输入控件**：提供实时验证和用户友好反馈
+- **API密钥管理**：支持LLM API Key和TTS API Key的获取和存储
+- **模型配置支持**：提供模型标识和基础URL的配置管理
+
+**新增的Profile界面系统**进一步增强了用户界面的功能性和实用性，提供了：
+
+- **完整的Profile界面系统**：支持模板选择、表单编辑、文件上传和Markdown渲染
+- **预设模板库**：包含内容创作者、作家、旅行指南、教育者、软件工程师等角色模板
+- **智能表单管理**：支持领域、工具、偏好的标签化管理
+- **文件上传支持**：支持MD、DOC、DOCX、PDF格式文件的上传和处理
+- **实时Markdown渲染**：提供预览和编辑模式的Markdown内容管理
+- **分析功能**：支持从文本、URL和文件中提取和分析内容
+- **邀请码验证集成**：在Profile界面中直接提供API密钥获取功能
+
+**增强的国际化支持**提供了完整的多语言支持，包括：
+
+- **Profile标签翻译**：Profile、Profile Templates、Profile Edit等导航标签的多语言支持
+- **功能字幕翻译**：Profile功能的详细说明和使用指导
+- **动态语言切换**：运行时的语言切换和翻译更新
+- **多语言文件支持**：英语、简体中文、繁体中文、葡萄牙语、德语、西班牙语等语言
+
 **新增的增强设置存储系统**显著提升了用户界面的稳定性和可靠性，特别是在网关URL解析、令牌持久化和开发环境检测方面。这些改进包括：
 
 - **增强的网关URL解析逻辑**：支持开发环境检测、Electron应用程序处理和URL标准化
 - **改进的令牌持久化机制**：提供会话存储管理和令牌作用域隔离
 - **优化的URL标准化功能**：确保网关URL的一致性和兼容性
 - **增强的开发环境检测**：准确识别Vite开发服务器和端口冲突情况
-- **改进的Electron集成**：优化URL注入、令牌传递和网关管理流程
+- **改进的Electron集成**：优化URL注入、令牌生成和网关管理流程
 
 **新增的UI会话管理器改进**显著提升了用户界面的响应性和稳定性，特别是在会话切换和历史加载方面。useSessionManager.ts的更新优化了会话处理逻辑，包括：
 
@@ -1295,7 +1889,7 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 - Switch：支持不同尺寸和状态的开关组件
 - 统一的设计语言：基于shadcn/ui的设计规范
 
-**新增的增强设置存储系统**进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。**优化的设置存储系统**的引入进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。
+**新增的国际化系统**进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。**优化的设置存储系统**的引入进一步增强了OpenClaw平台的功能性和实用性，为用户提供了更加现代化和一致的用户体验。
 
 **增强的Electron集成**提供了更好的应用程序体验，包括：
 - **改进的URL注入机制**：确保Electron应用程序中的URL正确传递
@@ -1303,4 +1897,6 @@ OpenClaw的UI组件系统展现了现代前端开发的最佳实践，通过双�
 - **增强的网关管理功能**：支持自管理网关和外部网关的灵活切换
 - **改进的安全策略**：通过CSP配置和Origin头注入确保网络安全
 
-这些增强功能共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。
+**新增的邀请码验证系统**为OpenClaw平台增加了重要的功能特性，为用户提供了更加灵活和安全的API密钥管理方式。这些功能的集成不仅提升了平台的技术能力，也为未来的功能扩展和用户增长奠定了坚实基础。邀请码验证系统的实现充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。
+
+这些增强功能共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。

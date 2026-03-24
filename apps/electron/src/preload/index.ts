@@ -92,4 +92,11 @@ contextBridge.exposeInMainWorld("electronBridge", {
    */
   oauthCancel: (authMethod: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke("onboarding:oauthCancel", authMethod),
+
+  /**
+   * Validate an invite code and return the associated API key and model.
+   * Returns { ok: true, apiKey, model } on success, { ok: false, error } on failure.
+   */
+  validateInviteCode: (code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }> =>
+    ipcRenderer.invoke("onboarding:validateInviteCode", code),
 });
