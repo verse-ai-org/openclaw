@@ -257,11 +257,17 @@ export class OpenClawApp extends LitElement {
   @state() usageError: string | null = null;
   @state() usageStartDate = (() => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}-${String(d.getDate()).padStart(2, "0")}`;
   })();
   @state() usageEndDate = (() => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}-${String(d.getDate()).padStart(2, "0")}`;
   })();
   @state() usageSelectedSessions: string[] = [];
   @state() usageSelectedDays: string[] = [];
@@ -315,10 +321,10 @@ export class OpenClawApp extends LitElement {
   @state() cronJobsLimit = 50;
   @state() cronJobsQuery = "";
   @state() cronJobsEnabledFilter: import("./types.js").CronJobsEnabledFilter = "all";
-  @state() cronJobsScheduleKindFilter: import("./controllers/cron.js").CronJobsScheduleKindFilter =
-    "all";
-  @state() cronJobsLastStatusFilter: import("./controllers/cron.js").CronJobsLastStatusFilter =
-    "all";
+  @state()
+  cronJobsScheduleKindFilter: import("./controllers/cron.js").CronJobsScheduleKindFilter = "all";
+  @state()
+  cronJobsLastStatusFilter: import("./controllers/cron.js").CronJobsLastStatusFilter = "all";
   @state() cronJobsSortBy: import("./types.js").CronJobsSortBy = "nextRunAtMs";
   @state() cronJobsSortDir: import("./types.js").CronSortDir = "asc";
   @state() cronStatus: CronStatus | null = null;
@@ -377,6 +383,47 @@ export class OpenClawApp extends LitElement {
   @state() logsLimit = 500;
   @state() logsMaxBytes = 250_000;
   @state() logsAtBottom = true;
+
+  // Profile state
+  @state() profileTab: "template" | "edit" = "template";
+  @state() profileTemplateId: string | null = null;
+  @state() profileFormName = "";
+  @state() profileFormRole = "";
+  @state() profileFormDomains: string[] = [];
+  @state() profileFormTools: string[] = [];
+  @state() profileFormPreferences: string[] = [];
+  @state() profileFormCustomFields: Record<string, string> = {};
+  @state() profileFreeInput = "";
+  @state() profileFiles: Array<{ name: string; content: string }> = [];
+  @state() profileFilesMaxCount = 5;
+  @state() profileFilesMaxSize = 5 * 1024 * 1024; // 5MB
+  @state() profileLoading = false;
+  @state() profileError: string | null = null;
+  @state() profilePreviewOpen = false;
+  @state() profilePreviewUserMd = "";
+  @state() profilePreviewMemoryMd = "";
+  @state() profilePreviewSkippedUrls: string[] = [];
+  @state() profilePreviewSkippedFiles: string[] = [];
+  @state() profileSaving = false;
+  @state() profileSaveSuccess = false;
+  @state() profilePreviewUserMdDraft = "";
+  @state() profilePreviewMemoryMdDraft = "";
+  @state() profilePreviewMode: "preview" | "edit" = "preview";
+  @state() profileEditUserMd = "";
+  @state() profileEditMemoryMd = "";
+  @state() profileEditLoading = false;
+  @state() profileEditInputOpen = false;
+  @state() profileEditViewMode: "preview" | "edit" = "preview";
+  @state() profileEditUserMdOriginal = "";
+  @state() profileEditMemoryMdOriginal = "";
+  @state() profileEditHasAnalyzed = false;
+  @state() profileTemplateUserMd = "";
+  @state() profileTemplateUserMdLoading = false;
+  @state() profileTemplateUserMdViewMode: "preview" | "edit" = "preview";
+  @state() profileTemplateUserMdDraft = "";
+  @state() profileDomainDialogOpen = false;
+  @state() profileToolDialogOpen = false;
+  @state() profilePreferenceDialogOpen = false;
 
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;

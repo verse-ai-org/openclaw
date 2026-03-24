@@ -319,4 +319,49 @@ export type AppViewState = {
     handleOpenSidebar: (content: string) => void;
     handleCloseSidebar: () => void;
     handleSplitRatioChange: (ratio: number) => void;
+    // Profile
+    profileTab: "template" | "edit";
+    profileTemplateId: string | null;
+    profileFormName: string;
+    profileFormRole: string;
+    profileFormDomains: string[];
+    profileFormTools: string[];
+    profileFormPreferences: string[];
+    profileFormCustomFields: Record<string, string>;
+    profileFreeInput: string;
+    profileFiles: Array<{ name: string; content: string }>;
+    profileFilesMaxCount: number;
+    profileFilesMaxSize: number;
+    profileLoading: boolean;
+    profileError: string | null;
+    profilePreviewOpen: boolean;
+    profilePreviewUserMd: string;
+    profilePreviewMemoryMd: string;
+    profilePreviewSkippedUrls: string[];
+    profilePreviewSkippedFiles: string[];
+    profileSaving: boolean;
+    profileSaveSuccess: boolean;
+    // Editable drafts inside preview modal
+    profilePreviewUserMdDraft: string;
+    profilePreviewMemoryMdDraft: string;
+    profilePreviewMode: "preview" | "edit";
+    // Profile Edit tab: current file contents
+    profileEditUserMd: string;
+    profileEditMemoryMd: string;
+    profileEditLoading: boolean;
+    profileEditInputOpen: boolean;
+    profileEditViewMode: "preview" | "edit";
+    // For cancel functionality: store original content before analyze
+    profileEditUserMdOriginal: string;
+    profileEditMemoryMdOriginal: string;
+    profileEditHasAnalyzed: boolean;
+    // Template tab: read-only USER.md preview
+    profileTemplateUserMd: string;
+    profileTemplateUserMdLoading: boolean;
+    profileTemplateUserMdViewMode: "preview" | "edit";
+    profileTemplateUserMdDraft: string;
+    // Tag input dialogs
+    profileDomainDialogOpen: boolean;
+    profileToolDialogOpen: boolean;
+    profilePreferenceDialogOpen: boolean;
   };

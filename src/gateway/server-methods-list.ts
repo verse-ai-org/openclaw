@@ -102,6 +102,8 @@ const BASE_METHODS = [
   "chat.history",
   "chat.abort",
   "chat.send",
+  // Profile feature
+  "profile.parse",
 ];
 
 export function listGatewayMethods(): string[] {

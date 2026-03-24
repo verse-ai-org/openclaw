@@ -20,6 +20,7 @@ import { logsHandlers } from "./server-methods/logs.js";
 import { modelsHandlers } from "./server-methods/models.js";
 import { nodePendingHandlers } from "./server-methods/nodes-pending.js";
 import { nodeHandlers } from "./server-methods/nodes.js";
+import { profileHandlers } from "./server-methods/profile.js";
 import { pushHandlers } from "./server-methods/push.js";
 import { sendHandlers } from "./server-methods/send.js";
 import { sessionsHandlers } from "./server-methods/sessions.js";
@@ -95,6 +96,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...agentHandlers,
   ...agentsHandlers,
   ...browserHandlers,
+  ...profileHandlers,
 };
 
 export async function handleGatewayRequest(
@@ -111,14 +113,18 @@ export async function handleGatewayRequest(
     if (!budget.allowed) {
       const actor = resolveControlPlaneActor(client);
       context.logGateway.warn(
-        `control-plane write rate-limited method=${req.method} ${formatControlPlaneActor(actor)} retryAfterMs=${budget.retryAfterMs} key=${budget.key}`,
+        `control-plane write rate-limited method=${
+          req.method
+        } ${formatControlPlaneActor(actor)} retryAfterMs=${budget.retryAfterMs} key=${budget.key}`,
       );
       respond(
         false,
         undefined,
         errorShape(
           ErrorCodes.UNAVAILABLE,
-          `rate limit exceeded for ${req.method}; retry after ${Math.ceil(budget.retryAfterMs / 1000)}s`,
+          `rate limit exceeded for ${req.method}; retry after ${Math.ceil(
+            budget.retryAfterMs / 1000,
+          )}s`,
           {
             retryable: true,
             retryAfterMs: budget.retryAfterMs,
