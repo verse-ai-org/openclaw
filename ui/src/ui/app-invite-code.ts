@@ -7,7 +7,7 @@ import { defaultInviteCodeClient, InviteCodeRedeemResponse } from "./invite-code
 
 export interface InviteCodeVerificationResponse {
   llm_api_key: string;
-  llm_base_url?: string;
+  llm_model: string;
   tts_api_key?: string;
   [key: string]: string | undefined;
 }
@@ -78,13 +78,19 @@ export async function verifyInviteCode(
         error: "Missing llm_api_key in response"
       };
     }
+    if (!response.data.llm_model) {
+      return {
+        success: false,
+        error: "Missing llm_model in response"
+      };
+    }
 
     // 返回成功结果
     return {
       success: true,
       data: {
         llm_api_key: response.data.llm_api_key,
-        llm_base_url: response.data.llm_base_url,
+        llm_model: response.data.llm_model,
         tts_api_key: response.data.tts_api_key,
         ...response.data // 包含其他可能的字段
       }
@@ -143,8 +149,8 @@ export async function handleInviteCodeVerify(host: OpenClawApp): Promise<void> {
     if (result.success && result.data) {
       // 验证成功，保存结果
       host.llmApiKey = result.data.llm_api_key;
-      // 如果有llm_base_url，则使用它作为模型标识
-      host.llmModel = result.data.llm_base_url || 'default-model';
+      // 使用返回的llm_model作为模型标识
+      host.llmModel = result.data.llm_model;
       host.inviteCodeVerified = true;
       host.inviteCodeError = null;
       
