@@ -48,6 +48,13 @@ export type ProfileState = {
   // For cancel functionality: store original content before analyze
   profileEditUserMdOriginal: string;
   profileEditMemoryMdOriginal: string;
+  // Invite code verification
+  inviteCode: string;
+  inviteCodeVerifying: boolean;
+  inviteCodeVerified: boolean;
+  inviteCodeError: string | null;
+  llmApiKey: string | null;
+  llmModel: string | null;
   profileEditHasAnalyzed: boolean;
   // Template tab: read-only USER.md preview
   profileTemplateUserMd: string;
@@ -827,6 +834,9 @@ function renderTemplateForm(
 export type ProfileHomeProps = {
   onNavigateToTemplates: () => void;
   onNavigateToEdit: () => void;
+  state: ProfileState;
+  onInviteCodeInput: (code: string) => void;
+  onInviteCodeVerify: () => void;
 };
 
 export function renderProfileHome(props: ProfileHomeProps) {
@@ -834,6 +844,79 @@ export function renderProfileHome(props: ProfileHomeProps) {
     <section class="card">
       <div class="card-title">Profile</div>
       <div class="card-sub">Manage your personal profile and memory files.</div>
+
+      <!-- Invite Code Verification Section -->
+      <div
+        style="
+          background: var(--surface-2, #f9f9f9);
+          border: 1px solid var(--border, #e0e0e0);
+          border-radius: 8px;
+          padding: 20px;
+          margin: 24px 0;
+        "
+      >
+        <div style="font-weight: 600; font-size: 16px; margin-bottom: 12px;">
+          🔐 Invite Code Verification
+        </div>
+        <div class="muted" style="font-size: 13px; margin-bottom: 16px; line-height: 1.5;">
+          Enter your invite code to get access to LLM API key and model configuration.
+        </div>
+        
+        <div style="display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap;">
+          <input
+            type="text"
+            .value=${props.state.inviteCode}
+            placeholder="Enter your invite code..."
+            style="
+              flex: 1;
+              min-width: 200px;
+              padding: 8px 12px;
+              border: 1px solid var(--border, #e0e0e0);
+              border-radius: 4px;
+              font-size: 14px;
+            "
+            @input=${(e: Event) => props.onInviteCodeInput((e.target as HTMLInputElement).value)}
+            ?disabled=${props.state.inviteCodeVerifying}
+          />
+          <button
+            class="btn primary"
+            ?disabled=${!props.state.inviteCode.trim() || props.state.inviteCodeVerifying}
+            @click=${props.onInviteCodeVerify}
+            style="white-space: nowrap;"
+          >
+            ${props.state.inviteCodeVerifying ? "Verifying..." : "Verify Code"}
+          </button>
+        </div>
+        
+        ${props.state.inviteCodeVerified
+          ? html`
+              <div class="callout ok" style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                <span>✓</span>
+                <span>Invite code verified successfully!</span>
+                ${props.state.llmApiKey || props.state.llmModel
+                  ? html`
+                      <div style="margin-top: 8px; font-size: 12px;">
+                        ${props.state.llmApiKey
+                          ? html`<div><strong>API Key:</strong> ${props.state.llmApiKey.substring(0, 10)}...</div>`
+                          : nothing}
+                        ${props.state.llmModel
+                          ? html`<div><strong>Model:</strong> ${props.state.llmModel}</div>`
+                          : nothing}
+                      </div>
+                    `
+                  : nothing}
+              </div>
+            `
+          : nothing}
+        
+        ${props.state.inviteCodeError
+          ? html`
+              <div class="callout danger" style="margin-top: 12px;">
+                ${props.state.inviteCodeError}
+              </div>
+            `
+          : nothing}
+      </div>
 
       <div
         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 24px;"

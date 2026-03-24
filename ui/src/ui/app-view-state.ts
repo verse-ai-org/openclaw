@@ -364,4 +364,14 @@ export type AppViewState = {
     profileDomainDialogOpen: boolean;
     profileToolDialogOpen: boolean;
     profilePreferenceDialogOpen: boolean;
+    // Invite code verification
+    inviteCode: string;
+    inviteCodeVerifying: boolean;
+    inviteCodeVerified: boolean;
+    inviteCodeError: string | null;
+    llmApiKey: string | null;
+    llmModel: string | null;
+    // Methods
+    handleInviteCodeInput: (code: string) => void;
+    handleInviteCodeVerify: () => Promise<void>;
   };

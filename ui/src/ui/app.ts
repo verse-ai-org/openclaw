@@ -15,6 +15,10 @@ import {
   handleWhatsAppWait as handleWhatsAppWaitInternal,
 } from "./app-channels.ts";
 import {
+  handleInviteCodeVerify as handleInviteCodeVerifyInternal,
+  handleInviteCodeInput as handleInviteCodeInputInternal,
+} from "./app-invite-code.ts";
+import {
   handleAbortChat as handleAbortChatInternal,
   handleSendChat as handleSendChatInternal,
   removeQueuedMessage as removeQueuedMessageInternal,
@@ -424,6 +428,13 @@ export class OpenClawApp extends LitElement {
   @state() profileDomainDialogOpen = false;
   @state() profileToolDialogOpen = false;
   @state() profilePreferenceDialogOpen = false;
+  // Invite code verification
+  @state() inviteCode = "";
+  @state() inviteCodeVerifying = false;
+  @state() inviteCodeVerified = false;
+  @state() inviteCodeError: string | null = null;
+  @state() llmApiKey: string | null = null;
+  @state() llmModel: string | null = null;
 
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;
@@ -594,6 +605,14 @@ export class OpenClawApp extends LitElement {
 
   handleNostrProfileToggleAdvanced() {
     handleNostrProfileToggleAdvancedInternal(this);
+  }
+
+  async handleInviteCodeVerify() {
+    await handleInviteCodeVerifyInternal(this);
+  }
+
+  handleInviteCodeInput(code: string) {
+    handleInviteCodeInputInternal(this, code);
   }
 
   async handleExecApprovalDecision(decision: "allow-once" | "allow-always" | "deny") {

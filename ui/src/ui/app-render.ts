@@ -1019,6 +1019,9 @@ export function renderApp(state: AppViewState) {
                   state.setTab("profile-edit");
                   void handleProfileEditLoad(state);
                 },
+                state: state,
+                onInviteCodeInput: (code) => state.handleInviteCodeInput(code),
+                onInviteCodeVerify: () => state.handleInviteCodeVerify(),
               })
             : nothing
         }
