@@ -119,18 +119,17 @@ const mockElectronBridge = {
     console.log(`[Mock IPC] validateInviteCode code=${code}`);
     await new Promise((r) => setTimeout(r, 500));
     
-    // Mock validation: accept codes matching pattern BOSS-XXXX-XXXX
+    // Strict format check: BOSS-XXXX-XXXX (4 alphanumeric chars per segment)
     const pattern = /^BOSS-[A-Z0-9]{4}-[A-Z0-9]{4}$/i;
-    if (!pattern.test(code)) {
+    if (!pattern.test(code.trim())) {
       return { ok: false, error: "Invalid invite code format. Expected: BOSS-XXXX-XXXX" };
     }
     
-    // Mock success: return a sample API key and model
-    // In real scenario, this would come from the backend
+    // Mock success: mirrors the real response shape { apiKey, model }
     return {
       ok: true,
       apiKey: "sk-mock-invite-code-" + code.replace(/-/g, "").toLowerCase(),
-      model: "anthropic/claude-opus-4-6"
+      model: "anthropic/claude-opus-4-5"
     };
   },
 };

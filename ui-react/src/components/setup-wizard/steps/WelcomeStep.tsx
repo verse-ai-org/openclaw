@@ -1,88 +1,89 @@
-import { Target, RefreshCw, Rocket, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Target, RefreshCw, Rocket, ChevronRight } from "lucide-react";
 
 interface WelcomeStepProps {
   onNext: () => void;
 }
 
 const GRID_CARDS = [
-  { icon: Target, label: "Target" },
-  { icon: RefreshCw, label: "Sync" },
-  { icon: Rocket, label: "Launch" },
+  { icon: Target, label: "TARGET" },
+  { icon: RefreshCw, label: "SYNC" },
+  { icon: Rocket, label: "LAUNCH" },
 ];
 
 export function WelcomeStep({ onNext }: WelcomeStepProps) {
   return (
-    <div className="relative w-full min-h-screen flex flex-col overflow-hidden bg-[#f8f5f6]">
+    <div className="relative w-full min-h-screen flex flex-col overflow-hidden bg-[#eeeef0]">
       {/* Cinematic radial gradient backdrop */}
       <div
         className="pointer-events-none absolute inset-0 z-0"
         style={{
           background: [
-            "radial-gradient(ellipse 80% 60% at 20% 10%, rgba(186,0,52,0.12) 0%, transparent 70%)",
-            "radial-gradient(ellipse 60% 80% at 80% 80%, rgba(186,0,52,0.08) 0%, transparent 70%)",
-            "radial-gradient(ellipse 100% 100% at 50% 50%, rgba(248,245,246,0.95) 0%, transparent 100%)",
+            "radial-gradient(ellipse 70% 50% at 50% 40%, rgba(186,0,52,0.10) 0%, transparent 70%)",
           ].join(", "),
         }}
       />
 
       {/* Header - Minimal Top Bar */}
-      <header className="relative z-10 flex items-center justify-between px-12 py-8">
-        <span
-          className="text-xl font-black tracking-tight"
-          style={{ color: "rgba(186,0,52,1)" }}
-        >
-          OpenClaw
-        </span>
-        <div className="flex items-center gap-8">
-          <button className="text-zinc-500 hover:text-zinc-700 transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
+      <header className="relative z-10 flex items-center justify-end px-8 py-5">
+        <div className="flex items-center gap-4">
+          <button className="text-zinc-400 hover:text-zinc-600 transition-colors p-1">
+            {/* Help / ? icon */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <path d="M12 17h.01" />
             </svg>
           </button>
-          <button className="text-zinc-500 hover:text-zinc-700 transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 20V10" />
-              <path d="M12 20V4" />
-              <path d="M6 20v-6" />
+          <button className="text-zinc-400 hover:text-zinc-600 transition-colors p-1">
+            {/* Settings gear icon */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </button>
         </div>
       </header>
 
       {/* Main - Immersive Canvas */}
-      <main className="relative z-10 flex flex-col items-center flex-1 px-6">
-        {/* Ultra-Minimal Hero */}
-        <div className="flex flex-col items-center text-center mb-16 mt-8">
+      <main className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 gap-12">
+        {/* Small cube icon */}
+        <div style={{ color: "rgba(186,0,52,1)" }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line x1="12" y1="22.08" x2="12" y2="12" />
+          </svg>
+        </div>
+
+        {/* Hero Title */}
+        <div className="text-center">
           <h1
-            className="font-extrabold leading-none tracking-tighter mb-6"
-            style={{ fontSize: "clamp(48px, 7.5vw, 96px)", color: "rgba(26,28,29,1)" }}
+            className="font-black leading-none tracking-tight uppercase"
+            style={{ fontSize: "clamp(56px, 8vw, 100px)" }}
           >
-            INITIATE OPENCLAW
+            <span style={{ color: "rgba(26,28,29,1)" }}>INITIATE </span>
+            <span style={{ color: "rgba(186,0,52,1)" }}>OPENCLAW</span>
           </h1>
           <p
-            className="font-medium"
-            style={{ fontSize: "16px", color: "rgba(113,113,122,1)" }}
+            className="mt-4 tracking-[0.25em] uppercase font-medium"
+            style={{ fontSize: "13px", color: "rgba(150,150,158,1)" }}
           >
-            Automate. Synchronize. Control.
+            AUTOMATE. SYNCHRONIZE. CONTROL.
           </p>
         </div>
 
-        {/* Simplified Grid - 3 horizontal cards */}
-        <div className="flex gap-4 mb-20">
+        {/* Feature Cards */}
+        <div className="flex gap-3">
           {GRID_CARDS.map(({ icon: Icon, label }) => (
             <div
               key={label}
-              className="flex items-center gap-4 rounded-2xl px-8 py-6"
-              style={{ background: "rgba(255,255,255,0.40)" }}
+              className="flex items-center gap-3 rounded-full px-6 py-3 border border-white/60"
+              style={{ background: "rgba(255,255,255,0.55)" }}
             >
-              <div className="text-zinc-400">
-                <Icon className="w-5 h-5" />
-              </div>
+              <Icon className="w-4 h-4" style={{ color: "rgba(186,0,52,1)" }} />
               <span
-                className="font-bold text-xs"
-                style={{ color: "rgba(161,161,170,1)" }}
+                className="font-bold text-[11px] tracking-[0.15em]"
+                style={{ color: "rgba(90,90,98,1)" }}
               >
                 {label}
               </span>
@@ -90,28 +91,23 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
           ))}
         </div>
 
-        {/* Hero Call to Action */}
-        <div className="flex flex-col items-center gap-8">
-          <Button
+        {/* CTA */}
+        <div className="flex flex-col items-center gap-4">
+          <button
             onClick={onNext}
-            className="relative rounded-full px-16 py-5 h-auto bg-white hover:bg-white/90 shadow-md overflow-hidden"
+            className="flex items-center gap-2 rounded-full px-12 py-4 font-black text-sm tracking-[0.12em] uppercase transition-opacity hover:opacity-90"
+            style={{ background: "rgba(255,255,255,0.9)", color: "rgba(26,28,29,1)", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}
           >
-            <span
-              className="absolute inset-0 rounded-full"
-              style={{ background: "rgba(186,0,52,1)" }}
-            />
-            <span className="relative flex items-center gap-3 text-white font-black text-sm">
-              Start Setup
-              <ArrowRight className="w-4 h-4" />
-            </span>
-          </Button>
+            START SETUP
+            <ChevronRight className="w-4 h-4" />
+          </button>
 
           <button
             onClick={onNext}
-            className="text-[10px] font-normal transition-colors hover:text-zinc-900"
-            style={{ color: "rgba(82,82,91,1)" }}
+            className="tracking-[0.18em] uppercase transition-colors hover:text-zinc-900"
+            style={{ fontSize: "10px", color: "rgba(150,150,158,1)" }}
           >
-            Access Command Center
+            ACCESS COMMAND CENTER
           </button>
         </div>
       </main>

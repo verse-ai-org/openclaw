@@ -1,13 +1,20 @@
-import {
-  CheckCircle,
-  Cpu,
-  Folder,
-  MessageCircle,
-  Globe,
-  Settings,
-} from "lucide-react";
+import { useState } from "react";
 import { useWizardStore } from "@/store/setup-wizard.store";
 import { useOptionalWizardAdapter } from "@/context/AdapterContext";
+import { findAuthMethod, findProviderGroupForMethod } from "@/data/auth-choice-groups";
+
+// Emoji map for providers (mirrors ApiKeyStep)
+const PROVIDER_EMOJI: Record<string, string> = {
+  anthropic: "🟠",
+  openai: "⚫",
+  google: "🔵",
+  mistral: "🟣",
+  xai: "⬛",
+  "azure-openai": "🔷",
+  moonshot: "🌙",
+  groq: "⚡",
+  openrouter: "🔀",
+};
 
 interface CompletionStepProps {
   onBack: () => void;
@@ -16,143 +23,234 @@ interface CompletionStepProps {
 export function CompletionStep(_props: CompletionStepProps) {
   const { wizardState } = useWizardStore();
   const adapter = useOptionalWizardAdapter();
+  const [isStarting, setIsStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
   const handleStartChat = async () => {
+    if (isStarting) {
+      return;
+    }
+    setIsStarting(true);
+    setStartError(null);
+
     if (adapter) {
       // Electron: use complete() to persist config + restart Gateway + switch window.
       // complete() bypasses the Gateway WizardSession entirely (which would block
       // waiting for step-by-step answers), going straight to saveOnboardingConfig.
       try {
-        if (typeof adapter.complete === 'function') {
+        if (typeof adapter.complete === "function") {
           await adapter.complete();
         } else {
-          await adapter.submitStep({ action: 'complete' });
+          await adapter.submitStep({ action: "complete" });
         }
       } catch (err) {
-        console.error('[CompletionStep] adapter.complete failed:', err);
+        console.error("[CompletionStep] adapter.complete failed:", err);
+        setStartError("Failed to start OpenClaw. Please try again.");
+        setIsStarting(false);
       }
     } else {
       // Web / no-adapter fallback
       setTimeout(() => {
-        window.location.href = '/chat';
+        window.location.href = "/chat";
       }, 500);
     }
   };
 
-  const getModelName = () => {
-    // Use resolvedModelId (e.g. "anthropic/claude-opus-4-5") as the display name.
-    // Fall back to the legacy selectedModel field if resolvedModelId is not set.
-    if (wizardState.resolvedModelId) {
-      return wizardState.resolvedModelId;
-    }
-    return "AI Model";
-  };
+  // Resolve provider and model display info
+  const { authMethod: authMethodId, resolvedModelId } = wizardState;
+  const methodDef = findAuthMethod(authMethodId);
+  const groupDef = findProviderGroupForMethod(authMethodId);
+  const providerLabel = groupDef?.label ?? "AI Provider";
+  const providerEmoji = PROVIDER_EMOJI[groupDef?.id ?? ""] ?? "🤖";
+  const modelName = resolvedModelId ?? methodDef?.defaultModelId ?? "AI Model";
+
+  // Static feature list for the bento card (design: 3 bullet points)
+  const features = [
+    { label: "Recursive Debugging", active: true },
+    { label: "Memory Persistence", active: true },
+    { label: "API Shielding", active: false },
+  ];
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center px-6 max-w-2xl mx-auto w-full">
-      <div className="mb-8 flex flex-col items-center">
-        <div className="size-24 md:size-32 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-2xl shadow-primary/30 mb-8">
-          <CheckCircle className="w-16 h-16 md:w-20 md:h-20 text-white" />
-        </div>
-        <div className="mb-2 px-4 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">
-          5/5
-        </div>
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-4">
-          Setup Complete!
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-lg md:text-xl text-center max-w-md">
-          Your OpenClaw is ready to go.
-        </p>
-      </div>
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-[rgb(249,249,251)] px-6 pt-8">
+      {/* ── Main content container ── */}
+      <div className="relative z-10 flex w-full max-w-3xl flex-col items-center">
+        {/* ── Success Animation: icon + heading + subtitle ── */}
+        <div className="mb-12 flex w-full flex-col items-center">
+          {/* Icon circle */}
+          <div className="mb-8 flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-[rgb(186,0,52)]">
+            {/* Checkmark SVG — matches design vector icon */}
+            <svg width="65" height="65" viewBox="0 0 65 65" fill="none">
+              <path
+                d="M13 34L27 48L52 20"
+                stroke="white"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
 
-      <div className="w-full max-w-lg mb-12">
-        <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-sm">
-          <div className="p-6">
-            <h3 className="text-lg font-bold mb-4">Setup Summary</h3>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Cpu className="w-4 h-4 text-primary" />
+          {/* Heading */}
+          <h1 className="m-0 text-[56px] font-extrabold leading-none tracking-[-1.5px] text-[rgb(26,28,29)]">
+            All set.
+          </h1>
+
+          {/* Subtitle */}
+          <p className="mt-4 text-center text-lg font-normal leading-relaxed text-[rgb(91,64,65)]">
+            Your OpenClaw environment is ready to power your
+            <br />
+            next generation of intelligent workflows.
+          </p>
+        </div>
+
+        {/* ── Summary Bento Grid ── */}
+        <div className="mb-8 grid w-full max-w-3xl grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Provider Card */}
+          <div className="flex min-h-60 flex-col gap-3 rounded-[48px] bg-white p-10 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+            {/* Header row: icon + label */}
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgb(243,243,245)] text-[22px]">
+                {providerEmoji}
+              </div>
+              <span className="text-xs font-semibold tracking-[0.2px] text-[rgb(91,64,65)]">
+                Active Provider
+              </span>
+            </div>
+
+            {/* Model name */}
+            <div className="text-[30px] font-bold leading-tight tracking-[-0.5px] text-[rgb(26,28,29)]">
+              {modelName}
+            </div>
+
+            {/* Status row: green dot + description */}
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 shrink-0 rounded-full bg-[rgb(0,79,55)]" />
+              <span className="text-sm font-normal text-[rgb(91,64,65)]">
+                {providerLabel} · Connected
+              </span>
+            </div>
+          </div>
+
+          {/* Features Card */}
+          <div className="flex min-h-60 flex-col gap-6 rounded-[48px] bg-white p-10 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+            {/* Header row: icon + label */}
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgb(243,243,245)]">
+                {/* Spark / features icon */}
+                <svg width="22" height="21" viewBox="0 0 22 21" fill="none">
+                  <path
+                    d="M11 1L13.5 8H21L15 12.5L17.5 19.5L11 15L4.5 19.5L7 12.5L1 8H8.5L11 1Z"
+                    fill="rgb(0,79,55)"
+                  />
+                </svg>
+              </div>
+              <span className="text-xs font-semibold tracking-[0.2px] text-[rgb(91,64,65)]">
+                Enabled Features
+              </span>
+            </div>
+
+            {/* Feature list */}
+            <div className="flex flex-col gap-3">
+              {features.map((f) => (
+                <div key={f.label} className="flex items-center gap-3">
+                  {/* Checkmark icon — green when active, muted when inactive */}
+                  <svg width="10" height="7" viewBox="0 0 10 7" fill="none" className="shrink-0">
+                    <path
+                      d="M1 3.5L4 6.5L9 1"
+                      stroke={f.active ? "rgb(0,79,55)" : "rgb(91,64,65)"}
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span
+                    className={[
+                      "text-base font-medium",
+                      f.active ? "text-[rgb(26,28,29)]" : "text-[rgb(91,64,65)]",
+                    ].join(" ")}
+                  >
+                    {f.label}
+                  </span>
                 </div>
-                <div>
-                  <p className="font-medium text-sm">AI Model: {getModelName()}</p>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Folder className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">Workspace: ~/.openclaw/workspace</p>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <MessageCircle className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">
-                    Messaging:{" "}
-                    {wizardState.optionalFeatures?.messaging ? "Connected" : "Not connected"}
-                  </p>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Globe className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">
-                    Browser: {wizardState.optionalFeatures?.browser ? "Enabled" : "Disabled"}
-                  </p>
-                </div>
-              </li>
-              <li className="pt-2">
-                <a
-                  href="#"
-                  className="text-xs text-primary font-semibold flex items-center gap-1 hover:underline"
-                >
-                  <Settings className="w-4 h-4" />
-                  Edit settings
-                </a>
-              </li>
-            </ul>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-col w-full max-w-sm gap-4">
-        <button
-          onClick={handleStartChat}
-          className="w-full bg-primary hover:bg-primary/90 text-white p-4 rounded-full shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex flex-col items-center"
-        >
-          <span className="font-bold">Start Chatting</span>
-          <span className="text-xs opacity-80 font-normal">Talk to your AI directly</span>
-        </button>
-        {/* <button
-          onClick={handleViewTutorial}
-          className="flex flex-col items-center justify-center gap-1 bg-slate-200/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-900 dark:text-slate-100 p-4 rounded-full transition-all"
-        >
-          <PlayCircle className="w-5 h-5" />
-          <span className="text-sm font-semibold">View Tutorial</span>
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">
-            Learn how to use OpenClaw
-          </span>
-        </button> */}
-      </div>
+        {/* ── Primary CTA ── */}
+        <div className="flex w-full max-w-96 flex-col items-center gap-4">
+          <button
+            onClick={handleStartChat}
+            disabled={isStarting}
+            className={[
+              "flex h-[76px] w-full items-center justify-center gap-3 rounded-full border-0",
+              "bg-[linear-gradient(90deg,rgb(186,0,52)_0%,rgb(222,41,74)_100%)]",
+              "shadow-[0_8px_32px_rgba(186,0,52,0.28)] transition-opacity",
+              isStarting
+                ? "cursor-wait opacity-85"
+                : "cursor-pointer opacity-100 hover:opacity-90",
+            ].join(" ")}
+          >
+            <span className="text-xl font-bold tracking-[-0.3px] text-white">
+              {isStarting ? "Starting OpenClaw..." : "Start Chatting"}
+            </span>
+            {isStarting ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  stroke="rgba(255,255,255,0.35)"
+                  strokeWidth="3"
+                />
+                <path
+                  d="M21 12a9 9 0 0 0-9-9"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                >
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    from="0 12 12"
+                    to="360 12 12"
+                    dur="0.8s"
+                    repeatCount="indefinite"
+                  />
+                </path>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M3 8H13M13 8L9 4M13 8L9 12"
+                  stroke="white"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
 
-      {/* <footer className="py-10 flex justify-center opacity-50">
-        <div className="flex items-center gap-1 text-xs">
-          <Info className="w-4 h-4" />
-          <span>
-            You can change these settings later. Need help? Check the{" "}
-            <a href="#" className="underline">
-              FAQ
-            </a>
-            .
-          </span>
+          {isStarting && (
+            <p className="m-0 text-center text-[13px] font-medium text-[rgb(91,64,65)]">
+              Initializing gateway and finalizing setup. This may take a few seconds.
+            </p>
+          )}
+
+          {startError && (
+            <p className="m-0 text-center text-[13px] font-semibold text-[rgb(186,0,52)]">
+              {startError}
+            </p>
+          )}
+
+          {/* Workspace ID hint */}
+          <p className="m-0 text-xs font-normal text-[rgb(91,64,65)]">
+            {resolvedModelId ? `Model: ${resolvedModelId}` : "OpenClaw · Ready"}
+          </p>
         </div>
-      </footer> */}
-    </main>
+      </div>
+    </div>
   );
 }

@@ -1,15 +1,13 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useState } from "react";
-import { ProgressBar } from "./ProgressBar";
+import { WizardFooter } from "./components/WizardFooter";
 import { AccessStep } from "./steps/AccessStep";
-import { ApiKeyStep } from "./steps/ApiKeyStep";
+import { ApiKeyStep } from "./steps/api-key-step";
 import { CompletionStep } from "./steps/CompletionStep";
-import { ModelSelectionStep } from "./steps/ModelSelectionStep";
-import { OptionalFeaturesStep } from "./steps/OptionalFeaturesStep";
+import { ModelSelectionStep } from "./steps/model-selection";
 import { SecurityStep } from "./steps/SecurityStep";
 import { WelcomeStep } from "./steps/WelcomeStep";
 
-export type WizardStep = "welcome" | "security" | "access" | "model" | "api-key" | "features" | "completion";
+export type WizardStep = "welcome" | "security" | "access" | "model" | "api-key" | "completion";
 
 const STEPS: { id: WizardStep; label: string }[] = [
   { id: "welcome", label: "Welcome" },
@@ -17,16 +15,14 @@ const STEPS: { id: WizardStep; label: string }[] = [
   { id: "access", label: "Access" },
   { id: "model", label: "Model" },
   { id: "api-key", label: "API Key" },
-  { id: "features", label: "Features" },
   { id: "completion", label: "Completion" },
 ];
 
 export function WizardContainer() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("welcome");
-  // canProceed lets individual steps gate the footer Continue button
   const [canProceed, setCanProceed] = useState(true);
-  // Track whether user came via invite code path (affects back navigation)
   const [usedInvitePath, setUsedInvitePath] = useState(false);
+  const [accessVerified, setAccessVerified] = useState(false);
 
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
@@ -42,30 +38,23 @@ export function WizardContainer() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const shouldShowFooter =
-    currentStep !== "welcome" &&
-    currentStep !== "completion" &&
-    currentStep !== "access";
+  const shouldShowFooter = currentStep !== "welcome" && currentStep !== "completion" && currentStep !== "api-key";
+
+  // For access step, only allow proceed if verification is complete
+  const footerCanProceed = currentStep === "access" ? accessVerified : canProceed;
 
   const renderStep = () => {
     switch (currentStep) {
       case "welcome":
         return <WelcomeStep onNext={() => handleNext("security")} />;
       case "security":
-        return (
-          <SecurityStep
-            onBack={() => handleBack("welcome")}
-            onCanProceedChange={setCanProceed}
-          />
-        );
+        return <SecurityStep onCanProceedChange={setCanProceed} />;
       case "access":
         return (
           <AccessStep
-            // Invite code path: skip model + api-key, go straight to features
-            onNextInvite={() => { setUsedInvitePath(true); handleNext("features"); }}
-            // Manual path: go through normal model + api-key steps
+            onNextInvite={() => { setUsedInvitePath(true); handleNext("completion"); }}
             onNextManual={() => { setUsedInvitePath(false); handleNext("model"); }}
-            onBack={() => handleBack("security")}
+            onVerificationChange={setAccessVerified}
           />
         );
       case "model":
@@ -78,20 +67,13 @@ export function WizardContainer() {
       case "api-key":
         return (
           <ApiKeyStep
-            onNext={() => handleNext("features")}
+            onNext={() => handleNext("completion")}
             onBack={() => handleBack("model")}
             onCanProceedChange={setCanProceed}
           />
         );
-      case "features":
-        return (
-          <OptionalFeaturesStep
-            // Invite path: back to access; manual path: back to api-key
-            onBack={() => handleBack(usedInvitePath ? "access" : "api-key")}
-          />
-        );
       case "completion":
-        return <CompletionStep onBack={() => handleBack("features")} />;
+        return <CompletionStep onBack={() => handleBack(usedInvitePath ? "access" : "api-key")} />;
       default:
         return null;
     }
@@ -100,36 +82,29 @@ export function WizardContainer() {
   return (
     <div className="flex h-screen w-full grow flex-col">
       {/* Main Content */}
-      <div className="px-4 md:px-40 flex flex-1 justify-center md:py-4">
-        <div className="layout-content-container flex flex-col flex-1 max-w-2xl mx-auto">
+      <div className="flex flex-1 justify-center">
+        <div className="layout-content-container flex flex-col flex-1 mx-auto">
           <div className="animate-in fade-in duration-300">{renderStep()}</div>
         </div>
       </div>
 
       {/* Footer Actions */}
       {shouldShowFooter && (
-        <footer className="fixed bottom-0 left-0 right-0 pt-8 pb-12 px-4 md:px-40">
-          <div className="max-w-2xl mx-auto flex items-center justify-between">
-            <button
-              onClick={() => handleBack(STEPS[currentStepIndex - 1].id)}
-              className="flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-
-            <ProgressBar current={currentStepIndex + 1} total={STEPS.length} />
-
-            <button
-              onClick={() => handleNext(STEPS[currentStepIndex + 1].id)}
-              disabled={!canProceed}
-              className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Continue
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </footer>
+        <WizardFooter
+          onBack={() => handleBack(STEPS[currentStepIndex - 1].id)}
+          onNext={() => {
+            // If on access step and verified via invite code, skip model selection and go straight to completion
+            if (currentStep === "access" && accessVerified) {
+              setUsedInvitePath(true);
+              handleNext("completion");
+            } else {
+              handleNext(STEPS[currentStepIndex + 1].id);
+            }
+          }}
+          canProceed={footerCanProceed}
+          current={currentStepIndex + 1}
+          total={STEPS.length}
+        />
       )}
     </div>
   );

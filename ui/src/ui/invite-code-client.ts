@@ -35,10 +35,10 @@ export interface ClientConfig {
  * 注意：生产环境应该从安全存储中获取这些值
  */
 const DEV_CONFIG: ClientConfig = {
-  baseUrl: 'http://localhost:8080', // 本地Java后端服务地址
-  appId: 'boss-simulator',
-  appSecret: 'boss-simulator-dev-secret-change-in-prod',
-  appVersion: '1.0.0'
+  baseUrl: "http://localhost:8080", // 本地Java后端服务地址
+  appId: "boss-simulator",
+  appSecret: "boss-simulator-dev-secret-change-in-prod",
+  appVersion: "1.0.0",
 };
 
 /**
@@ -52,11 +52,11 @@ export function getClientConfig(isDev: boolean = true): ClientConfig {
   }
   // 生产环境配置应该从环境变量或安全存储中获取
   return {
-    baseUrl: process.env.INVITE_CODE_API_BASE_URL || '',
-    appId: process.env.INVITE_CODE_APP_ID || '',
-    appSecret: process.env.INVITE_CODE_APP_SECRET || '',
+    baseUrl: process.env.INVITE_CODE_API_BASE_URL || "",
+    appId: process.env.INVITE_CODE_APP_ID || "",
+    appSecret: process.env.INVITE_CODE_APP_SECRET || "",
     deviceId: process.env.DEVICE_ID,
-    appVersion: process.env.APP_VERSION
+    appVersion: process.env.APP_VERSION,
   };
 }
 
@@ -75,28 +75,28 @@ export async function generateSignature(
   appId: string,
   timestamp: string,
   nonce: string,
-  code: string
+  code: string,
 ): Promise<string> {
   const signPayload = `app_id=${appId}&timestamp=${timestamp}&nonce=${nonce}&code=${code}`;
-  
+
   const encoder = new TextEncoder();
   const keyData = encoder.encode(appSecret);
   const messageData = encoder.encode(signPayload);
 
   const key = await crypto.subtle.importKey(
-    'raw',
+    "raw",
     keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
+    { name: "HMAC", hash: "SHA-256" },
     false,
-    ['sign']
+    ["sign"],
   );
 
-  const signature = await crypto.subtle.sign('HMAC', key, messageData);
-  
+  const signature = await crypto.subtle.sign("HMAC", key, messageData);
+
   // 转换为十六进制字符串
   return Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 /**
@@ -108,8 +108,8 @@ export function generateNonce(length: number = 12): string {
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
   return Array.from(array)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
     .slice(0, length);
 }
 
@@ -138,50 +138,50 @@ export class InviteCodeClient {
     try {
       const timestamp = getTimestamp();
       const nonce = generateNonce();
-      
+
       // 注意：后端从 request.getParameter("code") 获取code，
       // 对于JSON请求体，这个值为空字符串
       // 因此签名时code参数传空字符串以匹配后端行为
       const signatureCode = ""; // 后端实际获取到的code值
-      
+
       const signature = await generateSignature(
         this.config.appSecret,
         this.config.appId,
         timestamp,
         nonce,
-        signatureCode
+        signatureCode,
       );
 
       const headers: Record<string, string> = {
-        'X-App-Id': this.config.appId,
-        'X-Timestamp': timestamp,
-        'X-Nonce': nonce,
-        'X-Signature': signature,
-        'Content-Type': 'application/json',
+        "X-App-Id": this.config.appId,
+        "X-Timestamp": timestamp,
+        "X-Nonce": nonce,
+        "X-Signature": signature,
+        "Content-Type": "application/json",
       };
 
       // 添加可选请求头
       if (this.config.deviceId) {
-        headers['X-Device-Id'] = this.config.deviceId;
+        headers["X-Device-Id"] = this.config.deviceId;
       }
       if (this.config.appVersion) {
-        headers['X-App-Version'] = this.config.appVersion;
+        headers["X-App-Version"] = this.config.appVersion;
       }
 
       const url = `${this.config.baseUrl}/api/v1/app/member/invite-code/redeem`;
       const body: InviteCodeRedeemRequest = { code };
 
-      console.log('[InviteCodeClient] 发送请求:', {
+      console.log("[InviteCodeClient] 发送请求:", {
         url,
         headers: {
           ...headers,
-          'X-Signature': '[HIDDEN]' // 隐藏签名信息
+          "X-Signature": "[HIDDEN]", // 隐藏签名信息
         },
-        body
+        body,
       });
 
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers,
         body: JSON.stringify(body),
       });
@@ -191,11 +191,11 @@ export class InviteCodeClient {
       }
 
       const result: InviteCodeRedeemResponse = await response.json();
-      console.log('[InviteCodeClient] 收到响应:', result);
-      
+      console.log("[InviteCodeClient] 收到响应:", result);
+
       return result;
     } catch (error) {
-      console.error('[InviteCodeClient] 请求失败:', error);
+      console.error("[InviteCodeClient] 请求失败:", error);
       throw error;
     }
   }
@@ -223,7 +223,9 @@ export const defaultInviteCodeClient = new InviteCodeClient();
  * @param config 自定义配置
  * @returns 客户端实例
  */
-export function createInviteCodeClient(config: Partial<ClientConfig> = {}): InviteCodeClient {
+export function createInviteCodeClient(
+  config: Partial<ClientConfig> = {},
+): InviteCodeClient {
   const defaultConfig = getClientConfig(true);
   return new InviteCodeClient({ ...defaultConfig, ...config });
 }
