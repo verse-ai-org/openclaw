@@ -5,7 +5,7 @@ import { ApiKeyStep } from "./steps/api-key-step";
 import { CompletionStep } from "./steps/CompletionStep";
 import { ModelSelectionStep } from "./steps/model-selection";
 import { SecurityStep } from "./steps/SecurityStep";
-import { WelcomeStep } from "./steps/WelcomeStep";
+import { WelcomeStep } from "./steps/welcome";
 
 export type WizardStep = "welcome" | "security" | "access" | "model" | "api-key" | "completion";
 

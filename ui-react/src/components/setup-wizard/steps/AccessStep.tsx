@@ -5,12 +5,12 @@ import { useWizardStore } from "@/store/setup-wizard.store";
 import { isValidInviteCodeFormat } from "@/lib/invite-code";
 
 interface AccessStepProps {
-  onNextInvite: () => void;
+  onNextInvite?: () => void;
   onNextManual: () => void;
   onVerificationChange?: (verified: boolean) => void;
 }
 
-export function AccessStep({ onNextInvite, onNextManual, onVerificationChange }: AccessStepProps) {
+export function AccessStep({onNextManual, onVerificationChange }: AccessStepProps) {
   const adapter = useWizardAdapter();
   const { updateWizardState } = useWizardStore();
   const [inviteCode, setInviteCode] = useState("");

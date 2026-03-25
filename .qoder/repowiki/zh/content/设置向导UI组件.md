@@ -4,40 +4,29 @@
 **本文档引用的文件**
 - [ui-react/src/components/setup-wizard/index.tsx](file://ui-react/src/components/setup-wizard/index.tsx)
 - [ui-react/src/components/setup-wizard/WizardContainer.tsx](file://ui-react/src/components/setup-wizard/WizardContainer.tsx)
-- [ui-react/src/components/setup-wizard/Header.tsx](file://ui-react/src/components/setup-wizard/Header.tsx)
-- [ui-react/src/components/setup-wizard/ProgressBar.tsx](file://ui-react/src/components/setup-wizard/ProgressBar.tsx)
-- [ui-react/src/components/setup-wizard/GlassCard.tsx](file://ui-react/src/components/setup-wizard/GlassCard.tsx)
+- [ui-react/src/components/setup-wizard/components/WizardFooter.tsx](file://ui-react/src/components/setup-wizard/components/WizardFooter.tsx)
 - [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx)
-- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx)
-- [ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx](file://ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx)
-- [ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx](file://ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx)
 - [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx)
-- [ui-react/src/components/setup-wizard/steps/OptionalFeaturesStep.tsx](file://ui-react/src/components/setup-wizard/steps/OptionalFeaturesStep.tsx)
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx)
+- [ui-react/src/components/setup-wizard/steps/model-selection/ModelSelectionStep.tsx](file://ui-react/src/components/setup-wizard/steps/model-selection/ModelSelectionStep.tsx)
+- [ui-react/src/components/setup-wizard/steps/api-key-step/ApiKeyStep.tsx](file://ui-react/src/components/setup-wizard/steps/api-key-step/ApiKeyStep.tsx)
+- [ui-react/src/components/setup-wizard/steps/api-key-step/ApiKeyContent.tsx](file://ui-react/src/components/setup-wizard/steps/api-key-step/ApiKeyContent.tsx)
+- [ui-react/src/components/setup-wizard/steps/api-key-step/OAuthContent.tsx](file://ui-react/src/components/setup-wizard/steps/api-key-step/OAuthContent.tsx)
 - [ui-react/src/components/setup-wizard/steps/CompletionStep.tsx](file://ui-react/src/components/setup-wizard/steps/CompletionStep.tsx)
 - [ui-react/src/store/setup-wizard.store.ts](file://ui-react/src/store/setup-wizard.store.ts)
-- [ui-react/src/types/adapter.ts](file://ui-react/src/types/adapter.ts)
 - [ui-react/src/adapters/WebWizardAdapter.ts](file://ui-react/src/adapters/WebWizardAdapter.ts)
 - [ui-react/src/adapters/ElectronWizardAdapter.ts](file://ui-react/src/adapters/ElectronWizardAdapter.ts)
-- [ui-react/src/context/AdapterContext.tsx](file://ui-react/src/context/AdapterContext.tsx)
-- [ui-react/src/lib/utils.ts](file://ui-react/src/lib/utils.ts)
 - [ui-react/package.json](file://ui-react/package.json)
-- [ui-react/src/components/ui/button.tsx](file://ui-react/src/components/ui/button.tsx)
-- [ui-react/src/components/ui/input.tsx](file://ui-react/src/components/ui/input.tsx)
-- [ui-react/src/components/ui/select.tsx](file://ui-react/src/components/ui/select.tsx)
-- [ui-react/src/components/ui/checkbox.tsx](file://ui-react/src/components/ui/checkbox.tsx)
-- [ui-react/src/components/ui/card.tsx](file://ui-react/src/components/ui/card.tsx)
-- [ui-react/src/components/ui/sheet.tsx](file://ui-react/src/components/ui/sheet.tsx)
-- [ui-react/src/components/ui/dialog.tsx](file://ui-react/src/components/ui/dialog.tsx)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增AccessStep组件，提供邀请码和手动设置的双路径界面
-- 更新WelcomeStep组件，采用全新的视觉设计和布局
-- 调整WizardContainer中的步骤流程，新增"access"步骤
-- 更新核心组件部分，反映新增的AccessStep组件
-- 新增步骤组件架构图，展示新的双路径流程
+- 新增模块化的API密钥步骤架构，重构为ApiKeyStep + ApiKeyContent + OAuthContent的组合组件
+- 重构访问步骤，新增AccessStep组件提供邀请码和手动设置的双路径界面
+- 新增模型选择向导组件，提供模块化的ModelSelectionStep和FeaturedProviderCard
+- 移除旧的多模式访问流程，采用简化的两步流程（安全确认 + 访问选择）
 - 更新状态管理，新增usedInviteCode字段支持邀请码路径跟踪
+- 新增完整的OAuth认证流程支持
 
 ## 目录
 1. [简介](#简介)
@@ -55,7 +44,7 @@
 
 设置向导UI组件是OpenClaw项目中的一个独立React组件包，专门用于提供用户友好的安装和配置体验。该组件包采用模块化设计，支持多种平台适配器，包括Web和Electron环境，并提供了完整的状态管理和持久化功能。
 
-**重大更新**：新增AccessStep组件，提供邀请码和手动设置的双路径界面，显著简化了用户配置流程。WelcomeStep组件也经过全面视觉重构，采用更加现代化和沉浸式的设计风格。
+**重大更新**：重构了整个设置向导流程，采用模块化的组件架构。新增了AccessStep组件提供邀请码和手动设置的双路径界面，以及全新的模块化API密钥步骤架构。ModelSelectionStep组件提供了丰富的AI模型选择界面，支持OAuth和API Key两种认证方式。
 
 该组件包的核心目标是为用户提供一个直观、响应式的设置向导界面，涵盖从欢迎页面到最终完成的所有配置步骤。通过使用现代前端技术栈和设计系统，确保了良好的用户体验和跨平台兼容性。
 
@@ -73,39 +62,31 @@ B --> F["types/"]
 B --> G["context/"]
 B --> H["lib/"]
 C --> I["setup-wizard/"]
-C --> J["ui/"]
+I --> J["components/"]
 I --> K["steps/"]
-I --> L["ui/"]
-I --> M["index.tsx"]
-I --> N["WizardContainer.tsx"]
+I --> L["index.tsx"]
+I --> M["WizardContainer.tsx"]
+J --> N["WizardFooter.tsx"]
 K --> O["WelcomeStep.tsx"]
-K --> P["AccessStep.tsx"]
-K --> Q["SecurityStep.tsx"]
-K --> R["ApiKeyStep.tsx"]
-K --> S["ModelSelectionStep.tsx"]
-K --> T["OptionalFeaturesStep.tsx"]
-K --> U["CompletionStep.tsx"]
-J --> V["基础UI组件"]
-V --> W["button.tsx"]
-V --> X["input.tsx"]
-V --> Y["select.tsx"]
-V --> Z["checkbox.tsx"]
-V --> AA["card.tsx"]
-V --> AB["sheet.tsx"]
-V --> AC["dialog.tsx"]
-D --> AD["WebWizardAdapter.ts"]
-D --> AE["ElectronWizardAdapter.ts"]
-E --> AF["setup-wizard.store.ts"]
-E --> AG["index.ts"]
-F --> AH["adapter.ts"]
-F --> AI["index.ts"]
-G --> AJ["AdapterContext.tsx"]
-H --> AK["utils.ts"]
+K --> P["SecurityStep.tsx"]
+K --> Q["AccessStep.tsx"]
+K --> R["model-selection/"]
+K --> S["api-key-step/"]
+R --> T["ModelSelectionStep.tsx"]
+R --> U["FeaturedProviderCard.tsx"]
+R --> V["AllProvidersDialog.tsx"]
+S --> W["ApiKeyStep.tsx"]
+S --> X["ApiKeyContent.tsx"]
+S --> Y["OAuthContent.tsx"]
+S --> Z["constants.ts"]
+D --> AA["WebWizardAdapter.ts"]
+D --> AB["ElectronWizardAdapter.ts"]
+E --> AC["setup-wizard.store.ts"]
 ```
 
 **图表来源**
 - [ui-react/src/components/setup-wizard/index.tsx:1-31](file://ui-react/src/components/setup-wizard/index.tsx#L1-L31)
-- [ui-react/src/components/ui/button.tsx:1-56](file://ui-react/src/components/ui/button.tsx#L1-L56)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:1-112](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L1-L112)
 
 **章节来源**
 - [ui-react/package.json:1-58](file://ui-react/package.json#L1-L58)
@@ -200,28 +181,27 @@ BaseComponent <|-- Select
 主组件作为整个向导的入口点，负责包装和提供上下文。它支持两种使用模式：带适配器模式和无适配器模式。
 
 ### 容器组件 WizardContainer
-容器组件管理整个向导的状态和流程控制，包括步骤导航、数据提交和错误处理。**更新**：新增了"access"步骤，支持邀请码和手动设置的双路径流程。
+容器组件管理整个向导的状态和流程控制，包括步骤导航、数据提交和错误处理。**更新**：重构为简化的两步流程，移除了旧的多模式访问步骤。
 
 ### 步骤组件
 包含多个专门的步骤组件，每个组件负责特定的配置任务：
-- **WelcomeStep**：**重大更新**：欢迎页面采用全新视觉设计，提供沉浸式体验和现代化布局
-- **AccessStep**：**新增**：邀请码和手动设置的双路径界面，支持快速配置和完整配置
+- **WelcomeStep**：欢迎页面，提供沉浸式体验和现代化布局
 - **SecurityStep**：安全确认和条款同意
-- **ApiKeyStep**：API密钥输入和验证
-- **ModelSelectionStep**：AI模型选择
-- **OptionalFeaturesStep**：可选功能配置
+- **AccessStep**：**新增**：邀请码和手动设置的双路径界面，支持快速配置和完整配置
+- **ModelSelectionStep**：**重构**：模块化的AI模型选择界面，提供丰富的选择体验
+- **ApiKeyStep**：**重构**：模块化的API密钥步骤，支持OAuth和API Key两种认证方式
 - **CompletionStep**：完成页面
 
 ### UI基础组件
-提供通用的UI组件，如玻璃卡片、进度条等，用于构建一致的用户体验。
+提供通用的UI组件，如向导底部导航等，用于构建一致的用户体验。
 
 **更新**：所有步骤组件现在都使用新的基础UI组件系统，提升了组件的一致性和可维护性。
 
 **章节来源**
 - [ui-react/src/components/setup-wizard/index.tsx:1-31](file://ui-react/src/components/setup-wizard/index.tsx#L1-L31)
-- [ui-react/src/components/setup-wizard/WizardContainer.tsx:1-137](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L1-L137)
-- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:1-121](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L121)
-- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:1-247](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L247)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:1-112](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L1-L112)
+- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:1-117](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L117)
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:1-221](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L221)
 
 ## 架构概览
 
@@ -234,61 +214,54 @@ A[SetupWizard 主组件]
 B[WizardContainer 容器]
 C[步骤组件]
 D[UI基础组件库]
+E[WizardFooter 底部导航]
 end
-subgraph "基础组件系统"
-E[Button]
-F[Input]
-G[Select]
-H[Checkbox]
-I[Card]
-J[Sheet]
-K[Dialog]
+subgraph "模块化步骤组件"
+F[AccessStep 访问步骤]
+G[ModelSelectionStep 模型选择]
+H[ApiKeyStep API密钥步骤]
+I[ApiKeyContent API密钥内容]
+J[OAuthContent OAuth内容]
 end
 subgraph "状态管理层"
-L[Zustand Store]
-M[WizardState 接口]
+K[Zustand Store]
+L[WizardState 接口]
+M[usedInviteCode 字段]
 end
 subgraph "适配器层"
 N[WizardAdapter 接口]
 O[WebWizardAdapter]
 P[ElectronWizardAdapter]
 end
-subgraph "上下文层"
-Q[AdapterContext]
-R[AdapterProvider]
-end
 subgraph "外部服务"
-S[Web API]
-T[Electron IPC]
-U[本地存储]
+Q[Web API]
+R[Electron IPC]
+S[本地存储]
 end
 A --> B
 B --> C
 B --> D
+B --> E
+C --> F
+C --> G
+C --> H
+H --> I
+H --> J
 D --> E
-D --> F
-D --> G
-D --> H
-D --> I
-D --> J
-D --> K
-B --> L
-L --> M
-A --> Q
-Q --> R
-R --> N
+K --> L
+K --> M
+A --> N
 N --> O
 N --> P
-O --> S
-P --> T
-L --> U
+O --> Q
+P --> R
+K --> S
 ```
 
 **图表来源**
 - [ui-react/src/components/setup-wizard/index.tsx:11-28](file://ui-react/src/components/setup-wizard/index.tsx#L11-L28)
-- [ui-react/src/components/ui/button.tsx:41-56](file://ui-react/src/components/ui/button.tsx#L41-L56)
-- [ui-react/src/components/ui/input.tsx:4-18](file://ui-react/src/components/ui/input.tsx#L4-L18)
-- [ui-react/src/components/ui/select.tsx:7-11](file://ui-react/src/components/ui/select.tsx#L7-L11)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:10-19](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L10-L19)
+- [ui-react/src/components/setup-wizard/components/WizardFooter.tsx:59-91](file://ui-react/src/components/setup-wizard/components/WizardFooter.tsx#L59-L91)
 
 ### 数据流图
 
@@ -315,8 +288,8 @@ Wizard-->>User : 显示新步骤
 ```
 
 **图表来源**
-- [ui-react/src/components/setup-wizard/WizardContainer.tsx:30-38](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L30-L38)
-- [ui-react/src/store/setup-wizard.store.ts:56-85](file://ui-react/src/store/setup-wizard.store.ts#L56-L85)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:29-39](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L29-L39)
+- [ui-react/src/store/setup-wizard.store.ts:103-110](file://ui-react/src/store/setup-wizard.store.ts#L103-L110)
 
 ## 详细组件分析
 
@@ -369,13 +342,13 @@ M --> O[结束]
 ```
 
 **图表来源**
-- [ui-react/src/components/setup-wizard/WizardContainer.tsx:24-73](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L24-L73)
+- [ui-react/src/components/setup-wizard/WizardContainer.tsx:21-80](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L21-L80)
 
 ### 步骤组件分析
 
 #### WelcomeStep 欢迎步骤
 
-**重大更新**：WelcomeStep经过全面视觉重构，采用更加现代化和沉浸式的设计风格：
+WelcomeStep提供了一个沉浸式的欢迎界面，采用现代化的设计风格：
 
 ```mermaid
 classDiagram
@@ -383,7 +356,7 @@ class WelcomeStep {
 +onNext : () => void
 +render() JSX.Element
 }
-class ModernDesign {
+class ImmersiveDesign {
 +cinematicGradient : string[]
 +minimalHeader : boolean
 +immersiveHero : boolean
@@ -399,14 +372,14 @@ class Button {
 +size : string
 +onClick : () => void
 }
-WelcomeStep --> ModernDesign : 采用新设计
+WelcomeStep --> ImmersiveDesign : 采用新设计
 WelcomeStep --> SetupStep : 展示多个步骤
 WelcomeStep --> Button : 使用启动按钮
 SetupStep --> GlassCard : 包装显示
 ```
 
 **图表来源**
-- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:14-121](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L14-L121)
+- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:13-117](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L13-L117)
 
 #### AccessStep 访问步骤
 
@@ -432,11 +405,11 @@ InviteScreen-->>User : 自动跳转到功能配置
 ```
 
 **图表来源**
-- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:15-247](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L15-L247)
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:22-79](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L22-L79)
 
 #### SecurityStep 安全步骤
 
-SecurityStep处理安全确认和条款同意，使用GlassCard组件：
+SecurityStep处理安全确认和条款同意，使用Checkbox组件：
 
 ```mermaid
 classDiagram
@@ -450,104 +423,77 @@ class SecurityItems {
 +shareKeys : string
 +checkLogs : string
 }
-class GlassCard {
-+className : string
+class Checkbox {
++checked : boolean
++onChange : () => void
 }
 SecurityStep --> SecurityItems : 显示安全条款
-SecurityStep --> GlassCard : 包装列表
+SecurityStep --> Checkbox : 使用复选框
 ```
 
 **图表来源**
-- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:25-108](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L25-L108)
+- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:27-115](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L27-L115)
 
 #### ApiKeyStep API密钥步骤
 
-ApiKeyStep处理API密钥的输入和验证过程，使用Input基础组件：
+**重构**：ApiKeyStep现在采用模块化架构，支持OAuth和API Key两种认证方式：
 
 ```mermaid
 sequenceDiagram
 participant User as 用户
 participant ApiKeyStep as ApiKeyStep
-participant Input as Input组件
+participant Tabs as 标签页组件
+participant OAuthContent as OAuth内容
+participant ApiKeyContent as API密钥内容
 participant Store as Zustand Store
 participant Adapter as 适配器
-User->>ApiKeyStep : 输入API密钥
-ApiKeyStep->>Input : 更新输入状态
-Input->>Store : 触发状态更新
-Store-->>Input : 确认更新
-User->>ApiKeyStep : 点击测试连接
-ApiKeyStep->>Adapter : 验证密钥
-Adapter-->>ApiKeyStep : 返回验证结果
-ApiKeyStep-->>User : 显示连接状态
+User->>ApiKeyStep : 选择认证方式
+ApiKeyStep->>Tabs : 切换标签页
+Tabs->>OAuthContent : 显示OAuth界面
+Tabs->>ApiKeyContent : 显示API密钥界面
+User->>OAuthContent : 点击认证
+OAuthContent->>Adapter : 启动OAuth流程
+Adapter-->>OAuthContent : 返回认证结果
+OAuthContent->>Store : 写入令牌
+OAuthContent-->>User : 显示成功状态
 ```
 
 **图表来源**
-- [ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx:29-56](file://ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx#L29-L56)
+- [ui-react/src/components/setup-wizard/steps/api-key-step/ApiKeyStep.tsx:16-48](file://ui-react/src/components/setup-wizard/steps/api-key-step/ApiKeyStep.tsx#L16-L48)
 
 #### ModelSelectionStep 模型选择步骤
 
-ModelSelectionStep提供了一个丰富的AI模型选择界面，使用Select基础组件：
+**重构**：ModelSelectionStep提供了一个丰富的AI模型选择界面：
 
 ```mermaid
 classDiagram
 class ModelSelectionStep {
-+selectedModel : string
-+openDialog : boolean
-+selectedProvider : string
-+handleSelect(modelId) void
-}
-class Select {
-+size : string
-+position : string
-+align : string
-}
-class SelectTrigger {
-+size : string
-}
-class SelectContent {
-+position : string
-+align : string
-}
-class SelectItem {
-+disabled : boolean
-}
-ModelSelectionStep --> Select : 使用选择组件
-Select --> SelectTrigger : 包含触发器
-Select --> SelectContent : 包含内容
-Select --> SelectItem : 包含选项
-```
-
-**图表来源**
-- [ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx:17-118](file://ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx#L17-L118)
-
-#### OptionalFeaturesStep 可选功能步骤
-
-OptionalFeaturesStep允许用户选择额外的功能，使用Checkbox组件：
-
-```mermaid
-classDiagram
-class OptionalFeaturesStep {
++onNext : () => void
 +onBack : () => void
-+features : object
-+handleToggle(featureId) void
++selectedGroup : string
++dialogOpen : boolean
 }
-class Features {
-+id : string
-+icon : React.ComponentType
-+title : string
-+description : string
-+enabled : boolean
+class FeaturedProviderCard {
++group : AuthProviderGroupDef
++selected : boolean
++onSelect : (group) => void
 }
-class Checkbox {
-+checked : boolean
-+onChange : () => void
+class AllProvidersDialog {
++selectedGroupId : string
++onSelect : (group) => void
++onClose : () => void
 }
-OptionalFeaturesStep --> Features : 显示功能列表
-OptionalFeaturesStep --> Checkbox : 使用开关组件
+class Dialog {
++open : boolean
++onOpenChange : (open) => void
+}
+ModelSelectionStep --> FeaturedProviderCard : 显示特色提供商
+ModelSelectionStep --> AllProvidersDialog : 显示完整对话框
+ModelSelectionStep --> Dialog : 控制对话框状态
 ```
 
 **图表来源**
-- [ui-react/src/components/setup-wizard/steps/OptionalFeaturesStep.tsx:33-109](file://ui-react/src/components/setup-wizard/steps/OptionalFeaturesStep.tsx#L33-L109)
+- [ui-react/src/components/setup-wizard/steps/model-selection/ModelSelectionStep.tsx:22-49](file://ui-react/src/components/setup-wizard/steps/model-selection/ModelSelectionStep.tsx#L22-L49)
 
 #### CompletionStep 完成步骤
 
@@ -578,7 +524,7 @@ CompletionStep --> Icons : 使用图标组件
 ```
 
 **图表来源**
-- [ui-react/src/components/setup-wizard/steps/CompletionStep.tsx:16-159](file://ui-react/src/components/setup-wizard/steps/CompletionStep.tsx#L16-L159)
+- [ui-react/src/components/setup-wizard/steps/CompletionStep.tsx:23-57](file://ui-react/src/components/setup-wizard/steps/CompletionStep.tsx#L23-L57)
 
 ### 状态管理系统
 
@@ -652,16 +598,15 @@ WizardAdapter <|-- ElectronWizardAdapter
 
 **图表来源**
 - [ui-react/src/types/adapter.ts:15-87](file://ui-react/src/types/adapter.ts#L15-L87)
-- [ui-react/src/adapters/WebWizardAdapter.ts:7-74](file://ui-react/src/adapters/WebWizardAdapter.ts#L7-L74)
+- [ui-react/src/adapters/WebWizardAdapter.ts:8-26](file://ui-react/src/adapters/WebWizardAdapter.ts#L8-L26)
 
 **章节来源**
-- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:1-121](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L121)
-- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:1-247](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L247)
-- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:1-108](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L1-L108)
-- [ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx:1-280](file://ui-react/src/components/setup-wizard/steps/ApiKeyStep.tsx#L1-L280)
-- [ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx:1-398](file://ui-react/src/components/setup-wizard/steps/ModelSelectionStep.tsx#L1-L398)
-- [ui-react/src/components/setup-wizard/steps/OptionalFeaturesStep.tsx:1-109](file://ui-react/src/components/setup-wizard/steps/OptionalFeaturesStep.tsx#L1-L109)
-- [ui-react/src/components/setup-wizard/steps/CompletionStep.tsx:1-159](file://ui-react/src/components/setup-wizard/steps/CompletionStep.tsx#L1-L159)
+- [ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx:1-117](file://ui-react/src/components/setup-wizard/steps/WelcomeStep.tsx#L1-L117)
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:1-221](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L221)
+- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:1-115](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L1-L115)
+- [ui-react/src/components/setup-wizard/steps/model-selection/ModelSelectionStep.tsx:1-129](file://ui-react/src/components/setup-wizard/steps/model-selection/ModelSelectionStep.tsx#L1-L129)
+- [ui-react/src/components/setup-wizard/steps/api-key-step/ApiKeyStep.tsx:1-215](file://ui-react/src/components/setup-wizard/steps/api-key-step/ApiKeyStep.tsx#L1-L215)
+- [ui-react/src/components/setup-wizard/steps/CompletionStep.tsx:1-257](file://ui-react/src/components/setup-wizard/steps/CompletionStep.tsx#L1-L257)
 - [ui-react/src/store/setup-wizard.store.ts:1-138](file://ui-react/src/store/setup-wizard.store.ts#L1-L138)
 
 ## 依赖关系分析
@@ -787,6 +732,14 @@ A --> Q
 2. 验证网络连接和API端点
 3. 查看控制台错误日志
 
+#### OAuth认证问题
+**症状**: OAuth认证流程中断或失败
+**原因**: 浏览器弹窗阻止或适配器实现问题
+**解决方案**:
+1. 检查浏览器弹窗阻止设置
+2. 验证适配器的startOAuth和pollOAuth实现
+3. 查看控制台错误日志
+
 **章节来源**
 - [ui-react/src/components/setup-wizard/WizardContainer.tsx:41-62](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L41-L62)
 
@@ -801,6 +754,7 @@ A --> Q
 - **平台适配**: 灵活的适配器模式支持多平台部署
 - **基础组件系统**: 重构后的20+个原子化UI组件，提供一致的设计语言
 - **双路径流程**: 新增的AccessStep支持邀请码和手动设置的双路径界面
+- **OAuth支持**: 完整的OAuth认证流程，支持多种提供商
 
 ### 用户体验
 - **响应式设计**: 适配各种屏幕尺寸和设备
@@ -815,6 +769,6 @@ A --> Q
 - **主题系统**: 灵活的主题和样式定制
 - **测试友好**: 完善的单元测试和集成测试
 
-**重大更新**：新增的AccessStep组件显著简化了用户配置流程，通过邀请码验证自动填充API密钥和模型配置，为用户提供了一键式快速配置体验。WelcomeStep的视觉重构采用了更加现代化和沉浸式的设计风格，提升了用户的初始体验。
+**重大更新**：重构后的设置向导采用了更加简洁高效的两步流程，移除了复杂的多模式访问步骤，专注于提供更好的用户体验。新增的模块化API密钥步骤架构支持OAuth和API Key两种认证方式，为不同用户需求提供了灵活的选择。
 
 该组件包为OpenClaw项目提供了一个坚实的技术基础，能够有效提升用户的初始体验和产品采用率。其模块化的设计使得未来的功能扩展和维护变得更加容易和可控。

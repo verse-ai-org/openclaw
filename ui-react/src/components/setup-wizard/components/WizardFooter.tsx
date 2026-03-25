@@ -58,7 +58,7 @@ function StepDots({ current, total }: { current: number; total: number }) {
  */
 export function WizardFooter({ onBack, onNext, canProceed, current, total }: WizardFooterProps) {
   return (
-    <footer className="fixed bottom-0 left-0 right-0 h-32 flex items-center justify-between px-12 z-40 backdrop-blur-md">
+    <footer className="fixed bottom-0 left-0 right-0 h-20 flex items-center justify-between px-12 z-40 backdrop-blur-md">
       {/* Back button — matches Figma node 160:70 */}
       <button
         onClick={onBack}

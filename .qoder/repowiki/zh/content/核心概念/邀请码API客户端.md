@@ -7,7 +7,18 @@
 - [app-invite-code.ts](file://ui/src/ui/app-invite-code.ts)
 - [profile.ts](file://ui/src/ui/views/profile.ts)
 - [app.ts](file://ui/src/ui/app.ts)
+- [invite-code.ts](file://ui-react/src/lib/invite-code.ts)
+- [WebWizardAdapter.ts](file://ui-react/src/adapters/WebWizardAdapter.ts)
+- [AccessStep.tsx](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 更新了Web Crypto API签名实现的详细说明
+- 新增了浏览器环境下邀请码验证流程的完整描述
+- 移除了Node.js依赖的相关内容
+- 更新了UI集成组件的实现细节
+- 增加了React前端组件的集成示例
 
 ## 目录
 1. [简介](#简介)
@@ -24,16 +35,19 @@
 
 邀请码API客户端是OpenClaw项目中的一个重要功能模块，负责处理邀请码兑换API的客户端实现。该客户端基于HMAC-SHA256签名认证机制，为用户提供安全的API密钥获取功能。
 
+**更新** 该系统现已完全基于浏览器原生Web Crypto API实现签名验证，移除了对Node.js crypto模块的依赖，提供了更好的跨平台兼容性和安全性。
+
 该系统的核心特性包括：
-- 基于HMAC-SHA256的强加密签名验证
+- 基于Web Crypto API的HMAC-SHA256强加密签名验证
 - 防重放攻击的时间戳和随机数机制
 - 完整的错误处理和状态管理
 - 跨平台兼容的浏览器环境支持
 - 开发和生产环境的灵活配置
+- React前端组件的无缝集成
 
 ## 项目结构
 
-邀请码API客户端位于UI项目的特定目录结构中，采用清晰的模块化设计：
+邀请码API客户端位于UI项目的特定目录结构中，采用清晰的模块化设计，现已支持多前端框架集成：
 
 ```mermaid
 graph TB
@@ -43,35 +57,42 @@ A --> C[app-invite-code.ts]
 A --> D[app.ts]
 A --> E[views/profile.ts]
 end
-subgraph "文档规范"
-F[docs/features/invite-code-api-design.md] --> G[接口规范]
-F --> H[签名算法]
-F --> I[错误码定义]
+subgraph "React前端集成"
+F[ui-react/src/lib/] --> G[invite-code.ts]
+F --> H[WebWizardAdapter.ts]
+F --> I[AccessStep.tsx]
 end
-B --> J[客户端配置]
-B --> K[签名工具]
-B --> L[API调用]
-C --> M[业务逻辑]
-C --> N[状态管理]
-D --> O[应用集成]
-E --> P[用户界面]
+subgraph "文档规范"
+J[docs/features/invite-code-api-design.md] --> K[接口规范]
+J --> L[签名算法]
+J --> M[错误码定义]
+end
+B --> N[浏览器签名实现]
+C --> O[业务逻辑处理]
+G --> P[Web Crypto API签名]
+H --> Q[向导适配器]
+I --> R[设置向导集成]
 ```
 
 **图表来源**
-- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
+- [invite-code-client.ts:1-232](file://ui/src/ui/invite-code-client.ts#L1-L232)
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
-- [invite-code-api-design.md:1-448](file://docs/features/invite-code-api-design.md#L1-L448)
+- [invite-code.ts:1-151](file://ui-react/src/lib/invite-code.ts#L1-L151)
+- [WebWizardAdapter.ts:94-106](file://ui-react/src/adapters/WebWizardAdapter.ts#L94-L106)
+- [AccessStep.tsx:1-194](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L194)
 
 **章节来源**
-- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
+- [invite-code-client.ts:1-232](file://ui/src/ui/invite-code-client.ts#L1-L232)
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
-- [invite-code-api-design.md:1-448](file://docs/features/invite-code-api-design.md#L1-L448)
+- [invite-code.ts:1-151](file://ui-react/src/lib/invite-code.ts#L1-L151)
+- [WebWizardAdapter.ts:94-106](file://ui-react/src/adapters/WebWizardAdapter.ts#L94-L106)
+- [AccessStep.tsx:1-194](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L194)
 
 ## 核心组件
 
 ### 邀请码客户端类
 
-InviteCodeClient是整个系统的主控制器，负责处理所有与邀请码相关的操作：
+InviteCodeClient是整个系统的主控制器，负责处理所有与邀请码相关的操作，现已完全基于Web Crypto API实现：
 
 ```mermaid
 classDiagram
@@ -105,83 +126,101 @@ class ApiKeyConfig {
 +tts_api_key? : string
 +[key : string] : string | undefined
 }
+class WebCryptoSignature {
++generateSignature() : Promise~string~
++generateNonce() : string
+}
 InviteCodeClient --> ClientConfig : "使用"
 InviteCodeClient --> InviteCodeRedeemRequest : "创建"
 InviteCodeClient --> InviteCodeRedeemResponse : "返回"
+InviteCodeClient --> WebCryptoSignature : "委托签名"
 InviteCodeRedeemResponse --> ApiKeyConfig : "包含"
 ```
 
 **图表来源**
 - [invite-code-client.ts:125-213](file://ui/src/ui/invite-code-client.ts#L125-L213)
+- [invite-code-client.ts:73-122](file://ui/src/ui/invite-code-client.ts#L73-L122)
 
-### 业务逻辑处理器
+### React前端集成组件
 
-app-invite-code.ts提供了高级别的业务逻辑封装，处理完整的邀请码验证流程：
+React前端提供了完整的邀请码验证组件集成：
 
 ```mermaid
 sequenceDiagram
-participant UI as 用户界面
-participant Handler as 处理器
-participant Client as 客户端
+participant UI as React组件
+participant Adapter as WebWizardAdapter
+participant Lib as invite-code库
+participant Client as InviteCodeClient
 participant Server as 服务器
-UI->>Handler : 用户输入邀请码
-Handler->>Handler : 验证输入格式
-Handler->>Client : redeem(inviteCode)
-Client->>Client : 生成签名和头部
-Client->>Server : POST /api/v1/app/member/invite-code/redeem
-Server-->>Client : 返回响应
-Client-->>Handler : InviteCodeRedeemResponse
-Handler->>Handler : 处理业务逻辑
-Handler-->>UI : 更新状态和显示结果
+UI->>Adapter : validateInviteCode(code)
+Adapter->>Lib : redeemInviteCode(code)
+Lib->>Lib : 验证邀请码格式
+Lib->>Lib : 生成签名和头部
+Lib->>Server : POST /api/v1/app/member/invite-code/redeem
+Server-->>Lib : 返回响应
+Lib-->>Adapter : InviteCodeResult
+Adapter-->>UI : 验证结果
 ```
 
 **图表来源**
-- [app-invite-code.ts:31-106](file://ui/src/ui/app-invite-code.ts#L31-L106)
+- [WebWizardAdapter.ts:100-105](file://ui-react/src/adapters/WebWizardAdapter.ts#L100-L105)
+- [invite-code.ts:100-151](file://ui-react/src/lib/invite-code.ts#L100-L151)
 
 **章节来源**
 - [invite-code-client.ts:125-213](file://ui/src/ui/invite-code-client.ts#L125-L213)
 - [app-invite-code.ts:31-106](file://ui/src/ui/app-invite-code.ts#L31-L106)
+- [WebWizardAdapter.ts:100-105](file://ui-react/src/adapters/WebWizardAdapter.ts#L100-L105)
+- [invite-code.ts:100-151](file://ui-react/src/lib/invite-code.ts#L100-L151)
 
 ## 架构概览
 
 ### 整体架构设计
 
-邀请码API客户端采用了分层架构设计，确保了良好的可维护性和扩展性：
+邀请码API客户端采用了分层架构设计，现已支持多前端框架集成，确保了良好的可维护性和扩展性：
 
 ```mermaid
 graph TB
 subgraph "表示层"
 A[用户界面组件]
 B[状态管理]
+C[React组件]
 end
 subgraph "业务逻辑层"
-C[邀请码验证处理器]
-D[错误处理机制]
-E[状态转换逻辑]
+D[邀请码验证处理器]
+E[错误处理机制]
+F[状态转换逻辑]
+G[向导适配器]
 end
 subgraph "数据访问层"
-F[API客户端]
-G[签名生成器]
-H[配置管理器]
+H[API客户端]
+I[Web Crypto API签名器]
+J[配置管理器]
+K[格式验证器]
 end
 subgraph "外部服务"
-I[邀请码兑换API]
-J[后端服务器]
+L[邀请码兑换API]
+M[后端服务器]
 end
-A --> C
-B --> C
-C --> F
-C --> D
-F --> G
+A --> D
+B --> D
+C --> G
+D --> H
+D --> I
+D --> K
 F --> H
 F --> I
-I --> J
+F --> J
+G --> H
+G --> I
+H --> L
+L --> M
 ```
 
 **图表来源**
 - [app.ts:115-200](file://ui/src/ui/app.ts#L115-L200)
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
-- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
+- [invite-code-client.ts:1-232](file://ui/src/ui/invite-code-client.ts#L1-L232)
+- [WebWizardAdapter.ts:94-106](file://ui-react/src/adapters/WebWizardAdapter.ts#L94-L106)
 
 ### 数据流架构
 
@@ -191,7 +230,7 @@ Start([开始验证]) --> ValidateInput[验证输入]
 ValidateInput --> FormatCheck{格式检查}
 FormatCheck --> |无效| ShowError[显示格式错误]
 FormatCheck --> |有效| GenerateHeaders[生成请求头]
-GenerateHeaders --> SignRequest[生成签名]
+GenerateHeaders --> SignRequest[使用Web Crypto API生成签名]
 SignRequest --> MakeRequest[发送HTTP请求]
 MakeRequest --> CheckResponse{检查响应}
 CheckResponse --> |HTTP错误| HandleHttpError[处理HTTP错误]
@@ -209,40 +248,46 @@ Success --> End
 
 **图表来源**
 - [app-invite-code.ts:51-106](file://ui/src/ui/app-invite-code.ts#L51-L106)
+- [invite-code.ts:100-151](file://ui-react/src/lib/invite-code.ts#L100-L151)
 
 **章节来源**
 - [app.ts:115-200](file://ui/src/ui/app.ts#L115-L200)
 - [app-invite-code.ts:51-106](file://ui/src/ui/app-invite-code.ts#L51-L106)
 - [invite-code-client.ts:137-201](file://ui/src/ui/invite-code-client.ts#L137-L201)
+- [invite-code.ts:100-151](file://ui-react/src/lib/invite-code.ts#L100-L151)
 
 ## 详细组件分析
 
-### 签名生成器组件
+### Web Crypto API签名生成器
 
-签名生成器是安全性的核心组件，实现了HMAC-SHA256加密算法：
+签名生成器是安全性的核心组件，实现了基于浏览器原生Web Crypto API的HMAC-SHA256加密算法：
 
-#### 签名算法实现
+#### Web Crypto API签名算法实现
 
 ```mermaid
 flowchart LR
 A[输入参数] --> B[构造待签名字符串]
-B --> C[HMAC-SHA256计算]
-C --> D[十六进制编码]
-D --> E[返回签名]
-subgraph "参数构成"
-F[app_id]
-G[timestamp]
-H[nonce]
-I[code]
+B --> C[TextEncoder编码]
+C --> D[导入HMAC密钥]
+D --> E[使用Web Crypto API签名]
+E --> F[Uint8Array转换]
+F --> G[十六进制编码]
+G --> H[返回签名]
+subgraph "Web Crypto API参数构成"
+I[app_id]
+J[timestamp]
+K[nonce]
+L[code]
 end
-A --> F
-A --> G
-A --> H
 A --> I
+A --> J
+A --> K
+A --> L
 ```
 
 **图表来源**
 - [invite-code-client.ts:73-100](file://ui/src/ui/invite-code-client.ts#L73-L100)
+- [invite-code.ts:50-74](file://ui-react/src/lib/invite-code.ts#L50-L74)
 
 #### 防重放攻击机制
 
@@ -251,13 +296,15 @@ A --> I
 1. **时间戳验证**：5分钟有效期限制
 2. **随机数机制**：每次请求生成唯一nonce
 3. **签名完整性**：包含所有关键参数的签名
+4. **浏览器原生支持**：利用Web Crypto API的安全性
 
 **章节来源**
 - [invite-code-client.ts:73-122](file://ui/src/ui/invite-code-client.ts#L73-L122)
+- [invite-code.ts:50-84](file://ui-react/src/lib/invite-code.ts#L50-L84)
 
 ### 配置管理系统
 
-配置管理系统提供了灵活的环境配置支持：
+配置管理系统提供了灵活的环境配置支持，现已支持多前端框架：
 
 #### 配置类型定义
 
@@ -277,20 +324,22 @@ A[获取配置] --> B{开发环境?}
 B --> |是| C[使用内置配置]
 B --> |否| D[从环境变量读取]
 C --> E[DEV_CONFIG]
-D --> F[process.env.*]
+D --> F[process.env.* 或 VITE_*]
 E --> G[返回配置对象]
 F --> G
 ```
 
 **图表来源**
 - [invite-code-client.ts:49-61](file://ui/src/ui/invite-code-client.ts#L49-L61)
+- [invite-code.ts:100-151](file://ui-react/src/lib/invite-code.ts#L100-L151)
 
 **章节来源**
 - [invite-code-client.ts:37-61](file://ui/src/ui/invite-code-client.ts#L37-L61)
+- [invite-code.ts:100-151](file://ui-react/src/lib/invite-code.ts#L100-L151)
 
 ### 错误处理机制
 
-系统实现了全面的错误处理策略：
+系统实现了全面的错误处理策略，现已支持多前端框架的错误映射：
 
 #### 错误分类处理
 
@@ -330,7 +379,7 @@ H --> I
 
 ### 用户界面集成
 
-用户界面组件提供了直观的操作体验：
+用户界面组件提供了直观的操作体验，现已支持多前端框架：
 
 #### 界面状态管理
 
@@ -370,33 +419,43 @@ subgraph "核心依赖"
 A[invite-code-client.ts] --> B[Web Crypto API]
 A --> C[fetch API]
 A --> D[TextEncoder]
+E[invite-code.ts] --> B
+E --> C
+E --> D
 end
 subgraph "业务依赖"
-E[app-invite-code.ts] --> A
-E --> F[错误处理映射]
-E --> G[状态验证]
+F[app-invite-code.ts] --> A
+F --> G[错误处理映射]
+F --> H[状态验证]
+I[WebWizardAdapter.ts] --> E
+I --> J[向导状态管理]
 end
 subgraph "UI集成"
-H[profile.ts] --> E
-H --> I[状态绑定]
-J[app.ts] --> E
-J --> K[事件处理]
+K[profile.ts] --> F
+K --> L[状态绑定]
+M[app.ts] --> F
+M --> N[事件处理]
+O[AccessStep.tsx] --> I
+O --> P[设置向导集成]
 end
 subgraph "外部依赖"
-L[浏览器环境] --> A
-M[Node.js环境] --> A
-N[后端API] --> A
+Q[浏览器环境] --> B
+R[Electron环境] --> S[crypto模块]
+T[后端API] --> A
+T --> E
 end
 ```
 
 **图表来源**
-- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
+- [invite-code-client.ts:1-232](file://ui/src/ui/invite-code-client.ts#L1-L232)
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
-- [profile.ts:848-919](file://ui/src/ui/views/profile.ts#L848-L919)
+- [invite-code.ts:1-151](file://ui-react/src/lib/invite-code.ts#L1-L151)
+- [WebWizardAdapter.ts:94-106](file://ui-react/src/adapters/WebWizardAdapter.ts#L94-L106)
+- [AccessStep.tsx:1-194](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L194)
 
 ### 外部依赖分析
 
-系统对外部依赖的管理遵循最小化原则：
+系统对外部依赖的管理遵循最小化原则，现已完全基于浏览器原生API：
 
 #### 关键外部依赖
 
@@ -405,7 +464,7 @@ end
 | Web Crypto API | 浏览器原生 | 加密签名 | 高 |
 | fetch API | 浏览器原生 | HTTP请求 | 高 |
 | TextEncoder | 浏览器原生 | 字符编码 | 高 |
-| Node.js crypto | 可选 | 服务器端 | 高 |
+| crypto模块 | Node.js可选 | 服务器端 | 高 |
 
 #### 环境兼容性
 
@@ -414,31 +473,37 @@ graph LR
 A[浏览器环境] --> B[Web Crypto API]
 A --> C[fetch API]
 A --> D[TextEncoder]
-E[Node.js环境] --> F[crypto模块]
+E[Electron环境] --> F[crypto模块]
 E --> G[fetch实现]
 E --> H[Buffer]
-I[通用实现] --> B
-I --> F
+I[React前端] --> B
 I --> C
-I --> G
+I --> D
+J[通用实现] --> B
+J --> F
+J --> C
+J --> G
 ```
 
 **图表来源**
 - [invite-code-client.ts:73-100](file://ui/src/ui/invite-code-client.ts#L73-L100)
+- [invite-code.ts:50-74](file://ui-react/src/lib/invite-code.ts#L50-L74)
 
 **章节来源**
-- [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
+- [invite-code-client.ts:1-232](file://ui/src/ui/invite-code-client.ts#L1-L232)
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
+- [invite-code.ts:1-151](file://ui-react/src/lib/invite-code.ts#L1-L151)
 
 ## 性能考虑
 
 ### 性能优化策略
 
-#### 签名计算优化
+#### Web Crypto API签名计算优化
 
-1. **异步处理**：签名计算使用异步方法，避免阻塞主线程
-2. **缓存机制**：对已验证的邀请码进行短期缓存
-3. **批量处理**：支持多个邀请码的并发验证
+1. **原生API性能**：利用浏览器原生Web Crypto API，避免JavaScript实现的性能损耗
+2. **异步处理**：签名计算使用异步方法，避免阻塞主线程
+3. **缓存机制**：对已验证的邀请码进行短期缓存
+4. **批量处理**：支持多个邀请码的并发验证
 
 #### 网络请求优化
 
@@ -465,7 +530,7 @@ I --> G
 
 ### 常见问题诊断
 
-#### 签名验证失败
+#### Web Crypto API签名验证失败
 
 **症状**：收到401错误，提示签名验证失败
 
@@ -474,12 +539,14 @@ I --> G
 2. appSecret配置错误
 3. 网络延迟导致时间不同步
 4. 代码格式不正确
+5. 浏览器不支持Web Crypto API
 
 **解决步骤**：
 1. 检查系统时间同步
 2. 验证appSecret配置
 3. 确认邀请码格式正确
 4. 查看网络连接质量
+5. 检查浏览器兼容性
 
 #### 邀请码格式错误
 
@@ -510,7 +577,7 @@ I --> G
 ```mermaid
 graph TD
 A[请求开始] --> B[记录请求详情]
-B --> C[执行签名生成]
+B --> C[执行Web Crypto API签名生成]
 C --> D[发送HTTP请求]
 D --> E{响应状态}
 E --> |成功| F[记录响应数据]
@@ -543,14 +610,15 @@ H --> I
 
 ## 结论
 
-邀请码API客户端是一个设计精良、安全性高、易于使用的模块化组件。其主要优势包括：
+邀请码API客户端是一个设计精良、安全性高、易于使用的模块化组件，现已完全基于浏览器原生Web Crypto API实现。其主要优势包括：
 
 ### 技术优势
 
-1. **安全性**：采用HMAC-SHA256签名算法，提供强加密保护
+1. **安全性**：采用浏览器原生Web Crypto API，提供强加密保护
 2. **可靠性**：完善的错误处理和重试机制
 3. **可维护性**：清晰的模块化设计和文档
 4. **兼容性**：支持多种运行环境和平台
+5. **性能**：利用原生API的高性能特性
 
 ### 架构特点
 
@@ -558,6 +626,7 @@ H --> I
 2. **状态管理**：完整的UI状态跟踪和更新机制
 3. **错误处理**：多层次的错误捕获和用户友好提示
 4. **性能优化**：异步处理和资源管理
+5. **多框架支持**：同时支持传统UI和React前端
 
 ### 扩展性考虑
 
@@ -566,5 +635,6 @@ H --> I
 - 可扩展的错误处理机制
 - 灵活的配置管理策略
 - 可插拔的签名算法支持
+- 多前端框架的无缝集成
 
-该客户端模块为OpenClaw项目提供了可靠的邀请码验证能力，是构建安全、可信的AI应用生态的重要基础设施。
+该客户端模块为OpenClaw项目提供了可靠的邀请码验证能力，是构建安全、可信的AI应用生态的重要基础设施。其基于Web Crypto API的实现方案为现代Web应用提供了最佳的安全性和性能平衡。
