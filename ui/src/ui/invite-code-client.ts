@@ -50,11 +50,11 @@ export function getClientConfig(isDev: boolean = true): ClientConfig {
   if (isDev) {
     return DEV_CONFIG;
   }
-  // 生产环境配置应该从环境变量或安全存储中获取
+  // 生产环境配置：环境变量优先，否则使用内置生产密钥
   return {
-    baseUrl: process.env.INVITE_CODE_API_BASE_URL || "",
-    appId: process.env.INVITE_CODE_APP_ID || "",
-    appSecret: process.env.INVITE_CODE_APP_SECRET || "",
+    baseUrl: process.env.INVITE_CODE_API_BASE_URL || "https://verse-ai-service-production-22b8.up.railway.app",
+    appId: process.env.INVITE_CODE_APP_ID || "boss-simulator",
+    appSecret: process.env.INVITE_CODE_APP_SECRET || "sk_e4b27d261b3d02a9a7f80badc0f9f09d",
     deviceId: process.env.DEVICE_ID,
     appVersion: process.env.APP_VERSION,
   };

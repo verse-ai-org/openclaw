@@ -8,6 +8,11 @@
 
 import { PROVIDER_REGISTRY } from "./onboarding-providers.js";
 import { writeDebugLog } from "./onboarding.js";
+import {
+  INVITE_CODE_APP_ID,
+  resolveInviteCodeBaseUrl,
+  resolveInviteCodeAppSecret,
+} from "./invite-code-config.js";
 
 // ─── authMethod → provider id map ────────────────────────────────────────────
 // Maps UI auth method ids (from auth-choice-groups.ts) to provider registry keys.
@@ -320,27 +325,7 @@ export async function validateApiKey(
 
 // ─── Invite code validation ───────────────────────────────────────────────────
 
-// API base URL resolution.
-// Priority: env var > app.isPackaged (runtime) > localhost fallback.
-// Do NOT use NODE_ENV — tsdown sets it to "production" even in `pnpm dev` mode.
-function resolveInviteCodeBaseUrl(): string {
-  if (process.env.INVITE_CODE_API_BASE_URL) {
-    return process.env.INVITE_CODE_API_BASE_URL;
-  }
-  // app.isPackaged is true only when running from a real .app bundle, never in `electron .`.
-  // Requires electron to be imported; safe to do here since this is the main process.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { app } = require("electron") as typeof import("electron");
-  if (app.isPackaged) {
-    return "https://verse-ai-service-production-22b8.up.railway.app/api/v1";
-  }
-  return "http://localhost:8080/api/v1";
-}
-
-const INVITE_CODE_APP_ID = process.env.INVITE_CODE_APP_ID ?? "boss-simulator";
-const INVITE_CODE_APP_SECRET =
-  process.env.INVITE_CODE_APP_SECRET ??
-  "boss-simulator-dev-secret-change-in-prod";
+const INVITE_CODE_APP_SECRET = resolveInviteCodeAppSecret();
 
 /** Generate HMAC-SHA256 signature using Node.js crypto (main process). */
 async function generateInviteSignature(
@@ -392,8 +377,20 @@ export async function validateInviteCode(
   const url = `${baseUrl}/app/member/invite-code/redeem`;
 
   // Write to debug log so we can confirm the resolved URL and env at runtime.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { app: _app } = require("electron") as typeof import("electron");
+  const secretMasked =
+    INVITE_CODE_APP_SECRET.length > 8
+      ? `${INVITE_CODE_APP_SECRET.slice(0, 4)}...${INVITE_CODE_APP_SECRET.slice(-4)}`
+      : "(short/empty)";
   await writeDebugLog(
-    `[validateInviteCode] code=${trimmed.substring(0, 8)}... url=${url} NODE_ENV=${process.env.NODE_ENV ?? "(unset)"} INVITE_CODE_API_BASE_URL=${process.env.INVITE_CODE_API_BASE_URL ?? "(unset)"}`,
+    `[validateInviteCode] code=${trimmed.substring(0, 8)}... url=${url}` +
+    ` NODE_ENV=${process.env.NODE_ENV ?? "(unset)"}` +
+    ` INVITE_CODE_API_BASE_URL=${process.env.INVITE_CODE_API_BASE_URL ?? "(unset)"}` +
+    ` appId=${INVITE_CODE_APP_ID}` +
+    ` appSecret=${secretMasked}` +
+    ` isPackaged=${_app.isPackaged}` +
+    ` INVITE_CODE_APP_SECRET_env=${process.env.INVITE_CODE_APP_SECRET ? "set" : "(unset)"}`,
   );
 
   try {
