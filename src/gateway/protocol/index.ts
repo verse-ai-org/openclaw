@@ -207,6 +207,14 @@ import {
   type SkillsBinsParams,
   SkillsBinsParamsSchema,
   type SkillsBinsResult,
+  type SkillsFileGetParams,
+  SkillsFileGetParamsSchema,
+  type SkillsFileGetResult,
+  SkillsFileGetResultSchema,
+  type SkillsFileSetParams,
+  SkillsFileSetParamsSchema,
+  type SkillsFileSetResult,
+  SkillsFileSetResultSchema,
   type SkillsInstallParams,
   SkillsInstallParamsSchema,
   type SkillsImportParams,
@@ -368,6 +376,12 @@ export const validateModelsListParams = ajv.compile<ModelsListParams>(ModelsList
 export const validateSkillsStatusParams = ajv.compile<SkillsStatusParams>(SkillsStatusParamsSchema);
 export const validateToolsCatalogParams = ajv.compile<ToolsCatalogParams>(ToolsCatalogParamsSchema);
 export const validateSkillsBinsParams = ajv.compile<SkillsBinsParams>(SkillsBinsParamsSchema);
+export const validateSkillsFileGetParams = ajv.compile<SkillsFileGetParams>(
+  SkillsFileGetParamsSchema,
+);
+export const validateSkillsFileSetParams = ajv.compile<SkillsFileSetParams>(
+  SkillsFileSetParamsSchema,
+);
 export const validateSkillsInstallParams =
   ajv.compile<SkillsInstallParams>(SkillsInstallParamsSchema);
 export const validateSkillsImportParams = ajv.compile<SkillsImportParams>(SkillsImportParamsSchema);
@@ -545,6 +559,11 @@ export {
   ModelsListParamsSchema,
   SkillsStatusParamsSchema,
   ToolsCatalogParamsSchema,
+  SkillsBinsParamsSchema,
+  SkillsFileGetParamsSchema,
+  SkillsFileGetResultSchema,
+  SkillsFileSetParamsSchema,
+  SkillsFileSetResultSchema,
   SkillsInstallParamsSchema,
   SkillsImportParamsSchema,
   SkillsRemoveParamsSchema,
@@ -639,6 +658,10 @@ export type {
   ToolsCatalogResult,
   SkillsBinsParams,
   SkillsBinsResult,
+  SkillsFileGetParams,
+  SkillsFileGetResult,
+  SkillsFileSetParams,
+  SkillsFileSetResult,
   SkillsInstallParams,
   SkillsImportParams,
   SkillsRemoveParams,

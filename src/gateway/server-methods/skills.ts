@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import path from "node:path";
 import {
   listAgentIds,
@@ -14,6 +15,11 @@ import { listAgentWorkspaceDirs } from "../../agents/workspace-dirs.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { loadConfig, writeConfigFile } from "../../config/config.js";
 import { getRemoteSkillEligibility } from "../../infra/skills-remote.js";
+import {
+  SafeOpenError,
+  readFileWithinRoot,
+  writeFileWithinRoot,
+} from "../../infra/fs-safe.js";
 import { normalizeAgentId } from "../../routing/session-key.js";
 import { normalizeSecretInput } from "../../utils/normalize-secret-input.js";
 import {
@@ -21,6 +27,8 @@ import {
   errorShape,
   formatValidationErrors,
   validateSkillsBinsParams,
+  validateSkillsFileGetParams,
+  validateSkillsFileSetParams,
   validateSkillsImportParams,
   validateSkillsRemoveParams,
   validateSkillsInstallParams,
@@ -58,6 +66,30 @@ function collectSkillBins(entries: SkillEntry[]): string[] {
     }
   }
   return [...bins].toSorted();
+}
+
+function resolveSkillStatusEntry(baseDir: string, source: string):
+  | {
+      baseDir: string;
+      source: string;
+      filePath: string;
+    }
+  | undefined {
+  const cfg = loadConfig();
+  const workspaceDir = resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg));
+  const report = buildWorkspaceSkillStatus(workspaceDir, {
+    config: cfg,
+    eligibility: { remote: getRemoteSkillEligibility() },
+  });
+  const entry = report.skills.find((skill) => skill.baseDir === baseDir && skill.source === source);
+  if (!entry) {
+    return undefined;
+  }
+  return { baseDir: entry.baseDir, source: entry.source, filePath: entry.filePath };
+}
+
+function isWritableSkillSource(source: string): boolean {
+  return source === "openclaw-workspace" || source === "openclaw-managed";
 }
 
 export const skillsHandlers: GatewayRequestHandlers = {
@@ -116,6 +148,134 @@ export const skillsHandlers: GatewayRequestHandlers = {
       }
     }
     respond(true, { bins: [...bins].toSorted() }, undefined);
+  },
+  "skills.file.get": async ({ params, respond }) => {
+    if (!validateSkillsFileGetParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid skills.file.get params: ${formatValidationErrors(validateSkillsFileGetParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as { baseDir: string; source: string };
+    const entry = resolveSkillStatusEntry(p.baseDir, p.source);
+    if (!entry) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "skill not found in current workspace"),
+      );
+      return;
+    }
+
+    const skillMdPath = path.join(entry.baseDir, "SKILL.md");
+    const relativePath = path.relative(entry.baseDir, skillMdPath);
+    try {
+      const read = await readFileWithinRoot({
+        rootDir: entry.baseDir,
+        relativePath,
+        rejectHardlinks: true,
+      });
+      respond(
+        true,
+        {
+          baseDir: entry.baseDir,
+          source: entry.source,
+          file: {
+            name: "SKILL.md",
+            path: entry.filePath,
+            size: read.stat.size,
+            updatedAtMs: Math.floor(read.stat.mtimeMs),
+            content: read.buffer.toString("utf-8"),
+          },
+        },
+        undefined,
+      );
+    } catch (err) {
+      if (err instanceof SafeOpenError && err.code === "not-found") {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, "SKILL.md not found"),
+        );
+        return;
+      }
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "unable to read SKILL.md safely"),
+      );
+    }
+  },
+  "skills.file.set": async ({ params, respond }) => {
+    if (!validateSkillsFileSetParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid skills.file.set params: ${formatValidationErrors(validateSkillsFileSetParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as { baseDir: string; source: string; content: string };
+    const entry = resolveSkillStatusEntry(p.baseDir, p.source);
+    if (!entry) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "skill not found in current workspace"),
+      );
+      return;
+    }
+    if (!isWritableSkillSource(entry.source)) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "this skill source is read-only"),
+      );
+      return;
+    }
+
+    const skillMdPath = path.join(entry.baseDir, "SKILL.md");
+    const relativePath = path.relative(entry.baseDir, skillMdPath);
+    try {
+      await fs.mkdir(entry.baseDir, { recursive: true });
+      await writeFileWithinRoot({
+        rootDir: entry.baseDir,
+        relativePath,
+        data: p.content,
+        encoding: "utf8",
+      });
+      const stat = await fs.stat(skillMdPath);
+      respond(
+        true,
+        {
+          ok: true,
+          baseDir: entry.baseDir,
+          source: entry.source,
+          file: {
+            name: "SKILL.md",
+            path: entry.filePath,
+            size: stat.size,
+            updatedAtMs: Math.floor(stat.mtimeMs),
+            content: p.content,
+          },
+        },
+        undefined,
+      );
+    } catch {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "unable to write SKILL.md safely"),
+      );
+    }
   },
   "skills.install": async ({ params, respond }) => {
     if (!validateSkillsInstallParams(params)) {

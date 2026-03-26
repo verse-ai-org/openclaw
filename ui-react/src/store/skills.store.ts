@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import type {
+  SkillFileGetParams,
+  SkillFileResult,
+  SkillFileSetParams,
+  SkillFileSetResult,
   SkillImportParams,
   SkillImportResult,
   SkillRemoveResult,
@@ -37,6 +41,8 @@ interface SkillsState {
   installSkill: (skillKey: string, name: string, installId: string) => Promise<void>;
   importSkill: (params: SkillImportParams) => Promise<SkillImportResult>;
   removeSkill: (baseDir: string, source: string) => Promise<SkillRemoveResult>;
+  getSkillFile: (params: SkillFileGetParams) => Promise<SkillFileResult | null>;
+  saveSkillFile: (params: SkillFileSetParams) => Promise<SkillFileSetResult | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +238,32 @@ export const useSkillsStore = create<SkillsState>()((set, get) => ({
       return result ?? { ok: false, message: "No response from gateway" };
     } catch (err) {
       return { ok: false, message: getErrorMessage(err) };
+    }
+  },
+
+  getSkillFile: async (params) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return null;
+    }
+    try {
+      const result = await client.request<SkillFileResult>("skills.file.get", params);
+      return result ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  saveSkillFile: async (params) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return null;
+    }
+    try {
+      const result = await client.request<SkillFileSetResult>("skills.file.set", params);
+      return result ?? null;
+    } catch {
+      return null;
     }
   },
 }));

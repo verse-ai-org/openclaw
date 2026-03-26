@@ -5,10 +5,19 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* ── 圆角：Editorial 大圆角体系 ── */
+  /* sm: 用于小型元素（徽章、tag） */
+  --radius-sm: 0.2rem;
+  /* md: 用于输入框 */
+  --radius-md: 0.5rem;
+  /* lg: 内层嵌套卡片 2rem/32px */
+  --radius-lg: 1rem;
+  /* xl: 外层容器卡片 3rem/48px */
+  --radius-xl: 2rem;
+  /* full: 主按钮全圆角 */
+  --radius-full: 9999px;
+
+  /* ── 颜色 token 映射 ── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -17,16 +26,26 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-container: var(--primary-container);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-foreground: var(--tertiary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  /* 遵循 No-Line 原则：border 仅在必要的 Ghost Border 场景使用 */
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  /* Surface 层级体系 */
+  --color-surface: var(--surface);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-on-surface: var(--on-surface);
+  --color-outline-variant: var(--outline-variant);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -41,106 +60,183 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* ── 排版 token：Editorial 字阶 ── */
+  /* Display-LG: 欢迎屏大标题 */
+  --font-size-display-lg: 3.5rem;
+  --letter-spacing-display-lg: -0.02em;
+  --font-weight-display-lg: 700;
+  /* Headline-LG: 向导步骤标题 */
+  --font-size-headline-lg: 2rem;
+  --font-weight-headline-lg: 600;
+  /* Body-LG: 正文，保持呼吸感 */
+  --font-size-body-lg: 1rem;
+  --line-height-body-lg: 1.6;
+  --font-weight-body-lg: 400;
+  /* Label-MD: 小元数据/上标题 */
+  --font-size-label-md: 0.75rem;
+  --letter-spacing-label-md: 0.05em;
+  --font-weight-label-md: 500;
+  --text-transform-label-md: uppercase;
+
+  /* ── 海拔/阴影 token ── */
+  /* Ambient Shadow: 悬浮卡片使用，模拟自然光 */
+  --shadow-ambient: 0 20px 40px rgba(26, 28, 29, 0.06);
+  /* Ghost Border: 无障碍场景下容器边界，primary 15% opacity */
+  --ghost-border-color: color-mix(in srgb, var(--primary) 15%, transparent);
+  /* Input focus ring: primary 40% opacity */
+  --focus-ring-color: color-mix(in srgb, var(--primary) 40%, transparent);
+
+  /* ── 玻璃态 token ── */
+  /* Level 3 overlay: surface 80% opacity + blur */
+  --glass-bg: color-mix(in srgb, var(--surface) 80%, transparent);
+  --glass-blur: 30px;
+  /* Level 3 modal: surface 70% opacity + blur */
+  --modal-glass-bg: color-mix(in srgb, var(--surface) 70%, transparent);
+  --modal-glass-blur: 20px;
+
   --scrollbar-width: var(--scrollbar-width);
   --scrollbar-height: var(--scrollbar-height);
-  --scrollbar-track-color: var(--accent);
-  --scrollbar-thumb-hover-color: var(--accent);
-  --scrollbar-thumb-color: var(--color-muted-foreground);
+  --scrollbar-track-color: var(--surface-container-low);
+  --scrollbar-thumb-hover-color: var(--muted-foreground);
+  --scrollbar-thumb-color: var(--outline-variant);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: #f8f5f6;
-  --foreground: #1a1a1a;
+  /* ── Surface 层级（Material Token 体系）── */
+  /* Level 0 Base */
+  --surface: #f9f9fb;
+  /* Level 1 Sectioning */
+  --surface-container-low: #f3f3f5;
+  /* Level 2 Active Cards */
+  --surface-container-lowest: #ffffff;
+  /* On-Surface 文字色：避免纯黑，保持高级感 */
+  --on-surface: #1a1c1d;
+  /* Ghost Border 基础色（outline-variant），仅在无障碍场景使用 */
+  --outline-variant: #c8c8cc;
+
+  /* ── 颜色 ── */
+  /* background 映射到 surface */
+  --background: #f9f9fb;
+  --foreground: #1a1c1d;
   --card: #ffffff;
-  --card-foreground: #1a1a1a;
+  --card-foreground: #1a1c1d;
   --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
-  --primary: #fa2e46;
+  --popover-foreground: #1a1c1d;
+  /* Primary: Vibrant Red 深红，高意图行动 */
+  --primary: #ba0034;
   --primary-foreground: #ffffff;
-  --secondary: #f0f0f0;
-  --secondary-foreground: #1a1a1a;
-  --muted: #e5e5e5;
-  --muted-foreground: #666666;
-  --accent: #fa2e46;
+  /* Primary Container: 用于按钮渐变终止色 */
+  --primary-container: #e51245;
+  --secondary: #f3f3f5;
+  --secondary-foreground: #1a1c1d;
+  /* Tertiary: 深蓝绿，成功状态与次要强调 */
+  --tertiary: #00694b;
+  --tertiary-foreground: #ffffff;
+  --muted: #f3f3f5;
+  --muted-foreground: #6b6b70;
+  --accent: #ba0034;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --border: #e5e5e5;
-  --input: #f5f5f5;
-  --ring: #fa2e46;
-  --chart-1: #fa2e46;
+  --destructive: #c0392b;
+  /* border 使用 outline-variant（低对比度），配合 No-Line 原则 */
+  /* Tailwind preflight 需要一个有效颜色值，否则回退为黑色 */
+  --border: #f5f5f5;
+  /* Input: surface-container-low 背景，无边框样式 */
+  --input: #f3f3f5;
+  --ring: #ba0034;
+  --chart-1: #ba0034;
   --chart-2: #3b82f6;
-  --chart-3: #10b981;
+  --chart-3: #00694b;
   --chart-4: #f59e0b;
   --chart-5: #8b5cf6;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1a1a1a;
-  --sidebar-primary: #fa2e46;
+  --sidebar: #F9F9F9;
+  --sidebar-foreground: #1a1c1d;
+  --sidebar-primary: #ba0034;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f0f0f0;
-  --sidebar-accent-foreground: #1a1a1a;
-  --sidebar-border: #e5e5e5;
-  --sidebar-ring: #fa2e46;
+  --sidebar-accent: #f3f3f5;
+  --sidebar-accent-foreground: #1a1c1d;
+  --sidebar-border: #c8c8cc;
+  --sidebar-ring: #ba0034;
 
   --scrollbar-width: 6px;
   --scrollbar-height: 6px;
-  --scrollbar-track-color: oklch(0.8975 0 0);
-  --scrollbar-thumb-hover-color: oklch(0.8452 0 0); 
-  --scrollbar-thumb-color: oklch(0.7921 0 0);
+  --scrollbar-track-color: #f3f3f5;
+  --scrollbar-thumb-hover-color: #9b9ba0;
+  --scrollbar-thumb-color: #c8c8cc;
 }
 
 .dark {
-  --background: #230f12;
-  --foreground: #f5f5f5;
-  --card: #2a1215;
-  --card-foreground: #f5f5f5;
-  --popover: #2a1215;
-  --popover-foreground: #f5f5f5;
-  --primary: #fa2e46;
+  /* ── Dark 模式 Surface 层级 ── */
+  --surface: #1a1a1f;
+  --surface-container-low: #212128;
+  --surface-container-lowest: #2a2a33;
+  --on-surface: #e8e8ec;
+  --outline-variant: #4a4a55;
+
+  --background: #1a1a1f;
+  --foreground: #e8e8ec;
+  --card: #2a2a33;
+  --card-foreground: #e8e8ec;
+  --popover: #2a2a33;
+  --popover-foreground: #e8e8ec;
+  --primary: #e51245;
   --primary-foreground: #ffffff;
-  --secondary: #3a2225;
-  --secondary-foreground: #f5f5f5;
-  --muted: #4a3235;
-  --muted-foreground: #a0a0a0;
-  --accent: #fa2e46;
+  --primary-container: #ff3d5a;
+  --secondary: #2a2a33;
+  --secondary-foreground: #e8e8ec;
+  --tertiary: #00c78a;
+  --tertiary-foreground: #ffffff;
+  --muted: #2a2a33;
+  --muted-foreground: #9090a0;
+  --accent: #e51245;
   --accent-foreground: #ffffff;
   --destructive: #ff6b6b;
-  --border: #4a3235;
-  --input: #1a0b0d;
-  --ring: #fa2e46;
-  --chart-1: #fa2e46;
+  --border: #4a4a55;
+  --input: #212128;
+  --ring: #e51245;
+  --chart-1: #e51245;
   --chart-2: #60a5fa;
-  --chart-3: #34d399;
+  --chart-3: #00c78a;
   --chart-4: #fbbf24;
   --chart-5: #a78bfa;
-  --sidebar: #2a1215;
-  --sidebar-foreground: #f5f5f5;
-  --sidebar-primary: #fa2e46;
+  --sidebar: #2a2a33;
+  --sidebar-foreground: #e8e8ec;
+  --sidebar-primary: #e51245;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #3a2225;
-  --sidebar-accent-foreground: #f5f5f5;
-  --sidebar-border: #4a3235;
-  --sidebar-ring: #fa2e46;
+  --sidebar-accent: #212128;
+  --sidebar-accent-foreground: #e8e8ec;
+  --sidebar-border: #4a4a55;
+  --sidebar-ring: #e51245;
 
   --scrollbar-width: 4px;
   --scrollbar-height: 6px;
-  --scrollbar-track-color: oklch(0.3211 0 0);
-  --scrollbar-thumb-hover-color: oklch(0.4495 0 0);
-  --scrollbar-thumb-color: oklch(0.3867 0 0);
+  --scrollbar-track-color: #212128;
+  --scrollbar-thumb-hover-color: #5a5a6a;
+  --scrollbar-thumb-color: #4a4a55;
 }
 
-* {
+/* ── 全局基础样式 ── */
+*,
+::after,
+::before,
+::backdrop,
+::file-selector-button {
+  /* 覆盖 Tailwind preflight 的 border: 0 solid（color 默认为 currentColor/黑色）*/
   border-color: var(--border);
   outline-color: var(--ring);
 }
 
 body {
   background-color: var(--background);
-  color: var(--foreground);
+  /* 使用 on-surface 替代纯黑文字 */
+  color: var(--on-surface);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-size: var(--font-size-body-lg);
+  line-height: var(--line-height-body-lg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-
-/* 强制所有滚动条样式 - 全局 */
+/* ── 滚动条样式 ── */
 *::-webkit-scrollbar {
   width: var(--scrollbar-width);
   height: var(--scrollbar-height);
@@ -161,5 +257,81 @@ body {
 }
 
 *::-webkit-scrollbar-corner {
-  background: var(--scrollbar-corner-color) !important;
+  background: var(--scrollbar-track-color);
+}
+
+/* ── 排版工具类：Editorial Authority ── */
+
+/* Display-LG: 欢迎屏/品牌大标题 */
+.text-display-lg {
+  font-size: var(--font-size-display-lg);
+  font-weight: var(--font-weight-display-lg);
+  letter-spacing: var(--letter-spacing-display-lg);
+  line-height: 1.1;
+}
+
+/* Headline-LG: 向导步骤标题 */
+.text-headline-lg {
+  font-size: var(--font-size-headline-lg);
+  font-weight: var(--font-weight-headline-lg);
+  line-height: 1.25;
+}
+
+/* Body-LG: 正文，呼吸感行高 */
+.text-body-lg {
+  font-size: var(--font-size-body-lg);
+  font-weight: var(--font-weight-body-lg);
+  line-height: var(--line-height-body-lg);
+}
+
+/* Label-MD: 元数据/上标题，全大写 */
+.text-label-md {
+  font-size: var(--font-size-label-md);
+  font-weight: var(--font-weight-label-md);
+  letter-spacing: var(--letter-spacing-label-md);
+  text-transform: var(--text-transform-label-md);
+}
+
+/* ── 主按钮渐变：Glass & Gradient Rule ── */
+/* primary → primary-container 渐变，赋予按钮"灵魂" */
+.btn-primary-gradient {
+  background: linear-gradient(135deg, var(--primary), var(--primary-container));
+  color: var(--primary-foreground);
+  border-radius: var(--radius-full);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary-gradient:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(186, 0, 52, 0.35);
+}
+
+/* ── 玻璃态导航栏：Wizard Fixed Footer ── */
+.glass-nav {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* ── Ghost Border：仅无障碍场景使用，替代实线边框 ── */
+.ghost-border {
+  border: 1px solid var(--ghost-border-color);
+}
+
+/* ── Ambient Shadow：悬浮卡片 ── */
+.shadow-ambient {
+  box-shadow: var(--shadow-ambient);
+}
+
+/* ── Surface 层级工具类 ── */
+.surface-base {
+  background-color: var(--surface);
+}
+
+.surface-low {
+  background-color: var(--surface-container-low);
+}
+
+.surface-card {
+  background-color: var(--surface-container-lowest);
 }

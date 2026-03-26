@@ -153,6 +153,20 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
       return;
     }
 
+    // Delegate channels snapshot events to the channels store.
+    if (evt.event === "channels.status" || evt.event === "channels.status.v2") {
+      // Lazy import to avoid circular dependency at module load time.
+      import("./channels.store").then(({ useChannelsStore }) => {
+        const snapshot = (evt.payload as { snapshot?: unknown })?.snapshot ?? evt.payload;
+        if (snapshot && typeof snapshot === "object" && "channels" in (snapshot as object)) {
+          useChannelsStore
+            .getState()
+            .applySnapshot(snapshot as import("@/types/channels").ChannelsStatusSnapshot);
+        }
+      }).catch(() => {});
+      return;
+    }
+
     // Delegate chat-specific and agent events to the registered chat dispatch handler.
     // This avoids importing chat.store here and keeps the dependency direction clean.
     if (

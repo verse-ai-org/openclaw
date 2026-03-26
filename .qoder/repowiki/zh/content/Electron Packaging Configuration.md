@@ -34,11 +34,12 @@
 
 ## 更新摘要
 **所做更改**
-- 新增了自动化运行时依赖管理系统，从手动依赖管理重构为基于配置的动态依赖解析
-- 新增runtime包生成器，实现运行时依赖的精确版本控制和锁定
-- 新增多部署模式支持，包括本地快速测试模式和生产发布模式
-- 更新了打包流程，引入分阶段构建和依赖管理的新架构
-- 增强了Node.js运行时的可移植性和跨平台支持
+- 应用ID从 'ai.openclaw.electron' 更新为 'com.verse.bossim'
+- 产品名称从 'OpenClaw' 更新为 'Bossim'
+- 版权信息从 'OpenClaw Contributors' 更新为 'Bossim Contributors'
+- DMG 标题从 'OpenClaw ${version}' 更新为 'Bossim ${version}'
+- OAuth URL Scheme 仍保持 'openclaw' 以维持向后兼容性
+- 项目描述从 'OpenClaw Electron desktop client' 更新为 'Bossim Electron desktop client'
 
 ## 目录
 1. [简介](#简介)
@@ -57,7 +58,10 @@
 
 OpenClaw 项目的 Electron 打包配置经过重大重构，从传统的手动依赖管理转变为现代化的自动化运行时依赖管理系统。该系统引入了基于配置的依赖解析机制，实现了精确的版本控制和灵活的部署模式支持。
 
-**更新** 新增的自动化运行时依赖管理系统具有以下核心特性：
+**更新** 品牌重塑后的配置具有以下核心特性：
+- **品牌标识更新**：应用ID、产品名称、版权信息全部更新为 Bossim 品牌
+- **DMG 标题更新**：安装包标题显示为 Bossim ${version}
+- **OAuth 兼容性**：保持 'openclaw' URL Scheme 以确保向后兼容
 - **动态依赖解析**：基于 `packaged-runtime.json` 配置文件动态解析运行时依赖
 - **精确版本控制**：通过 pnpm 锁文件和工作区依赖实现精确的版本锁定
 - **多部署模式**：支持本地快速测试和生产发布两种部署模式
@@ -321,13 +325,15 @@ JJ --> KK[生产环境依赖]
 KK --> LL[架构特定裁剪]
 ```
 
-**更新** 新增的运行时依赖管理配置：
-- **核心运行时依赖**：包含 openclaw CLI 和 Gateway 所需的核心依赖
-- **额外运行时依赖**：包含必须真实安装的依赖（如 esbuild、jiti）
-- **原生模块裁剪**：根据目标架构自动裁剪 koffi 等原生模块
+**更新** 品牌重塑后的配置变更：
+- **应用ID**：从 'ai.openclaw.electron' 更新为 'com.verse.bossim'
+- **产品名称**：从 'OpenClaw' 更新为 'Bossim'
+- **版权信息**：从 'OpenClaw Contributors' 更新为 'Bossim Contributors'
+- **DMG 标题**：从 'OpenClaw ${version}' 更新为 'Bossim ${version}'
+- **OAuth URL Scheme**：仍为 'openclaw' 以保持兼容性
 
 **图表来源**
-- [apps/electron/electron-builder.yml:18-99](file://apps/electron/electron-builder.yml#L18-L99)
+- [apps/electron/electron-builder.yml:1-139](file://apps/electron/electron-builder.yml#L1-L139)
 - [apps/electron/packaged-runtime.json:17-79](file://apps/electron/packaged-runtime.json#L17-L79)
 
 ### 构建工具配置
@@ -352,7 +358,7 @@ KK --> LL[架构特定裁剪]
 - **智能依赖排除**：自动排除 electron、sharp、playwright-core 等原生模块
 
 **章节来源**
-- [apps/electron/electron-builder.yml:18-99](file://apps/electron/electron-builder.yml#L18-L99)
+- [apps/electron/electron-builder.yml:1-139](file://apps/electron/electron-builder.yml#L1-L139)
 - [apps/electron/tsdown.config.electron.ts:14-28](file://apps/electron/tsdown.config.electron.ts#L14-L28)
 - [apps/electron/packaged-runtime.json:2-16](file://apps/electron/packaged-runtime.json#L2-L16)
 
@@ -439,10 +445,20 @@ D --> Y[@matrix-org/matrix-sdk-crypto-nodejs]
 D --> Z[esbuild]
 D --> AA[jiti]
 end
+subgraph "preinstalledExtensions"
+E --> AB[memory-core]
+E --> AC[device-pair]
+E --> AD[qwen-portal-auth]
+E --> AE[minimax-portal-auth]
+E --> AF[google-gemini-cli-auth]
+E --> AG[copilot-proxy]
+E --> AH[telegram]
+E --> AI[discord]
+end
 ```
 
 **图表来源**
-- [apps/electron/packaged-runtime.json:1-91](file://apps/electron/packaged-runtime.json#L1-L91)
+- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
 
 ### 运行时包生成器
 
@@ -474,7 +490,7 @@ N --> O
 4. **优先级4**：从 pnpm-lock.yaml 的锁定版本解析
 
 **章节来源**
-- [apps/electron/packaged-runtime.json:1-91](file://apps/electron/packaged-runtime.json#L1-L91)
+- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
 - [apps/electron/scripts/generate-runtime-package.mjs:19-115](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L115)
 
 ### Node.js 运行时管理
@@ -637,12 +653,12 @@ U --> V
 
 **图表来源**
 - [apps/electron/package.json:17-37](file://apps/electron/package.json#L17-L37)
-- [apps/electron/packaged-runtime.json:1-91](file://apps/electron/packaged-runtime.json#L1-L91)
+- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
 - [apps/electron/scripts/generate-runtime-package.mjs:19-115](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L115)
 
 **章节来源**
 - [apps/electron/package.json:17-37](file://apps/electron/package.json#L17-L37)
-- [apps/electron/packaged-runtime.json:1-91](file://apps/electron/packaged-runtime.json#L1-L91)
+- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
 
 ## 性能考虑
 
@@ -698,6 +714,8 @@ U --> V
 | **扩展路径错误** | 扩展路径解析失败 | **验证 bundled-dir.ts 配置** |
 | **认证失败** | AI Provider 认证异常 | **检查认证扩展捆绑** |
 | **通信失败** | Telegram/Discord 连接问题 | **验证通信扩展配置** |
+| **品牌标识问题** | 应用显示 OpenClaw | **检查 electron-builder.yml 配置** |
+| **DMG 标题错误** | 安装包显示 OpenClaw | **验证 DMG 标题配置** |
 
 ### 调试技巧
 
@@ -711,6 +729,8 @@ U --> V
 6. **运行时依赖检查**：验证 `resources/prod-node_modules` 目录
 7. **版本解析调试**：检查 `generate-runtime-package.mjs` 输出
 8. **架构裁剪验证**：确认原生模块的架构匹配
+9. **品牌配置验证**：检查 electron-builder.yml 中的品牌信息
+10. **OAuth URL Scheme**：验证 'openclaw' URL Scheme 配置
 
 **更新** 运行时相关调试：
 - 查看 `[main] patchConfigForElectron: non-bundled plugin entries present (kept)` 日志
@@ -720,6 +740,7 @@ U --> V
 - **检查运行时依赖安装日志**：确认 `generate-runtime-package.mjs` 成功执行
 - **验证 Node 运行时完整性**：确认 `download-node.sh` 成功下载可执行文件
 - **调试多部署模式**：根据 `LOCAL_FAST` 环境变量调整构建行为
+- **验证品牌配置**：确认应用ID、产品名称、版权信息已更新
 
 **章节来源**
 - [apps/electron/src/main/index.ts:77-85](file://apps/electron/src/main/index.ts#L77-L85)
@@ -729,18 +750,17 @@ U --> V
 
 ## 结论
 
-OpenClaw 的 Electron 打包配置经过重大重构，从手动依赖管理转变为现代化的自动化运行时依赖管理系统。这一变革带来了显著的改进：
+OpenClaw 的 Electron 打包配置经过重大重构，从手动依赖管理转变为现代化的自动化运行时依赖管理系统。此次品牌重塑进一步完善了配置体系，实现了从 OpenClaw 到 Bossim 的完整迁移。
 
-- **模块化设计**：清晰的职责分离和组件边界
-- **安全性保障**：严格的上下文隔离和权限控制
-- **跨平台兼容**：统一的构建流程支持多平台部署
-- **用户体验优化**：流畅的启动流程和错误处理机制
-- **扩展系统集成**：**全面的自动扩展捆绑功能**（新增）
-- **运行时管理**：**智能化的运行时依赖管理系统**（新增）
-- **多部署支持**：**灵活的多部署模式**（新增）
-- **可移植性增强**：**内置可执行的 Node.js 运行时**（新增）
+**更新总结** 品牌重塑后的核心改进：
 
-**更新总结** 新增功能的综合价值：
+### 品牌标识统一
+
+1. **应用ID标准化**：从 'ai.openclaw.electron' 更新为 'com.verse.bossim'
+2. **产品名称一致化**：从 'OpenClaw' 更新为 'Bossim'
+3. **版权信息规范化**：从 'OpenClaw Contributors' 更新为 'Bossim Contributors'
+4. **DMG 标题品牌化**：从 'OpenClaw ${version}' 更新为 'Bossim ${version}'
+5. **OAuth 兼容性保持**：'openclaw' URL Scheme 保持不变
 
 ### 核心改进亮点
 
@@ -749,6 +769,7 @@ OpenClaw 的 Electron 打包配置经过重大重构，从手动依赖管理转�
 3. **部署灵活性增强**：支持本地快速测试和生产发布的不同需求
 4. **跨平台兼容性改善**：内置 Node.js 运行时确保环境一致性
 5. **性能优化显著**：智能依赖排除和架构裁剪减少包体大小
+6. **品牌管理规范化**：统一的品牌标识提升用户体验
 
 ### 技术架构优势
 
@@ -768,6 +789,11 @@ OpenClaw 的 Electron 打包配置经过重大重构，从手动依赖管理转�
 - **架构适配**：支持 Apple Silicon 和 Intel Mac 的原生运行
 - **版本管理**：统一的 Node.js 版本确保兼容性
 
+**品牌管理集成**：
+- **配置集中化**：所有品牌相关信息集中在 electron-builder.yml 中
+- **向后兼容性**：OAuth URL Scheme 保持 'openclaw' 以确保兼容性
+- **一致性保证**：应用ID、产品名称、版权信息完全统一
+
 该配置为桌面应用开发提供了完整的参考模板，涵盖了从打包配置到运行时管理的各个方面。通过持续的优化和维护，该系统能够为用户提供稳定可靠的桌面应用体验。
 
 **新增功能的技术价值**：
@@ -775,6 +801,7 @@ OpenClaw 的 Electron 打包配置经过重大重构，从手动依赖管理转�
 - **部署可靠性增强**：精确的版本控制降低兼容性问题
 - **维护成本降低**：集中化的配置管理简化维护工作
 - **用户体验改善**：更快的启动速度和更稳定的运行表现
+- **品牌管理优化**：统一的品牌标识提升专业度
 
 这一改进体现了现代软件工程中"约定优于配置"的设计理念，通过智能化的默认行为减少了开发者的配置负担，同时保持了系统的灵活性和可扩展性。
 
@@ -784,4 +811,4 @@ OpenClaw 的 Electron 打包配置经过重大重构，从手动依赖管理转�
 - **额外运行时依赖**：koffi、@matrix-org/matrix-sdk-crypto-nodejs、esbuild、jiti 等必须真实安装的依赖
 - **预装扩展**：memory-core、device-pair、qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy、telegram、discord
 
-这些配置的自动化管理确保用户在安装时即可获得完整的 OpenClaw 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道，同时为开发者提供了灵活的部署和调试选项。
+这些配置的自动化管理确保用户在安装时即可获得完整的 Bossim 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道，同时为开发者提供了灵活的部署和调试选项。

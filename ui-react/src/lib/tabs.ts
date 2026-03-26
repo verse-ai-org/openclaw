@@ -11,6 +11,7 @@ import {
   ScrollText,
   Settings,
   Zap,
+  UserRound
 } from "lucide-react";
 import type { Tab } from "@/types/gateway";
 
@@ -32,6 +33,8 @@ export function tabIcon(tab: Tab) {
       return Loader;
     case "agents":
       return FolderOpen;
+    case "employee":
+        return UserRound;
     case "skills":
       return Zap;
     case "nodes":
@@ -57,6 +60,7 @@ export function tabLabel(tab: Tab): string {
     usage: "Usage",
     cron: "Cron",
     agents: "Agents",
+    employee: "Employee",
     skills: "Skills",
     nodes: "Nodes",
     config: "Config",

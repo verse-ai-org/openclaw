@@ -26,16 +26,11 @@ export const router = createHashRouter([
       { path: "chat", element: <ChatPage /> },
       { path: "overview", element: <OverviewPage /> },
       { path: "channels", element: <ChannelsPage /> },
-      { path: "instances", element: <InstancesPage /> },
-      { path: "sessions", element: <SessionsPage /> },
-      { path: "usage", element: <UsagePage /> },
       { path: "cron", element: <CronPage /> },
       { path: "agents", element: <AgentsPage /> },
+      { path: "employee", element: <AgentsPage /> },
       { path: "skills", element: <SkillsPage /> },
-      { path: "nodes", element: <NodesPage /> },
-      { path: "config", element: <ConfigPage /> },
-      { path: "debug", element: <DebugPage /> },
-      { path: "logs", element: <LogsPage /> },
+      { path: "config", element: <ConfigPage /> }
     ],
   },
 ]);

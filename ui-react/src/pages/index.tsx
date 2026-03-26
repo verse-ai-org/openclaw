@@ -1,9 +1,12 @@
 import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
 export { SkillsPage } from "./SkillsPage";
 export { OverviewPage } from "./OverviewPage";
-export function ChannelsPage() {
-  return <PlaceholderPage tab="channels" />;
-}
+export { ChannelsPage } from "./ChannelsPage";
+export { AgentsPage } from "./AgentsPage";
+export { CronPage } from "./CronPage";
+export { ConfigPage } from "./ConfigPage";
+export { DebugPage } from "./DebugPage";
+export { LogsPage } from "./LogsPage";
 export function InstancesPage() {
   return <PlaceholderPage tab="instances" />;
 }
@@ -13,18 +16,6 @@ export function SessionsPage() {
 export function UsagePage() {
   return <PlaceholderPage tab="usage" />;
 }
-export function CronPage() {
-  return <PlaceholderPage tab="cron" />;
-}
-export function AgentsPage() {
-  return <PlaceholderPage tab="agents" />;
-}
-// SkillsPage is now a real implementation — re-exported above
 export function NodesPage() {
   return <PlaceholderPage tab="nodes" />;
 }
-export function ConfigPage() {
-  return <PlaceholderPage tab="config" />;
-}
-export { DebugPage } from "./DebugPage";
-export { LogsPage } from "./LogsPage";

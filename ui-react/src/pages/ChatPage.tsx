@@ -15,7 +15,7 @@ export function ChatPage() {
 
   return (
     <GatewayChatRuntimeProvider>
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex h-full flex-col overflow-hidden bg-white">
         {/* Session bar */}
         <div className="relative flex h-10 shrink-0 items-center border-b px-3">
           {/* Session picker trigger */}

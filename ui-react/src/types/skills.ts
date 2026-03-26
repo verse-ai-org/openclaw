@@ -72,3 +72,30 @@ export type SkillRemoveResult = {
   ok: boolean;
   message: string;
 };
+
+export type SkillFileGetParams = {
+  baseDir: string;
+  source: string;
+};
+
+export type SkillFileSetParams = {
+  baseDir: string;
+  source: string;
+  content: string;
+};
+
+export type SkillFileResult = {
+  baseDir: string;
+  source: string;
+  file: {
+    name: "SKILL.md";
+    path: string;
+    size?: number;
+    updatedAtMs?: number;
+    content: string;
+  };
+};
+
+export type SkillFileSetResult = SkillFileResult & {
+  ok: true;
+};

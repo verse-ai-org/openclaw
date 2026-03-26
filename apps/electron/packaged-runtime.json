@@ -57,6 +57,7 @@
     "node-edge-tts",
     "opusscript",
     "mammoth",
+    "date-fns",
     "osc-progress",
     "pdf-parse",
     "pdfjs-dist",

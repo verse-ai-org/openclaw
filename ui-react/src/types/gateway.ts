@@ -24,6 +24,7 @@ export type UiSettings = {
 // Navigation tabs (mirrors ui/src/ui/navigation.ts)
 export type Tab =
   | "agents"
+  | "employee"
   | "overview"
   | "channels"
   | "instances"
@@ -43,29 +44,27 @@ export type TabGroup = {
 };
 
 export const TAB_GROUPS: TabGroup[] = [
-  { label: "chat", tabs: ["chat"] },
-  {
-    label: "control",
-    tabs: ["overview", "channels", "instances", "sessions", "usage", "cron"],
-  },
-  { label: "agent", tabs: ["agents", "skills", "nodes"] },
-  { label: "settings", tabs: ["config", "debug", "logs"] },
+  { label: "Message", tabs: ["chat"] },
+  { label: "Team", tabs: ["employee", "skills"] },
+  { label: "control", tabs: ["channels"] },
+  { label: "settings", tabs: ["overview", "config"] },
 ];
 
 export const TAB_PATHS: Record<Tab, string> = {
   agents: "/agents",
+  employee: "/employee",
   overview: "/overview",
   channels: "/channels",
-  instances: "/instances",
-  sessions: "/sessions",
-  usage: "/usage",
-  cron: "/cron",
   skills: "/skills",
-  nodes: "/nodes",
   chat: "/chat",
   config: "/config",
   debug: "/debug",
+  instances: "/instances",
+  sessions: "/sessions",
+  usage: "/usage",
+  nodes: "/nodes",
   logs: "/logs",
+  cron: "/cron",
 };
 
 // Gateway protocol types (minimal, enough for Phase 1)

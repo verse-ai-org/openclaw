@@ -1,6 +1,4 @@
-import { Plus, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Filter, RefreshCw } from "lucide-react";
 import { AddSkillDialog } from "./AddSkillDialog";
 
 interface Props {
@@ -13,39 +11,44 @@ interface Props {
 
 export function SkillsToolbar({ filter, loading, shownCount, onFilterChange, onRefresh }: Props) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative flex-1">
-        <Input
-          placeholder="Search skills…"
+    <div className="flex items-center gap-4">
+      {/* Search input */}
+      <div className="relative flex items-center">
+        <Filter className="absolute left-4 top-1/2 -translate-y-1/2 size-[15px] text-muted-foreground pointer-events-none" />
+        <input
+          placeholder="Filter skills..."
           value={filter}
           onChange={(e) => onFilterChange(e.target.value)}
-          className="h-8 text-sm pr-10"
+          className="h-10 w-[320px] rounded-full bg-[#F6F6F6] pl-10 pr-5 text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
         />
-        {filter && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-            {shownCount}
-          </span>
-        )}
       </div>
-      {!filter && (
-        <span className="text-xs text-muted-foreground whitespace-nowrap">{shownCount} skills</span>
-      )}
-      <Button
-        size="sm"
-        variant="outline"
+
+      {/* Refresh icon button */}
+      <button
+        type="button"
         disabled={loading}
         onClick={onRefresh}
-        className="shrink-0"
+        aria-label="Refresh"
+        className="flex size-[33px] shrink-0 items-center justify-center rounded-full bg-[#F6F6F6] text-muted-foreground transition-colors hover:bg-[#EBEBEB] disabled:opacity-50"
       >
-        <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-        {loading ? "Loading…" : "Refresh"}
-      </Button>
+        <RefreshCw className={`size-[13px] ${loading ? "animate-spin" : ""}`} />
+      </button>
+
+      {/* Skills count pill */}
+      <span className="inline-flex items-center rounded-full bg-black/5 px-4 py-[3px] text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        {shownCount} Skills
+      </span>
+
+      {/* Add New Skill button */}
       <AddSkillDialog
         trigger={
-          <Button size="sm" variant="default" className="shrink-0">
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Add Skill
-          </Button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-[6px] text-[11px] font-bold text-white hover:bg-primary/90 transition-colors"
+          >
+            <span className="text-base leading-none">+</span>
+            Add New Skill
+          </button>
         }
       />
     </div>

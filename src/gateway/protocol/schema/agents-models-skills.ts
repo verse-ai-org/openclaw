@@ -208,13 +208,62 @@ export const SkillsUpdateParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-/**
- * skills.import — import a new skill from a URL or uploaded file data.
- * kind=url: download and extract from a remote URL.
- * kind=upload: decode base64 file data and extract to the target skills dir.
- * target=workspace: install into <workspaceDir>/skills/ (default, highest priority).
- * target=managed: install into ~/.openclaw/skills/ (global, shared across workspaces).
- */
+export const SkillsFileParamsSchema = Type.Object(
+  {
+    baseDir: NonEmptyString,
+    source: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
+export const SkillsFileGetParamsSchema = SkillsFileParamsSchema;
+
+export const SkillsFileGetResultSchema = Type.Object(
+  {
+    baseDir: NonEmptyString,
+    source: NonEmptyString,
+    file: Type.Object(
+      {
+        name: Type.Literal("SKILL.md"),
+        path: NonEmptyString,
+        size: Type.Integer({ minimum: 0 }),
+        updatedAtMs: Type.Integer({ minimum: 0 }),
+        content: Type.String(),
+      },
+      { additionalProperties: false },
+    ),
+  },
+  { additionalProperties: false },
+);
+
+export const SkillsFileSetParamsSchema = Type.Object(
+  {
+    baseDir: NonEmptyString,
+    source: NonEmptyString,
+    content: Type.String(),
+  },
+  { additionalProperties: false },
+);
+
+export const SkillsFileSetResultSchema = Type.Object(
+  {
+    ok: Type.Literal(true),
+    baseDir: NonEmptyString,
+    source: NonEmptyString,
+    file: Type.Object(
+      {
+        name: Type.Literal("SKILL.md"),
+        path: NonEmptyString,
+        size: Type.Optional(Type.Integer({ minimum: 0 })),
+        updatedAtMs: Type.Optional(Type.Integer({ minimum: 0 })),
+        content: Type.String(),
+      },
+      { additionalProperties: false },
+    ),
+  },
+  { additionalProperties: false },
+);
+
 export const SkillsImportParamsSchema = Type.Object(
   {
     kind: Type.Union([Type.Literal("url"), Type.Literal("upload")]),
