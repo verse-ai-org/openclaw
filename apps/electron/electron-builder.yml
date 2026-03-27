@@ -21,9 +21,6 @@ extraResources:
   - from: "resources/node-${arch}/node"
     to: "node/node"
     filter: ["!*.exe"]
-  # Windows：可执行文件名为 node.exe
-  - from: "resources/node-${arch}/node.exe"
-    to: "node/node.exe"
 
   # openclaw CLI 入口脚本
   - from: "../../openclaw.mjs"
@@ -103,6 +100,9 @@ extraResources:
     to: "control-ui-react"
 
 
+# 公证 hook（签名完成后自动执行，需设置 APP_STORE_CONNECT_* 环境变量）
+afterSign: scripts/notarize.cjs
+
 mac:
   category: public.app-category.productivity
   icon: resources/icon.icns
@@ -110,6 +110,7 @@ mac:
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
   gatekeeperAssess: false
+  identity: "CBFA4655YD"
   # URL Scheme for OAuth callbacks (openclaw://oauth/callback?...)
   protocols:
     - name: OpenClaw OAuth
@@ -149,6 +150,10 @@ win:
     - name: OpenClaw OAuth
       schemes:
         - openclaw
+  extraResources:
+    # Windows：可执行文件名为 node.exe
+    - from: "resources/node-${arch}/node.exe"
+      to: "node/node.exe"
   target:
     - target: nsis
       arch:

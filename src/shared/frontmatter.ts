@@ -73,14 +73,27 @@ export function resolveOpenClawManifestRequires(
     typeof metadataObj.requires === "object" && metadataObj.requires !== null
       ? (metadataObj.requires as Record<string, unknown>)
       : undefined;
-  if (!requiresRaw) {
+
+  // Some skill authors place `env` directly under `metadata.openclaw` instead of
+  // under `metadata.openclaw.requires`. Merge both sources so either format works.
+  const topLevelEnv = normalizeStringList(metadataObj.env);
+
+  if (!requiresRaw && topLevelEnv.length === 0) {
     return undefined;
   }
+
+  const requiresEnv = requiresRaw ? normalizeStringList(requiresRaw.env) : [];
+  // Merge: requires.env takes precedence; top-level env keys not already listed are appended.
+  const mergedEnv = [
+    ...requiresEnv,
+    ...topLevelEnv.filter((k) => !requiresEnv.includes(k)),
+  ];
+
   return {
-    bins: normalizeStringList(requiresRaw.bins),
-    anyBins: normalizeStringList(requiresRaw.anyBins),
-    env: normalizeStringList(requiresRaw.env),
-    config: normalizeStringList(requiresRaw.config),
+    bins: normalizeStringList(requiresRaw?.bins),
+    anyBins: normalizeStringList(requiresRaw?.anyBins),
+    env: mergedEnv,
+    config: normalizeStringList(requiresRaw?.config),
   };
 }
 

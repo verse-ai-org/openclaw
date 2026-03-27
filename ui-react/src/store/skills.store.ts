@@ -39,6 +39,7 @@ interface SkillsState {
   toggleSkill: (skillKey: string, currentlyDisabled: boolean) => Promise<void>;
   saveApiKey: (skillKey: string) => Promise<void>;
   installSkill: (skillKey: string, name: string, installId: string) => Promise<void>;
+  saveEnvVar: (skillKey: string, envKey: string, value: string) => Promise<void>;
   importSkill: (params: SkillImportParams) => Promise<SkillImportResult>;
   removeSkill: (baseDir: string, source: string) => Promise<SkillRemoveResult>;
   getSkillFile: (params: SkillFileGetParams) => Promise<SkillFileResult | null>;
@@ -165,6 +166,32 @@ export const useSkillsStore = create<SkillsState>()((set, get) => ({
         messages: setMessage(s.messages, skillKey, {
           kind: "success",
           message: "API key saved",
+        }),
+      }));
+    } catch (err) {
+      const message = getErrorMessage(err);
+      set((s) => ({
+        error: message,
+        messages: setMessage(s.messages, skillKey, { kind: "error", message }),
+      }));
+    } finally {
+      set({ busyKey: null });
+    }
+  },
+
+  saveEnvVar: async (skillKey, envKey, value) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return;
+    }
+    set({ busyKey: skillKey, error: null });
+    try {
+      await client.request("skills.update", { skillKey, env: { [envKey]: value } });
+      await get().loadSkills();
+      set((s) => ({
+        messages: setMessage(s.messages, skillKey, {
+          kind: "success",
+          message: `${envKey} saved`,
         }),
       }));
     } catch (err) {

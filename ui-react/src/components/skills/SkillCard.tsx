@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, Download, FileText, RotateCcw, Trash2, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { computeSkillMissing, computeSkillReasons } from "@/lib/skills-grouping";
 import type { SkillMessage } from "@/store/skills.store";
 import type { SkillStatusEntry } from "@/types/skills";
@@ -47,6 +48,7 @@ interface Props {
   onEdit: (value: string) => void;
   onSaveKey: () => void;
   onInstall: (installId: string) => void;
+  onSaveEnvVar: (envKey: string, value: string) => void;
   onRemove?: () => void;
   onViewDetail: () => void;
 }
@@ -60,10 +62,13 @@ export function SkillCard({
   onEdit,
   onSaveKey,
   onInstall,
+  onSaveEnvVar,
   onRemove,
   onViewDetail,
 }: Props) {
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // Per-env-var draft values for missing.env inputs
+  const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({});
   const canRemove =
     onRemove !== undefined &&
     (skill.source === "openclaw-workspace" || skill.source === "openclaw-managed");
@@ -191,7 +196,7 @@ export function SkillCard({
         </div>
       </div>
 
-      {/* ── API key row (only when needed, keeps card taller but only then) ── */}
+      {/* ── API key row (primaryEnv shortcut) ── */}
       {skill.primaryEnv && (
         <div className="mt-5 flex items-center gap-2">
           <input
@@ -211,6 +216,39 @@ export function SkillCard({
           </button>
         </div>
       )}
+
+      {/* ── Missing env vars: show input for each (skip if already covered by primaryEnv) ── */}
+      {skill.missing.env.length > 0 &&
+        skill.missing.env
+          .filter((envKey) => envKey !== skill.primaryEnv)
+          .map((envKey) => (
+            <div key={envKey} className="mt-3 flex items-center gap-2">
+              <Input
+                type="password"
+                placeholder={envKey}
+                value={envDrafts[envKey] ?? ""}
+                onChange={(e) =>
+                  setEnvDrafts((prev) => ({ ...prev, [envKey]: e.target.value }))
+                }
+                disabled={busy}
+                className="h-10 flex-1 rounded-[18px] bg-[#F6F6F6] px-4 text-[12px] border-0 focus-visible:ring-2 focus-visible:ring-primary/30"
+              />
+              <button
+                type="button"
+                disabled={busy || !(envDrafts[envKey] ?? "").trim()}
+                onClick={() => {
+                  const val = (envDrafts[envKey] ?? "").trim();
+                  if (val) {
+                    onSaveEnvVar(envKey, val);
+                    setEnvDrafts((prev) => ({ ...prev, [envKey]: "" }));
+                  }
+                }}
+                className="h-10 rounded-[18px] bg-black px-4 text-[12px] font-bold text-white hover:bg-black/80 disabled:opacity-50 transition-colors whitespace-nowrap"
+              >
+                Save Key
+              </button>
+            </div>
+          ))}
 
       {/* ── Footer: icon actions + feedback ── */}
       {(canRemove || message) && (

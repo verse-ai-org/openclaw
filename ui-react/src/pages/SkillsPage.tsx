@@ -67,6 +67,7 @@ export function SkillsPage() {
   const toggleSkill = useSkillsStore((s) => s.toggleSkill);
   const saveApiKey = useSkillsStore((s) => s.saveApiKey);
   const installSkill = useSkillsStore((s) => s.installSkill);
+  const saveEnvVar = useSkillsStore((s) => s.saveEnvVar);
   const removeSkill = useSkillsStore((s) => s.removeSkill);
   const getSkillFile = useSkillsStore((s) => s.getSkillFile);
   const saveSkillFile = useSkillsStore((s) => s.saveSkillFile);
@@ -225,6 +226,7 @@ export function SkillsPage() {
                         onEdit={(value) => setEdit(skill.skillKey, value)}
                         onSaveKey={() => saveApiKey(skill.skillKey)}
                         onInstall={(installId) => installSkill(skill.skillKey, skill.name, installId)}
+                        onSaveEnvVar={(envKey, value) => saveEnvVar(skill.skillKey, envKey, value)}
                         onRemove={() => void removeSkill(skill.baseDir, skill.source)}
                         onViewDetail={() => void openSkillDetail(skill)}
                       />

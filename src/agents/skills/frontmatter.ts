@@ -193,12 +193,26 @@ export function resolveOpenClawMetadata(
   const requires = resolveOpenClawManifestRequires(metadataObj);
   const install = resolveOpenClawManifestInstall(metadataObj, parseInstallSpec);
   const osRaw = resolveOpenClawManifestOs(metadataObj);
+
+  // primaryEnv resolution order:
+  // 1. metadata.openclaw.primaryEnv (explicit camelCase in metadata block)
+  // 2. top-level "primary-env" frontmatter key
+  // 3. auto-infer from requires.env when it has exactly one entry (unambiguous)
+  const explicitPrimaryEnv =
+    typeof metadataObj.primaryEnv === "string" ? metadataObj.primaryEnv : undefined;
+  const topLevelPrimaryEnv = getFrontmatterString(frontmatter, "primary-env");
+  const inferredPrimaryEnv =
+    !explicitPrimaryEnv && !topLevelPrimaryEnv && requires?.env?.length === 1
+      ? requires.env[0]
+      : undefined;
+  const primaryEnv = explicitPrimaryEnv ?? topLevelPrimaryEnv ?? inferredPrimaryEnv;
+
   return {
     always: typeof metadataObj.always === "boolean" ? metadataObj.always : undefined,
     emoji: typeof metadataObj.emoji === "string" ? metadataObj.emoji : undefined,
     homepage: typeof metadataObj.homepage === "string" ? metadataObj.homepage : undefined,
     skillKey: typeof metadataObj.skillKey === "string" ? metadataObj.skillKey : undefined,
-    primaryEnv: typeof metadataObj.primaryEnv === "string" ? metadataObj.primaryEnv : undefined,
+    primaryEnv: primaryEnv,
     os: osRaw.length > 0 ? osRaw : undefined,
     requires: requires,
     install: install.length > 0 ? install : undefined,

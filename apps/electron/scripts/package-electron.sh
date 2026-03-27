@@ -22,6 +22,29 @@ if [ "$LOCAL_FAST" = "1" ]; then
   BUILDER_ARGS+=(--config.mac.identity=null --config.mac.hardenedRuntime=false)
 fi
 
+load_env() {
+  local env_file="$ELECTRON_DIR/.env"
+  if [ -f "$env_file" ]; then
+    echo "📄 加载环境变量: $env_file"
+    # 读取 .env，跳过注释和空行，导出变量
+    set -a
+    # shellcheck disable=SC1090
+    source "$env_file"
+    set +a
+  fi
+
+  # 若设置了 KEY_PATH，读取文件内容到 APP_STORE_CONNECT_API_KEY_P8
+  if [ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" ] && [ -z "${APP_STORE_CONNECT_API_KEY_P8:-}" ]; then
+    if [ -f "$APP_STORE_CONNECT_API_KEY_PATH" ]; then
+      APP_STORE_CONNECT_API_KEY_P8="$(cat "$APP_STORE_CONNECT_API_KEY_PATH")"
+      export APP_STORE_CONNECT_API_KEY_P8
+      echo "🔑 已从文件加载 API Key: $APP_STORE_CONNECT_API_KEY_PATH"
+    else
+      echo "⚠️  APP_STORE_CONNECT_API_KEY_PATH 指定的文件不存在: $APP_STORE_CONNECT_API_KEY_PATH"
+    fi
+  fi
+}
+
 print_banner() {
   echo "======================================"
   echo "  OpenClaw Electron macOS 打包"
@@ -166,6 +189,7 @@ print_completion() {
 }
 
 main() {
+  load_env
   print_banner
   build_artifacts_if_needed
   download_runtime_node

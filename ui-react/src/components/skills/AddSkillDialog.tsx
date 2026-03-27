@@ -1,15 +1,14 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSkillsStore } from "@/store/skills.store";
@@ -67,7 +66,7 @@ export function AddSkillDialog({ trigger }: Props) {
     setLoading(true);
     try {
       if (mode === "url") {
-        const trimmedUrl = url.trim();
+        const trimmedUrl = resolveClawhubUrl(url.trim());
         if (!trimmedUrl) {
           setResult({ ok: false, message: "Please enter a URL" });
           return;
@@ -114,171 +113,181 @@ export function AddSkillDialog({ trigger }: Props) {
   const canSubmit = !loading && (mode === "url" ? url.trim().length > 0 : file !== null);
 
   return (
-    <Drawer open={open} onOpenChange={handleOpenChange}>
-      <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-      <DrawerContent>
-        <div className="mx-auto w-full max-w-lg">
-          <DrawerHeader>
-            <DrawerTitle>Add Skill</DrawerTitle>
-            <DrawerDescription>
-              Import a skill from a URL or upload a local archive (.zip, .tar.gz).
-            </DrawerDescription>
-          </DrawerHeader>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add Skill</DialogTitle>
+          <DialogDescription>
+            Import a skill from a URL or upload a local archive (.zip, .tar.gz).
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="px-4 pb-2">
-            {/* ── Target selector ────────────────────────────────────────── */}
-            <div className="mb-3 flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Install to</label>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant={target === "workspace" ? "default" : "outline"}
-                  onClick={() => setTarget("workspace")}
-                  disabled={loading}
-                  className="flex-1"
-                >
-                  Workspace
-                </Button>
-                <Button
-                  size="sm"
-                  variant={target === "managed" ? "default" : "outline"}
-                  onClick={() => setTarget("managed")}
-                  disabled={loading}
-                  className="flex-1"
-                >
-                  Global (managed)
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {target === "workspace"
-                  ? "Installed into the current workspace's skills/ folder. Only active in this project."
-                  : "Installed into ~/.openclaw/skills/. Available across all workspaces."}
-              </p>
-            </div>
-            <Tabs value={mode} onValueChange={(v) => setMode(v as TabMode)}>
-              <TabsList className="w-full">
-                <TabsTrigger value="url" className="flex-1">
-                  From URL
-                </TabsTrigger>
-                <TabsTrigger value="upload" className="flex-1">
-                  Upload File
-                </TabsTrigger>
-              </TabsList>
-
-              {/* ── URL mode ───────────────────────────────────────────── */}
-              <TabsContent value="url" className="flex flex-col gap-3 pt-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium">URL</label>
-                  <Input
-                    placeholder="https://example.com/my-skill.zip"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    disabled={loading}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Supported formats: .zip, .tar.gz, .tgz, .tar.bz2
-                  </p>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium">
-                    Skill name <span className="font-normal text-muted-foreground">(optional)</span>
-                  </label>
-                  <Input
-                    placeholder="Derived from filename if blank"
-                    value={urlSkillName}
-                    onChange={(e) => setUrlSkillName(e.target.value)}
-                    disabled={loading}
-                  />
-                </div>
-              </TabsContent>
-
-              {/* ── Upload mode ─────────────────────────────────────────── */}
-              <TabsContent value="upload" className="flex flex-col gap-3 pt-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium">Archive file</label>
-                  <div
-                    className="flex items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/30 p-6 cursor-pointer hover:border-muted-foreground/60 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        fileInputRef.current?.click();
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    {file ? (
-                      <p className="text-sm font-medium">{file.name}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Click to select .zip or .tar.gz
-                      </p>
-                    )}
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".zip,.tar.gz,.tgz,.tar.bz2,.tbz2"
-                    className="hidden"
-                    onChange={(e) => {
-                      const picked = e.target.files?.[0] ?? null;
-                      setFile(picked);
-                      e.target.value = "";
-                    }}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium">
-                    Skill name <span className="font-normal text-muted-foreground">(optional)</span>
-                  </label>
-                  <Input
-                    placeholder="Derived from filename if blank"
-                    value={uploadSkillName}
-                    onChange={(e) => setUploadSkillName(e.target.value)}
-                    disabled={loading}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            {/* Result feedback */}
-            {result && (
-              <div
-                className={`mt-3 rounded-md px-3 py-2 text-sm ${
-                  result.ok
-                    ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
-                    : "bg-destructive/10 text-destructive"
-                }`}
+        <div className="flex flex-col gap-4">
+          {/* ── Target selector ────────────────────────────────────────── */}
+          {/* <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Install to</label>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={target === "workspace" ? "default" : "outline"}
+                onClick={() => setTarget("workspace")}
+                disabled={loading}
+                className="flex-1"
               >
-                <p>{result.message}</p>
-                {result.warnings && result.warnings.length > 0 && (
-                  <ul className="mt-1 list-disc pl-4 text-xs opacity-80">
-                    {result.warnings.map((w, i) => (
-                      <li key={i}>{w}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DrawerFooter>
-            <Button onClick={handleSubmit} disabled={!canSubmit}>
-              {loading ? "Importing…" : "Import Skill"}
-            </Button>
-            <DrawerClose asChild>
-              <Button variant="outline" disabled={loading}>
-                Cancel
+                Workspace
               </Button>
-            </DrawerClose>
-          </DrawerFooter>
+              <Button
+                size="sm"
+                variant={target === "managed" ? "default" : "outline"}
+                onClick={() => setTarget("managed")}
+                disabled={loading}
+                className="flex-1"
+              >
+                Global (managed)
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {target === "workspace"
+                ? "Installed into the current workspace's skills/ folder. Only active in this project."
+                : "Installed into ~/.openclaw/skills/. Available across all workspaces."}
+            </p>
+          </div> */}
+
+          <Tabs value={mode} onValueChange={(v) => setMode(v as TabMode)}>
+            <TabsList className="w-full">
+              <TabsTrigger value="url" className="flex-1">
+                From URL
+              </TabsTrigger>
+              <TabsTrigger value="upload" className="flex-1">
+                Upload File
+              </TabsTrigger>
+            </TabsList>
+
+            {/* ── URL mode ───────────────────────────────────────────── */}
+            <TabsContent value="url" className="flex flex-col gap-3 pt-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center text-sm font-medium">URL
+                <strong className= "ml-1 font-medium text-xs text-muted-foreground">
+                  paste a skill link from <a className='text-blue-500' target="_blank" href='https://clawhub.ai/skills?sort=downloads'>clawhub</a>
+                </strong>
+                </label>
+                <Input
+                  placeholder="https://clawhub.ai/steipete/summarize"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">
+                  Skill name <span className="font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  placeholder="Derived from filename if blank"
+                  value={urlSkillName}
+                  onChange={(e) => setUrlSkillName(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            </TabsContent>
+
+            {/* ── Upload mode ─────────────────────────────────────────── */}
+            <TabsContent value="upload" className="flex flex-col gap-3 pt-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">Archive file</label>
+                <div
+                  className="flex items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/30 p-6 cursor-pointer hover:border-muted-foreground/60 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {file ? (
+                    <p className="text-sm font-medium">{file.name}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Click to select .zip or .tar.gz
+                    </p>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".zip,.tar.gz,.tgz,.tar.bz2,.tbz2"
+                  className="hidden"
+                  onChange={(e) => {
+                    const picked = e.target.files?.[0] ?? null;
+                    setFile(picked);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">
+                  Skill name <span className="font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  placeholder="Derived from filename if blank"
+                  value={uploadSkillName}
+                  onChange={(e) => setUploadSkillName(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {/* Result feedback */}
+          {result && (
+            <div
+              className={`rounded-md px-3 py-2 text-sm ${
+                result.ok
+                  ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
+                  : "bg-destructive/10 text-destructive"
+              }`}
+            >
+              <p>{result.message}</p>
+              {result.warnings && result.warnings.length > 0 && (
+                <ul className="mt-1 list-disc pl-4 text-xs opacity-80">
+                  {result.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
-      </DrawerContent>
-    </Drawer>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit}>
+            {loading ? "Importing…" : "Import Skill"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * If the user pastes a Clawhub skill page URL (https://clawhub.ai/{author}/{slug}),
+ * convert it to the direct download URL. All other URLs are returned unchanged.
+ */
+function resolveClawhubUrl(input: string): string {
+  const match = input.match(/^https?:\/\/clawhub\.ai\/[^/]+\/([^/?#]+)\/?$/);
+  if (match) {
+    return `https://wry-manatee-359.convex.site/api/v1/download?slug=${match[1]}`;
+  }
+  return input;
+}
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
