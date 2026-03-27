@@ -53,6 +53,9 @@ import {
   TalkModeParamsSchema,
   WebLoginStartParamsSchema,
   WebLoginWaitParamsSchema,
+  ChannelsCatalogParamsSchema,
+  ChannelCatalogEntrySchema,
+  ChannelsCatalogResultSchema,
 } from "./channels.js";
 import {
   ConfigApplyParamsSchema,
@@ -237,6 +240,9 @@ export const ProtocolSchemas = {
   ChannelsLogoutParams: ChannelsLogoutParamsSchema,
   WebLoginStartParams: WebLoginStartParamsSchema,
   WebLoginWaitParams: WebLoginWaitParamsSchema,
+  ChannelsCatalogParams: ChannelsCatalogParamsSchema,
+  ChannelCatalogEntry: ChannelCatalogEntrySchema,
+  ChannelsCatalogResult: ChannelsCatalogResultSchema,
   AgentSummary: AgentSummarySchema,
   AgentsCreateParams: AgentsCreateParamsSchema,
   AgentsCreateResult: AgentsCreateResultSchema,

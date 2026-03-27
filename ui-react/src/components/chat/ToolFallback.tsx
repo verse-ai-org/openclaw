@@ -3,7 +3,6 @@ import {
   CheckIcon,
   LoaderIcon,
   XCircleIcon,
-  ExternalLinkIcon,
   FileTextIcon,
   TerminalIcon,
   PencilIcon,
@@ -13,6 +12,7 @@ import {
   DatabaseIcon,
   FolderIcon,
   WrenchIcon,
+  MessageSquareText,
 } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -201,6 +201,22 @@ function formatToolLabel(name: string): string {
     .trim();
 }
 
+/** Parse a markdown string into frontmatter + body parts (same logic as SkillsPage). */
+function parseMarkdown(markdown: string): { frontmatter: string; body: string } {
+  const content = markdown.trimStart();
+  if (!content.startsWith("---\n")) {
+    return { frontmatter: "", body: markdown };
+  }
+  const end = content.indexOf("\n---\n", 4);
+  if (end === -1) {
+    return { frontmatter: "", body: markdown };
+  }
+  return {
+    frontmatter: content.slice(4, end).trim(),
+    body: content.slice(end + 5).trimStart(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // ToolDetailDrawer
 interface ToolDetailDrawerProps {
@@ -231,7 +247,7 @@ function ToolDetailDrawer({
   const Icon = cfg.Icon;
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="h-full w-200 sm:max-w-120">
+      <DrawerContent className="h-full w-[60vw]" style={{ maxWidth: '60vw' }}>
         {/* Fixed header */}
         <DrawerHeader className="border-b">
           <DrawerTitle className="flex items-center gap-2.5">
@@ -274,16 +290,33 @@ function ToolDetailDrawer({
             </section>
           )}
 
-          {/* Result — rendered as Markdown */}
+          {/* Result — rendered as Markdown with frontmatter support */}
           {!isCancelled && resultStr !== undefined && (
             <section>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Result
               </h3>
-              <div className="text-sm">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={plainMdComponents}>
-                  {resultStr}
-                </ReactMarkdown>
+              <div className="flex flex-col gap-3 text-sm leading-6">
+                {(() => {
+                  const { frontmatter, body } = parseMarkdown(resultStr);
+                  return (
+                    <>
+                      {frontmatter && (
+                        <details className="rounded-md border bg-background/70 p-2">
+                          <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                            Metadata (frontmatter)
+                          </summary>
+                          <pre className="mt-2 overflow-auto rounded bg-muted/60 p-2 text-xs leading-5 whitespace-pre-wrap break-words font-mono">
+                            {frontmatter}
+                          </pre>
+                        </details>
+                      )}
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={plainMdComponents}>
+                        {body || resultStr}
+                      </ReactMarkdown>
+                    </>
+                  );
+                })()}
               </div>
             </section>
           )}
@@ -354,7 +387,7 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
     <>
       <Card
         className={cn(
-          "w-full overflow-hidden border-l-4 text-sm my-2 py-1 transition-colors",
+          "w-full overflow-hidden text-sm my-2 py-1 transition-colors",
           cfg.borderAccent,
           statusType === "incomplete"
             ? "border-destructive/40 bg-destructive/5"
@@ -400,7 +433,7 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
               className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               aria-label="View tool details"
             >
-              <ExternalLinkIcon className="size-3" />
+              <MessageSquareText />
               Details
             </button>
           )}

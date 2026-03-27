@@ -68,7 +68,7 @@ export function OverviewPage() {
   const isAuthRequired = !isConnected && lastErrorCode?.includes("AUTH");
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto w-full">
       <div>
         <h1 className="text-2xl font-semibold">Overview</h1>
         <p className="text-sm text-muted-foreground">Gateway status and system information.</p>

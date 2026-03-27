@@ -53,7 +53,7 @@ export function ConfigPage() {
   const changeAgentModel = useAgentsStore((s) => s.changeAgentModel);
 
   useEffect(() => {
-    if (isConnected && !configForm) void loadConfig();
+    if (isConnected && !configForm) { void loadConfig(); }
   }, [isConnected, configForm, loadConfig]);
 
   if (!isConnected) {
@@ -90,10 +90,10 @@ export function ConfigPage() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col gap-6 p-6 max-w-3xl mx-auto w-full">
+      <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Config</h1>
+            <h1 className="text-2xl font-semibold">Settings</h1>
             <p className="text-sm text-muted-foreground">Gateway and agent configuration.</p>
           </div>
           <div className="flex items-center gap-2">

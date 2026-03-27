@@ -12,8 +12,23 @@ import { useSettingsStore } from "@/store/settings.store";
 
 export interface SessionEntry {
   key: string;
+  /** User-set label (e.g. via /label command). */
   label?: string;
+  /** Backend-derived display name (channel name, group name, etc.). */
+  displayName?: string;
+  /** Title inferred from the first user message in the transcript. */
+  derivedTitle?: string;
+  /** Last message snippet for preview. */
+  lastMessagePreview?: string;
   updatedAt?: number;
+}
+
+/**
+ * Resolve the best human-readable display name for a session.
+ * Priority: displayName > derivedTitle > label > key
+ */
+export function resolveSessionDisplayName(session: SessionEntry): string {
+  return session.displayName ?? session.derivedTitle ?? session.label ?? session.key;
 }
 
 export function useSessionManager() {
@@ -32,7 +47,10 @@ export function useSessionManager() {
     }
     setLoading(true);
     try {
-      const result = await client.request<{ sessions?: SessionEntry[] }>("sessions.list", {});
+      const result = await client.request<{ sessions?: SessionEntry[] }>("sessions.list", {
+        includeDerivedTitles: true,
+        includeLastMessage: true,
+      });
       setSessions(result?.sessions ?? []);
     } catch {
       setSessions([{ key: sessionKey }]);
@@ -125,7 +143,10 @@ export function useSessionManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gatewayStatus]);
 
-  const activeLabel = sessions.find((s) => s.key === sessionKey)?.label ?? sessionKey;
+  const activeSession = sessions.find((s) => s.key === sessionKey);
+  const activeLabel = activeSession
+    ? resolveSessionDisplayName(activeSession)
+    : sessionKey;
 
   return {
     sessions,

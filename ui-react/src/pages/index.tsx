@@ -1,4 +1,5 @@
 import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
+export { PluginsPage } from "./PluginsPage";
 export { SkillsPage } from "./SkillsPage";
 export { OverviewPage } from "./OverviewPage";
 export { ChannelsPage } from "./ChannelsPage";

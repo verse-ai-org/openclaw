@@ -44,6 +44,14 @@ import {
   AgentWaitParamsSchema,
   type ChannelsLogoutParams,
   ChannelsLogoutParamsSchema,
+  ChannelsEnableParamsSchema,
+  ChannelsEnableResultSchema,
+  ChannelsCatalogParamsSchema,
+  type ChannelCatalogEntry,
+  ChannelCatalogEntrySchema,
+  ChannelsCatalogResultSchema,
+  type ChannelsCatalogParams,
+  type ChannelsCatalogResult,
   type TalkConfigParams,
   TalkConfigParamsSchema,
   type TalkConfigResult,
@@ -260,6 +268,9 @@ import {
   WizardStatusResultSchema,
   type WizardStep,
   WizardStepSchema,
+  PluginsStatusParamsSchema,
+  PluginsEnableParamsSchema,
+  PluginsInstallParamsSchema,
 } from "./schema.js";
 
 const ajv = new (AjvPkg as unknown as new (opts?: object) => import("ajv").default)({
@@ -372,6 +383,8 @@ export const validateChannelsStatusParams = ajv.compile<ChannelsStatusParams>(
 export const validateChannelsLogoutParams = ajv.compile<ChannelsLogoutParams>(
   ChannelsLogoutParamsSchema,
 );
+export const validateChannelsEnableParams = ajv.compile(ChannelsEnableParamsSchema);
+export const validateChannelsCatalogParams = ajv.compile(ChannelsCatalogParamsSchema);
 export const validateModelsListParams = ajv.compile<ModelsListParams>(ModelsListParamsSchema);
 export const validateSkillsStatusParams = ajv.compile<SkillsStatusParams>(SkillsStatusParamsSchema);
 export const validateToolsCatalogParams = ajv.compile<ToolsCatalogParams>(ToolsCatalogParamsSchema);
@@ -440,6 +453,9 @@ export const validateUpdateRunParams = ajv.compile<UpdateRunParams>(UpdateRunPar
 export const validateWebLoginStartParams =
   ajv.compile<WebLoginStartParams>(WebLoginStartParamsSchema);
 export const validateWebLoginWaitParams = ajv.compile<WebLoginWaitParams>(WebLoginWaitParamsSchema);
+export const validatePluginsStatusParams = ajv.compile(PluginsStatusParamsSchema);
+export const validatePluginsEnableParams = ajv.compile(PluginsEnableParamsSchema);
+export const validatePluginsInstallParams = ajv.compile(PluginsInstallParamsSchema);
 
 export function formatValidationErrors(errors: ErrorObject[] | null | undefined) {
   if (!errors?.length) {
@@ -538,6 +554,9 @@ export {
   ChannelsStatusParamsSchema,
   ChannelsStatusResultSchema,
   ChannelsLogoutParamsSchema,
+  ChannelsCatalogParamsSchema,
+  ChannelCatalogEntrySchema,
+  ChannelsCatalogResultSchema,
   WebLoginStartParamsSchema,
   WebLoginWaitParamsSchema,
   AgentSummarySchema,
@@ -635,6 +654,9 @@ export type {
   ChannelsStatusParams,
   ChannelsStatusResult,
   ChannelsLogoutParams,
+  ChannelsCatalogParams,
+  ChannelCatalogEntry,
+  ChannelsCatalogResult,
   WebLoginStartParams,
   WebLoginWaitParams,
   AgentSummary,

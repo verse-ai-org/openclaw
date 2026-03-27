@@ -165,10 +165,55 @@ export const ChannelsStatusResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ChannelsEnableParamsSchema = Type.Object(
+  {
+    channelId: NonEmptyString,
+    enabled: Type.Boolean(),
+    accountId: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+export const ChannelsEnableResultSchema = Type.Object(
+  {
+    channelId: Type.String(),
+    enabled: Type.Boolean(),
+    reason: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
 export const ChannelsLogoutParamsSchema = Type.Object(
   {
     channel: NonEmptyString,
     accountId: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+export const ChannelsCatalogParamsSchema = Type.Object(
+  {},
+  { additionalProperties: false },
+);
+
+export const ChannelCatalogEntrySchema = Type.Object(
+  {
+    id: NonEmptyString,
+    label: NonEmptyString,
+    detailLabel: Type.String(),
+    blurb: Type.Optional(Type.String()),
+    systemImage: Type.Optional(Type.String()),
+    docsPath: Type.Optional(Type.String()),
+    installed: Type.Boolean(),
+    npmSpec: Type.Optional(Type.String()),
+    order: Type.Optional(Type.Integer()),
+  },
+  { additionalProperties: false },
+);
+
+export const ChannelsCatalogResultSchema = Type.Object(
+  {
+    channels: Type.Array(ChannelCatalogEntrySchema),
   },
   { additionalProperties: false },
 );

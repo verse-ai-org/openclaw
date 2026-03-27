@@ -37,7 +37,7 @@ export const ThreadView: FC = () => {
           className={cn(
             "sticky bottom-0 mx-auto mt-auto flex w-full",
             "max-w-(--thread-max-width) flex-col gap-3 overflow-visible",
-            "rounded-t-3xl bg-background pb-4 pt-2",
+            "rounded-t-3xl pb-4 pt-2",
           )}
         >
           <ScrollToBottom />

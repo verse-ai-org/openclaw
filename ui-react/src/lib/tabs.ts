@@ -3,7 +3,8 @@ import {
   Bug,
   FileText,
   FolderOpen,
-  Link,
+  Rss,
+  Blocks,
   Loader,
   MessageSquare,
   Monitor,
@@ -11,7 +12,7 @@ import {
   ScrollText,
   Settings,
   Zap,
-  UserRound
+  UserRound,
 } from "lucide-react";
 import type { Tab } from "@/types/gateway";
 
@@ -22,7 +23,7 @@ export function tabIcon(tab: Tab) {
     case "overview":
       return BarChart;
     case "channels":
-      return Link;
+      return Rss;
     case "instances":
       return Radio;
     case "sessions":
@@ -34,12 +35,16 @@ export function tabIcon(tab: Tab) {
     case "agents":
       return FolderOpen;
     case "employee":
-        return UserRound;
+      return UserRound;
+    case "plugins":
+      return Blocks;
     case "skills":
       return Zap;
     case "nodes":
       return Monitor;
     case "config":
+      return Settings;
+    case "settings":
       return Settings;
     case "debug":
       return Bug;
@@ -61,9 +66,11 @@ export function tabLabel(tab: Tab): string {
     cron: "Cron",
     agents: "Agents",
     employee: "Employee",
+    plugins: "Plugins",
     skills: "Skills",
     nodes: "Nodes",
     config: "Config",
+    settings: "Settings",
     debug: "Debug",
     logs: "Logs",
   };

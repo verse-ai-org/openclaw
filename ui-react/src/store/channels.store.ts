@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type {
+  ChannelCatalogEntry,
   ChannelsStatusSnapshot,
   NostrProfile,
   NostrProfileFormState,
@@ -68,6 +69,9 @@ interface ChannelsState {
   patchConfig: (path: Array<string | number>, value: unknown) => void;
   saveConfig: () => Promise<void>;
   reloadConfig: () => Promise<void>;
+  enableChannel: (channelId: string, enabled: boolean) => Promise<void>;
+  togglingChannelId: string | null;
+  toggleChannelError: Record<string, string>;
   startWhatsAppLogin: (force: boolean) => Promise<void>;
   waitForWhatsAppScan: () => Promise<void>;
   logoutWhatsApp: () => Promise<void>;
@@ -77,6 +81,12 @@ interface ChannelsState {
   saveNostrProfile: () => Promise<void>;
   importNostrProfile: () => Promise<void>;
   toggleNostrAdvanced: () => void;
+  // Catalog (installable channels)
+  catalog: ChannelCatalogEntry[] | null;
+  catalogLoading: boolean;
+  catalogError: string | null;
+  fetchCatalog: () => Promise<void>;
+
   // Called by gateway event handler
   applySnapshot: (snapshot: ChannelsStatusSnapshot) => void;
 }
@@ -100,8 +110,29 @@ export const useChannelsStore = create<ChannelsState>()((set, get) => ({
   whatsappMessage: null,
   whatsappBusy: false,
 
+  togglingChannelId: null,
+  toggleChannelError: {},
+
   nostrProfileFormState: null,
   nostrProfileAccountId: null,
+
+  catalog: null,
+  catalogLoading: false,
+  catalogError: null,
+
+  // ── Catalog ─────────────────────────────────────────────────────────────────
+
+  fetchCatalog: async () => {
+    const client = useGatewayStore.getState().client;
+    if (!client) return;
+    set({ catalogLoading: true, catalogError: null });
+    try {
+      const res = await client.request<{ channels: ChannelCatalogEntry[] }>("channels.catalog", {});
+      set({ catalog: res?.channels ?? [], catalogLoading: false });
+    } catch (err) {
+      set({ catalogError: String(err), catalogLoading: false });
+    }
+  },
 
   // ── Snapshot ────────────────────────────────────────────────────────────────
 
@@ -189,6 +220,28 @@ export const useChannelsStore = create<ChannelsState>()((set, get) => ({
 
   reloadConfig: async () => {
     await get().fetchConfigForm();
+  },
+
+  // ── Channel enable/disable ───────────────────────────────────────────────────
+
+  enableChannel: async (channelId, enabled) => {
+    const client = useGatewayStore.getState().client;
+    if (!client) return;
+    set((s) => ({
+      togglingChannelId: channelId,
+      toggleChannelError: { ...s.toggleChannelError, [channelId]: "" },
+    }));
+    try {
+      await client.request("channels.enable", { channelId, enabled });
+      // Refresh status to reflect the new enabled state
+      await get().fetchStatus(false);
+    } catch (err) {
+      set((s) => ({
+        toggleChannelError: { ...s.toggleChannelError, [channelId]: String(err) },
+      }));
+    } finally {
+      set({ togglingChannelId: null });
+    }
   },
 
   // ── WhatsApp ─────────────────────────────────────────────────────────────────

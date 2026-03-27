@@ -6,6 +6,7 @@ const BASE_METHODS = [
   "doctor.memory.status",
   "logs.tail",
   "channels.status",
+  "channels.catalog",
   "channels.logout",
   "status",
   "usage.status",

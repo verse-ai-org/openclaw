@@ -267,6 +267,24 @@ export type NostrStatus = {
   profile?: NostrProfile | null;
 };
 
+// ── Catalog ──────────────────────────────────────────────────────────────────
+
+export type ChannelCatalogEntry = {
+  id: string;
+  label: string;
+  detailLabel: string;
+  blurb?: string;
+  systemImage?: string;
+  docsPath?: string;
+  installed: boolean;
+  npmSpec?: string;
+  order?: number;
+};
+
+export type ChannelsCatalogResult = {
+  channels: ChannelCatalogEntry[];
+};
+
 // ── Config UI Hints ───────────────────────────────────────────────────────────
 
 export type ConfigUiHint = {

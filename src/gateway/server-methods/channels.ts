@@ -1,4 +1,4 @@
-import { buildChannelUiCatalog } from "../../channels/plugins/catalog.js";
+import { buildChannelUiCatalog, listChannelPluginCatalogEntries } from "../../channels/plugins/catalog.js";
 import { resolveChannelDefaultAccountId } from "../../channels/plugins/helpers.js";
 import {
   type ChannelId,
@@ -9,7 +9,9 @@ import {
 import { buildChannelAccountSnapshot } from "../../channels/plugins/status.js";
 import type { ChannelAccountSnapshot, ChannelPlugin } from "../../channels/plugins/types.js";
 import type { OpenClawConfig } from "../../config/config.js";
-import { loadConfig, readConfigFileSnapshot } from "../../config/config.js";
+import { loadConfig, readConfigFileSnapshot, writeConfigFile } from "../../config/config.js";
+import { enablePluginInConfig } from "../../plugins/enable.js";
+import { setPluginEnabledInConfig as setChannelEnabledInConfig } from "../../plugins/toggle-config.js";
 import { getChannelActivity } from "../../infra/channel-activity.js";
 import { DEFAULT_ACCOUNT_ID } from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
@@ -17,6 +19,8 @@ import {
   ErrorCodes,
   errorShape,
   formatValidationErrors,
+  validateChannelsEnableParams,
+  validateChannelsCatalogParams,
   validateChannelsLogoutParams,
   validateChannelsStatusParams,
 } from "../protocol/index.js";
@@ -285,6 +289,124 @@ export const channelsHandlers: GatewayRequestHandlers = {
         plugin,
       });
       respond(true, payload, undefined);
+    } catch (err) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(err)));
+    }
+  },
+
+  // ── channels.catalog ───────────────────────────────────────────────────────
+  "channels.catalog": async ({ params, respond }) => {
+    if (!validateChannelsCatalogParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid channels.catalog params: ${formatValidationErrors(validateChannelsCatalogParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    // Installed channel plugins (registered in the runtime registry)
+    const installedPlugins = listChannelPlugins();
+    const installedIds = new Set(installedPlugins.map((p) => p.id));
+
+    // Full catalog: includes installable-but-not-yet-installed extensions
+    const catalogEntries = listChannelPluginCatalogEntries();
+
+    // Build a merged list: installed first (preserving runtime order), then
+    // catalog-only entries that are not yet installed.
+    type CatalogEntry = {
+      id: string;
+      label: string;
+      detailLabel: string;
+      blurb?: string;
+      systemImage?: string;
+      docsPath?: string;
+      installed: boolean;
+      npmSpec?: string;
+      order?: number;
+    };
+
+    const result: CatalogEntry[] = [];
+
+    // 1. Installed channels from runtime registry
+    for (const plugin of installedPlugins) {
+      const catalogMatch = catalogEntries.find((e) => e.id === plugin.id);
+      const detailLabel = plugin.meta.detailLabel ?? plugin.meta.selectionLabel ?? plugin.meta.label;
+      result.push({
+        id: plugin.id,
+        label: plugin.meta.label,
+        detailLabel,
+        blurb: plugin.meta.blurb || undefined,
+        systemImage: plugin.meta.systemImage || undefined,
+        docsPath: plugin.meta.docsPath || undefined,
+        installed: true,
+        npmSpec: catalogMatch?.install?.npmSpec || undefined,
+        order: plugin.meta.order,
+      });
+    }
+
+    // 2. Catalog-only channels (not yet installed)
+    for (const entry of catalogEntries) {
+      if (installedIds.has(entry.id)) {
+        continue; // already included above
+      }
+      const detailLabel = entry.meta.detailLabel ?? entry.meta.selectionLabel ?? entry.meta.label;
+      result.push({
+        id: entry.id,
+        label: entry.meta.label,
+        detailLabel,
+        blurb: entry.meta.blurb || undefined,
+        systemImage: entry.meta.systemImage || undefined,
+        docsPath: entry.meta.docsPath || undefined,
+        installed: false,
+        npmSpec: entry.install.npmSpec || undefined,
+        order: entry.meta.order,
+      });
+    }
+
+    // Sort: by order field, then alphabetically by label
+    result.sort((a, b) => {
+      const orderA = a.order ?? 999;
+      const orderB = b.order ?? 999;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.label.localeCompare(b.label);
+    });
+
+    respond(true, { channels: result }, undefined);
+  },
+
+  // ── channels.enable ────────────────────────────────────────────────────────
+  "channels.enable": async ({ params, respond }) => {
+    if (!validateChannelsEnableParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid channels.enable params: ${formatValidationErrors(validateChannelsEnableParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const { channelId, enabled } = params as { channelId: string; enabled: boolean };
+    try {
+      const cfg = loadConfig();
+      let nextCfg: import("../../config/config.js").OpenClawConfig;
+      let actualEnabled: boolean;
+      let reason: string | undefined;
+      if (enabled) {
+        const result = enablePluginInConfig(cfg, channelId);
+        nextCfg = result.config;
+        actualEnabled = result.enabled;
+        reason = result.reason;
+      } else {
+        nextCfg = setChannelEnabledInConfig(cfg, channelId, false);
+        actualEnabled = false;
+      }
+      await writeConfigFile(nextCfg);
+      respond(true, { channelId, enabled: actualEnabled, reason });
     } catch (err) {
       respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(err)));
     }

@@ -32,9 +32,11 @@ export type Tab =
   | "usage"
   | "cron"
   | "skills"
+  | "plugins"
   | "nodes"
   | "chat"
   | "config"
+  | "settings"
   | "debug"
   | "logs";
 
@@ -46,8 +48,8 @@ export type TabGroup = {
 export const TAB_GROUPS: TabGroup[] = [
   { label: "Message", tabs: ["chat"] },
   { label: "Team", tabs: ["employee", "skills"] },
-  { label: "control", tabs: ["channels"] },
-  { label: "settings", tabs: ["overview", "config"] },
+  { label: "Tools", tabs: ["channels", "plugins"] },
+  { label: "settings", tabs: ["overview", "settings"] },
 ];
 
 export const TAB_PATHS: Record<Tab, string> = {
@@ -56,8 +58,10 @@ export const TAB_PATHS: Record<Tab, string> = {
   overview: "/overview",
   channels: "/channels",
   skills: "/skills",
+  plugins: "/plugins",
   chat: "/chat",
   config: "/config",
+  settings: "/settings",
   debug: "/debug",
   instances: "/instances",
   sessions: "/sessions",
