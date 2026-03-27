@@ -17,8 +17,13 @@ asarUnpack:
 # 将外部资源打包进 Resources/
 extraResources:
   # 捆绑的 Node 22 二进制（由 download-node.sh 下载到 resources/node-${arch}/）
+  # macOS / Linux：可执行文件名为 node
   - from: "resources/node-${arch}/node"
     to: "node/node"
+    filter: ["!*.exe"]
+  # Windows：可执行文件名为 node.exe
+  - from: "resources/node-${arch}/node.exe"
+    to: "node/node.exe"
 
   # openclaw CLI 入口脚本
   - from: "../../openclaw.mjs"
@@ -136,3 +141,25 @@ dmg:
       type: link
       path: /Applications
   internetEnabled: false
+
+win:
+  icon: resources/icon.ico
+  # URL Scheme for OAuth callbacks (openclaw://oauth/callback?...)
+  protocols:
+    - name: OpenClaw OAuth
+      schemes:
+        - openclaw
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Bossim

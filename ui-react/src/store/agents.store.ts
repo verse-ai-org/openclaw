@@ -26,7 +26,9 @@ function isConnected() {
 }
 
 function getErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) {
+    return err.message;
+  }
   return String(err);
 }
 
@@ -35,9 +37,13 @@ function applyPatch(
   path: Array<string | number>,
   value: unknown,
 ): Record<string, unknown> {
-  if (path.length === 0) return obj;
+  if (path.length === 0) {
+    return obj;
+  }
   const [head, ...rest] = path;
-  if (rest.length === 0) return { ...obj, [head]: value };
+  if (rest.length === 0) {
+    return { ...obj, [head]: value };
+  }
   const child = (obj[head] as Record<string, unknown>) ?? {};
   return { ...obj, [head]: applyPatch(child, rest, value) };
 }
@@ -46,7 +52,9 @@ function mergeFileEntry(
   list: AgentsFilesListResult | null,
   entry: AgentFileEntry,
 ): AgentsFilesListResult | null {
-  if (!list) return list;
+  if (!list) {
+    return list;
+  }
   const hasEntry = list.files.some((f) => f.name === entry.name);
   const nextFiles = hasEntry
     ? list.files.map((f) => (f.name === entry.name ? entry : f))
@@ -111,8 +119,16 @@ interface AgentsState {
   reloadConfig: () => Promise<void>;
   changeAgentModel: (agentId: string, modelId: string | null) => void;
   changeAgentModelFallbacks: (agentId: string, fallbacks: string[]) => void;
-  changeToolsProfile: (agentId: string, profile: string | null, clearAllow: boolean) => void;
-  changeToolsOverrides: (agentId: string, alsoAllow: string[], deny: string[]) => void;
+  changeToolsProfile: (
+    agentId: string,
+    profile: string | null,
+    clearAllow: boolean,
+  ) => void;
+  changeToolsOverrides: (
+    agentId: string,
+    alsoAllow: string[],
+    deny: string[],
+  ) => void;
   loadToolsCatalog: (agentId: string) => Promise<void>;
   loadAgentFiles: (agentId: string) => Promise<void>;
   loadFileContent: (agentId: string, name: string) => Promise<void>;
@@ -122,7 +138,11 @@ interface AgentsState {
   saveFile: (name: string) => Promise<void>;
   loadAgentSkills: (agentId: string) => Promise<void>;
   setSkillsFilter: (filter: string) => void;
-  toggleAgentSkill: (agentId: string, skillName: string, enabled: boolean) => Promise<void>;
+  toggleAgentSkill: (
+    agentId: string,
+    skillName: string,
+    enabled: boolean,
+  ) => Promise<void>;
   clearAgentSkills: (agentId: string) => void;
   disableAllAgentSkills: (agentId: string) => void;
   loadChannelsStatus: () => Promise<void>;
@@ -176,7 +196,8 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       if (res) {
         const prev = get().selectedAgentId;
         const known = res.agents.some((a) => a.id === prev);
-        const selectedAgentId = prev && known ? prev : (res.defaultId ?? res.agents[0]?.id ?? null);
+        const selectedAgentId =
+          prev && known ? prev : (res.defaultId ?? res.agents[0]?.id ?? null);
         set({ agentsList: res, selectedAgentId });
         if (selectedAgentId) void get().loadAgentIdentity(selectedAgentId);
         void get().loadConfig();
@@ -217,8 +238,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       void get().loadAgentSkills(agentId);
     if (panel === "channels" && !get().channelsSnapshot)
       void get().loadChannelsStatus();
-    if (panel === "cron" && !get().cronStatus)
-      void get().loadCronStatus();
+    if (panel === "cron" && !get().cronStatus) void get().loadCronStatus();
   },
 
   loadAgentIdentity: async (agentId) => {
@@ -226,8 +246,13 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (!client || !isConnected()) return;
     set({ agentIdentityLoading: true, agentIdentityError: null });
     try {
-      const res = await client.request<AgentIdentityResult>("agents.identity", { agentId });
-      if (res) set((s) => ({ agentIdentityById: { ...s.agentIdentityById, [agentId]: res } }));
+      const res = await client.request<AgentIdentityResult>("agents.identity", {
+        agentId,
+      });
+      if (res)
+        set((s) => ({
+          agentIdentityById: { ...s.agentIdentityById, [agentId]: res },
+        }));
     } catch (err) {
       set({ agentIdentityError: getErrorMessage(err) });
     } finally {
@@ -240,7 +265,10 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (!client || !isConnected()) return;
     set({ configLoading: true });
     try {
-      const res = await client.request<{ config?: Record<string, unknown> }>("config.get", {});
+      const res = await client.request<{ config?: Record<string, unknown> }>(
+        "config.get",
+        {},
+      );
       set({ configForm: res?.config ?? null, configDirty: false });
     } catch {
       // non-fatal
@@ -271,7 +299,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
   },
 
-  reloadConfig: async () => { await get().loadConfig(); },
+  reloadConfig: async () => {
+    await get().loadConfig();
+  },
   changeAgentModel: (agentId, modelId) => {
     const form = get().configForm;
     if (!form) return;
@@ -282,10 +312,18 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     const entry = { ...list[idx] };
     if (modelId) {
       const ex = entry.model;
-      entry.model = ex && typeof ex === "object" ? { ...(ex as Record<string, unknown>), primary: modelId } : modelId;
-    } else { delete entry.model; }
+      entry.model =
+        ex && typeof ex === "object"
+          ? { ...(ex as Record<string, unknown>), primary: modelId }
+          : modelId;
+    } else {
+      delete entry.model;
+    }
     list[idx] = entry;
-    set({ configForm: applyPatch(form, ["agents", "list"], list), configDirty: true });
+    set({
+      configForm: applyPatch(form, ["agents", "list"], list),
+      configDirty: true,
+    });
   },
 
   changeAgentModelFallbacks: (agentId, fallbacks) => {
@@ -297,11 +335,16 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (idx === -1) return;
     const entry = { ...list[idx] };
     const ex = entry.model;
-    if (ex && typeof ex === "object") entry.model = { ...(ex as Record<string, unknown>), fallbacks };
-    else if (typeof ex === "string" && ex) entry.model = { primary: ex, fallbacks };
+    if (ex && typeof ex === "object")
+      entry.model = { ...(ex as Record<string, unknown>), fallbacks };
+    else if (typeof ex === "string" && ex)
+      entry.model = { primary: ex, fallbacks };
     else entry.model = { fallbacks };
     list[idx] = entry;
-    set({ configForm: applyPatch(form, ["agents", "list"], list), configDirty: true });
+    set({
+      configForm: applyPatch(form, ["agents", "list"], list),
+      configDirty: true,
+    });
   },
 
   changeToolsProfile: (agentId, profile, clearAllow) => {
@@ -313,11 +356,18 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (idx === -1) return;
     const entry = { ...list[idx] };
     const tools = { ...((entry.tools as Record<string, unknown>) ?? {}) };
-    if (profile) tools.profile = profile; else delete tools.profile;
-    if (clearAllow) { delete tools.alsoAllow; delete tools.deny; }
+    if (profile) tools.profile = profile;
+    else delete tools.profile;
+    if (clearAllow) {
+      delete tools.alsoAllow;
+      delete tools.deny;
+    }
     entry.tools = tools;
     list[idx] = entry;
-    set({ configForm: applyPatch(form, ["agents", "list"], list), configDirty: true });
+    set({
+      configForm: applyPatch(form, ["agents", "list"], list),
+      configDirty: true,
+    });
   },
 
   changeToolsOverrides: (agentId, alsoAllow, deny) => {
@@ -329,10 +379,16 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (idx === -1) return;
     const entry = { ...list[idx] };
     const tools = { ...((entry.tools as Record<string, unknown>) ?? {}) };
-    if (alsoAllow.length > 0) tools.alsoAllow = alsoAllow; else delete tools.alsoAllow;
-    if (deny.length > 0) tools.deny = deny; else delete tools.deny;
-    entry.tools = tools; list[idx] = entry;
-    set({ configForm: applyPatch(form, ["agents", "list"], list), configDirty: true });
+    if (alsoAllow.length > 0) tools.alsoAllow = alsoAllow;
+    else delete tools.alsoAllow;
+    if (deny.length > 0) tools.deny = deny;
+    else delete tools.deny;
+    entry.tools = tools;
+    list[idx] = entry;
+    set({
+      configForm: applyPatch(form, ["agents", "list"], list),
+      configDirty: true,
+    });
   },
 
   loadToolsCatalog: async (agentId) => {
@@ -340,42 +396,66 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (!client || !isConnected() || get().toolsCatalogLoading) return;
     set({ toolsCatalogLoading: true, toolsCatalogError: null });
     try {
-      const res = await client.request<ToolsCatalogResult>("tools.catalog", { agentId, includePlugins: true });
+      const res = await client.request<ToolsCatalogResult>("tools.catalog", {
+        agentId,
+        includePlugins: true,
+      });
       if (res) set({ toolsCatalogResult: res });
-    } catch (err) { set({ toolsCatalogError: getErrorMessage(err) }); }
-    finally { set({ toolsCatalogLoading: false }); }
+    } catch (err) {
+      set({ toolsCatalogError: getErrorMessage(err) });
+    } finally {
+      set({ toolsCatalogLoading: false });
+    }
   },
   loadAgentFiles: async (agentId) => {
     const client = getClient();
     if (!client || !isConnected() || get().agentFilesLoading) return;
     set({ agentFilesLoading: true, agentFilesError: null });
     try {
-      const res = await client.request<AgentsFilesListResult>("agents.files.list", { agentId });
+      const res = await client.request<AgentsFilesListResult>(
+        "agents.files.list",
+        { agentId },
+      );
       if (res) set({ agentFilesList: res });
-    } catch (err) { set({ agentFilesError: getErrorMessage(err) }); }
-    finally { set({ agentFilesLoading: false }); }
+    } catch (err) {
+      set({ agentFilesError: getErrorMessage(err) });
+    } finally {
+      set({ agentFilesLoading: false });
+    }
   },
 
   loadFileContent: async (agentId, name) => {
     const client = getClient();
     if (!client || !isConnected()) return;
     try {
-      const res = await client.request<AgentsFilesGetResult>("agents.files.get", { agentId, name });
+      const res = await client.request<AgentsFilesGetResult>(
+        "agents.files.get",
+        { agentId, name },
+      );
       if (res?.file?.content != null) {
         set((s) => ({
-          agentFileContents: { ...s.agentFileContents, [name]: res.file.content! },
+          agentFileContents: {
+            ...s.agentFileContents,
+            [name]: res.file.content!,
+          },
         }));
-        set((s) => mergeFileEntry(s.agentFilesList, res.file)
-          ? { agentFilesList: mergeFileEntry(s.agentFilesList, res.file) }
-          : s);
+        set((s) =>
+          mergeFileEntry(s.agentFilesList, res.file)
+            ? { agentFilesList: mergeFileEntry(s.agentFilesList, res.file) }
+            : s,
+        );
       }
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
   },
 
   selectFile: (name) => set({ agentFileActive: name }),
 
   changeFileDraft: (name, content) =>
-    set((s) => ({ agentFileDrafts: { ...s.agentFileDrafts, [name]: content } })),
+    set((s) => ({
+      agentFileDrafts: { ...s.agentFileDrafts, [name]: content },
+    })),
 
   resetFileDraft: (name) =>
     set((s) => {
@@ -389,30 +469,51 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (!client) return;
     const agentId = get().selectedAgentId;
     if (!agentId) return;
-    const content = get().agentFileDrafts[name] ?? get().agentFileContents[name] ?? "";
+    const content =
+      get().agentFileDrafts[name] ?? get().agentFileContents[name] ?? "";
     set({ agentFileSaving: true });
     try {
-      const res = await client.request<AgentsFilesSetResult>("agents.files.set", { agentId, name, content });
+      const res = await client.request<AgentsFilesSetResult>(
+        "agents.files.set",
+        { agentId, name, content },
+      );
       if (res?.file) {
         set((s) => ({
           agentFileContents: { ...s.agentFileContents, [name]: content },
-          agentFileDrafts: (() => { const d = { ...s.agentFileDrafts }; delete d[name]; return d; })(),
+          agentFileDrafts: (() => {
+            const d = { ...s.agentFileDrafts };
+            delete d[name];
+            return d;
+          })(),
           agentFilesList: mergeFileEntry(s.agentFilesList, res.file),
         }));
       }
-    } catch (err) { set({ agentFilesError: getErrorMessage(err) }); }
-    finally { set({ agentFileSaving: false }); }
+    } catch (err) {
+      set({ agentFilesError: getErrorMessage(err) });
+    } finally {
+      set({ agentFileSaving: false });
+    }
   },
 
   loadAgentSkills: async (agentId) => {
     const client = getClient();
     if (!client || !isConnected() || get().agentSkillsLoading) return;
-    set({ agentSkillsLoading: true, agentSkillsError: null, agentSkillsAgentId: agentId });
+    set({
+      agentSkillsLoading: true,
+      agentSkillsError: null,
+      agentSkillsAgentId: agentId,
+    });
     try {
-      const res = await client.request<AgentSkillStatusReport>("skills.status", { agentId });
+      const res = await client.request<AgentSkillStatusReport>(
+        "skills.status",
+        { agentId },
+      );
       if (res) set({ agentSkillsReport: res });
-    } catch (err) { set({ agentSkillsError: getErrorMessage(err) }); }
-    finally { set({ agentSkillsLoading: false }); }
+    } catch (err) {
+      set({ agentSkillsError: getErrorMessage(err) });
+    } finally {
+      set({ agentSkillsLoading: false });
+    }
   },
 
   setSkillsFilter: (filter) => set({ skillsFilter: filter }),
@@ -424,9 +525,14 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     // enabled=true means currently disabled → we want to enable it (pass enabled: true)
     // enabled=false means currently enabled → we want to disable it (pass enabled: false)
     try {
-      await client.request("skills.update", { skillKey: skillName, enabled: !enabled });
+      await client.request("skills.update", {
+        skillKey: skillName,
+        enabled: !enabled,
+      });
       await get().loadAgentSkills(agentId);
-    } catch (err) { set({ agentSkillsError: getErrorMessage(err) }); }
+    } catch (err) {
+      set({ agentSkillsError: getErrorMessage(err) });
+    }
   },
 
   clearAgentSkills: (agentId) => {
@@ -434,7 +540,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       set({ agentSkillsReport: null, agentSkillsAgentId: null });
   },
 
-  disableAllAgentSkills: (agentId) => {
+  disableAllAgentSkills: (_agentId?: string) => {
     const report = get().agentSkillsReport;
     if (!report) return;
     const skills = report.skills.map((s) => ({ ...s, disabled: true }));
@@ -446,10 +552,16 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (!client || !isConnected()) return;
     set({ channelsLoading: true, channelsError: null });
     try {
-      const res = await client.request<ChannelsStatusSnapshot>("channels.status", {});
+      const res = await client.request<ChannelsStatusSnapshot>(
+        "channels.status",
+        {},
+      );
       if (res) set({ channelsSnapshot: res, channelsLastSuccess: Date.now() });
-    } catch (err) { set({ channelsError: getErrorMessage(err) }); }
-    finally { set({ channelsLoading: false }); }
+    } catch (err) {
+      set({ channelsError: getErrorMessage(err) });
+    } finally {
+      set({ channelsLoading: false });
+    }
   },
 
   loadCronStatus: async () => {
@@ -458,12 +570,18 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     set({ cronLoading: true, cronError: null });
     try {
       const statusRes = await client.request<CronStatus>("cron.status", {});
-      const jobsRes = await client.request<{ jobs?: CronJob[] }>("cron.jobs.list", {});
+      const jobsRes = await client.request<{ jobs?: CronJob[] }>(
+        "cron.jobs.list",
+        {},
+      );
       set({
         cronStatus: statusRes ?? null,
         cronJobs: jobsRes?.jobs ?? [],
       });
-    } catch (err) { set({ cronError: getErrorMessage(err) }); }
-    finally { set({ cronLoading: false }); }
+    } catch (err) {
+      set({ cronError: getErrorMessage(err) });
+    } finally {
+      set({ cronLoading: false });
+    }
   },
 }));

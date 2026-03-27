@@ -1,9 +1,8 @@
 import { useEffect } from "react";
-import { ClockIcon, Loader2Icon, RefreshCwIcon, PlayIcon, CheckCircleIcon, XCircleIcon, MinusCircleIcon } from "lucide-react";
+import { ClockIcon, Loader2Icon, RefreshCwIcon, CheckCircleIcon, XCircleIcon, MinusCircleIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
@@ -11,7 +10,7 @@ import type { CronJob } from "@/types/agents";
 import { formatDistanceToNow } from "date-fns";
 
 function relativeTime(ms?: number | null): string {
-  if (!ms) return "—";
+  if (!ms) {return "—"};
   return formatDistanceToNow(new Date(ms), { addSuffix: true });
 }
 
@@ -19,19 +18,19 @@ function formatSchedule(job: CronJob): string {
   const s = job.schedule;
   if (s.kind === "every") {
     const ms = s.everyMs;
-    if (ms % 3600000 === 0) return `Every ${ms / 3600000}h`;
-    if (ms % 60000 === 0) return `Every ${ms / 60000}m`;
+    if (ms % 3600000 === 0) {return `Every ${ms / 3600000}h`};
+    if (ms % 60000 === 0) {return `Every ${ms / 60000}m`};
     return `Every ${ms}ms`;
   }
-  if (s.kind === "cron") return `Cron: ${s.expr}`;
-  if (s.kind === "at") return `At: ${s.at}`;
+  if (s.kind === "cron") {return `Cron: ${s.expr}`};
+  if (s.kind === "at") {return `At: ${s.at}`};
   return "Unknown";
 }
 
 function StatusIcon({ status }: { status?: "ok" | "error" | "skipped" | null }) {
-  if (status === "ok") return <CheckCircleIcon className="size-4 text-emerald-500" />;
-  if (status === "error") return <XCircleIcon className="size-4 text-destructive" />;
-  if (status === "skipped") return <MinusCircleIcon className="size-4 text-muted-foreground" />;
+  if (status === "ok") {return <CheckCircleIcon className="size-4 text-emerald-500" />};
+  if (status === "error") {return <XCircleIcon className="size-4 text-destructive" />};
+  if (status === "skipped") {return <MinusCircleIcon className="size-4 text-muted-foreground" />};
   return <ClockIcon className="size-4 text-muted-foreground" />;
 }
 
@@ -104,7 +103,7 @@ export function CronPage() {
   const loadCronStatus = useAgentsStore((s) => s.loadCronStatus);
 
   useEffect(() => {
-    if (isConnected && !cronStatus) void loadCronStatus();
+    if (isConnected && !cronStatus) {void loadCronStatus();};
   }, [isConnected, cronStatus, loadCronStatus]);
 
   if (!isConnected) {

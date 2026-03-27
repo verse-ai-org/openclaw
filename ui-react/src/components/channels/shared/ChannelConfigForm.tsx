@@ -62,7 +62,7 @@ function resolveNode(schema: JsonSchema, path: Array<string | number>): JsonSche
     if (!cur) return null;
     const t = schemaType(cur);
     if (t === "object") {
-      const props = cur.properties ?? {};
+      const props: Record<string, JsonSchema> = cur.properties ?? {};
       if (typeof key === "string" && props[key]) { cur = props[key]; continue; }
       const add = cur.additionalProperties;
       if (typeof key === "string" && add && typeof add === "object") { cur = add as JsonSchema; continue; }
