@@ -17,6 +17,7 @@ type JsonSchema = {
   title?: string;
   description?: string;
   properties?: Record<string, JsonSchema>;
+  required?: string[];
   items?: JsonSchema;
   additionalProperties?: JsonSchema | boolean;
   anyOf?: JsonSchema[];
@@ -74,10 +75,15 @@ function resolveNode(schema: JsonSchema, path: Array<string | number>): JsonSche
   return cur;
 }
 
-function FieldWrapper({ label, help, children }: { label?: string; help?: string; children: React.ReactNode }) {
+function FieldWrapper({ label, help, required, children }: { label?: string; help?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      {label && <Label className="text-sm font-medium">{label}</Label>}
+      {label && (
+        <div className="flex items-center gap-1">
+          <Label className="text-sm font-medium">{label}</Label>
+          {required && <span className="text-[10px] font-bold text-red-500 leading-none">*</span>}
+        </div>
+      )}
       {help && <p className="text-xs text-muted-foreground">{help}</p>}
       {children}
     </div>
@@ -112,9 +118,10 @@ interface RenderNodeProps {
   disabled: boolean;
   onPatch: (path: Array<string | number>, value: unknown) => void;
   showLabel?: boolean;
+  required?: boolean;
 }
 
-function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel = true }: RenderNodeProps) {
+function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel = true, required }: RenderNodeProps) {
   const hint = getHint(path, hints) as { label?: string; help?: string; placeholder?: string; sensitive?: boolean; order?: number } | undefined;
   const label = hint?.label ?? schema.title ?? String(path[path.length - 1] ?? "");
   const help = hint?.help ?? schema.description;
@@ -126,12 +133,12 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
   if (variants.length) {
     const nonNull = variants.filter((v) => v.type !== "null" && !v.enum?.includes(null));
     if (nonNull.length === 1) {
-      return <RenderNode schema={nonNull[0]} path={path} config={config} hints={hints} disabled={disabled} onPatch={onPatch} showLabel={showLabel} />;
+      return <RenderNode schema={nonNull[0]} path={path} config={config} hints={hints} disabled={disabled} onPatch={onPatch} showLabel={showLabel} required={required} />;
     }
     const literals = nonNull.flatMap((v) => v.enum ?? []);
     if (literals.length === nonNull.length) {
       return (
-        <FieldWrapper label={showLabel ? label : undefined} help={help}>
+        <FieldWrapper label={showLabel ? label : undefined} help={help} required={required}>
           <EnumSelect value={value} options={literals} defaultVal={schema.default} disabled={disabled} onSelect={(v) => onPatch(path, v)} />
         </FieldWrapper>
       );
@@ -142,6 +149,7 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
 
   if (type === "object") {
     const props = schema.properties ?? {};
+    const requiredSet = new Set(schema.required ?? []);
     const sortedKeys = Object.keys(props).sort((a, b) => {
       const oa = (getHint([...path, a], hints) as { order?: number } | undefined)?.order ?? 0;
       const ob = (getHint([...path, b], hints) as { order?: number } | undefined)?.order ?? 0;
@@ -152,7 +160,7 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
         {showLabel && label && <p className="text-sm font-semibold">{label}</p>}
         {help && <p className="text-xs text-muted-foreground">{help}</p>}
         {sortedKeys.map((key) => (
-          <RenderNode key={key} schema={props[key]} path={[...path, key]} config={config} hints={hints} disabled={disabled} onPatch={onPatch} />
+          <RenderNode key={key} schema={props[key]} path={[...path, key]} config={config} hints={hints} disabled={disabled} onPatch={onPatch} required={requiredSet.has(key)} />
         ))}
       </div>
     );
@@ -198,7 +206,7 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
 
   if (type === "number" || type === "integer") {
     return (
-      <FieldWrapper label={showLabel ? label : undefined} help={help}>
+      <FieldWrapper label={showLabel ? label : undefined} help={help} required={required}>
         <Input type="number" value={value != null ? String(value) : ""} placeholder={placeholder} disabled={disabled}
           onChange={(e) => {
             const v = e.target.value.trim();
@@ -212,14 +220,14 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
 
   if (schema.enum) {
     return (
-      <FieldWrapper label={showLabel ? label : undefined} help={help}>
+      <FieldWrapper label={showLabel ? label : undefined} help={help} required={required}>
         <EnumSelect value={value} options={schema.enum} defaultVal={schema.default} disabled={disabled} onSelect={(v) => onPatch(path, v)} />
       </FieldWrapper>
     );
   }
 
   return (
-    <FieldWrapper label={showLabel ? label : undefined} help={help}>
+    <FieldWrapper label={showLabel ? label : undefined} help={help} required={required}>
       <Input
         type={sensitive ? "password" : "text"}
         value={typeof value === "string" ? value : (value != null ? String(value) : "")}
@@ -291,10 +299,16 @@ export function ChannelConfigForm({
           />
           <ExtraChannelFields channelValue={channelValue} />
         </>
+      ) : schema && !channelNode ? (
+        <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 space-y-1">
+          <p className="text-xs font-semibold text-amber-800">No configuration options available yet.</p>
+          <p className="text-xs text-amber-700 leading-relaxed">
+            This channel has no editable settings in the current config.
+            If you just enabled the plugin, restart the gateway so it can register its schema, then reload this dialog.
+          </p>
+        </div>
       ) : (
-        <p className={cn("text-xs", schema ? "text-muted-foreground" : "text-destructive")}>
-          {schema ? "No configuration schema for this channel." : "Schema unavailable."}
-        </p>
+        <p className="text-xs text-muted-foreground">Schema unavailable.</p>
       )}
 
       <div className="flex gap-2 pt-1">

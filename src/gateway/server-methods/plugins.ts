@@ -29,6 +29,9 @@ export const pluginsHandlers: GatewayRequestHandlers = {
     }
     try {
       const report = buildPluginStatusReport();
+      // console.log(
+      //   `[plugins.status] plugins=${report.plugins.map((p) => `${p.id}(channelIds=[${p.channelIds.join(",")}],enabled=${p.enabled},status=${p.status})`).join(" ")}`
+      // );
       respond(true, {
         plugins: report.plugins,
         workspaceDir: report.workspaceDir,

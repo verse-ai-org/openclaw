@@ -102,6 +102,24 @@ const resolvePluginSdkAliasFile = (params: {
       if (fs.existsSync(candidate)) {
         return candidate;
       }
+      // When the exact dist filename is not found (e.g. bundler emitted a
+      // content-hashed variant like "device-pair-DZdPL6gL.js" instead of
+      // the plain "device-pair.js"), fall back to the first matching hashed
+      // file in the same directory so the jiti alias still resolves.
+      if (candidate.endsWith(".js") && candidate.includes(`${path.sep}dist${path.sep}`)) {
+        const dir = path.dirname(candidate);
+        const stem = path.basename(candidate, ".js");
+        try {
+          const hashed = fs
+            .readdirSync(dir)
+            .find((f) => f.startsWith(`${stem}-`) && f.endsWith(".js") && !f.endsWith(".d.js"));
+          if (hashed) {
+            return path.join(dir, hashed);
+          }
+        } catch {
+          // directory may not exist yet; ignore
+        }
+      }
     }
   } catch {
     // ignore
@@ -587,6 +605,9 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
       });
       record.status = "disabled";
       record.error = `overridden by ${existingOrigin} plugin`;
+      if (manifestRecord.channels.length > 0) {
+        record.channelIds.push(...manifestRecord.channels);
+      }
       registry.plugins.push(record);
       continue;
     }
@@ -628,6 +649,11 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
     if (!enableState.enabled) {
       record.status = "disabled";
       record.error = enableState.reason;
+      // Populate channelIds from the manifest so the UI can identify channel plugins
+      // even when the plugin is disabled (register() is never called for disabled plugins).
+      if (manifestRecord.channels.length > 0) {
+        record.channelIds.push(...manifestRecord.channels);
+      }
       registry.plugins.push(record);
       seenIds.set(pluginId, candidate.origin);
       continue;

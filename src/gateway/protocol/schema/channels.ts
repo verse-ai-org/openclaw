@@ -220,6 +220,7 @@ export const ChannelsCatalogResultSchema = Type.Object(
 
 export const WebLoginStartParamsSchema = Type.Object(
   {
+    channel: Type.Optional(Type.String()),
     force: Type.Optional(Type.Boolean()),
     timeoutMs: Type.Optional(Type.Integer({ minimum: 0 })),
     verbose: Type.Optional(Type.Boolean()),
@@ -230,6 +231,8 @@ export const WebLoginStartParamsSchema = Type.Object(
 
 export const WebLoginWaitParamsSchema = Type.Object(
   {
+    channel: Type.Optional(Type.String()),
+    sessionKey: Type.Optional(Type.String()),
     timeoutMs: Type.Optional(Type.Integer({ minimum: 0 })),
     accountId: Type.Optional(Type.String()),
   },

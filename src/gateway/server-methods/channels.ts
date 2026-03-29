@@ -1,4 +1,5 @@
 import { buildChannelUiCatalog, listChannelPluginCatalogEntries } from "../../channels/plugins/catalog.js";
+import { getActivePluginRegistry } from "../../plugins/runtime.js";
 import { resolveChannelDefaultAccountId } from "../../channels/plugins/helpers.js";
 import {
   type ChannelId,
@@ -326,14 +327,28 @@ export const channelsHandlers: GatewayRequestHandlers = {
       installed: boolean;
       npmSpec?: string;
       order?: number;
+      // Plugin-level metadata: allows the UI to distinguish between
+      // "channel plugin disabled" and "channel plugin not installed".
+      pluginId?: string;
+      pluginEnabled?: boolean;
     };
 
     const result: CatalogEntry[] = [];
+
+    // Look up plugin records to determine enabled state per channel.
+    const pluginRegistry = getActivePluginRegistry();
+    const pluginRecords = pluginRegistry?.plugins ?? [];
+
+    // console.log(
+    //   `[channels.catalog] installedPlugins=${installedPlugins.map((p) => p.id).join(",")} pluginRecords=${pluginRecords.map((p) => `${p.id}(channelIds=[${p.channelIds.join(",")}],enabled=${p.enabled})`).join(" ")}`
+    // );
 
     // 1. Installed channels from runtime registry
     for (const plugin of installedPlugins) {
       const catalogMatch = catalogEntries.find((e) => e.id === plugin.id);
       const detailLabel = plugin.meta.detailLabel ?? plugin.meta.selectionLabel ?? plugin.meta.label;
+      // Find the plugin record that registered this channel id.
+      const pluginRecord = pluginRecords.find((p) => p.channelIds.includes(plugin.id));
       result.push({
         id: plugin.id,
         label: plugin.meta.label,
@@ -344,7 +359,41 @@ export const channelsHandlers: GatewayRequestHandlers = {
         installed: true,
         npmSpec: catalogMatch?.install?.npmSpec || undefined,
         order: plugin.meta.order,
+        pluginId: pluginRecord?.id,
+        pluginEnabled: pluginRecord?.enabled,
       });
+    }
+
+    // 1.5. Plugin-registered but disabled channel plugins
+    // These are bundled plugins that are installed but have enabled=false in config.
+    // They should appear as installed+disabled in the catalog so the UI can show them
+    // in the "Installed — needs enabling" group rather than "Not installed".
+    for (const pluginRecord of pluginRecords) {
+      if (pluginRecord.enabled) continue; // already handled in loop 1 (or will be)
+      for (const channelId of pluginRecord.channelIds) {
+        if (installedIds.has(channelId)) continue; // already added
+        const catalogMatch = catalogEntries.find((e) => e.id === channelId);
+        const label = catalogMatch?.meta.label ?? channelId;
+        const detailLabel =
+          catalogMatch?.meta.detailLabel ??
+          catalogMatch?.meta.selectionLabel ??
+          catalogMatch?.meta.label ??
+          channelId;
+        result.push({
+          id: channelId,
+          label,
+          detailLabel,
+          blurb: catalogMatch?.meta.blurb || undefined,
+          systemImage: catalogMatch?.meta.systemImage || undefined,
+          docsPath: catalogMatch?.meta.docsPath || undefined,
+          installed: true,
+          npmSpec: catalogMatch?.install?.npmSpec || undefined,
+          order: catalogMatch?.meta.order,
+          pluginId: pluginRecord.id,
+          pluginEnabled: false,
+        });
+        installedIds.add(channelId);
+      }
     }
 
     // 2. Catalog-only channels (not yet installed)

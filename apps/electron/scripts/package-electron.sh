@@ -58,18 +58,19 @@ print_banner() {
 build_artifacts_if_needed() {
   if [ "$SKIP_BUILD" = "1" ]; then
     echo ""
-    echo "⏭️  [1-2b/5] 跳过构建，复用现有产物"
-    return
+    echo "⏭️  [1-2/5] 跳过 CLI + Control UI 构建，复用现有产物"
+  else
+    echo ""
+    echo "📦 [1/5] 构建 openclaw CLI (pnpm build)"
+    (cd "$ROOT_DIR" && pnpm build)
+
+    echo ""
+    echo "🖥  [2/5] 构建 Control UI (pnpm ui:build)"
+    (cd "$ROOT_DIR" && node scripts/ui.js build)
   fi
 
-  echo ""
-  echo "📦 [1/5] 构建 openclaw CLI (pnpm build)"
-  (cd "$ROOT_DIR" && pnpm build)
-
-  echo ""
-  echo "🖥  [2/5] 构建 Control UI (pnpm ui:build)"
-  (cd "$ROOT_DIR" && node scripts/ui.js build)
-
+  # ui-react 必须始终构建：打包时 Resources/control-ui-react/ 必须存在，
+  # 否则静态 server 找不到 setup.html / index.html，渲染进程会黑屏 + 404。
   echo ""
   echo "⚛️  [2b/5] 构建 React Control UI (ui-react)"
   (cd "$ROOT_DIR" && pnpm --filter openclaw-control-ui-react build)

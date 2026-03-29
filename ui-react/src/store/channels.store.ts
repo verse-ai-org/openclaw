@@ -49,6 +49,8 @@ interface ChannelsState {
   configSchema: unknown;
   configSchemaLoading: boolean;
   configForm: Record<string, unknown> | null;
+  configRaw: string | null;
+  configBaseHash: string | null;
   configUiHints: Record<string, unknown>;
   configSaving: boolean;
   configFormDirty: boolean;
@@ -57,6 +59,13 @@ interface ChannelsState {
   whatsappQrDataUrl: string | null;
   whatsappMessage: string | null;
   whatsappBusy: boolean;
+
+  // WeChat (openclaw-weixin) specific
+  weixinQrDataUrl: string | null;
+  weixinMessage: string | null;
+  weixinBusy: boolean;
+  weixinConnected: boolean;
+  weixinSessionKey: string | null;
 
   // Nostr profile editing
   nostrProfileFormState: NostrProfileFormState | null;
@@ -67,7 +76,7 @@ interface ChannelsState {
   fetchConfigSchema: () => Promise<void>;
   fetchConfigForm: () => Promise<void>;
   patchConfig: (path: Array<string | number>, value: unknown) => void;
-  saveConfig: () => Promise<void>;
+  saveConfig: () => Promise<boolean>;
   reloadConfig: () => Promise<void>;
   enableChannel: (channelId: string, enabled: boolean) => Promise<void>;
   togglingChannelId: string | null;
@@ -75,6 +84,10 @@ interface ChannelsState {
   startWhatsAppLogin: (force: boolean) => Promise<void>;
   waitForWhatsAppScan: () => Promise<void>;
   logoutWhatsApp: () => Promise<void>;
+  startWeixinLogin: (force: boolean) => Promise<void>;
+  waitForWeixinScan: () => Promise<void>;
+  logoutWeixin: () => Promise<void>;
+  weixinSessionKey: string | null;
   editNostrProfile: (accountId: string, profile: NostrProfile | null) => void;
   cancelNostrProfile: () => void;
   updateNostrProfileField: (field: keyof NostrProfile, value: string) => void;
@@ -102,6 +115,8 @@ export const useChannelsStore = create<ChannelsState>()((set, get) => ({
   configSchema: null,
   configSchemaLoading: false,
   configForm: null,
+  configRaw: null,
+  configBaseHash: null,
   configUiHints: {},
   configSaving: false,
   configFormDirty: false,
@@ -109,6 +124,12 @@ export const useChannelsStore = create<ChannelsState>()((set, get) => ({
   whatsappQrDataUrl: null,
   whatsappMessage: null,
   whatsappBusy: false,
+
+  weixinQrDataUrl: null,
+  weixinMessage: null,
+  weixinBusy: false,
+  weixinConnected: false,
+  weixinSessionKey: null,
 
   togglingChannelId: null,
   toggleChannelError: {},
@@ -187,8 +208,8 @@ export const useChannelsStore = create<ChannelsState>()((set, get) => ({
     const client = useGatewayStore.getState().client;
     if (!client) return;
     try {
-      const res = await client.request<{ config?: Record<string, unknown> }>("config.get", {});
-      set({ configForm: res?.config ?? null, configFormDirty: false });
+      const res = await client.request<{ config?: Record<string, unknown>; raw?: string; hash?: string }>("config.get", {});
+      set({ configForm: res?.config ?? null, configRaw: res?.raw ?? null, configBaseHash: res?.hash ?? null, configFormDirty: false });
     } catch {
       // ignore
     }
@@ -203,16 +224,24 @@ export const useChannelsStore = create<ChannelsState>()((set, get) => ({
 
   saveConfig: async () => {
     const client = useGatewayStore.getState().client;
-    if (!client) return;
+    if (!client) return false;
     const configForm = get().configForm;
-    if (!configForm) return;
+    const configBaseHash = get().configBaseHash;
+    if (!configForm) return false;
     set({ configSaving: true });
     try {
-      await client.request("config.set", { config: configForm });
+      // config.set requires raw (JSON string) + optional baseHash, not a config object
+      const raw = JSON.stringify(configForm, null, 2);
+      const params: Record<string, unknown> = { raw };
+      if (configBaseHash) { params.baseHash = configBaseHash; }
+      await client.request("config.set", params);
       set({ configFormDirty: false });
+      // Refresh to get updated raw + baseHash
+      await get().fetchConfigForm();
+      return true;
     } catch (err) {
-      // Surface error via lastError briefly
       set({ lastError: String(err) });
+      return false;
     } finally {
       set({ configSaving: false });
     }
@@ -297,6 +326,69 @@ export const useChannelsStore = create<ChannelsState>()((set, get) => ({
       set({ whatsappMessage: String(err) });
     } finally {
       set({ whatsappBusy: false });
+    }
+  },
+
+  // ── WeChat (openclaw-weixin) ──────────────────────────────────────────────────
+
+  startWeixinLogin: async (force) => {
+    const client = useGatewayStore.getState().client;
+    if (!client || get().weixinBusy) return;
+    set({ weixinBusy: true, weixinMessage: null, weixinQrDataUrl: null, weixinSessionKey: null });
+    try {
+      const res = await client.request<{ message?: string; qrDataUrl?: string; sessionKey?: string }>(
+        "web.login.start",
+        { channel: "openclaw-weixin", force, timeoutMs: 30000 },
+      );
+      set({
+        weixinMessage: res.message ?? null,
+        weixinQrDataUrl: res.qrDataUrl ?? null,
+        weixinSessionKey: res.sessionKey ?? null,
+      });
+    } catch (err) {
+      set({ weixinMessage: String(err), weixinQrDataUrl: null });
+    } finally {
+      set({ weixinBusy: false });
+    }
+  },
+
+  waitForWeixinScan: async () => {
+    const client = useGatewayStore.getState().client;
+    if (!client || get().weixinBusy) return;
+    set({ weixinBusy: true, weixinMessage: "等待扫码…" });
+    try {
+      const sessionKey = get().weixinSessionKey;
+      const res = await client.request<{ message?: string; connected?: boolean }>(
+        "web.login.wait",
+        { channel: "openclaw-weixin", timeoutMs: 300000, ...(sessionKey ? { sessionKey } : {}) },
+      );
+      set({
+        weixinMessage: res.message ?? null,
+        weixinConnected: res.connected ?? false,
+        weixinQrDataUrl: res.connected ? null : get().weixinQrDataUrl,
+      });
+      // Always refresh status after wait completes (connected or not)
+      await get().fetchStatus(false);
+    } catch (err) {
+      set({ weixinMessage: String(err) });
+      await get().fetchStatus(false);
+    } finally {
+      set({ weixinBusy: false });
+    }
+  },
+
+  logoutWeixin: async () => {
+    const client = useGatewayStore.getState().client;
+    if (!client || get().weixinBusy) return;
+    set({ weixinBusy: true });
+    try {
+      await client.request("channels.logout", { channel: "openclaw-weixin" });
+      set({ weixinMessage: "已退出登录 / Logged out.", weixinQrDataUrl: null, weixinConnected: false });
+      await get().fetchStatus(false);
+    } catch (err) {
+      set({ weixinMessage: String(err) });
+    } finally {
+      set({ weixinBusy: false });
     }
   },
 

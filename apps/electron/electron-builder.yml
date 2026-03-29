@@ -53,20 +53,51 @@ extraResources:
       - "!**/example/**"
       - "!**/examples/**"
 
+  # 内置 Skills（Built-in Skills 页面数据来源）
+  - from: "../../skills"
+    to: "openclaw/skills"
+    filter: ["**/*"]
+
   # workspace 模板文件（AGENTS.md, SOUL.md, TOOLS.md 等）
   - from: "../../docs/reference/templates"
     to: "openclaw/docs/reference/templates"
     filter: ["**/*"]
 
-  # 核心扩展（随安装包预装，保证开箱即用的基本功能）
-  # 可选扩展由用户通过扩展管理界面按需安装到 ~/.openclaw/extensions/
+  # 全量扩展（所有 extensions/* 均打包进安装包，后续按需裁剪包体积）
 
   # 基础设施
   - from: "../../extensions/memory-core"
     to: "openclaw/extensions/memory-core"
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/memory-lancedb"
+    to: "openclaw/extensions/memory-lancedb"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
   - from: "../../extensions/device-pair"
     to: "openclaw/extensions/device-pair"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/shared"
+    to: "openclaw/extensions/shared"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/diagnostics-otel"
+    to: "openclaw/extensions/diagnostics-otel"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/diffs"
+    to: "openclaw/extensions/diffs"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/llm-task"
+    to: "openclaw/extensions/llm-task"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/lobster"
+    to: "openclaw/extensions/lobster"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/open-prose"
+    to: "openclaw/extensions/open-prose"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/thread-ownership"
+    to: "openclaw/extensions/thread-ownership"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/test-utils"
+    to: "openclaw/extensions/test-utils"
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
 
   # AI Provider 认证
@@ -79,6 +110,9 @@ extraResources:
   - from: "../../extensions/google-gemini-cli-auth"
     to: "openclaw/extensions/google-gemini-cli-auth"
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/google-antigravity-auth"
+    to: "openclaw/extensions/google-antigravity-auth"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
   - from: "../../extensions/copilot-proxy"
     to: "openclaw/extensions/copilot-proxy"
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
@@ -89,6 +123,80 @@ extraResources:
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
   - from: "../../extensions/discord"
     to: "openclaw/extensions/discord"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/slack"
+    to: "openclaw/extensions/slack"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/signal"
+    to: "openclaw/extensions/signal"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/whatsapp"
+    to: "openclaw/extensions/whatsapp"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/imessage"
+    to: "openclaw/extensions/imessage"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/matrix"
+    to: "openclaw/extensions/matrix"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/msteams"
+    to: "openclaw/extensions/msteams"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/feishu"
+    to: "openclaw/extensions/feishu"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/openclaw-weixin"
+    to: "openclaw/extensions/openclaw-weixin"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/googlechat"
+    to: "openclaw/extensions/googlechat"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/irc"
+    to: "openclaw/extensions/irc"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/line"
+    to: "openclaw/extensions/line"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/mattermost"
+    to: "openclaw/extensions/mattermost"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/nextcloud-talk"
+    to: "openclaw/extensions/nextcloud-talk"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/nostr"
+    to: "openclaw/extensions/nostr"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/synology-chat"
+    to: "openclaw/extensions/synology-chat"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # tlon: 依赖 git 依赖 @tloncorp/api，生产环境无法可靠安装，暂不打包
+  - from: "../../extensions/twitch"
+    to: "openclaw/extensions/twitch"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/zalo"
+    to: "openclaw/extensions/zalo"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/zalouser"
+    to: "openclaw/extensions/zalouser"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+
+  # 语音 / 设备控制
+  - from: "../../extensions/voice-call"
+    to: "openclaw/extensions/voice-call"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/talk-voice"
+    to: "openclaw/extensions/talk-voice"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  - from: "../../extensions/phone-control"
+    to: "openclaw/extensions/phone-control"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # acpx: 已确认为 npm public 包（v0.3.1），加回打包
+  - from: "../../extensions/acpx"
+    to: "openclaw/extensions/acpx"
+    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # tlon: 依赖 git 依赖 @tloncorp/api，生产环境无法可靠安装，暂不打包
+  - from: "../../extensions/bluebubbles"
+    to: "openclaw/extensions/bluebubbles"
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
 
   # Control UI 构建产物

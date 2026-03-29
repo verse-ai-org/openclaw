@@ -279,6 +279,10 @@ export type ChannelCatalogEntry = {
   installed: boolean;
   npmSpec?: string;
   order?: number;
+  /** The plugin id that provides this channel (present when installed). */
+  pluginId?: string;
+  /** Whether the providing plugin is currently enabled (present when installed). */
+  pluginEnabled?: boolean;
 };
 
 export type ChannelsCatalogResult = {

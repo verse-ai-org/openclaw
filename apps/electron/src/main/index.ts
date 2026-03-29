@@ -282,17 +282,55 @@ function patchConfigForElectron(staticServerPort: number): void {
     // even though the Electron app itself only ships memory-core. Deleting these
     // entries would silently destroy the user's CLI-configured plugin settings.
     // Gateway will emit its own warn/error diagnostics for truly missing plugins.
-    // Core extensions bundled in the Electron app (see electron-builder.yml extraResources).
+    // All extensions bundled in the Electron app (see electron-builder.yml extraResources).
     // Keep in sync with the extensions listed there.
     const BUNDLED_PLUGIN_IDS = new Set([
+      // 基础设施
       "memory-core",
+      "memory-lancedb",
       "device-pair",
+      "shared",
+      "diagnostics-otel",
+      "diffs",
+      "llm-task",
+      "lobster",
+      "open-prose",
+      "thread-ownership",
+      "test-utils",
+      // AI Provider 认证
       "qwen-portal-auth",
       "minimax-portal-auth",
       "google-gemini-cli-auth",
+      "google-antigravity-auth",
       "copilot-proxy",
+      // 消息通道
       "telegram",
       "discord",
+      "slack",
+      "signal",
+      "whatsapp",
+      "imessage",
+      "matrix",
+      "msteams",
+      "feishu",
+      "openclaw-weixin",
+      "googlechat",
+      "irc",
+      "line",
+      "mattermost",
+      "nextcloud-talk",
+      "nostr",
+      "synology-chat",
+      "tlon",
+      "twitch",
+      "zalo",
+      "zalouser",
+      // 语音 / 设备控制
+      "voice-call",
+      "talk-voice",
+      "phone-control",
+      "acpx",
+      "bluebubbles",
     ]);
     const entries = (plugins.entries ?? {}) as Record<string, unknown>;
     const nonBundledEntries = Object.keys(entries).filter(

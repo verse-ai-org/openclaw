@@ -7,7 +7,6 @@
     "opusscript",
     "@lydell/node-pty",
     "@napi-rs/canvas",
-    "node-llama-cpp",
     "koffi",
     "@matrix-org/matrix-sdk-crypto-nodejs",
     "@whiskeysockets/baileys",
@@ -72,22 +71,86 @@
     "yaml",
     "zod",
     "@napi-rs/canvas",
-    "node-llama-cpp"
+    "qrcode",
+
+    "@opentelemetry/api",
+    "@opentelemetry/api-logs",
+    "@opentelemetry/exporter-logs-otlp-proto",
+    "@opentelemetry/exporter-metrics-otlp-proto",
+    "@opentelemetry/exporter-trace-otlp-proto",
+    "@opentelemetry/resources",
+    "@opentelemetry/sdk-logs",
+    "@opentelemetry/sdk-metrics",
+    "@opentelemetry/sdk-node",
+    "@opentelemetry/sdk-trace-base",
+    "@opentelemetry/semantic-conventions",
+
+    "@pierre/diffs",
+
+    "google-auth-library",
+
+    "music-metadata",
+    "@vector-im/matrix-bot-sdk",
+
+    "openai",
+
+    "@microsoft/agents-hosting",
+
+    "nostr-tools",
+
+    "@twurple/api",
+    "@twurple/auth",
+    "@twurple/chat",
+
+    "zca-js",
+    "acpx"
   ],
   "runtimeDependencies": [
     "koffi",
     "@matrix-org/matrix-sdk-crypto-nodejs",
+    "@lancedb/lancedb",
     "esbuild",
     "jiti"
   ],
   "preinstalledExtensions": [
     "memory-core",
+    "memory-lancedb",
     "device-pair",
+    "shared",
+    "diagnostics-otel",
+    "diffs",
+    "llm-task",
+    "lobster",
+    "open-prose",
+    "thread-ownership",
     "qwen-portal-auth",
     "minimax-portal-auth",
     "google-gemini-cli-auth",
+    "google-antigravity-auth",
     "copilot-proxy",
     "telegram",
-    "discord"
+    "discord",
+    "slack",
+    "signal",
+    "whatsapp",
+    "imessage",
+    "matrix",
+    "msteams",
+    "feishu",
+    "googlechat",
+    "irc",
+    "line",
+    "mattermost",
+    "nextcloud-talk",
+    "nostr",
+    "synology-chat",
+    "twitch",
+    "zalo",
+    "zalouser",
+    "voice-call",
+    "talk-voice",
+    "phone-control",
+    "acpx",
+    "bluebubbles"
   ]
 }

@@ -11,10 +11,24 @@ import type { GatewayRequestHandlers, RespondFn } from "./types.js";
 
 const WEB_LOGIN_METHODS = new Set(["web.login.start", "web.login.wait"]);
 
-const resolveWebLoginProvider = () =>
-  listChannelPlugins().find((plugin) =>
-    (plugin.gatewayMethods ?? []).some((method) => WEB_LOGIN_METHODS.has(method)),
-  ) ?? null;
+const resolveWebLoginProvider = (channelHint?: string | null) => {
+  const plugins = listChannelPlugins();
+  // If caller specifies a channel, find that specific plugin
+  if (channelHint) {
+    const specific = plugins.find(
+      (plugin) =>
+        plugin.id === channelHint &&
+        (plugin.gatewayMethods ?? []).some((method) => WEB_LOGIN_METHODS.has(method)),
+    );
+    if (specific) return specific;
+  }
+  // Fallback: first plugin that supports web login
+  return (
+    plugins.find((plugin) =>
+      (plugin.gatewayMethods ?? []).some((method) => WEB_LOGIN_METHODS.has(method)),
+    ) ?? null
+  );
+};
 
 function resolveAccountId(params: unknown): string | undefined {
   return typeof (params as { accountId?: unknown }).accountId === "string"
@@ -53,7 +67,10 @@ export const webHandlers: GatewayRequestHandlers = {
     }
     try {
       const accountId = resolveAccountId(params);
-      const provider = resolveWebLoginProvider();
+      const channelHint = typeof (params as { channel?: unknown }).channel === "string"
+        ? (params as { channel?: string }).channel
+        : undefined;
+      const provider = resolveWebLoginProvider(channelHint);
       if (!provider) {
         respondProviderUnavailable(respond);
         return;
@@ -91,7 +108,10 @@ export const webHandlers: GatewayRequestHandlers = {
     }
     try {
       const accountId = resolveAccountId(params);
-      const provider = resolveWebLoginProvider();
+      const channelHint = typeof (params as { channel?: unknown }).channel === "string"
+        ? (params as { channel?: string }).channel
+        : undefined;
+      const provider = resolveWebLoginProvider(channelHint);
       if (!provider) {
         respondProviderUnavailable(respond);
         return;
@@ -106,6 +126,9 @@ export const webHandlers: GatewayRequestHandlers = {
             ? (params as { timeoutMs?: number }).timeoutMs
             : undefined,
         accountId,
+        ...(typeof (params as { sessionKey?: unknown }).sessionKey === "string"
+          ? { sessionKey: (params as { sessionKey?: string }).sessionKey }
+          : {}),
       });
       if (result.connected) {
         await context.startChannel(provider.id, accountId);
