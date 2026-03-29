@@ -1,5 +1,5 @@
 appId: com.verse.bossim
-productName: Bossim 
+productName: Bossim
 copyright: "Bossim Contributors"
 
 # 构建输出目录
@@ -245,18 +245,10 @@ mac:
 
 dmg:
   title: "Bossim ${version}"
-  background: "../../assets/dmg-background.png"
+  size: "2000m"
   window:
     width: 540
     height: 380
-  contents:
-    - x: 130
-      y: 190
-      type: file
-    - x: 410
-      y: 190
-      type: link
-      path: /Applications
   internetEnabled: false
 
 win:

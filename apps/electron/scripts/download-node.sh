@@ -9,7 +9,7 @@
 #   Windows     → resources/node-<arch>/node.exe
 set -euo pipefail
 
-NODE_VERSION="22.15.0"
+NODE_VERSION="24.14.1"
 ARCH="${1:-arm64}"      # arm64 或 x64
 PLATFORM="${2:-darwin}" # darwin 或 win
 

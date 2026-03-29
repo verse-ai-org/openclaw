@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "OpenClaw Electron desktop client",
+  "author": "OpenClaw Team",
   "type": "commonjs",
   "main": "dist/main/index.cjs",
   "scripts": {
@@ -33,7 +34,7 @@
     "@types/node": "^22.x",
     "concurrently": "^9.1.2",
     "electron": "31.7.7",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^26.8.1",
     "tailwindcss": "^4.2.1",
     "tsdown": "0.21.0",
     "typescript": "^5.8.3"
