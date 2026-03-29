@@ -87,7 +87,6 @@ interface ChannelsState {
   startWeixinLogin: (force: boolean) => Promise<void>;
   waitForWeixinScan: () => Promise<void>;
   logoutWeixin: () => Promise<void>;
-  weixinSessionKey: string | null;
   editNostrProfile: (accountId: string, profile: NostrProfile | null) => void;
   cancelNostrProfile: () => void;
   updateNostrProfileField: (field: keyof NostrProfile, value: string) => void;

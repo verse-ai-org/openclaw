@@ -34,6 +34,7 @@ import {
   startStaticServer,
 } from "./window.js";
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
+import { initAutoUpdater, checkForUpdates, quitAndInstall } from "./updater.js";
 
 // ─── Single-instance lock (required for Windows second-instance protocol) ─────
 // Must be called before app.whenReady().
@@ -217,6 +218,11 @@ ipcMain.handle("onboarding:validateInviteCode", async (_, code: string) => {
     await writeDebugLog(`[main] validateInviteCode: threw — ${msg}`);
     return { ok: false, error: msg };
   }
+});
+
+// IPC：渲染进程用户确认后，退出并安装已下载的新版本
+ipcMain.handle("app:install-update", () => {
+  quitAndInstall();
 });
 
 // IPC：Onboarding 完成，切换到 ui-react 主界面
@@ -461,6 +467,21 @@ async function main() {
       token: activeToken,
     });
   }
+
+  // ─── 自动更新 ─────────────────────────────────────────────────────────────
+  // 仅在打包后的生产环境中启用，开发模式跳过（electron-updater 内部也会检查）
+  if (app.isPackaged) {
+    initAutoUpdater(mainWindow, mlog);
+    // 启动后延迟 20s 检查更新，避免影响启动性能
+    setTimeout(() => {
+      checkForUpdates();
+    }, 20_000);
+    // 每 4 小时定时检查一次
+    setInterval(() => {
+      checkForUpdates();
+    }, 4 * 60 * 60 * 1_000);
+  }
+
   mlog("[main] main() 完成");
 }
 

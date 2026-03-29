@@ -1,4 +1,4 @@
-import { Loader2Icon, ToggleRightIcon, CheckCircle2Icon, XCircleIcon, AlertCircleIcon, SettingsIcon, WifiIcon, WifiOffIcon } from "lucide-react";
+import { Loader2Icon, CheckCircle2Icon, XCircleIcon, AlertCircleIcon, SettingsIcon, WifiIcon, WifiOffIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChannelsStore } from "@/store/channels.store";
 import type { ChannelAccountSnapshot } from "@/types/channels";

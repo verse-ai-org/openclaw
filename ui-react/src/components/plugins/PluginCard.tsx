@@ -70,8 +70,6 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
   // plugin.error on a disabled plugin is just the disable reason (e.g. "bundled (disabled by default)")
   // — not an actual error. Only treat it as an error when status === "error".
   const hasRealError = plugin.status === "error";
-  const disabledReason =
-    !hasRealError && plugin.status === "disabled" && plugin.error ? plugin.error : null;
 
   const pills = [
     plugin.toolNames.length > 0

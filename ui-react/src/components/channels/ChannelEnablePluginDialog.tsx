@@ -35,7 +35,7 @@ export function ChannelEnablePluginDialog({
 
   return (
     <AlertDialog open={entry !== null}>
-      <AlertDialogContent size="sm" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+      <AlertDialogContent size="sm" onEscapeKeyDown={(e: KeyboardEvent) => e.preventDefault()}>
         <AlertDialogHeader>
           <AlertDialogMedia>
             <PackagePlusIcon />

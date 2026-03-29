@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useChannelsStore } from "@/store/channels.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { usePluginsStore } from "@/store/plugins.store";
-import type { ChannelAccountSnapshot, ChannelCatalogEntry, ChannelsStatusSnapshot } from "@/types/channels";
+import type { ChannelCatalogEntry, ChannelsStatusSnapshot } from "@/types/channels";
 import { ErrorCallout } from "@/components/channels/shared/ErrorCallout";
 import { ChannelCard, isChannelEnabled } from "@/components/channels/ChannelCard";
 import { CatalogCard } from "@/components/channels/CatalogCard";

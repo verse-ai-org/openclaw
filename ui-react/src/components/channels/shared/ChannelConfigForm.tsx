@@ -9,7 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 import type { ConfigUiHints } from "@/types/channels";
 
 type JsonSchema = {

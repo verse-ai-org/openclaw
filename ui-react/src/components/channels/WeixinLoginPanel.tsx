@@ -136,7 +136,7 @@ export function WeixinLoginPanel({
             onClick={onLogout}
             className="h-7 text-xs"
           >
-            退出登录 / Logout
+            Logout
           </Button>
         )}
       </div>

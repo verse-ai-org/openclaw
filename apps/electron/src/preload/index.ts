@@ -99,4 +99,26 @@ contextBridge.exposeInMainWorld("electronBridge", {
    */
   validateInviteCode: (code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }> =>
     ipcRenderer.invoke("onboarding:validateInviteCode", code),
+
+  /**
+   * 监听主进程发来的"新版本已下载"事件。
+   * 主进程在 autoUpdater update-downloaded 事件后发送 app:update-ready。
+   * callback 参数：{ version: string, releaseNotes: string }
+   * 返回取消订阅函数，组件卸载时调用。
+   */
+  onUpdateReady: (
+    callback: (info: { version: string; releaseNotes: string }) => void,
+  ): (() => void) => {
+    const handler = (_: Electron.IpcRendererEvent, info: { version: string; releaseNotes: string }) =>
+      callback(info);
+    ipcRenderer.on("app:update-ready", handler);
+    return () => ipcRenderer.removeListener("app:update-ready", handler);
+  },
+
+  /**
+   * 通知主进程退出并安装已下载的新版本。
+   * 用户点击"重启安装"按钮后调用。
+   */
+  installUpdate: (): Promise<void> =>
+    ipcRenderer.invoke("app:install-update"),
 });
