@@ -1,9 +1,7 @@
 name: Install Smoke
 
+# 暂时禁用自动触发，仅保留手动触发
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 concurrency:

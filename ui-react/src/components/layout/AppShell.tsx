@@ -2,6 +2,7 @@ import { BellIcon, MonitorIcon } from "lucide-react";
 import { useLocation } from "react-router";
 import { Outlet } from "react-router";
 import { ConnectionBanner } from "@/components/gateway/ConnectionBanner";
+import { UpdateBanner } from "@/components/layout/UpdateBanner";
 import { AppSidebar } from "@/components/layout/Sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -84,6 +85,7 @@ export function AppShell() {
         <AppSidebar />
         <SidebarInset className="flex h-full min-h-0 flex-col overflow-hidden">
           <ConnectionBanner />
+          <UpdateBanner />
           <TopNav />
           <main className="flex-1 min-h-0 overflow-auto bg-white">
             <Outlet />

@@ -1,9 +1,8 @@
 name: Workflow Sanity
 
+# 暂时禁用自动触发，仅保留手动触发
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: workflow-sanity-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
