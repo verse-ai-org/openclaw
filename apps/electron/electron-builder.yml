@@ -229,16 +229,10 @@ mac:
     - name: OpenClaw OAuth
       schemes:
         - openclaw
-  # 支持 arm64（Apple Silicon）和 x64（Intel）
+  # 架构由打包脚本通过 --arch 参数指定（arm64 或 x64），每次只打单架构
   target:
     - target: dmg
-      arch:
-        - arm64
-        - x64
     - target: zip
-      arch:
-        - arm64
-        - x64
 
 dmg:
   title: "Bossim ${version}"
