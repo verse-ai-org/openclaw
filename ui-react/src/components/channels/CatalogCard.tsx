@@ -50,11 +50,11 @@ export function CatalogCard({ entry, onEnablePlugin, enablingPluginId }: {
           <button
             type="button"
             disabled={isEnabling || !entry.pluginId}
-            onClick={() => entry.pluginId && onEnablePlugin?.(entry.pluginId)}
+            onClick={(e) => { e.stopPropagation(); entry.pluginId && onEnablePlugin?.(entry.pluginId); }}
             className="inline-flex items-center gap-1.5 self-start rounded-full bg-primary px-4 py-1.5 text-[12px] font-bold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             {isEnabling ? <Loader2Icon className="size-3 animate-spin" /> : <PackagePlusIcon className="size-3" />}
-            {isEnabling ? "Enabling\u2026" : "Enable Channel"}
+            {isEnabling ? "Enabling\u2026" : "Enable"}
           </button>
           {/* <p className="text-[10px] text-muted-foreground">
             Gateway restart required after enabling.

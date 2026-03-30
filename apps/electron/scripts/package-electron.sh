@@ -17,7 +17,7 @@ if [ "$LOCAL_FAST" = "1" ]; then
   REUSE_RUNTIME_DEPS=1
 fi
 
-BUILDER_ARGS=(--mac --${ARCH})
+BUILDER_ARGS=(--mac --${ARCH} --publish never)
 if [ "$LOCAL_FAST" = "1" ]; then
   BUILDER_ARGS+=(--config.mac.identity=null --config.mac.hardenedRuntime=false)
 fi

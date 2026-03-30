@@ -62,9 +62,6 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
-          # electron-builder 读取 publish 配置时不实际上传（CI 手动上传）
-          # 设置为 never 避免 electron-builder 自行尝试上传
-          ELECTRON_BUILDER_PUBLISH: never
         run: |
           bash apps/electron/scripts/package-electron.sh
 

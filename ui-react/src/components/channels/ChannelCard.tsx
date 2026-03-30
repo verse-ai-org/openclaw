@@ -18,7 +18,7 @@ export function channelStatusDot(accounts: ChannelAccountSnapshot[]): DotStatus 
 }
 
 export function ChannelCard({
-  channelId, label, detailLabel, accounts, onOpen, onDisable,
+  channelId, label, detailLabel, accounts, onOpen, onDisable, onEnable,
 }: {
   channelId: string;
   label: string;
@@ -26,10 +26,10 @@ export function ChannelCard({
   accounts: ChannelAccountSnapshot[];
   onOpen: () => void;
   onDisable?: () => void;
+  onEnable?: () => void;
 }) {
   const togglingChannelId = useChannelsStore((s) => s.togglingChannelId);
   const toggleChannelError = useChannelsStore((s) => s.toggleChannelError);
-  const enableChannel = useChannelsStore((s) => s.enableChannel);
   const isToggling = togglingChannelId === channelId;
   const enabled = isChannelEnabled(accounts);
   const dot = channelStatusDot(accounts);
@@ -43,7 +43,7 @@ export function ChannelCard({
     if (enabled) {
       onDisable?.();
     } else {
-      void enableChannel(channelId, true);
+      onEnable?.();
     }
   };
 

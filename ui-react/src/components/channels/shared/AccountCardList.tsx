@@ -1,11 +1,6 @@
-import { formatDistanceToNow } from "date-fns";
 import type { ChannelAccountSnapshot } from "@/types/channels";
 import { cn } from "@/lib/utils";
-
-function relativeTime(ms: number | null | undefined): string {
-  if (!ms) return "n/a";
-  return formatDistanceToNow(new Date(ms), { addSuffix: true });
-}
+import { relativeTime } from "@/components/channels/shared/utils";
 
 function runningStatus(account: ChannelAccountSnapshot): string {
   if (account.running) return "Yes";

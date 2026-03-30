@@ -1,27 +1,20 @@
-import { Loader2Icon, ToggleLeftIcon, ToggleRightIcon } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import React from "react";
 import { Button } from "@/components/ui/button";
+import { relativeTime } from "@/components/channels/shared/utils";
 import { useChannelsStore } from "@/store/channels.store";
 import type {
   ChannelsStatusSnapshot,
-  ConfigUiHints,
   NostrProfile,
   NostrStatus,
   WhatsAppStatus,
 } from "@/types/channels";
 import { AccountCardList } from "@/components/channels/shared/AccountCardList";
-import { ChannelConfigForm } from "@/components/channels/shared/ChannelConfigForm";
+import { BoundChannelConfigForm } from "@/components/channels/shared/BoundChannelConfigForm";
 import { ChannelStatusList } from "@/components/channels/shared/ChannelStatusList";
 import type { StatusItem } from "@/components/channels/shared/ChannelStatusList";
 import { NostrProfileEditor } from "@/components/channels/NostrProfileEditor";
 import { WhatsAppLoginPanel } from "@/components/channels/WhatsAppLoginPanel";
 import { WeixinLoginPanel } from "@/components/channels/WeixinLoginPanel";
-import { isChannelEnabled } from "@/components/channels/ChannelCard";
-
-function relativeTime(ms: number | null | undefined): string {
-  if (!ms) { return "n/a"; }
-  return formatDistanceToNow(new Date(ms), { addSuffix: true });
-}
 
 function GenericDetail({ channelId, snapshot, onSaved }: {
   channelId: string;
@@ -30,7 +23,6 @@ function GenericDetail({ channelId, snapshot, onSaved }: {
 }) {
   const raw = snapshot.channels[channelId] as Record<string, unknown> | undefined;
   const accounts = snapshot.channelAccounts[channelId] ?? [];
-  const store = useChannelsStore();
   const statusItems: StatusItem[] = [
     { label: "Configured", value: raw?.configured ? "Yes" : "No" },
     { label: "Running", value: raw?.running ? "Yes" : "No" },
@@ -41,18 +33,7 @@ function GenericDetail({ channelId, snapshot, onSaved }: {
     <>
       <ChannelStatusList items={statusItems} />
       <AccountCardList accounts={accounts} />
-      <ChannelConfigForm
-        channelId={channelId}
-        configForm={store.configForm}
-        configSchema={store.configSchema}
-        configUiHints={store.configUiHints as ConfigUiHints}
-        configSaving={store.configSaving}
-        configSchemaLoading={store.configSchemaLoading}
-        configFormDirty={store.configFormDirty}
-        onPatch={store.patchConfig}
-        onSave={async () => { const ok = await store.saveConfig(); if (ok) { onSaved(); } }}
-        onReload={() => void store.reloadConfig()}
-      />
+      <BoundChannelConfigForm channelId={channelId} onSaved={onSaved} />
     </>
   );
 }
@@ -87,18 +68,7 @@ function WhatsAppDetail({ channelId, snapshot, onSaved }: {
         onWait={() => void store.waitForWhatsAppScan()}
         onLogout={() => void store.logoutWhatsApp()}
       />
-      <ChannelConfigForm
-        channelId={channelId}
-        configForm={store.configForm}
-        configSchema={store.configSchema}
-        configUiHints={store.configUiHints as ConfigUiHints}
-        configSaving={store.configSaving}
-        configSchemaLoading={store.configSchemaLoading}
-        configFormDirty={store.configFormDirty}
-        onPatch={store.patchConfig}
-        onSave={async () => { const ok = await store.saveConfig(); if (ok) { onSaved(); } }}
-        onReload={() => void store.reloadConfig()}
-      />
+      <BoundChannelConfigForm channelId={channelId} onSaved={onSaved} />
     </>
   );
 }
@@ -169,48 +139,31 @@ function NostrDetail({ channelId, snapshot, onSaved }: {
           onToggleAdvanced={store.toggleNostrAdvanced}
         />
       )}
-      <ChannelConfigForm
-        channelId={channelId}
-        configForm={store.configForm}
-        configSchema={store.configSchema}
-        configUiHints={store.configUiHints as ConfigUiHints}
-        configSaving={store.configSaving}
-        configSchemaLoading={store.configSchemaLoading}
-        configFormDirty={store.configFormDirty}
-        onPatch={store.patchConfig}
-        onSave={async () => { const ok = await store.saveConfig(); if (ok) { onSaved(); } }}
-        onReload={() => void store.reloadConfig()}
-      />
+      <BoundChannelConfigForm channelId={channelId} onSaved={onSaved} />
     </>
   );
 }
+
+// ── Channel-specific detail registry ────────────────────────────────────────
+
+type DetailProps = {
+  channelId: string;
+  snapshot: ChannelsStatusSnapshot;
+  onSaved: () => void;
+};
+
+const CHANNEL_DETAIL_REGISTRY: Partial<Record<string, React.ComponentType<DetailProps>>> = {
+  whatsapp: WhatsAppDetail,
+  nostr: NostrDetail,
+  "openclaw-weixin": WeixinDetail,
+};
 
 export function ChannelDetail({ channelId, snapshot, onSaved }: {
   channelId: string;
   snapshot: ChannelsStatusSnapshot;
   onSaved: () => void;
+  onEnable?: () => void;
 }) {
-  const togglingChannelId = useChannelsStore((s) => s.togglingChannelId);
-  const enableChannel = useChannelsStore((s) => s.enableChannel);
-  const accounts = snapshot.channelAccounts[channelId] ?? [];
-  const enabled = isChannelEnabled(accounts);
-  const isToggling = togglingChannelId === channelId;
-  if (!enabled) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-        <ToggleLeftIcon className="size-10 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground">This channel is disabled.</p>
-        <Button size="sm" disabled={isToggling} onClick={() => void enableChannel(channelId, true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white">
-          {isToggling ? <Loader2Icon className="size-3.5 animate-spin mr-1" /> : <ToggleRightIcon className="size-4 mr-1" />}
-          Enable channel
-        </Button>
-        <p className="text-xs text-muted-foreground/60 max-w-xs">You may need to restart the gateway for changes to take effect.</p>
-      </div>
-    );
-  }
-  if (channelId === "whatsapp") { return <WhatsAppDetail channelId={channelId} snapshot={snapshot} onSaved={onSaved} />; }
-  if (channelId === "nostr") { return <NostrDetail channelId={channelId} snapshot={snapshot} onSaved={onSaved} />; }
-  if (channelId === "openclaw-weixin") { return <WeixinDetail channelId={channelId} snapshot={snapshot} onSaved={onSaved} />; }
-  return <GenericDetail channelId={channelId} snapshot={snapshot} onSaved={onSaved} />;
+  const DetailComponent = CHANNEL_DETAIL_REGISTRY[channelId] ?? GenericDetail;
+  return <DetailComponent channelId={channelId} snapshot={snapshot} onSaved={onSaved} />;
 }

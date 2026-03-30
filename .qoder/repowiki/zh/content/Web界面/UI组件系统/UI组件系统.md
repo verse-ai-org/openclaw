@@ -27,6 +27,7 @@
 - [checkbox.tsx](file://ui-react/src/components/ui/checkbox.tsx)
 - [sheet.tsx](file://ui-react/src/components/ui/sheet.tsx)
 - [switch.tsx](file://ui-react/src/components/ui/switch.tsx)
+- [sonner.tsx](file://ui-react/src/components/ui/sonner.tsx)
 - [use-mobile.ts](file://ui-react/src/hooks/use-mobile.ts)
 - [useSessionManager.ts](file://ui-react/src/hooks/useSessionManager.ts)
 - [components.json](file://ui-react/components.json)
@@ -54,6 +55,7 @@
 - [gateway.ts](file://ui-react/src/types/gateway.ts)
 - [tabs.ts](file://ui-react/src/lib/tabs.ts)
 - [invite-code-api-design.md](file://docs/features/invite-code-api-design.md)
+- [index.css](file://ui-react/src/index.css)
 </cite>
 
 ## 更新摘要
@@ -61,6 +63,7 @@
 - 新增现代化的聊天界面布局，采用assistant-ui/react框架重构
 - 重构技能管理对话框，引入新的AddSkillDialog组件
 - 完成组件系统现代化，采用shadcn/ui设计系统和Zustand状态管理
+- 新增Sonner Toast通知系统集成，提供主题化通知、自定义图标和Next.js主题系统集成
 - 更新Sidebar组件系统，提供响应式布局和键盘快捷键支持
 - 增强聊天事件桥接功能，支持复杂的工具调用和流式处理
 - 优化技能状态管理，提供更直观的API密钥和环境变量管理
@@ -84,6 +87,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **全新的聊天界面布局**：采用assistant-ui/react框架，提供流式聊天体验
 - **重构的技能管理对话框**：引入AddSkillDialog组件，支持URL和文件导入
 - **现代化的组件系统**：基于shadcn/ui设计系统，提供统一的UI组件库
+- **新增Sonner Toast通知系统**：集成主题化通知、自定义图标和Next.js主题系统
 - **增强的Sidebar组件**：支持响应式布局、键盘快捷键和多种变体
 - **优化的聊天事件桥接**：支持复杂的工具调用和流式处理
 
@@ -119,27 +123,31 @@ P --> U[layout/ - 布局组件]
 P --> V[chat/ - 聊天组件]
 P --> W[skills/ - 技能组件]
 P --> X[ui/ - shadcn/ui组件库]
-X --> Y[sidebar.tsx - 响应式Sidebar]
-X --> Z[checkbox.tsx - 复选框]
-X --> AA[sheet.tsx - 弹窗]
-X --> BB[switch.tsx - 开关]
-T --> CC[use-mobile.ts - 移动端检测]
-T --> DD[useSessionManager.ts - 会话管理]
-T --> EE[useChatEventBridge.ts - 聊天事件桥接]
-Q --> FF[chat.store.ts - 聊天状态]
-Q --> GG[skills.store.ts - 技能状态]
-Q --> HH[gateway.store.ts - 网关连接]
-Q --> II[settings.store.ts - 设置管理]
-O --> JJ[ChatPage.tsx - 聊天页面]
-O --> KK[SkillsPage.tsx - 技能页面]
-O --> LL[AppShell.tsx - 应用外壳]
-V --> MM[ThreadView.tsx - 聊天线程]
-V --> NN[Composer.tsx - 消息Composer]
-V --> OO[UserMessage.tsx - 用户消息]
-V --> PP[AssistantMessage.tsx - 助手消息]
-W --> QQ[SkillCard.tsx - 技能卡片]
-W --> RR[SkillsToolbar.tsx - 技能工具栏]
-W --> SS[AddSkillDialog.tsx - 技能导入对话框]
+P --> Y[sonner.tsx - Sonner通知系统]
+X --> Z[sidebar.tsx - 响应式Sidebar]
+X --> AA[checkbox.tsx - 复选框]
+X --> BB[sheet.tsx - 弹窗]
+X --> CC[switch.tsx - 开关]
+Y --> DD[Toaster组件]
+Y --> EE[主题集成]
+Y --> FF[自定义图标]
+T --> GG[use-mobile.ts - 移动端检测]
+T --> HH[useSessionManager.ts - 会话管理]
+T --> II[useChatEventBridge.ts - 聊天事件桥接]
+Q --> JJ[chat.store.ts - 聊天状态]
+Q --> KK[skills.store.ts - 技能状态]
+Q --> LL[gateway.store.ts - 网关连接]
+Q --> MM[settings.store.ts - 设置管理]
+O --> NN[ChatPage.tsx - 聊天页面]
+O --> OO[SkillsPage.tsx - 技能页面]
+O --> PP[AppShell.tsx - 应用外壳]
+V --> QQ[ThreadView.tsx - 聊天线程]
+V --> RR[Composer.tsx - 消息Composer]
+V --> SS[UserMessage.tsx - 用户消息]
+V --> TT[AssistantMessage.tsx - 助手消息]
+W --> UU[SkillCard.tsx - 技能卡片]
+W --> VV[SkillsToolbar.tsx - 技能工具栏]
+W --> WW[AddSkillDialog.tsx - 技能导入对话框]
 ```
 
 **图表来源**
@@ -147,6 +155,7 @@ W --> SS[AddSkillDialog.tsx - 技能导入对话框]
 - [main.tsx:1-11](file://ui-react/src/main.tsx#L1-L11)
 - [router.tsx:1-42](file://ui-react/src/router.tsx#L1-L42)
 - [sidebar.tsx:1-694](file://ui-react/src/components/ui/sidebar.tsx#L1-L694)
+- [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 - [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
 - [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
@@ -539,6 +548,83 @@ N --> P[保持对话框打开]
 - [SkillCard.tsx:56-318](file://ui-react/src/components/skills/SkillCard.tsx#L56-L318)
 - [SkillsPage.tsx:42-331](file://ui-react/src/pages/SkillsPage.tsx#L42-L331)
 
+### 现代化的Sonner Toast通知系统
+
+**新增** 集成Sonner Toast通知系统，提供主题化通知、自定义图标和Next.js主题系统集成：
+
+```mermaid
+classDiagram
+class Toaster {
++theme : "light" | "dark" | "system"
++icons : Icons
++style : CSSProperties
++className : string
++render() ReactNode
+}
+class Icons {
++success : ReactNode
++info : ReactNode
++warning : ReactNode
++error : ReactNode
++loading : ReactNode
+}
+class ThemeIntegration {
++useTheme() : ThemeContext
++theme : "light" | "dark" | "system"
++applyTheme() : void
+}
+class CSSCustomProperties {
++--normal-bg : var(--popover)
++--normal-text : var(--popover-foreground)
++--normal-border : var(--border)
++--border-radius : var(--radius)
+}
+Toaster --> Icons : 使用
+Toaster --> ThemeIntegration : 集成
+Toaster --> CSSCustomProperties : 应用
+ThemeIntegration --> CSSCustomProperties : 提供变量
+```
+
+**图表来源**
+- [sonner.tsx:11-36](file://ui-react/src/components/ui/sonner.tsx#L11-L36)
+- [sonner.tsx:18-24](file://ui-react/src/components/ui/sonner.tsx#L18-L24)
+- [sonner.tsx:25-32](file://ui-react/src/components/ui/sonner.tsx#L25-L32)
+
+#### Sonner通知系统特性
+
+```mermaid
+flowchart TD
+A[Sonner Toast通知系统] --> B[主题化支持]
+A --> C[自定义图标]
+A --> D[Next.js主题集成]
+A --> E[CSS自定义属性]
+B --> F[浅色主题]
+B --> G[深色主题]
+B --> H[系统主题]
+C --> I[成功图标]
+C --> J[信息图标]
+C --> K[警告图标]
+C --> L[错误图标]
+C --> M[加载动画]
+D --> N[useTheme钩子]
+D --> O[主题切换响应]
+E --> P[--normal-bg变量]
+E --> Q[--normal-text变量]
+E --> R[--normal-border变量]
+E --> S[--border-radius变量]
+```
+
+**图表来源**
+- [sonner.tsx:12](file://ui-react/src/components/ui/sonner.tsx#L12)
+- [sonner.tsx:18-24](file://ui-react/src/components/ui/sonner.tsx#L18-L24)
+- [sonner.tsx:25-32](file://ui-react/src/components/ui/sonner.tsx#L25-L32)
+- [index.css:25-31](file://ui-react/src/index.css#L25-L31)
+
+**章节来源**
+- [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
+- [package.json:48](file://ui-react/package.json#L48)
+- [index.css:25-31](file://ui-react/src/index.css#L25-L31)
+
 ## 架构概览
 
 UI组件系统采用现代化的分层架构设计，实现了清晰的关注点分离：
@@ -564,54 +650,62 @@ T[Profile界面] --> U[模板选择]
 T --> V[表单编辑]
 T --> W[文件上传]
 T --> X[Markdown渲染]
+Y[Sonner通知系统] --> Z[主题化通知]
+Y --> AA[自定义图标]
+Y --> BB[Next.js主题集成]
 end
 subgraph "现代化状态管理层"
-Y[Zustand Store] --> Z[聊天状态管理]
-Y --> AA[技能状态管理]
-Y --> BB[网关连接状态]
-Y --> CC[用户设置状态]
-DD[聊天事件桥接] --> EE[事件转换]
-DD --> FF[状态更新]
-DD --> GG[错误处理]
-HH[会话管理器] --> II[会话列表获取]
-HH --> JJ[历史记录加载]
-HH --> KK[会话切换处理]
+CC[Zustand Store] --> DD[聊天状态管理]
+CC --> EE[技能状态管理]
+CC --> FF[网关连接状态]
+CC --> GG[用户设置状态]
+HH[聊天事件桥接] --> II[事件转换]
+HH --> JJ[状态更新]
+HH --> KK[错误处理]
+LL[会话管理器] --> MM[会话列表获取]
+LL --> NN[历史记录加载]
+LL --> OO[会话切换处理]
 end
 subgraph "现代化组件层"
-LL[shadcn/ui组件库] --> MM[基础UI组件]
-LL --> NN[布局组件]
-LL --> OO[表单组件]
-MM --> PP[Checkbox]
-MM --> QQ[Sheet]
-MM --> RR[Switch]
-NN --> SS[Sidebar]
-NN --> TT[AppShell]
-OO --> UU[Button]
-OO --> VV[Input]
-OO --> WW[Dialog]
+PP[shadcn/ui组件库] --> QQ[基础UI组件]
+PP --> RR[布局组件]
+PP --> SS[表单组件]
+QQ --> TT[Checkbox]
+QQ --> UU[Sheet]
+QQ --> VV[Switch]
+RR --> WW[Sidebar]
+RR --> XX[AppShell]
+SS --> YY[Button]
+SS --> ZZ[Input]
+SS --> AAA[Dialog]
+BBB[Sonner组件] --> CCC[Toaster组件]
+BBB --> DDD[主题集成]
+BBB --> EEE[图标系统]
 end
 subgraph "现代化数据传输层"
-XX[WebSocket客户端] --> YY[实时事件]
-XX --> ZZ[流式响应]
-XX --> AAA[批量更新]
-BBB[HTTP API] --> CCC[配置读取]
-BBB --> DDD[日志获取]
-BBB --> EEE[会话列表]
-BBB --> FFF[技能状态查询]
-GGG[聊天事件桥接] --> HHH[事件转换]
-GGG --> III[状态同步]
-JJJ[会话事件桥接] --> KKK[历史重载回调]
-KKK --> LLL[聊天状态同步]
+FFF[WebSocket客户端] --> GG[实时事件]
+FFF --> HH[流式响应]
+FFF --> II[批量更新]
+JJJ[HTTP API] --> KK[配置读取]
+JJJ --> LL[日志获取]
+JJJ --> MM[会话列表]
+JJJ --> NN[技能状态查询]
+OOO[聊天事件桥接] --> PPP[事件转换]
+OOO --> QQ[状态同步]
+RRR[会话事件桥接] --> SS[历史重载回调]
+SS --> TT[聊天状态同步]
 end
 subgraph "现代化外部集成"
-MMM[Gateway协议] --> XX
-NNN[assistant-ui/react] --> OOO[聊天框架]
-PPP[Radix UI] --> QQQ[基础组件]
-RRR[Lucide React] --> SSS[图标库]
-TTT[use-mobile钩子] --> UUU[移动端检测]
-UUU --> VVV[响应式设计]
-WWW[useChatEventBridge] --> XXX[事件桥接]
-XXX --> YYY[状态管理]
+UUU[Gateway协议] --> FFF
+VVV[assistant-ui/react] --> WWW[聊天框架]
+XXX[Radix UI] --> YYY[基础组件]
+ZZZ[Lucide React] --> AAAA[图标库]
+AAAA[use-mobile钩子] --> BBBB[移动端检测]
+BBBB --> CCCC[响应式设计]
+DDDD[useChatEventBridge] --> EEEE[事件桥接]
+EEEE --> FFFF[状态管理]
+GGGG[Next.js主题] --> HHHH[Sonner主题集成]
+HHHH --> IIII[CSS变量映射]
 ```
 
 **图表来源**
@@ -619,6 +713,7 @@ XXX --> YYY[状态管理]
 - [ChatPage.tsx:6-22](file://ui-react/src/pages/ChatPage.tsx#L6-L22)
 - [SkillsPage.tsx:42-331](file://ui-react/src/pages/SkillsPage.tsx#L42-L331)
 - [sidebar.tsx:1-694](file://ui-react/src/components/ui/sidebar.tsx#L1-L694)
+- [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
 - [chat.store.ts:1-250](file://ui-react/src/store/chat.store.ts#L1-L250)
 - [skills.store.ts:1-312](file://ui-react/src/store/skills.store.ts#L1-L312)
 - [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
@@ -1074,6 +1169,90 @@ useGateway --> useGatewayStore : 提供服务
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
 - [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
 
+### 现代化的Sonner Toast通知系统
+
+#### Toaster组件实现
+
+Toaster组件集成了Sonner通知系统，提供了完整的主题化通知功能：
+
+```mermaid
+classDiagram
+class Toaster {
++props : ToasterProps
++theme : "light" | "dark" | "system"
++icons : Icons
++style : CSSProperties
++className : string
++render() ReactNode
+}
+class Icons {
++success : ReactNode
++info : ReactNode
++warning : ReactNode
++error : ReactNode
++loading : ReactNode
+}
+class ThemeIntegration {
++useTheme() : ThemeContext
++theme : "light" | "dark" | "system"
++applyTheme() : void
+}
+class CSSCustomProperties {
++--normal-bg : var(--popover)
++--normal-text : var(--popover-foreground)
++--normal-border : var(--border)
++--border-radius : var(--radius)
+}
+Toaster --> Icons : 使用
+Toaster --> ThemeIntegration : 集成
+Toaster --> CSSCustomProperties : 应用
+ThemeIntegration --> CSSCustomProperties : 提供变量
+```
+
+**图表来源**
+- [sonner.tsx:11-36](file://ui-react/src/components/ui/sonner.tsx#L11-L36)
+- [sonner.tsx:18-24](file://ui-react/src/components/ui/sonner.tsx#L18-L24)
+- [sonner.tsx:25-32](file://ui-react/src/components/ui/sonner.tsx#L25-L32)
+
+#### 主题化通知系统
+
+```mermaid
+flowchart TD
+A[主题化通知系统] --> B[浅色主题]
+A --> C[深色主题]
+A --> D[系统主题]
+B --> E[浅色背景]
+B --> F[深色前景]
+B --> G[浅色边框]
+C --> H[深色背景]
+C --> I[浅色前景]
+C --> J[深色边框]
+D --> K[跟随系统设置]
+K --> L[自动切换]
+E --> M[--normal-bg: var(--popover)]
+F --> N[--normal-text: var(--popover-foreground)]
+G --> O[--normal-border: var(--border)]
+H --> P[--normal-bg: var(--popover)]
+I --> Q[--normal-text: var(--popover-foreground)]
+J --> R[--normal-border: var(--border)]
+M --> S[CSS变量映射]
+N --> S
+O --> S
+P --> S
+Q --> S
+R --> S
+```
+
+**图表来源**
+- [sonner.tsx:12](file://ui-react/src/components/ui/sonner.tsx#L12)
+- [sonner.tsx:25-32](file://ui-react/src/components/ui/sonner.tsx#L25-L32)
+- [index.css:25-31](file://ui-react/src/index.css#L25-L31)
+
+**章节来源**
+- [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
+- [package.json:48](file://ui-react/package.json#L48)
+- [index.css:25-31](file://ui-react/src/index.css#L25-L31)
+
 ## 依赖关系分析
 
 ### 现代化依赖图谱
@@ -1096,39 +1275,52 @@ S[use-mobile钩子] --> T[移动端检测]
 U[use-session-manager钩子] --> V[会话管理]
 W[use-chat-event-bridge钩子] --> X[聊天事件桥接]
 Y[现代化状态管理] --> Z[Zustand Store]
+AA[sonner] --> BB[Sonner通知系统]
+AA --> CC[主题化通知]
+AA --> DD[自定义图标]
+AA --> EE[Next.js主题集成]
+FF[next-themes] --> GG[主题管理]
+FF --> HH[主题切换]
+II[CSS自定义属性] --> JJ[--normal-bg变量]
+II --> KK[--normal-text变量]
+II --> LL[--normal-border变量]
+II --> MM[--border-radius变量]
 end
 subgraph "传统Lit依赖"
-AA[lit] --> BB[Web Components]
-CC[@lit-labs/signals] --> DD[响应式信号]
-EE[marked] --> FF[Markdown渲染]
-GG[dompurify] --> HH[HTML清理]
-II[ui/src/ui/views/profile.ts] --> JJ[Profile界面组件]
-II --> KK[模板系统]
-II --> LL[文件上传]
-II --> MM[Markdown编辑]
-NN[ui/src/ui/navigation.ts] --> OO[Profile导航标签]
-PP[ui/src/ui/i18n/locales/en.ts] --> QQ[Profile翻译]
-PP --> RR[标签翻译]
-PP --> SS[字幕翻译]
+NN[lit] --> OO[Web Components]
+PP[@lit-labs/signals] --> QQ[响应式信号]
+RR[marked] --> SS[Markdown渲染]
+TT[dompurify] --> UU[HTML清理]
+VV[ui/src/ui/views/profile.ts] --> WW[Profile界面组件]
+VV --> XX[模板系统]
+VV --> YY[文件上传]
+VV --> ZZ[Markdown编辑]
+AAA[ui/src/ui/navigation.ts] --> BBB[Profile导航标签]
+CCC[ui/src/ui/i18n/locales/en.ts] --> DDD[Profile翻译]
+CCC --> EEE[标签翻译]
+CCC --> FFF[字幕翻译]
 end
 subgraph "开发工具"
-TT[vite] --> UU[构建工具]
-VV[typescript] --> WW[类型检查]
-XX[vitest] --> YY[测试框架]
+GGG[vite] --> HHH[构建工具]
+III[typescript] --> JJJ[类型检查]
+KKK[vitest] --> LLL[测试框架]
 end
 subgraph "外部集成"
-ZZ[Gateway协议] --> AAA[WebSocket客户端]
-BBB[assistant-ui/react] --> CCC[聊天框架]
-DDD[Radix UI] --> EEE[基础组件]
-FFF[Lucide React] --> GGG[图标库]
-HHH[use-mobile钩子] --> III[移动端检测]
-JJJ[use-chat-event-bridge] --> KKK[事件桥接]
-LLL[Profile集成] --> MMM[导航标签]
-LLL --> NNN[界面组件]
-LLL --> OOO[国际化支持]
-PPP[邀请码集成] --> QQQ[InviteCodeClient]
-PPP --> RRR[verifyInviteCode函数]
-PPP --> SSS[handleInviteCodeVerify函数]
+MMM[Gateway协议] --> NNN[WebSocket客户端]
+OOO[assistant-ui/react] --> PPP[聊天框架]
+QQQ[Radix UI] --> RRR[基础组件]
+SSS[Lucide React] --> TTT[图标库]
+UUU[use-mobile钩子] --> VVV[移动端检测]
+WWW[use-chat-event-bridge] --> XXX[事件桥接]
+YYY[Profile集成] --> ZZZ[导航标签]
+YYY --> AAAA[界面组件]
+YYY --> BBBB[国际化支持]
+CCCC[邀请码集成] --> DDDD[InviteCodeClient]
+CCCC --> EEEE[verifyInviteCode函数]
+CCCC --> FFFF[handleInviteCodeVerify函数]
+GGGG[Sonner集成] --> HHHH[Toaster组件]
+GGGG --> IIII[主题集成]
+GGGG --> JJJJ[图标系统]
 ```
 
 **图表来源**
@@ -1143,6 +1335,7 @@ PPP --> SSS[handleInviteCodeVerify函数]
 - [en.ts:1-341](file://ui/src/i18n/locales/en.ts#L1-L341)
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
 - [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
+- [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
 
 ### 现代化版本兼容性
 
@@ -1163,6 +1356,7 @@ PPP --> SSS[handleInviteCodeVerify函数]
 | Profile界面 | ✅ **全新实现** | ❌ 不支持 | ✅ 独立实现 | ✅ **完全现代化** |
 | 国际化增强 | ✅ **基础支持** | ✅ **增强支持** | ✅ 功能完善 | ✅ **部分现代化** |
 | 邀请码验证 | ✅ **全新实现** | ❌ 不支持 | ✅ 独立实现 | ✅ **完全现代化** |
+| **通知系统** | ❌ 不支持 | ✅ **全新实现** | ✅ **通知系统** | ✅ **完全现代化** |
 
 **章节来源**
 - [package.json:11-26](file://ui/package.json#L11-L26)
@@ -1177,6 +1371,7 @@ PPP --> SSS[handleInviteCodeVerify函数]
 - [en.ts:1-341](file://ui/src/i18n/locales/en.ts#L1-L341)
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
 - [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
+- [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
 
 ## 性能考虑
 
@@ -1194,6 +1389,7 @@ PPP --> SSS[handleInviteCodeVerify函数]
 10. **事件桥接优化**：useChatEventBridge提供高效的事件处理机制
 11. **状态管理优化**：Zustand提供比Redux更轻量的状态管理方案
 12. **UI组件优化**：shadcn/ui组件库经过优化，提供更好的性能表现
+13. **Sonner通知优化**：主题化通知系统使用CSS变量，避免不必要的重渲染
 
 ### 现代化内存管理
 
@@ -1222,6 +1418,11 @@ W --> |高| X[清理Sidebar缓存]
 W --> |正常| Y[保持Sidebar状态]
 X --> Z[重置Sidebar配置]
 Y --> AA[继续渲染]
+BB[Sonner通知] --> CC{内存占用}
+CC --> |高| DD[清理通知缓存]
+CC --> |正常| EE[保持通知队列]
+DD --> FF[重置通知状态]
+EE --> GG[继续渲染]
 ```
 
 ### 现代化网络优化
@@ -1238,6 +1439,7 @@ Y --> AA[继续渲染]
 - **国际化缓存**：翻译数据进行内存缓存，提升切换速度
 - **Profile模板缓存**：模板数据进行本地缓存，避免重复加载
 - **邀请码验证缓存**：邀请码验证结果进行本地缓存，避免重复验证
+- **Sonner主题缓存**：主题状态进行缓存，避免重复的主题切换计算
 
 ## 故障排除指南
 
@@ -1322,6 +1524,14 @@ Y --> AA[继续渲染]
     - **检查错误消息映射**
     - **验证API密钥存储机制**
 
+14. **Sonner通知系统问题**
+    - **检查Sonner依赖是否正确安装**
+    - **验证Toaster组件是否正确导入**
+    - **确认主题集成是否正常工作**
+    - **检查自定义图标是否正确显示**
+    - **验证CSS变量映射是否正确**
+    - **确认通知样式是否符合设计规范**
+
 ### 现代化调试工具
 
 ```mermaid
@@ -1365,6 +1575,14 @@ MM --> QQ[请求头检查]
 MM --> RR[响应处理检查]
 NN --> SS[状态更新检查]
 NN --> TT[错误处理检查]
+UU[Sonner调试] --> VV[Toaster组件检查]
+UU[Sonner调试] --> WW[主题集成检查]
+UU[Sonner调试] --> XX[图标系统检查]
+UU[Sonner调试] --> YY[CSS变量检查]
+VV --> ZZ[通知显示检查]
+WW --> AA[主题切换检查]
+XX --> BB[图标渲染检查]
+YY --> CC[样式应用检查]
 ```
 
 **章节来源**
@@ -1374,6 +1592,9 @@ NN --> TT[错误处理检查]
 - [chat.store.ts:167-249](file://ui-react/src/store/chat.store.ts#L167-L249)
 - [skills.store.ts:126-206](file://ui-react/src/store/skills.store.ts#L126-L206)
 - [sidebar.tsx:174-197](file://ui-react/src/components/ui/sidebar.tsx#L174-L197)
+- [sonner.tsx:12](file://ui-react/src/components/ui/sonner.tsx#L12)
+- [sonner.tsx:18-24](file://ui-react/src/components/ui/sonner.tsx#L18-L24)
+- [sonner.tsx:25-32](file://ui-react/src/components/ui/sonner.tsx#L25-L32)
 
 ## 结论
 
@@ -1386,6 +1607,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 3. **重构的技能管理**：引入AddSkillDialog组件，支持直观的技能导入和管理
 4. **响应式Sidebar系统**：提供多种变体和键盘快捷键支持
 5. **优化的事件桥接**：支持复杂的工具调用和流式处理
+6. **新增Sonner Toast通知系统**：集成主题化通知、自定义图标和Next.js主题系统
 
 ### 技术创新亮点
 
@@ -1394,6 +1616,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 3. **Hook系统增强**：提供一系列现代化的自定义Hook
 4. **性能优化**：虚拟滚动、懒加载、状态分片等优化策略
 5. **开发体验提升**：TypeScript支持、组件记忆化、事件桥接优化
+6. **通知系统现代化**：集成Sonner提供主题化通知体验
 
 ### 功能完整性
 
@@ -1403,6 +1626,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **响应式Sidebar**：支持多种变体和键盘快捷键
 - **增强的技能管理**：API密钥和环境变量的直观管理
 - **优化的Profile界面**：模板选择和表单编辑功能
+- **现代化通知系统**：基于Sonner的主题化通知
 
 **架构优势**：
 - **技术多样性**：同时支持Lit和React两种主流框架
@@ -1411,6 +1635,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **性能优化**：采用多种优化策略确保流畅体验
 - **响应式设计**：新增use-mobile钩子和新的Sidebar组件
 - **可维护性**：清晰的架构设计便于长期维护
+- **通知体验**：现代化的Sonner通知系统提供更好的用户体验
 
 ### 未来发展展望
 
@@ -1418,4 +1643,6 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 
 **现代化的UI组件系统**为用户提供了更加现代化和一致的用户体验，显著提升了平台的技术能力和实用性。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。现代化的架构引入为用户提供了更加灵活和安全的API密钥管理方式，这些功能的集成不仅提升了平台的技术能力，也为未来的功能扩展和用户增长奠定了坚实基础。
 
-这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统和状态管理系统共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。
+**新增的Sonner Toast通知系统**为用户提供了现代化的通知体验，集成了主题化支持、自定义图标和Next.js主题系统，进一步提升了整体的用户体验。这一集成展示了现代前端开发中组件系统、状态管理和通知系统的最佳实践，为用户提供了更加一致和专业的界面体验。
+
+这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统、状态管理系统和通知系统共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。

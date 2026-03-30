@@ -21,15 +21,21 @@
 - [ui-react/src/adapters/ElectronWizardAdapter.ts](file://ui-react/src/adapters/ElectronWizardAdapter.ts)
 - [ui-react/src/components/layout/UpdateBanner.tsx](file://ui-react/src/components/layout/UpdateBanner.tsx)
 - [.github/workflows/electron-release.yml](file://.github/workflows/electron-release.yml)
+- [apps/electron/scripts/package-electron.sh](file://apps/electron/scripts/package-electron.sh)
+- [apps/electron/scripts/download-node.sh](file://apps/electron/scripts/download-node.sh)
+- [apps/electron/scripts/notarize-mac-artifact.sh](file://scripts/notarize-mac-artifact.sh)
+- [apps/electron/packaged-runtime.json](file://apps/electron/packaged-runtime.json)
+- [apps/electron/scripts/generate-runtime-package.mjs](file://apps/electron/scripts/generate-runtime-package.mjs)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 新增完整的自动更新系统，包括updater.ts实现和UpdateBanner组件
-- 新增GitHub Actions自动化发布流程，支持Cloudflare R2存储
-- 新增electron-updater依赖和相关配置
-- 新增自动更新的IPC通信机制
-- 新增更新服务器配置和发布流程
+- Node.js版本升级至24.14.1，替换原有22.x版本
+- GitHub CLI集成替换为App Store Connect API密钥处理
+- 构建配置更新，支持Node.js 24运行时捆绑
+- Apple Store Connect API密钥处理改进，支持文件路径和环境变量两种方式
+- 新增详细的运行时依赖管理和裁剪机制
+- 改进的打包脚本和公证流程
 
 ## 目录
 1. [简介](#简介)
@@ -47,16 +53,25 @@
 13. [登录shell环境缓存](#登录shell环境缓存)
 14. [静态HTTP服务器](#静态http服务器)
 15. [网关崩溃检测](#网关崩溃检测)
-16. [依赖关系分析](#依赖关系分析)
-17. [性能考虑](#性能考虑)
-18. [故障排除指南](#故障排除指南)
-19. [结论](#结论)
+16. [Node.js 24运行时集成](#nodejs-24运行时集成)
+17. [Apple Store Connect API密钥处理](#apple-store-connect-api密钥处理)
+18. [运行时依赖管理](#运行时依赖管理)
+19. [打包和公证流程](#打包和公证流程)
+20. [依赖关系分析](#依赖关系分析)
+21. [性能考虑](#性能考虑)
+22. [故障排除指南](#故障排除指南)
+23. [结论](#结论)
 
 ## 简介
 
 OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务和React控制界面。该应用通过Electron框架提供跨平台支持，包含完整的设置向导、网关管理和实时通信功能。
 
 **最新增强功能：**
+- **Node.js 24运行时集成**：完整的Node.js 24.14.1运行时捆绑和管理
+- **Apple Store Connect API密钥处理**：改进的App Store Connect API密钥管理，支持文件路径和环境变量两种方式
+- **增强的打包脚本**：支持本地快速测试和生产环境打包
+- **运行时依赖裁剪**：针对特定架构的原生依赖裁剪优化
+- **改进的公证流程**：支持多种认证方式的macOS公证
 - **自动更新系统**：完整的electron-updater集成，支持静默下载和用户确认安装
 - **GitHub Actions自动化发布**：基于Cloudflare R2的CI/CD发布流程
 - **更新提示界面**：UpdateBanner组件提供友好的更新通知和安装体验
@@ -72,7 +87,7 @@ OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务�
 - **优化的IPC通信机制和错误恢复能力**
 
 该应用的主要特点包括：
-- 内置Node.js运行时和OpenClaw CLI
+- 内置Node.js 24运行时和OpenClaw CLI
 - React驱动的设置向导和控制界面
 - WebSocket实时通信
 - 多平台打包支持（macOS、Windows、Linux）
@@ -94,24 +109,27 @@ A[apps/electron/] --> B[src/]
 A --> C[renderer/]
 A --> D[resources/]
 A --> E[dist/]
-B --> F[main/]
-B --> G[preload/]
-F --> H[index.ts - 主入口]
-F --> I[gateway.ts - 网关管理]
-F --> J[window.ts - 窗口管理]
-F --> K[ipc-wizard.ts - IPC向导]
-F --> L[onboarding.ts - 设置向导]
-F --> M[token.ts - 令牌管理]
-F --> N[onboarding-oauth.ts - OAuth认证]
-F --> O[onboarding-providers.ts - 提供商配置]
-F --> P[oauth-device-flow.ts - 设备代码流]
-F --> Q[oauth-utils.ts - OAuth工具]
-F --> R[updater.ts - 自动更新]
-G --> S[index.ts - 预加载脚本]
-C --> T[ui-react/ - React构建产物]
-C --> U[UpdateBanner.tsx - 更新提示组件]
-D --> V[图标和权限文件]
-E --> W[编译输出]
+A --> F[scripts/]
+B --> G[index.ts - 主入口]
+B --> H[gateway.ts - 网关管理]
+B --> I[window.ts - 窗口管理]
+B --> J[ipc-wizard.ts - IPC向导]
+B --> K[onboarding.ts - 设置向导]
+B --> L[token.ts - 令牌管理]
+B --> M[onboarding-oauth.ts - OAuth认证]
+B --> N[onboarding-providers.ts - 提供商配置]
+B --> O[oauth-device-flow.ts - 设备代码流]
+B --> P[oauth-utils.ts - OAuth工具]
+B --> Q[updater.ts - 自动更新]
+F --> R[package-electron.sh - 打包脚本]
+F --> S[download-node.sh - Node下载脚本]
+F --> T[notarize-mac-artifact.sh - 公证脚本]
+F --> U[generate-runtime-package.mjs - 运行时包生成]
+C --> V[ui-react/ - React构建产物]
+C --> W[UpdateBanner.tsx - 更新提示组件]
+D --> X[图标和权限文件]
+D --> Y[Node.js 24运行时二进制]
+E --> Z[编译输出]
 end
 ```
 
@@ -141,6 +159,7 @@ end
 - 单实例锁保护
 - 网关崩溃监控
 - **自动更新管理**：初始化和控制更新流程
+- **Node.js 24运行时管理**：集成和管理Node.js 24运行时
 
 ### 预加载脚本
 
@@ -160,7 +179,7 @@ end
 负责启动、停止和重启本地Gateway服务，管理与Gateway的WebSocket连接。
 
 **功能特性：**
-- 自动检测和使用捆绑的Node.js
+- 自动检测和使用捆绑的Node.js 24运行时
 - 支持动态端口配置
 - 进程监控和错误处理
 - 令牌管理和认证
@@ -182,7 +201,7 @@ end
 
 ### OAuth认证系统
 
-**新增功能：** 全新的OAuth认证系统，支持多种认证提供商。
+**新增功能**：全新的OAuth认证系统，支持多种认证提供商。
 
 **支持的认证方式：**
 - API密钥认证
@@ -190,12 +209,57 @@ end
 - 简单URL打开流程（OpenAI、Google、Qwen等）
 - 自动令牌轮询和验证
 
+### Node.js 24运行时管理器
+
+**新增功能**：完整的Node.js 24运行时集成和管理。
+
+**功能特性：**
+- 自动下载和配置Node.js 24.14.1运行时
+- 支持多架构（arm64、x64）运行时
+- 集成到electron-builder打包流程
+- 运行时依赖管理和裁剪
+- 本地快速测试和生产环境区分
+
+### Apple Store Connect API密钥处理器
+
+**新增功能**：改进的App Store Connect API密钥处理机制。
+
+**功能特性：**
+- 支持文件路径和环境变量两种方式
+- 自动转换为electron-builder兼容的变量名
+- 临时文件处理和权限管理
+- CI和本地开发环境支持
+
+### 运行时依赖管理器
+
+**新增功能**：智能的运行时依赖管理和裁剪机制。
+
+**功能特性：**
+- 核心运行时依赖的精确版本管理
+- 架构特定的原生依赖裁剪
+- 预安装扩展的统一管理
+- 依赖版本解析和锁定
+
+### 打包和公证管理器
+
+**新增功能**：完整的打包和公证流程管理。
+
+**功能特性：**
+- 支持本地快速测试和生产环境打包
+- 多架构（arm64、x64）支持
+- 自动公证和装订流程
+- 详细的打包进度和状态报告
+
 **章节来源**
 - [apps/electron/src/main/index.ts:1-215](file://apps/electron/src/main/index.ts#L1-L215)
 - [apps/electron/src/preload/index.ts:1-171](file://apps/electron/src/preload/index.ts#L1-L171)
 - [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
 - [apps/electron/src/main/onboarding-oauth.ts:1-234](file://apps/electron/src/main/onboarding-oauth.ts#L1-L234)
 - [apps/electron/src/main/updater.ts:1-97](file://apps/electron/src/main/updater.ts#L1-L97)
+- [apps/electron/scripts/package-electron.sh:1-227](file://apps/electron/scripts/package-electron.sh#L1-L227)
+- [apps/electron/scripts/download-node.sh:1-57](file://apps/electron/scripts/download-node.sh#L1-L57)
+- [apps/electron/scripts/notarize-mac-artifact.sh:1-66](file://scripts/notarize-mac-artifact.sh#L1-L66)
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 
 ## 架构概览
 
@@ -219,62 +283,62 @@ J[静态HTTP服务器]
 K[登录shell环境缓存]
 L[网关崩溃检测器]
 M[自动更新管理器]
+N[Node.js 24运行时管理器]
+O[Apple Store Connect密钥处理器]
+P[运行时依赖管理器]
+Q[打包和公证管理器]
 end
 subgraph "服务层"
-N[Gateway子进程]
-O[本地HTTP服务器]
-P[OAuth认证服务]
-Q[文件锁服务]
-R[环境变量服务]
-S[崩溃监控服务]
-T[更新服务器]
+R[Gateway子进程]
+S[Node.js 24运行时]
+T[本地HTTP服务器]
+U[OAuth认证服务]
+V[文件锁服务]
+W[环境变量服务]
+X[崩溃监控服务]
+Y[更新服务器]
+Z[R2存储服务]
+AA[App Store Connect API]
 end
 subgraph "系统集成层"
-U[Node.js API]
-V[Electron API]
-W[操作系统服务]
-X[Web API]
-Y[文件系统API]
-Z[网络API]
-AA[Cloudflare R2存储]
+AB[Electron框架]
+AC[React框架]
+AD[WebSocket库]
+AE[文件系统API]
+AF[网络API]
+AG[Cloudflare R2存储]
+AH[Apple开发者服务]
+AI[GitHub Actions]
 end
 A --> F
 B --> E
 C --> G
 D --> M
-E --> N
-F --> V
-G --> X
-H --> X
-I --> Y
-J --> Z
-K --> R
-L --> S
-M --> T
-N --> U
-O --> Z
-P --> X
-Q --> Y
-R --> W
-S --> W
-T --> AA
-subgraph "IPC通信"
-AB[IPC消息]
-AC[WebSocket连接]
-AD[OAuth回调]
-AE[文件锁通知]
-AF[崩溃通知]
-AG[更新事件]
-end
-F -.-> AB
-E -.-> AC
-G -.-> AD
-H -.-> AD
-I -.-> AE
-J -.-> AF
-K -.-> AF
-L -.-> AF
-M -.-> AG
+E --> R
+F --> AB
+G --> AF
+H --> AF
+I --> AE
+J --> AD
+K --> W
+L --> X
+M --> Y
+N --> S
+O --> AA
+P --> S
+Q --> AH
+R --> S
+R --> T
+S --> AF
+T --> AD
+U --> AF
+V --> AE
+W --> AE
+X --> AE
+Y --> Z
+Z --> AG
+AA --> AH
+AH --> AI
 ```
 
 **图表来源**
@@ -300,6 +364,7 @@ participant Gateway as Gateway服务
 participant Window as 窗口管理
 participant StaticServer as 静态服务器
 participant Updater as 自动更新系统
+participant NodeRuntime as Node.js 24运行时
 UI->>Adapter : 用户操作
 Adapter->>Preload : IPC请求
 Preload->>Main : OAuth请求
@@ -308,6 +373,8 @@ OAuth->>DeviceFlow : 设备代码流
 DeviceFlow-->>OAuth : 设备代码结果
 OAuth-->>Main : 认证结果
 Main->>Gateway : 更新配置
+Gateway->>NodeRuntime : 使用Node.js 24运行时
+NodeRuntime-->>Gateway : 运行时就绪
 Gateway->>StaticServer : 启动静态服务器
 StaticServer-->>Gateway : 服务器就绪
 Gateway-->>Main : 确认更新
@@ -426,14 +493,14 @@ sequenceDiagram
 participant Main as 主进程
 participant Gateway as Gateway进程
 participant FS as 文件系统
-participant Node as Node.js运行时
+participant NodeRuntime as Node.js 24运行时
 participant ShellEnv as 登录shell环境
 Main->>ShellEnv : 预热环境缓存
 ShellEnv-->>Main : 环境变量就绪
 Main->>FS : 检查配置文件
 FS-->>Main : 返回配置信息
-Main->>Node : 启动Node进程
-Node->>Gateway : 执行openclaw命令
+Main->>NodeRuntime : 启动Node.js 24进程
+NodeRuntime->>Gateway : 执行openclaw命令
 Gateway->>Gateway : 初始化服务
 Gateway-->>Main : 返回就绪信号
 Main->>Main : 启动WebSocket连接
@@ -649,7 +716,7 @@ Main->>Main : 执行quitAndInstall()
 ```mermaid
 flowchart TD
 A[推送vX.Y.Z标签] --> B[触发GitHub Actions]
-B --> C[设置Node.js环境]
+B --> C[设置Node.js 24环境]
 C --> D[构建macOS应用]
 D --> E[导入签名证书]
 E --> F[打包DMG和ZIP]
@@ -759,7 +826,7 @@ UploadPaths --> RcloneCommands : "生成命令"
 
 ## OAuth认证系统
 
-**新增功能：** 全新的OAuth认证系统，支持多种认证提供商。
+**新增功能**：全新的OAuth认证系统，支持多种认证提供商。
 
 ### OAuth认证架构
 
@@ -772,15 +839,16 @@ B --> |简单OAuth| E[URL打开流程]
 D --> F[设备代码流运行器]
 F --> G[获取user_code]
 G --> H[打开验证URL]
-H --> I[轮询令牌]
-I --> J[保存认证信息]
-E --> K[生成CSRF状态]
-K --> L[打开浏览器]
-L --> M[处理回调]
-M --> I
-C --> J
-J --> N[更新Gateway配置]
-N --> O[重启Gateway服务]
+H --> I[pollDeviceCodeFlow]
+I --> J[轮询令牌]
+J --> K[保存认证信息]
+E --> L[生成CSRF状态]
+L --> M[打开浏览器]
+M --> N[处理回调]
+N --> J
+C --> K
+K --> O[更新Gateway配置]
+O --> P[重启Gateway服务]
 ```
 
 **图表来源**
@@ -790,7 +858,7 @@ N --> O[重启Gateway服务]
 
 ### OAuth适配器
 
-**新增功能：** ElectronWizardAdapter支持OAuth认证流程。
+**新增功能**：ElectronWizardAdapter支持OAuth认证流程。
 
 ```mermaid
 classDiagram
@@ -840,7 +908,7 @@ ElectronWizardAdapter --> OAuthFlow : "委托OAuth处理"
 
 ## 设备代码流框架
 
-**新增功能：** 全新的设备代码流框架，支持标准的OAuth 2.0设备代码流程。
+**新增功能**：全新的设备代码流框架，支持标准的OAuth 2.0设备代码流程。
 
 ### 设备代码流架构
 
@@ -910,7 +978,7 @@ DeviceCodeFlowConfig <|-- MiniMaxCNFlow
 
 ### OAuth工具函数
 
-**新增功能：** OAuth工具函数提供PKCE和表单编码支持。
+**新增功能**：OAuth工具函数提供PKCE和表单编码支持。
 
 ```mermaid
 classDiagram
@@ -934,7 +1002,7 @@ OAuthUtils --> PKCEGenerator : "生成PKCE参数"
 
 ## 单实例锁机制
 
-**新增功能：** 基于文件锁的单实例保护机制，防止多个实例同时运行。
+**新增功能**：基于文件锁的单实例保护机制，防止多个实例同时运行。
 
 ### 单实例锁架构
 
@@ -984,7 +1052,7 @@ SingleInstanceGuard --> FileLock : "使用文件锁"
 
 ## URL方案注册改进
 
-**新增功能：** 增强的URL协议处理和回调机制，支持openclaw://协议。
+**新增功能**：增强的URL协议处理和回调机制，支持openclaw://协议。
 
 ### URL协议处理架构
 
@@ -1011,7 +1079,7 @@ M --> N[返回认证状态]
 
 ### 协议回调管理
 
-**新增功能：** 专门的协议回调处理器管理OAuth回调：
+**新增功能**：专门的协议回调处理器管理OAuth回调：
 
 ```mermaid
 classDiagram
@@ -1037,7 +1105,7 @@ OAuthCallbackHandler --> SessionManager : "管理会话状态"
 
 ## 配置修补功能
 
-**新增功能：** 动态配置合并和模型修补功能，支持配置的增量更新。
+**新增功能**：动态配置合并和模型修补功能，支持配置的增量更新。
 
 ### 配置修补架构
 
@@ -1063,7 +1131,7 @@ K --> L[更新所有相关组件]
 
 ### 修补功能实现
 
-**新增功能：** 配置修补功能支持多种修补类型：
+**新增功能**：配置修补功能支持多种修补类型：
 
 ```mermaid
 classDiagram
@@ -1090,7 +1158,7 @@ ConfigPatchManager --> ProviderRegistry : "使用提供商配置"
 
 ## 登录shell环境缓存
 
-**新增功能：** 登录shell环境变量缓存机制，解决macOS打包应用丢失PATH变量问题。
+**新增功能**：登录shell环境变量缓存机制，解决macOS打包应用丢失PATH变量问题。
 
 ### 环境缓存架构
 
@@ -1139,7 +1207,7 @@ LoginShellEnvCache --> ShellEnvironmentParser : "解析环境变量"
 
 ## 静态HTTP服务器
 
-**新增功能：** 内置静态HTTP服务器，提供有效的loopback HTTP origin，解决origin相关问题。
+**新增功能**：内置静态HTTP服务器，提供有效的loopback HTTP origin，解决origin相关问题。
 
 ### 静态服务器架构
 
@@ -1197,7 +1265,7 @@ StaticHttpServer --> SpaFallbackHandler : "处理SPA回退"
 
 ## 网关崩溃检测
 
-**新增功能：** 实时监控Gateway进程状态并在崩溃时通知渲染进程。
+**新增功能**：实时监控Gateway进程状态并在崩溃时通知渲染进程。
 
 ### 崩溃检测架构
 
@@ -1247,6 +1315,284 @@ GatewayCrashDetector --> CrashNotificationSystem : "发送通知"
 **章节来源**
 - [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
 
+## Node.js 24运行时集成
+
+**新增功能**：完整的Node.js 24.14.1运行时集成和管理。
+
+### Node.js 24运行时架构
+
+```mermaid
+flowchart TD
+A[应用启动] --> B{需要Node.js运行时?}
+B --> |是| C[下载Node.js 24.14.1]
+C --> D[检测平台架构]
+D --> E{Windows?}
+E --> |是| F[下载node.exe]
+E --> |否| G[下载node二进制]
+F --> H[解压到resources/node-{arch}/]
+G --> H
+H --> I[设置执行权限]
+I --> J[配置electron-builder]
+J --> K[集成到打包流程]
+K --> L[启动Gateway使用Node.js 24]
+```
+
+**图表来源**
+- [apps/electron/scripts/download-node.sh:12-56](file://apps/electron/scripts/download-node.sh#L12-L56)
+- [apps/electron/scripts/package-electron.sh:99-103](file://apps/electron/scripts/package-electron.sh#L99-L103)
+
+### 运行时下载和配置
+
+Node.js 24运行时通过专用脚本管理下载和配置：
+
+```mermaid
+classDiagram
+class NodeRuntimeManager {
++NODE_VERSION : "24.14.1"
++downloadNodeBinary(arch, platform) : Promise~void~
++setupRuntimeEnvironment() : void
++configureElectronBuilder() : void
+}
+class DownloadScript {
++ARCH : string
++PLATFORM : string
++NODE_BINARY : string
++downloadAndExtract() : void
++extractFromZip() : void
++extractFromTarGz() : void
+}
+class RuntimeConfig {
++resources/node-{arch}/ : Directory
++node : Executable
++node.exe : Executable
++integrationWithElectron : boolean
+}
+NodeRuntimeManager --> DownloadScript : "使用下载脚本"
+NodeRuntimeManager --> RuntimeConfig : "配置运行时"
+```
+
+**图表来源**
+- [apps/electron/scripts/download-node.sh:12-56](file://apps/electron/scripts/download-node.sh#L12-L56)
+
+**章节来源**
+- [apps/electron/scripts/download-node.sh:1-57](file://apps/electron/scripts/download-node.sh#L1-L57)
+- [apps/electron/scripts/package-electron.sh:99-103](file://apps/electron/scripts/package-electron.sh#L99-L103)
+
+### 运行时依赖管理
+
+**新增功能**：智能的运行时依赖管理和裁剪机制。
+
+```mermaid
+classDiagram
+class RuntimeDependencyManager {
++coreRuntimeDependencies : string[]
++runtimeDependencies : string[]
++preinstalledExtensions : string[]
++generateRuntimePackage() : void
++installRuntimeDependencies() : void
++pruneNativeDependencies() : void
+}
+class DependencyResolver {
++resolveFromPackageJson(name) : string
++resolveFromInstalled(name) : string
++resolveFromLockfile(name) : string
+}
+class RuntimePackageGenerator {
++createPackageManifest() : void
++writePackageJson() : void
+}
+RuntimeDependencyManager --> DependencyResolver : "解析依赖版本"
+RuntimeDependencyManager --> RuntimePackageGenerator : "生成包清单"
+```
+
+**图表来源**
+- [apps/electron/packaged-runtime.json:16-114](file://apps/electron/packaged-runtime.json#L16-L114)
+- [apps/electron/scripts/generate-runtime-package.mjs:91-115](file://apps/electron/scripts/generate-runtime-package.mjs#L91-L115)
+
+**章节来源**
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
+- [apps/electron/scripts/generate-runtime-package.mjs:1-115](file://apps/electron/scripts/generate-runtime-package.mjs#L1-L115)
+
+## Apple Store Connect API密钥处理
+
+**新增功能**：改进的App Store Connect API密钥处理机制，支持文件路径和环境变量两种方式。
+
+### Apple Store Connect密钥处理架构
+
+```mermaid
+flowchart TD
+A[加载环境变量] --> B{APP_STORE_CONNECT_API_KEY_PATH存在?}
+B --> |是| C[从文件读取p8内容]
+B --> |否| D{APP_STORE_CONNECT_API_KEY_P8存在?}
+C --> E[设置APPLE_API_KEY为文件路径]
+D --> |是| F[创建临时p8文件]
+D --> |否| G[报错：缺少API密钥]
+F --> H[设置APPLE_API_KEY为临时文件路径]
+H --> I[设置APPLE_API_KEY_ID和APPLE_API_ISSUER]
+E --> J[映射变量名]
+I --> J
+G --> K[退出并显示错误]
+J --> L[继续打包流程]
+```
+
+**图表来源**
+- [apps/electron/scripts/package-electron.sh:25-66](file://apps/electron/scripts/package-electron.sh#L25-L66)
+
+### 密钥处理实现
+
+Apple Store Connect API密钥处理通过环境变量映射实现：
+
+```mermaid
+classDiagram
+class AppleStoreConnectKeyProcessor {
++APP_STORE_CONNECT_API_KEY_PATH : string
++APP_STORE_CONNECT_API_KEY_P8 : string
++APP_STORE_CONNECT_KEY_ID : string
++APP_STORE_CONNECT_ISSUER_ID : string
++processApiKey() : void
++createTempP8File() : string
++loadKeyFromFile() : string
++mapVariableNames() : void
+}
+class NotarizationAuthenticator {
++NOTARYTOOL_PROFILE : string
++NOTARYTOOL_KEY : string
++NOTARYTOOL_KEY_ID : string
++NOTARYTOOL_ISSUER : string
++validateAuthConfig() : boolean
+}
+AppleStoreConnectKeyProcessor --> NotarizationAuthenticator : "支持多种认证方式"
+```
+
+**图表来源**
+- [apps/electron/scripts/package-electron.sh:36-65](file://apps/electron/scripts/package-electron.sh#L36-L65)
+
+**章节来源**
+- [apps/electron/scripts/package-electron.sh:1-227](file://apps/electron/scripts/package-electron.sh#L1-L227)
+
+## 运行时依赖管理
+
+**新增功能**：智能的运行时依赖管理和裁剪机制，支持架构特定的原生依赖。
+
+### 运行时依赖管理架构
+
+```mermaid
+flowchart TD
+A[生成运行时包] --> B[解析核心依赖]
+B --> C[解析运行时依赖]
+C --> D[生成包清单]
+D --> E[安装生产依赖]
+E --> F{需要裁剪?}
+F --> |是| G[裁剪koffi原生依赖]
+F --> |否| H[跳过裁剪]
+G --> I[保留目标架构]
+H --> J[打印摘要]
+I --> J
+J --> K[准备完成]
+```
+
+**图表来源**
+- [apps/electron/scripts/generate-runtime-package.mjs:91-115](file://apps/electron/scripts/generate-runtime-package.mjs#L91-L115)
+- [apps/electron/scripts/package-electron.sh:138-183](file://apps/electron/scripts/package-electron.sh#L138-L183)
+
+### 依赖解析和版本管理
+
+运行时依赖管理器提供精确的版本解析和管理：
+
+```mermaid
+classDiagram
+class DependencyResolver {
++resolveFromPackageJson(name) : string
++resolveFromInstalled(name) : string
++resolveFromLockfile(name) : string
++requireFromRoot : Require
+}
+class RuntimePackageGenerator {
++packagedRuntimeConfig : RuntimeConfig
++rootPackage : PackageJson
++outputDir : string
++generatePackageManifest() : void
++writePackageJson() : void
+}
+class RuntimeConfig {
++coreRuntimeDependencies : string[]
++runtimeDependencies : string[]
++neverBundleDependencies : string[]
++preinstalledExtensions : string[]
+}
+DependencyResolver --> RuntimeConfig : "使用配置"
+RuntimePackageGenerator --> RuntimeConfig : "读取配置"
+```
+
+**图表来源**
+- [apps/electron/scripts/generate-runtime-package.mjs:33-96](file://apps/electron/scripts/generate-runtime-package.mjs#L33-L96)
+- [apps/electron/packaged-runtime.json:16-155](file://apps/electron/packaged-runtime.json#L16-L155)
+
+**章节来源**
+- [apps/electron/scripts/generate-runtime-package.mjs:1-115](file://apps/electron/scripts/generate-runtime-package.mjs#L1-L115)
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
+
+## 打包和公证流程
+
+**新增功能**：完整的打包和公证流程管理，支持本地快速测试和生产环境打包。
+
+### 打包流程架构
+
+```mermaid
+flowchart TD
+A[加载环境变量] --> B[打印打包横幅]
+B --> C[构建CLI和UI]
+C --> D[下载Node.js 24运行时]
+D --> E[生成运行时包清单]
+E --> F[安装生产依赖]
+F --> G[裁剪原生依赖]
+G --> H[打印依赖摘要]
+H --> I[构建Electron主进程]
+I --> J[打包Electron应用]
+J --> K[清理运行时依赖]
+K --> L[打印完成信息]
+```
+
+**图表来源**
+- [apps/electron/scripts/package-electron.sh:212-227](file://apps/electron/scripts/package-electron.sh#L212-L227)
+
+### 公证和装订流程
+
+macOS应用的公证和装订通过专用脚本管理：
+
+```mermaid
+classDiagram
+class NotarizationManager {
++ARTIFACT : string
++STAPLE_APP_PATH : string
++validateInputs() : void
++setupAuthArgs() : void
++submitToNotaryTool() : void
++stapleArtifact() : void
+}
+class AppleAuthConfig {
++NOTARYTOOL_PROFILE : string
++NOTARYTOOL_KEY : string
++NOTARYTOOL_KEY_ID : string
++NOTARYTOOL_ISSUER : string
++validateAuthConfig() : boolean
+}
+class ArtifactProcessor {
++processDmgPkg() : void
++processOtherArtifacts() : void
+}
+NotarizationManager --> AppleAuthConfig : "验证认证配置"
+NotarizationManager --> ArtifactProcessor : "处理不同类型的产物"
+```
+
+**图表来源**
+- [scripts/notarize-mac-artifact.sh:32-40](file://scripts/notarize-mac-artifact.sh#L32-L40)
+- [scripts/notarize-mac-artifact.sh:45-53](file://scripts/notarize-mac-artifact.sh#L45-L53)
+
+**章节来源**
+- [apps/electron/scripts/package-electron.sh:1-227](file://apps/electron/scripts/package-electron.sh#L1-L227)
+- [scripts/notarize-mac-artifact.sh:1-66](file://scripts/notarize-mac-artifact.sh#L1-L66)
+
 ## 依赖关系分析
 
 应用的依赖关系体现了清晰的层次结构和模块化设计：
@@ -1266,65 +1612,84 @@ I[登录shell环境缓存]
 J[网关崩溃检测器]
 K[自动更新管理器]
 L[UpdateBanner组件]
+M[Node.js 24运行时管理器]
+N[Apple Store Connect密钥处理器]
+O[运行时依赖管理器]
+P[打包和公证管理器]
 end
 subgraph "服务层"
-M[Gateway服务]
-N[Node.js运行时]
-O[本地HTTP服务]
-P[OAuth认证服务]
-Q[文件锁服务]
-R[配置服务]
-S[环境变量服务]
-T[崩溃监控服务]
-U[更新服务器]
-V[R2存储服务]
+Q[Gateway服务]
+R[Node.js 24运行时]
+S[本地HTTP服务]
+T[OAuth认证服务]
+U[文件锁服务]
+V[配置服务]
+W[环境变量服务]
+X[崩溃监控服务]
+Y[更新服务器]
+Z[R2存储服务]
+AA[App Store Connect API]
+BB[Cloudflare R2]
 end
 subgraph "基础设施层"
-W[Electron框架]
-X[React框架]
-Y[WebSocket库]
-Z[文件系统]
-AA[Web API]
-BB[加密库]
-CC[网络库]
-DD[electron-updater]
-EE[Cloudflare R2]
+CC[Electron框架]
+DD[React框架]
+EE[WebSocket库]
+FF[文件系统]
+GG[Web API]
+HH[加密库]
+II[网络库]
+JJ[electron-updater]
+KK[Cloudflare R2]
+LL[Apple开发者服务]
+MM[GitHub Actions]
+NN[Node.js 24运行时]
+OO[App Store Connect API]
+PP[GitHub CLI]
 end
-A --> M
-A --> W
+A --> Q
+A --> CC
 B --> A
-B --> X
+B --> DD
 C --> B
 D --> B
-E --> P
-F --> Z
-G --> R
-H --> O
-I --> S
-J --> T
-K --> U
+E --> T
+F --> FF
+G --> V
+H --> S
+I --> W
+J --> X
+K --> Y
 L --> K
-M --> N
-M --> O
-O --> Y
-P --> AA
-Q --> Z
-R --> BB
-S --> CC
-T --> CC
-U --> V
-V --> EE
-A --> Z
-B --> Z
-D --> P
-E --> AA
-F --> Z
-G --> R
-H --> CC
-I --> CC
-J --> CC
-K --> DD
-L --> DD
+Q --> R
+Q --> S
+R --> NN
+S --> EE
+T --> GG
+U --> FF
+V --> HH
+W --> II
+X --> II
+Y --> Z
+Z --> BB
+AA --> OO
+LL --> MM
+MM --> PP
+A --> FF
+B --> FF
+D --> T
+E --> GG
+F --> FF
+G --> V
+H --> II
+I --> II
+J --> II
+K --> JJ
+L --> JJ
+M --> NN
+N --> OO
+O --> NN
+P --> LL
 ```
 
 **图表来源**
@@ -1344,11 +1709,11 @@ L --> DD
 - ES模块和CommonJS混合
 - Source map生成
 - 多格式输出（cjs）
-- Node.js目标环境
+- Node.js 24目标环境
 
 **打包配置：**
 - Electron Builder自动签名
-- 捆绑Node.js运行时
+- 捆绑Node.js 24运行时
 - 资源文件优化
 - 多平台支持
 
@@ -1356,6 +1721,12 @@ L --> DD
 - **electron-updater**：版本6.8.3，提供自动更新功能
 - **Cloudflare R2**：作为更新服务器存储
 - **GitHub Actions**：自动化发布流程
+
+**Node.js 24集成：**
+- **Node.js 24.14.1**：作为捆绑运行时
+- **多架构支持**：arm64和x64
+- **原生依赖裁剪**：针对特定架构优化
+- **Apple Store Connect**：改进的API密钥处理
 
 **章节来源**
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
@@ -1379,6 +1750,8 @@ L --> DD
 - 网关崩溃检测回调缓存
 - **自动更新状态管理**
 - **更新提示组件状态缓存**
+- **Node.js 24运行时内存优化**
+- **原生依赖裁剪减少内存占用**
 
 ### 启动性能
 
@@ -1393,6 +1766,8 @@ L --> DD
 - 静态服务器并行启动
 - **延迟20秒开始更新检查**
 - **4小时间隔定时更新**
+- **Node.js 24运行时预加载**
+- **智能依赖解析减少启动时间**
 
 ### 网络性能
 
@@ -1407,6 +1782,7 @@ L --> DD
 - CORS配置优化
 - **Cloudflare R2 CDN加速**
 - **更新文件分块传输**
+- **App Store Connect API优化**
 
 ### OAuth性能优化
 
@@ -1419,6 +1795,8 @@ L --> DD
 - PKCE参数复用优化
 - 登录shell环境缓存预热
 - **自动更新下载进度优化**
+- **Apple Store Connect API密钥缓存**
+- **Node.js 24运行时预热**
 
 **章节来源**
 - [apps/electron/src/main/onboarding-oauth.ts:187-258](file://apps/electron/src/main/onboarding-oauth.ts#L187-L258)
@@ -1432,11 +1810,12 @@ L --> DD
 
 **Gateway启动失败**
 - 检查端口占用情况
-- 验证Node.js运行时完整性
+- 验证Node.js 24运行时完整性
 - 查看进程日志输出
 - 确认防火墙设置
 - 验证登录shell环境缓存
 - 检查静态HTTP服务器状态
+- **验证Node.js 24运行时下载**
 
 **IPC通信异常**
 - 验证预加载脚本加载
@@ -1445,6 +1824,7 @@ L --> DD
 - 排查WebSocket连接状态
 - 验证网关崩溃检测回调
 - **验证自动更新IPC事件**
+- **检查Node.js 24运行时集成**
 
 **窗口加载问题**
 - 检查CSP配置
@@ -1452,6 +1832,7 @@ L --> DD
 - 确认文件路径正确性
 - 查看开发服务器连接
 - 验证静态HTTP服务器端口
+- **验证运行时依赖完整性**
 
 **OAuth认证失败**
 - 检查网络连接
@@ -1461,6 +1842,7 @@ L --> DD
 - 检查设备代码流配置
 - 验证PKCE参数生成
 - 验证登录shell环境变量
+- **检查Apple Store Connect API密钥**
 
 **单实例锁冲突**
 - 检查锁文件是否存在
@@ -1496,12 +1878,44 @@ L --> DD
 - **验证electron-updater配置**
 - **查看更新下载进度日志**
 - **确认用户安装权限**
+- **验证Node.js 24运行时更新**
+
+**Node.js 24运行时问题**
+- **检查Node.js 24下载完整性**
+- **验证架构匹配（arm64/x64）**
+- **确认执行权限设置**
+- **检查electron-builder集成**
+- **验证运行时依赖解析**
+
+**Apple Store Connect密钥问题**
+- **验证API密钥文件路径**
+- **检查API密钥内容格式**
+- **确认变量名映射正确**
+- **验证临时文件权限**
+- **检查App Store Connect访问权限**
+
+**运行时依赖问题**
+- **验证依赖版本解析**
+- **检查包清单生成**
+- **确认原生依赖裁剪**
+- **验证预安装扩展**
+- **检查依赖完整性**
+
+**打包和公证问题**
+- **验证打包脚本执行**
+- **检查公证认证配置**
+- **确认装订流程**
+- **验证产物完整性**
+- **检查Apple开发者服务**
 
 **章节来源**
 - [apps/electron/src/main/gateway.ts:140-147](file://apps/electron/src/main/gateway.ts#L140-L147)
 - [apps/electron/src/main/ipc-wizard.ts:105-120](file://apps/electron/src/main/ipc-wizard.ts#L105-L120)
 - [apps/electron/src/main/window.ts:5-13](file://apps/electron/src/main/window.ts#L5-L13)
 - [apps/electron/src/main/updater.ts:71-73](file://apps/electron/src/main/updater.ts#L71-L73)
+- [apps/electron/scripts/download-node.sh:25-29](file://apps/electron/scripts/download-node.sh#L25-L29)
+- [apps/electron/scripts/package-electron.sh:36-65](file://apps/electron/scripts/package-electron.sh#L36-L65)
+- [apps/electron/scripts/generate-runtime-package.mjs:99-105](file://apps/electron/scripts/generate-runtime-package.mjs#L99-L105)
 
 ## 结论
 
@@ -1521,6 +1935,10 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 实时网关崩溃检测
 - **完整的自动更新系统**
 - **自动化发布流程**
+- **Node.js 24运行时集成**
+- **Apple Store Connect API密钥处理**
+- **智能运行时依赖管理**
+- **改进的打包和公证流程**
 
 **用户体验：**
 - 流畅的启动体验
@@ -1533,6 +1951,8 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 平滑的静态资源加载
 - 实时的崩溃通知
 - **无感的更新体验**
+- **高效的Node.js 24运行时启动**
+- **稳定的Apple Store Connect认证**
 
 **扩展性：**
 - 插件化架构支持
@@ -1543,9 +1963,15 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 支持动态配置更新
 - 可扩展的崩溃检测机制
 - **可扩展的更新系统**
+- **可扩展的运行时管理**
+- **可扩展的打包流程**
 
 **新增功能价值：**
-- **自动更新系统**：登录shell环境缓存解决了macOS打包应用的PATH变量问题
+- **Node.js 24运行时集成**：登录shell环境缓存解决了macOS打包应用的PATH变量问题
+- **Apple Store Connect API密钥处理**：改进的认证方式支持文件路径和环境变量
+- **智能运行时依赖管理**：原生依赖裁剪减少了应用体积和启动时间
+- **增强的打包流程**：支持本地快速测试和生产环境打包
+- **改进的公证流程**：支持多种认证方式的macOS公证
 - **GitHub Actions发布**：静态HTTP服务器提供了有效的loopback HTTP origin，改善了origin相关问题
 - **UpdateBanner组件**：网关崩溃检测机制提供了实时的状态监控和用户通知
 - **Cloudflare R2存储**：全新的OAuth认证系统，支持多种认证提供商
@@ -1555,5 +1981,6 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **R2存储配置**：增强的错误处理和调试能力
 - **发布验证机制**：改进的用户认证体验
 - **更新进度跟踪**：更好的安全性和可靠性
+- **运行时依赖裁剪**：优化的应用性能和资源使用
 
-该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。新增的自动更新系统、GitHub Actions自动化发布流程和UpdateBanner组件，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制。
+该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。新增的Node.js 24运行时集成、Apple Store Connect API密钥处理、智能运行时依赖管理和改进的打包流程，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性。
