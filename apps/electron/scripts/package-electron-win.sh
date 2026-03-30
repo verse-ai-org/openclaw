@@ -24,6 +24,18 @@ fi
 
 BUILDER_ARGS=(--win --${ARCH})
 
+load_env() {
+  local env_file="$ELECTRON_DIR/.env"
+  if [ -f "$env_file" ]; then
+    echo "📄 加载环境变量: $env_file"
+    # 读取 .env，跳过注释和空行，导出变量
+    set -a
+    # shellcheck disable=SC1090
+    source "$env_file"
+    set +a
+  fi
+}
+
 print_banner() {
   echo "======================================"
   echo "  OpenClaw Electron Windows 打包"
@@ -37,18 +49,19 @@ print_banner() {
 build_artifacts_if_needed() {
   if [ "$SKIP_BUILD" = "1" ]; then
     echo ""
-    echo "⏭️  [1-2b/5] 跳过构建，复用现有产物"
-    return
+    echo "⏭️  [1-2/5] 跳过 CLI + Control UI 构建，复用现有产物"
+  else
+    echo ""
+    echo "📦 [1/5] 构建 openclaw CLI (pnpm build)"
+    (cd "$ROOT_DIR" && pnpm build)
+
+    echo ""
+    echo "🖥  [2/5] 构建 Control UI (pnpm ui:build)"
+    (cd "$ROOT_DIR" && node scripts/ui.js build)
   fi
 
-  echo ""
-  echo "📦 [1/5] 构建 openclaw CLI (pnpm build)"
-  (cd "$ROOT_DIR" && pnpm build)
-
-  echo ""
-  echo "🖥  [2/5] 构建 Control UI (pnpm ui:build)"
-  (cd "$ROOT_DIR" && node scripts/ui.js build)
-
+  # ui-react 必须始终构建：打包时 Resources/control-ui-react/ 必须存在，
+  # 否则静态 server 找不到 setup.html / index.html，渲染进程会黑屏 + 404。
   echo ""
   echo "⚛️  [2b/5] 构建 React Control UI (ui-react)"
   (cd "$ROOT_DIR" && pnpm --filter openclaw-control-ui-react build)
@@ -56,7 +69,7 @@ build_artifacts_if_needed() {
 
 download_runtime_node() {
   echo ""
-  echo "⬇️  [3/5] 下载 4 Windows 二进制 (win-${ARCH})"
+  echo "⬇️  [3/5] 下载 Node 24 二进制 (win-${ARCH})"
   bash "$ELECTRON_DIR/scripts/download-node.sh" "$ARCH" "win"
 }
 
@@ -69,6 +82,14 @@ generate_runtime_package_json() {
 }
 
 install_runtime_dependencies() {
+  # 准备运行时 node_modules（覆盖 openclaw core CLI/gateway + Electron 额外交付能力）
+  # 说明：不再对整个 openclaw workspace 做 pnpm deploy，避免把未预装扩展
+  # （例如 extensions/tlon）的 git 依赖也卷入 Electron 安装包。
+  # 这里不再只安装少量原生包，而是由 apps/electron/packaged-runtime.json
+  # 显式声明 Electron 随包交付的运行时依赖：
+  # - coreRuntimeDependencies: 内嵌 openclaw CLI/gateway 的最小核心依赖
+  # - runtimeDependencies: 额外需要真实安装、不能只靠 bundle 的依赖
+  # 以保证桌面包内嵌的 openclaw CLI/gateway 能独立启动，同时避免回退到 root runtime 全量兜底。
   echo ""
   echo "📦 [3b/5] 安装 Electron 最小运行时依赖"
 
@@ -160,6 +181,7 @@ print_completion() {
 }
 
 main() {
+  load_env
   print_banner
   build_artifacts_if_needed
   download_runtime_node
