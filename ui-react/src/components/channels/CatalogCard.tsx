@@ -1,6 +1,6 @@
 import { Loader2Icon, PackagePlusIcon, ExternalLinkIcon, MessageSquareIcon } from "lucide-react";
 import type { ChannelCatalogEntry } from "@/types/channels";
-import { getChannelLogoUrl } from "./ChannelLogos.ts";
+import { getChannelLogoUrl } from "./shared/channel-logos";
 
 export function CatalogCard({
   entry,

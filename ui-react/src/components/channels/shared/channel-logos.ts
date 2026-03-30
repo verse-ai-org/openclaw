@@ -6,7 +6,6 @@
 import { MessageSquareIcon } from "lucide-react";
 import feishuLogo from "@/assets/feishu.svg";
 import wechatLogo from "@/assets/wechat.svg";
-// import twitterLogo from "@/assets/twitter.svg";
 import microsoftTeamsLogo from "@/assets/microsoft_teams.svg";
 import discordLogo from "@/assets/discord.svg";
 import telegramLogo from "@/assets/telegram.svg";
@@ -32,11 +31,6 @@ export const CHANNEL_LOGO_URLS: Record<string, string> = {
   line: lineLogo,
   imessage: imessageLogo,
   microsoftteams: microsoftTeamsLogo,
-  signal:
-    "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/signal.svg",
-  matrix:
-    "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/matrix.svg",
-  zalo: "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/zalo.svg",
 } as const;
 
 /**

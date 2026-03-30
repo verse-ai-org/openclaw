@@ -14,6 +14,11 @@ ELECTRON_DIR := $(shell pwd)
 ROOT_DIR     := $(shell cd ../.. && pwd)
 SCRIPTS_DIR  := $(ELECTRON_DIR)/scripts
 
+# ── 自动加载 .env（若存在）────────────────────────────
+# 使变量如 R2_BUCKET_NAME / APP_STORE_CONNECT_* 在 make 目标中可用
+-include $(ELECTRON_DIR)/.env
+export
+
 # ── 架构检测（可覆盖：ARCH=x64 make package）────────
 ARCH ?= $(shell uname -m | sed 's/x86_64/x64/')
 
@@ -83,6 +88,77 @@ package-win: ## 打包 Windows x64
 .PHONY: package-win-fast
 package-win-fast: ## 快速打包 Windows（跳过构建，复用现有产物）
 	LOCAL_FAST=1 ARCH=x64 bash $(SCRIPTS_DIR)/package-electron-win.sh
+
+# ─────────────────────────────────────────────────────
+##@ 发布（上传到 Cloudflare R2）
+# ─────────────────────────────────────────────────────
+
+# R2 配置可放在 .env 中，或直接导出环境变量：
+#   R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET_NAME
+R2_DEST ?= r2:$(R2_BUCKET_NAME)/bossim/releases
+RELEASE_DIR := $(ELECTRON_DIR)/release
+
+.PHONY: r2-check
+r2-check: ## 检查 rclone 是否已安装并已配置 r2
+	@command -v rclone >/dev/null 2>&1 || { echo "❌ rclone 未安装，请运行: brew install rclone"; exit 1; }
+	@rclone listremotes | grep -q '^r2:' || { echo "❌ rclone 未配置 r2 remote，请运行: make r2-setup"; exit 1; }
+	@echo "✅ rclone r2 remote 已就绪"
+
+.PHONY: r2-setup
+r2-setup: ## 交互式配置 rclone r2 remote（首次使用时运行）
+	@command -v rclone >/dev/null 2>&1 || { echo "📥 安装 rclone..."; brew install rclone; }
+	@echo "🔧 配置 rclone r2 remote（需要 R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT）"
+	@if [ -z "$(R2_ACCESS_KEY_ID)" ] || [ -z "$(R2_SECRET_ACCESS_KEY)" ] || [ -z "$(R2_ENDPOINT)" ]; then \
+		echo "❌ 请先在 .env 或环境变量中设置 R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT"; exit 1; \
+	fi
+	rclone config create r2 s3 \
+		provider=Cloudflare \
+		access_key_id=$(R2_ACCESS_KEY_ID) \
+		secret_access_key=$(R2_SECRET_ACCESS_KEY) \
+		endpoint=$(R2_ENDPOINT) \
+		acl=private
+	@echo "✅ rclone r2 remote 配置完成"
+
+.PHONY: upload-r2
+upload-r2: r2-check ## 上传 release/ 产物到 R2（先传包，最后传 yml）
+	@if [ -z "$(R2_BUCKET_NAME)" ]; then \
+		echo "❌ R2_BUCKET_NAME 未设置，请在 .env 或环境变量中配置"; exit 1; \
+	fi
+	@if [ -z "$$(ls $(RELEASE_DIR)/*.dmg 2>/dev/null)" ] && [ -z "$$(ls $(RELEASE_DIR)/*.zip 2>/dev/null)" ]; then \
+		echo "❌ release/ 下未找到 DMG/ZIP，请先运行 make package"; exit 1; \
+	fi
+	@echo "📤 上传安装包到 $(R2_DEST)..."
+	rclone copy $(RELEASE_DIR) $(R2_DEST) \
+		--include "*.dmg" \
+		--include "*.zip" \
+		--include "*.blockmap" \
+		--s3-no-check-bucket \
+		--no-update-modtime \
+		-v
+	@echo "📤 上传更新描述文件 (latest-mac.yml)..."
+	rclone copy $(RELEASE_DIR) $(R2_DEST) \
+		--include "*.yml" \
+		--max-depth 1 \
+		--s3-no-check-bucket \
+		--no-update-modtime \
+		-v
+	@echo "✅ 上传完成"
+	@echo "🔗 更新地址: https://files.aiverser.com/bossim/releases/"
+
+.PHONY: upload-r2-verify
+upload-r2-verify: ## 验证 latest-mac.yml 是否可公开访问
+	@echo "🔍 验证 latest-mac.yml 可访问性..."
+	curl -fsSL "https://files.aiverser.com/bossim/releases/latest-mac.yml" | head -10
+	@echo "✅ latest-mac.yml 可正常访问"
+
+.PHONY: release
+release: ## 一键完整发布：双架构打包 + 上传 R2 + 验证
+	@echo "🚀 开始完整发布流程..."
+	$(MAKE) package-arm64
+	$(MAKE) package-x64
+	$(MAKE) upload-r2
+	$(MAKE) upload-r2-verify
+	@echo "🎉 发布完成！"
 
 # ─────────────────────────────────────────────────────
 ##@ 工具

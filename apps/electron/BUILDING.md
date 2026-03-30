@@ -8,6 +8,7 @@ cd apps/electron
 make dev          # 本地开发
 make package-fast # 本地打包测试（无签名）
 make package      # 正式打包（签名 + 公证）
+make release      # 一键完整发布：双架构打包 + 上传 R2 + 验证
 ```
 
 ## 所有命令
@@ -30,6 +31,12 @@ make package      # 正式打包（签名 + 公证）
 打包（Windows，在 macOS/Linux 交叉编译）
   package-win      打包 Windows x64
   package-win-fast 快速打包 Windows（跳过构建，复用产物）
+
+发布（上传到 Cloudflare R2）
+  r2-setup         首次配置 rclone r2 remote
+  upload-r2        上传 release/ 产物到 R2（先传包，最后传 yml）
+  upload-r2-verify 验证 latest-mac.yml 是否可公开访问
+  release          一键完整发布：双架构打包 + 上传 R2 + 验证
 
 工具
   setup            初次设置：复制 .env 模板
@@ -125,6 +132,74 @@ make package-win-fast # 跳过构建步骤，复用现有产物
 ```
 
 产物：`apps/electron/release/` 下的 `.exe` 安装包和 `.zip`。
+
+---
+
+## 手动发布到 Cloudflare R2（替代 GitHub Actions）
+
+GitHub Actions 构建有问题时，可在本地完成打包并手动上传到 R2，自动更新流程完全一致。
+
+### 第一步：在 .env 中补充 R2 配置
+
+编辑 `apps/electron/.env`，在已有的签名配置下方加入：
+
+```bash
+# Cloudflare R2
+R2_ACCESS_KEY_ID=your-access-key-id
+R2_SECRET_ACCESS_KEY=your-secret-access-key
+R2_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+R2_BUCKET_NAME=your-bucket-name
+```
+
+R2 API Token 在 Cloudflare 控制台 → R2 → Manage R2 API Tokens 创建，权限选 **Object Read & Write**。
+
+### 第二步：首次配置 rclone（只需做一次）
+
+```bash
+# 若未安装 rclone
+brew install rclone
+
+# 自动读取 .env 中的 R2 变量并配置 remote
+make r2-setup
+```
+
+### 第三步：本地打包
+
+```bash
+# 双架构正式打包（含签名 + 公证）
+make package-arm64
+make package-x64
+```
+
+产物在 `apps/electron/release/`，包含 `.dmg`、`.zip`、`.blockmap` 和 `latest-mac.yml`。
+
+### 第四步：上传到 R2
+
+```bash
+make upload-r2
+```
+
+脚本会自动：
+1. 先上传 `.dmg` / `.zip` / `.blockmap`（安装包）
+2. 最后上传 `latest-mac.yml`（更新描述文件）
+
+> **顺序很重要**：`latest-mac.yml` 必须在安装包全部上传完毕后才能上传，否则 electron-updater 会因找不到包文件而报错。
+
+### 第五步：验证
+
+```bash
+make upload-r2-verify
+# 输出 latest-mac.yml 前几行，确认可正常访问
+```
+
+### 一键完整发布
+
+上述步骤可用一个命令完成：
+
+```bash
+make release
+# 等价于：package-arm64 → package-x64 → upload-r2 → upload-r2-verify
+```
 
 ---
 

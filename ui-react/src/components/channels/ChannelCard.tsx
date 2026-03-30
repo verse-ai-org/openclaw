@@ -2,7 +2,7 @@ import { Loader2Icon, CheckCircle2Icon, XCircleIcon, AlertCircleIcon, SettingsIc
 import { cn } from "@/lib/utils";
 import { useChannelsStore } from "@/store/channels.store";
 import type { ChannelAccountSnapshot } from "@/types/channels";
-import { getChannelLogoUrl } from "./ChannelLogos";
+import { getChannelLogoUrl } from "./shared/channel-logos";
 
 type DotStatus = "running" | "error" | "idle" | "disabled";
 
