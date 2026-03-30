@@ -20,19 +20,26 @@ import { CatalogSection } from "@/components/channels/CatalogSection";
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 function resolveChannelOrder(snapshot: ChannelsStatusSnapshot): string[] {
+  let ids: string[];
   if (snapshot.channelMeta?.length) {
-    return snapshot.channelMeta.map((e) => e.id);
+    ids = snapshot.channelMeta.map((e) => e.id);
+  } else if (snapshot.channelOrder?.length) {
+    ids = snapshot.channelOrder;
+  } else {
+    ids = [];
   }
-  if (snapshot.channelOrder?.length) {
-    return snapshot.channelOrder;
-  }
-  return DEFAULT_CHANNEL_ORDER as unknown as string[];
+  // Only show channels defined in DEFAULT_CHANNEL_ORDER, in that exact order.
+  const installedSet = new Set(ids);
+  return (DEFAULT_CHANNEL_ORDER as readonly string[]).filter((id) =>
+    installedSet.has(id),
+  );
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function ChannelsPage() {
   const isConnected = useGatewayStore((s) => s.status === "connected");
+  const beginRestart = useGatewayStore((s) => s.beginRestart);
   const {
     snapshot,
     loading,
@@ -49,6 +56,8 @@ export function ChannelsPage() {
   const [openChannelId, setOpenChannelId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] =
     useState<ChannelActionVariant | null>(null);
+  // Channel to open once Gateway reconnects after an enable action
+  const [pendingOpenChannel, setPendingOpenChannel] = useState<string | null>(null);
 
   const fetchPlugins = usePluginsStore((s) => s.fetchPlugins);
   const togglingPluginId = usePluginsStore((s) => s.togglingPluginId);
@@ -70,6 +79,33 @@ export function ChannelsPage() {
     fetchCatalog,
     fetchPlugins,
   ]);
+
+  // When Gateway reconnects (or is already connected) after a channel/plugin
+  // action, refresh data and open any pending channel detail dialog.
+  // This fires both when isConnected transitions true→false→true (restart) and
+  // when isConnected is already true and pendingOpenChannel is set (no restart).
+  useEffect(() => {
+    if (!isConnected) { return; }
+    if (pendingOpenChannel) {
+      setOpenChannelId(pendingOpenChannel);
+      setPendingOpenChannel(null);
+      void fetchStatus(true);
+      void fetchCatalog();
+      void fetchPlugins();
+    }
+  }, [isConnected, pendingOpenChannel, fetchStatus, fetchCatalog, fetchPlugins]);
+
+  // After any intentional restart, refresh all data once reconnected.
+  const isRestarting = useGatewayStore((s) => s.restarting);
+  useEffect(() => {
+    // restarting just cleared (setConnected fired) and we're connected
+    if (!isRestarting && isConnected) {
+      void fetchCatalog();
+      void fetchPlugins();
+      void fetchStatus(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRestarting]);
 
   const handleRefresh = () => {
     void fetchStatus(true);
@@ -145,15 +181,28 @@ export function ChannelsPage() {
   const needsSetupChannels = enabledChannels.filter(
     (id) => !configuredChannels.includes(id),
   );
+  // Shared order map used to sort both installed-disabled and not-installed entries.
+  const _discoverOrderMap = new Map(
+    (DEFAULT_CHANNEL_ORDER as readonly string[]).map((id, i) => [id, i]),
+  );
+  const _allowedIds = new Set(DEFAULT_CHANNEL_ORDER as readonly string[]);
   // Catalog entries not yet installed (plugin not present at all)
-  const notInstalledEntries = (catalog ?? []).filter(
-    (e) => !e.installed && !installedIds.has(e.id),
-  );
+  const notInstalledEntries = (catalog ?? [])
+    .filter((e) => !e.installed && !installedIds.has(e.id) && _allowedIds.has(e.id))
+    .sort(
+      (a, b) =>
+        (_discoverOrderMap.get(a.id) ?? Infinity) -
+        (_discoverOrderMap.get(b.id) ?? Infinity),
+    );
   // Catalog entries installed but plugin is disabled (need Enable Plugin action)
-  const pluginDisabledEntries = (catalog ?? []).filter(
-    (e) => e.installed && e.pluginEnabled === false,
-  );
-  // Discover tab shows both: not-installed + plugin-disabled
+  const pluginDisabledEntries = (catalog ?? [])
+    .filter((e) => e.installed && e.pluginEnabled === false && _allowedIds.has(e.id))
+    .sort(
+      (a, b) =>
+        (_discoverOrderMap.get(a.id) ?? Infinity) -
+        (_discoverOrderMap.get(b.id) ?? Infinity),
+    );
+  // Discover tab shows both: not-installed + plugin-disabled, sorted by DEFAULT_CHANNEL_ORDER.
   const discoverEntries = [...pluginDisabledEntries, ...notInstalledEntries];
 
   const handleDisable = (channelId: string) => {
@@ -377,18 +426,31 @@ export function ChannelsPage() {
       <ChannelActionDialog
         action={pendingAction}
         onConfirm={async (action) => {
-          if (action.kind === "enable-channel") {
-            await enableChannel(action.channelId, true);
-            setPendingAction(null);
-            setOpenChannelId(action.channelId);
-          } else if (action.kind === "disable-channel") {
-            await enableChannel(action.channelId, false);
-            setPendingAction(null);
-          } else if (action.kind === "enable-plugin") {
-            const { enablePlugin } = usePluginsStore.getState();
-            await enablePlugin(action.pluginId, true);
-            setPendingAction(null);
-            void fetchCatalog();
+          setPendingAction(null);
+          // Show the global overlay. It will be cleared by setConnected() once
+          // the WebSocket reconnects, or immediately below if Gateway didn't restart.
+          beginRestart();
+          try {
+            if (action.kind === "enable-channel") {
+              // Remember which channel to open once Gateway is back up.
+              setPendingOpenChannel(action.channelId);
+              await enableChannel(action.channelId, true);
+              // RPC returned — Gateway may restart asynchronously after this.
+              // Keep the overlay open; it will clear on the next setConnected().
+              // The pendingOpenChannel effect will open the detail dialog then.
+            } else if (action.kind === "disable-channel") {
+              await enableChannel(action.channelId, false);
+              // disable also triggers a Gateway restart; keep overlay open.
+              // setConnected() will clear it when WS reconnects.
+            } else if (action.kind === "enable-plugin") {
+              const { enablePlugin } = usePluginsStore.getState();
+              await enablePlugin(action.pluginId, true);
+              // Plugin enable triggers a Gateway restart; keep overlay open.
+              // setConnected() will clear it when WS reconnects.
+            }
+          } catch {
+            // RPC failed — Gateway restarted and closed the WS before responding.
+            // Keep restarting=true; setConnected() will clear it on reconnect.
           }
         }}
         onCancel={() => setPendingAction(null)}

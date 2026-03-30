@@ -267,6 +267,7 @@ export const useChannelsStore = create<ChannelsState>()((set, get) => ({
       set((s) => ({
         toggleChannelError: { ...s.toggleChannelError, [channelId]: String(err) },
       }));
+      throw err;
     } finally {
       set({ togglingChannelId: null });
     }

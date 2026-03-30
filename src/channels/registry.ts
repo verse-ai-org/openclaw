@@ -32,7 +32,8 @@ const CHAT_CHANNEL_META: Record<ChatChannelId, ChannelMeta> = {
     detailLabel: "Telegram Bot",
     docsPath: "/channels/telegram",
     docsLabel: "telegram",
-    blurb: "simplest way to get started — register a bot with @BotFather and get going.",
+    blurb:
+      "simplest way to get started — register a bot with @BotFather and get going.",
     systemImage: "paperplane",
     selectionDocsPrefix: "",
     selectionDocsOmitLabel: true,
@@ -95,7 +96,8 @@ const CHAT_CHANNEL_META: Record<ChatChannelId, ChannelMeta> = {
     detailLabel: "Signal REST",
     docsPath: "/channels/signal",
     docsLabel: "signal",
-    blurb: 'signal-cli linked device; more setup (David Reagans: "Hop on Discord.").',
+    blurb:
+      'signal-cli linked device; more setup (David Reagans: "Hop on Discord.").',
     systemImage: "antenna.radiowaves.left.and.right",
   },
   imessage: {
@@ -144,7 +146,9 @@ export function getChatChannelMeta(id: ChatChannelId): ChatChannelMeta {
   return CHAT_CHANNEL_META[id];
 }
 
-export function normalizeChatChannelId(raw?: string | null): ChatChannelId | null {
+export function normalizeChatChannelId(
+  raw?: string | null,
+): ChatChannelId | null {
   const normalized = normalizeChannelKey(raw);
   if (!normalized) {
     return null;
@@ -177,7 +181,9 @@ export function normalizeAnyChannelId(raw?: string | null): ChannelId | null {
     if (id && id === key) {
       return true;
     }
-    return (entry.plugin.meta.aliases ?? []).some((alias) => alias.trim().toLowerCase() === key);
+    return (entry.plugin.meta.aliases ?? []).some(
+      (alias) => alias.trim().toLowerCase() === key,
+    );
   });
   return hit?.plugin.id ?? null;
 }

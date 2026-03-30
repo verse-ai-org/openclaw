@@ -104,6 +104,7 @@ export const usePluginsStore = create<PluginsState>()((set, get) => ({
         togglingPluginId: null,
         toggleError: { ...s.toggleError, [pluginId]: String(err) },
       }));
+      throw err;
     }
   },
 

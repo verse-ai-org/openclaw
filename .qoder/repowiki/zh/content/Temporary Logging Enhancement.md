@@ -9,12 +9,21 @@
 - [src/logging/env-log-level.ts](file://src/logging/env-log-level.ts)
 - [src/logging/state.ts](file://src/logging/state.ts)
 - [src/logging/levels.ts](file://src/logging/levels.ts)
+- [src/logging/timestamps.ts](file://src/logging/timestamps.ts)
+- [src/logging/node-require.ts](file://src/logging/node-require.ts)
 - [src/logger.ts](file://src/logger.ts)
 - [src/logger.test.ts](file://src/logger.test.ts)
 - [src/logging/subsystem.test.ts](file://src/logging/subsystem.test.ts)
 - [docs/logging.md](file://docs/logging.md)
 - [docs/zh-CN/logging.md](file://docs/zh-CN/logging.md)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 移除了关于"临时日志增强功能"的描述，因为该功能已被正式的日志系统完全替代
+- 更新了项目结构和架构概览，反映了当前完整的日志系统实现
+- 删除了与临时功能相关的性能优化和故障排除指南
+- 更新了结论部分，强调现有日志系统的完整性和成熟度
 
 ## 目录
 1. [简介](#简介)
@@ -29,7 +38,7 @@
 
 ## 简介
 
-OpenClaw 的临时日志增强功能是一个经过精心设计的日志系统，旨在提供灵活、可配置且高性能的日志记录能力。该系统支持双通道日志输出（文件日志和控制台输出），具有智能的子系统路由、环境变量覆盖、以及针对不同运行环境的优化配置。
+OpenClaw 的日志系统是一个经过精心设计的现代化日志基础设施，旨在提供灵活、可配置且高性能的日志记录能力。该系统支持双通道日志输出（文件日志和控制台输出），具有智能的子系统路由、环境变量覆盖、以及针对不同运行环境的优化配置。
 
 该日志系统的核心特性包括：
 - **双通道输出**：同时支持文件日志（JSON Lines）和控制台输出
@@ -37,6 +46,7 @@ OpenClaw 的临时日志增强功能是一个经过精心设计的日志系统�
 - **环境配置**：通过环境变量和配置文件进行灵活控制
 - **性能优化**：针对测试环境和生产环境的不同优化策略
 - **安全脱敏**：对敏感信息进行自动脱敏处理
+- **OpenTelemetry 集成**：支持结构化诊断事件和 OTLP 导出
 
 ## 项目结构
 
@@ -54,11 +64,13 @@ subgraph "辅助组件"
 E[src/logging/env-log-level.ts<br/>环境变量处理]
 F[src/logging/state.ts<br/>全局状态管理]
 G[src/logging/levels.ts<br/>日志级别定义]
-H[src/logger.ts<br/>便捷日志接口]
+H[src/logging/timestamps.ts<br/>时间戳格式化]
+I[src/logging/node-require.ts<br/>动态模块加载]
+J[src/logger.ts<br/>便捷日志接口]
 end
 subgraph "文档"
-I[docs/logging.md<br/>用户文档]
-J[docs/zh-CN/logging.md<br/>中文文档]
+K[docs/logging.md<br/>用户文档]
+L[docs/zh-CN/logging.md<br/>中文文档]
 end
 A --> B
 A --> C
@@ -68,10 +80,11 @@ A --> F
 B --> F
 C --> F
 D --> G
-H --> A
-H --> C
-I --> A
+H --> I
 J --> A
+J --> C
+K --> A
+L --> A
 ```
 
 **图表来源**
@@ -93,6 +106,7 @@ J --> A
 - **文件管理**：管理滚动日志文件和大小限制
 - **传输层**：支持外部日志传输器注册
 - **缓存机制**：智能缓存以避免重复配置解析
+- **性能优化**：针对测试环境的快速路径优化
 
 ### 控制台日志处理 (Console)
 
@@ -101,6 +115,7 @@ J --> A
 - **样式控制**：支持pretty、compact、json三种输出样式
 - **消息过滤**：智能过滤冗余控制台消息
 - **时间戳管理**：统一的时间戳格式化
+- **流错误处理**：优雅处理管道关闭等异步错误
 
 ### 子系统日志路由 (Subsystem)
 
@@ -109,6 +124,7 @@ J --> A
 - **颜色编码**：为不同子系统分配唯一颜色标识
 - **消息去重**：去除重复的子系统前缀
 - **层级结构**：支持多级子系统嵌套
+- **运行时集成**：与运行时环境无缝集成
 
 **章节来源**
 - [src/logging/logger.ts:126-184](file://src/logging/logger.ts#L126-L184)
@@ -280,31 +296,39 @@ B[json5 - 配置解析]
 C[chalk - 颜色处理]
 D[node:fs - 文件系统]
 E[node:path - 路径处理]
+F[node:util - 工具函数]
+G[node:module - 动态模块]
 end
 subgraph "内部模块"
-F[logger.ts - 主记录器]
-G[console.ts - 控制台处理]
-H[subsystem.ts - 子系统路由]
-I[config.ts - 配置读取]
-J[env-log-level.ts - 环境变量]
-K[state.ts - 全局状态]
-L[levels.ts - 日志级别]
+H[logger.ts - 主记录器]
+I[console.ts - 控制台处理]
+J[subsystem.ts - 子系统路由]
+K[config.ts - 配置读取]
+L[env-log-level.ts - 环境变量]
+M[state.ts - 全局状态]
+N[levels.ts - 日志级别]
+O[timestamps.ts - 时间戳]
+P[node-require.ts - 模块加载]
 end
-A --> F
-B --> I
-C --> G
-D --> F
-E --> F
-F --> G
-F --> H
-F --> J
-F --> K
-G --> I
-G --> K
+A --> H
+B --> K
+C --> I
+D --> H
+E --> H
+F --> I
+G --> P
+H --> I
+H --> J
 H --> L
+H --> M
 I --> K
-J --> K
-L --> K
+I --> M
+J --> N
+K --> M
+L --> M
+N --> M
+O --> H
+P --> H
 ```
 
 **图表来源**
@@ -333,6 +357,7 @@ L --> K
 - **批量写入**：文件写入采用同步批量方式
 - **大小限制**：防止日志文件无限增长
 - **自动清理**：定期清理过期的日志文件
+- **流错误处理**：优雅处理管道关闭等异步错误
 
 ## 故障排除指南
 
@@ -344,6 +369,7 @@ L --> K
 | 控制台输出异常 | 终端显示混乱 | 检查 `consoleStyle` 设置，确认TTY环境 |
 | 配置不生效 | 日志级别未改变 | 验证环境变量优先级，检查配置文件语法 |
 | 性能问题 | 应用响应缓慢 | 检查日志级别，考虑禁用文件日志或降低级别 |
+| 管道错误 | 应用崩溃 | 检查流错误处理，确认管道状态 |
 
 ### 调试技巧
 
@@ -351,6 +377,7 @@ L --> K
 2. **检查配置**：使用 `openclaw doctor` 验证日志配置
 3. **监控文件大小**：定期检查日志文件大小和数量
 4. **验证输出**：确认控制台和文件输出都正常工作
+5. **检查传输器**：验证外部传输器是否正确注册
 
 **章节来源**
 - [docs/logging.md:347-353](file://docs/logging.md#L347-L353)
@@ -358,12 +385,14 @@ L --> K
 
 ## 结论
 
-OpenClaw 的临时日志增强功能展现了现代日志系统的设计最佳实践。通过模块化架构、智能配置管理和性能优化，该系统为开发者提供了强大而灵活的日志记录能力。
+OpenClaw 的日志系统展现了现代日志基础设施的设计最佳实践。通过模块化架构、智能配置管理和性能优化，该系统为开发者提供了强大而灵活的日志记录能力。
 
 关键优势包括：
+- **完整性**：完整的日志系统，无需临时增强功能
 - **灵活性**：支持多种配置来源和输出目标
 - **性能**：针对不同环境进行了专门优化
 - **可维护性**：清晰的模块分离和完整的测试覆盖
 - **安全性**：内置敏感信息脱敏和错误处理机制
+- **标准化**：支持 OpenTelemetry 和结构化诊断事件
 
-该日志系统不仅满足了当前的需求，还为未来的扩展和改进奠定了坚实的基础。通过合理的架构设计和充分的测试保障，它能够可靠地支持各种规模的应用场景。
+该日志系统不仅满足了当前的需求，还为未来的扩展和改进奠定了坚实的基础。通过合理的架构设计和充分的测试保障，它能够可靠地支持各种规模的应用场景。现有的日志系统已经完全替代了之前的临时增强功能，提供了更加稳定和功能完整的日志记录解决方案。

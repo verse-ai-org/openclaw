@@ -1,7 +1,8 @@
-import { Loader2Icon, CheckCircle2Icon, XCircleIcon, AlertCircleIcon, SettingsIcon, WifiIcon, WifiOffIcon } from "lucide-react";
+import { Loader2Icon, CheckCircle2Icon, XCircleIcon, AlertCircleIcon, SettingsIcon, WifiIcon, WifiOffIcon, MessageSquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChannelsStore } from "@/store/channels.store";
 import type { ChannelAccountSnapshot } from "@/types/channels";
+import { getChannelLogoUrl } from "./ChannelLogos";
 
 type DotStatus = "running" | "error" | "idle" | "disabled";
 
@@ -59,14 +60,27 @@ export function ChannelCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className={cn(
-            "size-2.5 rounded-full shrink-0 mt-0.5",
-            dot === "running" && "bg-emerald-500",
-            dot === "error" && "bg-red-500",
-            dot === "idle" && "bg-amber-400",
-            dot === "disabled" && "bg-[#D1D5DB]",
-          )} />
+        <div className="flex items-start gap-3">
+          {/* Channel Logo */}
+          <div className="shrink-0 mt-0.5">
+            {(() => {
+              const logoUrl = getChannelLogoUrl(channelId);
+              if (logoUrl) {
+                return (
+                  <img
+                    src={logoUrl}
+                    alt={label}
+                    className="size-8 object-contain"
+                    loading="lazy"
+                  />
+                );
+              }
+              // Fallback to default icon if no logo
+              return (
+                <MessageSquareIcon className="size-8 text-zinc-400" />
+              );
+            })()}
+          </div>
           <div>
             <p className="text-sm font-semibold text-[#111827] leading-tight">{label}</p>
             {detailLabel && <p className="text-[11px] text-[#9CA3AF] mt-0.5">{detailLabel}</p>}
@@ -76,15 +90,15 @@ export function ChannelCard({
           className={cn(
             "shrink-0 transition-colors disabled:opacity-50",
             enabled
-              ? "relative inline-flex h-[26px] w-[44px] cursor-pointer items-center rounded-full bg-primary"
-              : "rounded-full bg-primary px-5 py-[6px] text-[12px] font-bold text-white hover:bg-primary/90",
+              ? "relative inline-flex h-6.5 w-11 cursor-pointer items-center rounded-full bg-primary"
+              : "rounded-full bg-primary px-5 py-1.5 text-[12px] font-bold text-white hover:bg-primary/90",
           )}
           title={enabled ? "Disable" : "Enable"}
         >
           {isToggling
             ? <Loader2Icon className={cn("size-4 animate-spin", enabled ? "mx-auto text-white" : "")} />
             : enabled
-            ? <span className="inline-block size-[22px] translate-x-[20px] rounded-full bg-white shadow-sm transition-transform" />
+            ? <span className="inline-block size-5.5 translate-x-5 rounded-full bg-white shadow-sm transition-transform" />
             : "Enable"}
         </button>
       </div>

@@ -47,6 +47,12 @@ interface GatewayState {
   lastErrorCode: string | null;
   serverVersion: string | null;
 
+  // Set to true when a user action intentionally triggers a Gateway restart.
+  // Cleared automatically when the connection is re-established.
+  // Used by the global GatewayRestartingOverlay to distinguish intentional
+  // restarts from unexpected disconnects.
+  restarting: boolean;
+
   // Presence / health (populated from hello snapshot + events)
   presenceEntries: PresenceEntry[];
   debugHealth: HealthSnapshot | null;
@@ -65,6 +71,8 @@ interface GatewayState {
   setConnecting: () => void;
   handleEvent: (evt: GatewayEventFrame) => void;
   reset: () => void;
+  /** Mark that we are intentionally waiting for Gateway to restart. */
+  beginRestart: () => void;
 }
 
 const MAX_EVENT_LOG = 250;
@@ -76,6 +84,7 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
   lastError: null,
   lastErrorCode: null,
   serverVersion: null,
+  restarting: false,
   presenceEntries: [],
   debugHealth: null,
   presenceStatus: null,
@@ -102,6 +111,8 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
 
     set({
       status: "connected",
+      // Clear restarting flag — Gateway is back up.
+      restarting: false,
       hello,
       lastError: null,
       lastErrorCode: null,
@@ -111,6 +122,8 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
       updateAvailable: snapshot?.updateAvailable ?? null,
     });
   },
+
+  beginRestart: () => set({ restarting: true }),
 
   setDisconnected: ({ code, reason, error }) => {
     // Code 1012 = Service Restart (expected, not an error)
@@ -188,6 +201,7 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
       lastError: null,
       lastErrorCode: null,
       serverVersion: null,
+      restarting: false,
       presenceEntries: [],
       debugHealth: null,
       presenceStatus: null,

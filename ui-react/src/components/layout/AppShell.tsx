@@ -1,6 +1,7 @@
 import { BellIcon, MonitorIcon } from "lucide-react";
 import { Outlet, useLocation } from "react-router";
 import { GatewayStatusIndicator } from "@/components/gateway/GatewayStatusIndicator";
+import { GatewayRestartingOverlay } from "@/components/gateway/GatewayRestartingOverlay";
 import { UpdateBanner } from "@/components/layout/UpdateBanner";
 import { AppSidebar } from "@/components/layout/Sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -91,6 +92,8 @@ export function AppShell() {
           </main>
         </SidebarInset>
       </SidebarProvider>
+      {/* Global overlay: shown while Gateway intentionally restarts */}
+      <GatewayRestartingOverlay />
     </div>
   );
 }
