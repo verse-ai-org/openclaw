@@ -56,7 +56,7 @@ build_artifacts_if_needed() {
 
 download_runtime_node() {
   echo ""
-  echo "⬇️  [3/5] 下载 Node 22 Windows 二进制 (win-${ARCH})"
+  echo "⬇️  [3/5] 下载 4 Windows 二进制 (win-${ARCH})"
   bash "$ELECTRON_DIR/scripts/download-node.sh" "$ARCH" "win"
 }
 

@@ -43,6 +43,26 @@ load_env() {
       echo "⚠️  APP_STORE_CONNECT_API_KEY_PATH 指定的文件不存在: $APP_STORE_CONNECT_API_KEY_PATH"
     fi
   fi
+
+  # electron-builder 26.8.1 内置公证使用不同的变量名，映射过去
+  # APPLE_API_KEY = p8 文件路径, APPLE_API_KEY_ID = Key ID, APPLE_API_ISSUER = Issuer ID
+  if [ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" ]; then
+    # 本地：直接用文件路径
+    export APPLE_API_KEY="$APP_STORE_CONNECT_API_KEY_PATH"
+  elif [ -n "${APP_STORE_CONNECT_API_KEY_P8:-}" ]; then
+    # CI：p8 内容写入临时文件，再指向该路径
+    _TMP_P8="$(mktemp /tmp/AuthKey_XXXXXX.p8)"
+    printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" > "$_TMP_P8"
+    chmod 600 "$_TMP_P8"
+    export APPLE_API_KEY="$_TMP_P8"
+    echo "🔑 CI：已将 p8 内容写入临时文件: $_TMP_P8"
+  fi
+  if [ -n "${APP_STORE_CONNECT_KEY_ID:-}" ]; then
+    export APPLE_API_KEY_ID="$APP_STORE_CONNECT_KEY_ID"
+  fi
+  if [ -n "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
+    export APPLE_API_ISSUER="$APP_STORE_CONNECT_ISSUER_ID"
+  fi
 }
 
 print_banner() {
@@ -78,7 +98,7 @@ build_artifacts_if_needed() {
 
 download_runtime_node() {
   echo ""
-  echo "⬇️  [3/5] 下载 Node 22 二进制 ($ARCH)"
+  echo "⬇️  [3/5] 下载 Node 24 二进制 ($ARCH)"
   bash "$ELECTRON_DIR/scripts/download-node.sh" "$ARCH"
 }
 

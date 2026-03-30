@@ -26,6 +26,13 @@ exports.default = async function notarize(context) {
     return;
   }
 
+  // electron-builder 26.8.1+ 已内置公证逻辑（通过 APPLE_API_KEY / APPLE_API_ISSUER / APPLE_API_KEY_ID）
+  // 若内置公证变量已设置，跳过此 afterSign hook 避免重复公证
+  if (process.env.APPLE_API_KEY && process.env.APPLE_API_KEY_ID && process.env.APPLE_API_ISSUER) {
+    console.log('⏭️  跳过 afterSign 公证（electron-builder 内置公证已处理）');
+    return;
+  }
+
   const issuerID = process.env.APP_STORE_CONNECT_ISSUER_ID;
   const keyID = process.env.APP_STORE_CONNECT_KEY_ID;
   const keyP8 = process.env.APP_STORE_CONNECT_API_KEY_P8;

@@ -46,9 +46,55 @@ contextBridge.exposeInMainWorld("electronBridge", {
   restartGateway: (): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("gateway:restart"),
 
+  /** 手动重启 Gateway */
+  manualGatewayRestart: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("gateway:manual-restart"),
+
   /** 获取当前 Gateway 连接信息 */
   getGatewayInfo: (): Promise<{ port: number; token: string; wsUrl: string }> =>
     ipcRenderer.invoke("gateway:info"),
+
+  /**
+   * 监听 Gateway 正在重启事件
+   * callback 参数：{ attempt: number, maxAttempts: number }
+   * 返回取消订阅函数
+   */
+  onGatewayRestarting: (
+    callback: (data: { attempt: number; maxAttempts: number }) => void,
+  ): (() => void) => {
+    const handler = (_: Electron.IpcRendererEvent, data: { attempt: number; maxAttempts: number }) =>
+      callback(data);
+    ipcRenderer.on("gateway:restarting", handler);
+    return () => ipcRenderer.removeListener("gateway:restarting", handler);
+  },
+
+  /**
+   * 监听 Gateway 重启完成事件
+   * callback 参数：{ success: boolean, error?: string }
+   * 返回取消订阅函数
+   */
+  onGatewayRestarted: (
+    callback: (data: { success: boolean; error?: string }) => void,
+  ): (() => void) => {
+    const handler = (_: Electron.IpcRendererEvent, data: { success: boolean; error?: string }) =>
+      callback(data);
+    ipcRenderer.on("gateway:restarted", handler);
+    return () => ipcRenderer.removeListener("gateway:restarted", handler);
+  },
+
+  /**
+   * 监听 Gateway 崩溃事件
+   * callback 参数：{ code: number | null, signal: string | null }
+   * 返回取消订阅函数
+   */
+  onGatewayCrashed: (
+    callback: (data: { code: number | null; signal: string | null }) => void,
+  ): (() => void) => {
+    const handler = (_: Electron.IpcRendererEvent, data: { code: number | null; signal: string | null }) =>
+      callback(data);
+    ipcRenderer.on("gateway:crashed", handler);
+    return () => ipcRenderer.removeListener("gateway:crashed", handler);
+  },
 
   /**
    * Validate an API key for the given auth method.

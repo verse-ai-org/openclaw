@@ -17,21 +17,19 @@
 - [apps/electron/src/main/onboarding-providers.ts](file://apps/electron/src/main/onboarding-providers.ts)
 - [apps/electron/src/main/oauth-device-flow.ts](file://apps/electron/src/main/oauth-device-flow.ts)
 - [apps/electron/src/main/oauth-utils.ts](file://apps/electron/src/main/oauth-utils.ts)
+- [apps/electron/src/main/updater.ts](file://apps/electron/src/main/updater.ts)
 - [ui-react/src/adapters/ElectronWizardAdapter.ts](file://ui-react/src/adapters/ElectronWizardAdapter.ts)
+- [ui-react/src/components/layout/UpdateBanner.tsx](file://ui-react/src/components/layout/UpdateBanner.tsx)
+- [.github/workflows/electron-release.yml](file://.github/workflows/electron-release.yml)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 新增登录shell环境缓存功能，解决macOS打包应用丢失PATH变量问题
-- 新增静态HTTP服务器功能，解决origin相关问题
-- 新增网关崩溃检测和通知机制
-- OAuth系统重大重构：新增设备代码流框架和通用运行器
-- 单实例锁机制：新增文件锁和单实例保护功能
-- URL方案注册改进：增强的URL协议处理和回调机制
-- 配置修补功能：新增配置合并补丁和模型修补能力
-- 增强的错误处理和日志记录系统
-- 改进的预加载桥接功能和OAuth验证适配器支持
-- 优化的IPC通信机制和错误恢复能力
+- 新增完整的自动更新系统，包括updater.ts实现和UpdateBanner组件
+- 新增GitHub Actions自动化发布流程，支持Cloudflare R2存储
+- 新增electron-updater依赖和相关配置
+- 新增自动更新的IPC通信机制
+- 新增更新服务器配置和发布流程
 
 ## 目录
 1. [简介](#简介)
@@ -39,24 +37,29 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [OAuth认证系统](#oauth认证系统)
-7. [设备代码流框架](#设备代码流框架)
-8. [单实例锁机制](#单实例锁机制)
-9. [URL方案注册改进](#url方案注册改进)
-10. [配置修补功能](#配置修补功能)
-11. [登录shell环境缓存](#登录shell环境缓存)
-12. [静态HTTP服务器](#静态http服务器)
-13. [网关崩溃检测](#网关崩溃检测)
-14. [依赖关系分析](#依赖关系分析)
-15. [性能考虑](#性能考虑)
-16. [故障排除指南](#故障排除指南)
-17. [结论](#结论)
+6. [自动更新系统](#自动更新系统)
+7. [GitHub Actions自动化发布](#github-actions自动化发布)
+8. [OAuth认证系统](#oauth认证系统)
+9. [设备代码流框架](#设备代码流框架)
+10. [单实例锁机制](#单实例锁机制)
+11. [URL方案注册改进](#url方案注册改进)
+12. [配置修补功能](#配置修补功能)
+13. [登录shell环境缓存](#登录shell环境缓存)
+14. [静态HTTP服务器](#静态http服务器)
+15. [网关崩溃检测](#网关崩溃检测)
+16. [依赖关系分析](#依赖关系分析)
+17. [性能考虑](#性能考虑)
+18. [故障排除指南](#故障排除指南)
+19. [结论](#结论)
 
 ## 简介
 
 OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务和React控制界面。该应用通过Electron框架提供跨平台支持，包含完整的设置向导、网关管理和实时通信功能。
 
 **最新增强功能：**
+- **自动更新系统**：完整的electron-updater集成，支持静默下载和用户确认安装
+- **GitHub Actions自动化发布**：基于Cloudflare R2的CI/CD发布流程
+- **更新提示界面**：UpdateBanner组件提供友好的更新通知和安装体验
 - **登录shell环境缓存**：解决macOS打包应用丢失PATH变量问题
 - **静态HTTP服务器**：提供有效的loopback HTTP origin，解决origin相关问题
 - **网关崩溃检测**：实时监控Gateway进程状态并通知渲染进程
@@ -64,9 +67,9 @@ OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务�
 - **单实例保护**：基于文件锁的多平台单实例机制
 - **URL协议增强**：改进的openclaw://协议处理和回调管理
 - **配置修补**：动态配置合并和模型修补功能
-- **增强的窗口管理**：全面的错误处理和日志记录系统
-- **改进的预加载桥接**：增强的安全通信机制和错误处理
-- **优化的IPC通信**：改进的消息传递和错误恢复机制
+- **增强的错误处理和日志记录系统**
+- **改进的预加载桥接功能和OAuth验证适配器支持**
+- **优化的IPC通信机制和错误恢复能力**
 
 该应用的主要特点包括：
 - 内置Node.js运行时和OpenClaw CLI
@@ -78,6 +81,7 @@ OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务�
 - 增强的错误处理和调试功能
 - 单实例锁保护机制
 - 实时网关状态监控
+- 自动更新功能
 
 ## 项目结构
 
@@ -102,19 +106,21 @@ F --> N[onboarding-oauth.ts - OAuth认证]
 F --> O[onboarding-providers.ts - 提供商配置]
 F --> P[oauth-device-flow.ts - 设备代码流]
 F --> Q[oauth-utils.ts - OAuth工具]
-G --> R[index.ts - 预加载脚本]
-C --> S[ui-react/ - React构建产物]
-D --> T[图标和权限文件]
-E --> U[编译输出]
+F --> R[updater.ts - 自动更新]
+G --> S[index.ts - 预加载脚本]
+C --> T[ui-react/ - React构建产物]
+C --> U[UpdateBanner.tsx - 更新提示组件]
+D --> V[图标和权限文件]
+E --> W[编译输出]
 end
 ```
 
 **图表来源**
-- [apps/electron/package.json:1-40](file://apps/electron/package.json#L1-L40)
+- [apps/electron/package.json:1-43](file://apps/electron/package.json#L1-L43)
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
 
 **章节来源**
-- [apps/electron/package.json:1-40](file://apps/electron/package.json#L1-L40)
+- [apps/electron/package.json:1-43](file://apps/electron/package.json#L1-L43)
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
 - [apps/electron/tsconfig.json:1-27](file://apps/electron/tsconfig.json#L1-L27)
 
@@ -134,6 +140,7 @@ end
 - 调试日志记录
 - 单实例锁保护
 - 网关崩溃监控
+- **自动更新管理**：初始化和控制更新流程
 
 ### 预加载脚本
 
@@ -146,6 +153,7 @@ end
 - 支持OAuth认证流程
 - 单实例锁状态同步
 - 网关崩溃状态通知
+- **自动更新事件监听**：接收更新准备通知
 
 ### 网关管理器
 
@@ -160,6 +168,18 @@ end
 - 增强的错误恢复机制
 - 网关崩溃检测回调
 
+### 自动更新管理器
+
+**新增功能**：完整的自动更新系统，基于electron-updater实现。
+
+**功能特性：**
+- 静默下载新版本，避免占用带宽
+- 用户确认后安装，确保可控性
+- 支持预发布版本禁用
+- 进度跟踪和错误处理
+- IPC事件通知渲染进程
+- 定时检查更新机制
+
 ### OAuth认证系统
 
 **新增功能：** 全新的OAuth认证系统，支持多种认证提供商。
@@ -172,9 +192,10 @@ end
 
 **章节来源**
 - [apps/electron/src/main/index.ts:1-215](file://apps/electron/src/main/index.ts#L1-L215)
-- [apps/electron/src/preload/index.ts:1-96](file://apps/electron/src/preload/index.ts#L1-L96)
+- [apps/electron/src/preload/index.ts:1-171](file://apps/electron/src/preload/index.ts#L1-L171)
 - [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
 - [apps/electron/src/main/onboarding-oauth.ts:1-234](file://apps/electron/src/main/onboarding-oauth.ts#L1-L234)
+- [apps/electron/src/main/updater.ts:1-97](file://apps/electron/src/main/updater.ts#L1-L97)
 
 ## 架构概览
 
@@ -186,65 +207,74 @@ subgraph "用户界面层"
 A[React渲染进程]
 B[Electron窗口]
 C[OAuth认证界面]
+D[UpdateBanner更新提示]
 end
 subgraph "应用逻辑层"
-D[主进程]
-E[预加载脚本]
-F[OAuth适配器]
-G[设备代码流框架]
-H[单实例锁管理器]
-I[静态HTTP服务器]
-J[登录shell环境缓存]
-K[网关崩溃检测器]
+E[主进程]
+F[预加载脚本]
+G[OAuth适配器]
+H[设备代码流框架]
+I[单实例锁管理器]
+J[静态HTTP服务器]
+K[登录shell环境缓存]
+L[网关崩溃检测器]
+M[自动更新管理器]
 end
 subgraph "服务层"
-L[Gateway子进程]
-M[本地HTTP服务器]
-N[OAuth认证服务]
-O[文件锁服务]
-P[环境变量服务]
-Q[崩溃监控服务]
+N[Gateway子进程]
+O[本地HTTP服务器]
+P[OAuth认证服务]
+Q[文件锁服务]
+R[环境变量服务]
+S[崩溃监控服务]
+T[更新服务器]
 end
 subgraph "系统集成层"
-R[Node.js API]
-S[Electron API]
-T[操作系统服务]
-U[Web API]
-V[文件系统API]
-W[网络API]
+U[Node.js API]
+V[Electron API]
+W[操作系统服务]
+X[Web API]
+Y[文件系统API]
+Z[网络API]
+AA[Cloudflare R2存储]
 end
-A --> E
-B --> D
-C --> F
-D --> L
-E --> S
-F --> U
-G --> U
-H --> V
-I --> W
-J --> P
-K --> Q
-L --> R
-M --> W
+A --> F
+B --> E
+C --> G
+D --> M
+E --> N
+F --> V
+G --> X
+H --> X
+I --> Y
+J --> Z
+K --> R
+L --> S
+M --> T
 N --> U
-O --> V
-P --> T
-Q --> T
+O --> Z
+P --> X
+Q --> Y
+R --> W
+S --> W
+T --> AA
 subgraph "IPC通信"
-X[IPC消息]
-Y[WebSocket连接]
-Z[OAuth回调]
-AA[文件锁通知]
-BB[崩溃通知]
+AB[IPC消息]
+AC[WebSocket连接]
+AD[OAuth回调]
+AE[文件锁通知]
+AF[崩溃通知]
+AG[更新事件]
 end
-E -.-> X
-D -.-> Y
-F -.-> Z
-G -.-> Z
-H -.-> AA
-I -.-> BB
-J -.-> BB
-K -.-> BB
+F -.-> AB
+E -.-> AC
+G -.-> AD
+H -.-> AD
+I -.-> AE
+J -.-> AF
+K -.-> AF
+L -.-> AF
+M -.-> AG
 ```
 
 **图表来源**
@@ -252,6 +282,7 @@ K -.-> BB
 - [apps/electron/src/main/window.ts:124-148](file://apps/electron/src/main/window.ts#L124-L148)
 - [apps/electron/src/main/gateway.ts:100-151](file://apps/electron/src/main/gateway.ts#L100-L151)
 - [apps/electron/src/main/onboarding-oauth.ts:262-291](file://apps/electron/src/main/onboarding-oauth.ts#L262-L291)
+- [apps/electron/src/main/updater.ts:38-76](file://apps/electron/src/main/updater.ts#L38-L76)
 
 ### 数据流架构
 
@@ -268,6 +299,7 @@ participant DeviceFlow as 设备代码流
 participant Gateway as Gateway服务
 participant Window as 窗口管理
 participant StaticServer as 静态服务器
+participant Updater as 自动更新系统
 UI->>Adapter : 用户操作
 Adapter->>Preload : IPC请求
 Preload->>Main : OAuth请求
@@ -282,6 +314,7 @@ Gateway-->>Main : 确认更新
 Main->>Window : 更新UI状态
 Window-->>UI : 渲染更新
 Note over Main,Gateway : 双向通信通过WebSocket实现
+Note over Main,Updater : 更新检查通过electron-updater实现
 ```
 
 **图表来源**
@@ -289,6 +322,7 @@ Note over Main,Gateway : 双向通信通过WebSocket实现
 - [apps/electron/src/main/ipc-wizard.ts:192-228](file://apps/electron/src/main/ipc-wizard.ts#L192-L228)
 - [apps/electron/src/main/gateway.ts:100-151](file://apps/electron/src/main/gateway.ts#L100-L151)
 - [apps/electron/src/main/onboarding-oauth.ts:262-339](file://apps/electron/src/main/onboarding-oauth.ts#L262-L339)
+- [apps/electron/src/main/updater.ts:82-87](file://apps/electron/src/main/updater.ts#L82-L87)
 
 ## 详细组件分析
 
@@ -315,18 +349,21 @@ M --> |是| N[加载设置向导]
 M --> |否| O[加载控制界面]
 N --> P[注册IPC向导处理器]
 P --> Q[建立OAuth认证支持]
-Q --> R[等待向导完成]
-R --> S[注销IPC向导处理器]
-S --> T[切换到控制界面]
-O --> U[建立WebSocket连接]
-T --> U
-U --> V[注册网关崩溃检测]
-V --> W[应用就绪]
+Q --> R[初始化自动更新系统]
+R --> S[注册IPC处理器]
+S --> T[启动定时更新检查]
+T --> U[注销IPC向导处理器]
+U --> V[切换到控制界面]
+O --> W[建立WebSocket连接]
+V --> W
+W --> X[注册网关崩溃检测]
+X --> Y[应用就绪]
 ```
 
 **图表来源**
 - [apps/electron/src/main/index.ts:157-209](file://apps/electron/src/main/index.ts#L157-L209)
 - [apps/electron/src/main/onboarding.ts:23-59](file://apps/electron/src/main/onboarding.ts#L23-L59)
+- [apps/electron/src/main/updater.ts:24-36](file://apps/electron/src/main/updater.ts#L24-L36)
 
 **章节来源**
 - [apps/electron/src/main/index.ts:1-215](file://apps/electron/src/main/index.ts#L1-L215)
@@ -454,6 +491,271 @@ O --> P
 **章节来源**
 - [apps/electron/src/main/token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
 - [apps/electron/src/main/onboarding.ts:57-76](file://apps/electron/src/main/onboarding.ts#L57-L76)
+
+## 自动更新系统
+
+**新增功能**：完整的自动更新系统，基于electron-updater实现静默下载和用户确认安装。
+
+### 自动更新架构
+
+```mermaid
+flowchart TD
+A[应用启动] --> B{是否打包模式?}
+B --> |是| C[初始化自动更新器]
+B --> |否| D[跳过更新检查]
+C --> E[设置更新配置]
+E --> F[启动延迟检查]
+F --> G[每4小时定时检查]
+G --> H{发现新版本?}
+H --> |是| I[开始后台下载]
+H --> |否| J[等待下次检查]
+I --> K[下载进度跟踪]
+K --> L[下载完成通知]
+L --> M[渲染进程显示更新提示]
+M --> N{用户确认安装?}
+N --> |是| O[退出并安装新版本]
+N --> |否| P[保留更新等待下次提醒]
+O --> Q[应用退出]
+```
+
+**图表来源**
+- [apps/electron/src/main/updater.ts:24-36](file://apps/electron/src/main/updater.ts#L24-L36)
+- [apps/electron/src/main/updater.ts:82-87](file://apps/electron/src/main/updater.ts#L82-L87)
+- [apps/electron/src/main/updater.ts:62-69](file://apps/electron/src/main/updater.ts#L62-L69)
+
+### 自动更新管理器
+
+自动更新管理器提供完整的更新生命周期管理：
+
+```mermaid
+classDiagram
+class AutoUpdaterManager {
++autoUpdater : AutoUpdater
++mainWindow : BrowserWindow
++log : Function
++initAutoUpdater(mainWindow, log) void
++checkForUpdates() void
++quitAndInstall() void
+-private setupEventHandlers() void
+-private handleCheckingForUpdate() void
+-private handleUpdateAvailable(info) void
+-private handleDownloadProgress(progress) void
+-private handleUpdateDownloaded(info) void
+-private handleError(error) void
+}
+class UpdateInfo {
++version : string
++releaseNotes : string
++files : UpdateFileInfo[]
++path : string
++sha512 : string
++releaseDate : string
+}
+class UpdateBanner {
++updateInfo : UpdateInfo | null
++installing : boolean
++handleInstall() void
++handleDismiss() void
+}
+AutoUpdaterManager --> UpdateBanner : "通知更新准备"
+```
+
+**图表来源**
+- [apps/electron/src/main/updater.ts:24-36](file://apps/electron/src/main/updater.ts#L24-L36)
+- [apps/electron/src/main/updater.ts:62-69](file://apps/electron/src/main/updater.ts#L62-L69)
+- [ui-react/src/components/layout/UpdateBanner.tsx:16-34](file://ui-react/src/components/layout/UpdateBanner.tsx#L16-L34)
+
+**章节来源**
+- [apps/electron/src/main/updater.ts:1-97](file://apps/electron/src/main/updater.ts#L1-L97)
+- [ui-react/src/components/layout/UpdateBanner.tsx:1-83](file://ui-react/src/components/layout/UpdateBanner.tsx#L1-L83)
+
+### 更新服务器配置
+
+自动更新系统配置Cloudflare R2作为更新服务器：
+
+```mermaid
+classDiagram
+class UpdateServerConfig {
++provider : "generic"
++url : "https : //files.aiverser.com/bossim/releases/"
++channel : "latest"
++updateInterval : 4 * 60 * 60 * 1000
++autoDownload : false
++autoInstallOnAppQuit : true
++allowPrerelease : false
+}
+class ReleaseFiles {
++latest-mac.yml : UpdateInfo
++latest.yml : UpdateInfo
++Bossim-x64.dmg : InstallPackage
++Bossim-arm64.dmg : InstallPackage
++Bossim-x64.zip : InstallPackage
++Bossim-arm64.zip : InstallPackage
++*.blockmap : BlockMap
+}
+class GitHubActionsWorkflow {
++trigger : "push tags v*"
++buildMacJobs : MacBuildJob[]
++uploadR2Job : UploadR2Job
++verifyUpload : VerifyUploadTask
+}
+UpdateServerConfig --> ReleaseFiles : "发布文件"
+GitHubActionsWorkflow --> UpdateServerConfig : "配置发布"
+```
+
+**图表来源**
+- [apps/electron/electron-builder.yml:214-217](file://apps/electron/electron-builder.yml#L214-L217)
+- [.github/workflows/electron-release.yml:83-150](file://.github/workflows/electron-release.yml#L83-L150)
+
+**章节来源**
+- [apps/electron/electron-builder.yml:211-218](file://apps/electron/electron-builder.yml#L211-L218)
+- [.github/workflows/electron-release.yml:1-150](file://.github/workflows/electron-release.yml#L1-L150)
+
+### IPC通信机制
+
+自动更新系统通过IPC实现主进程和渲染进程的通信：
+
+```mermaid
+sequenceDiagram
+participant Main as 主进程
+participant IPC as IPC通信
+participant Renderer as 渲染进程
+participant UpdateBanner as UpdateBanner组件
+Main->>IPC : 发送"app : update-ready"
+IPC->>Renderer : 触发onUpdateReady事件
+Renderer->>UpdateBanner : 传递更新信息
+UpdateBanner->>Renderer : 显示更新提示
+Renderer->>Main : 用户点击"重启安装"
+Main->>IPC : 发送"app : install-update"
+IPC->>Main : 调用quitAndInstall()
+Main->>Main : 执行quitAndInstall()
+```
+
+**图表来源**
+- [apps/electron/src/main/updater.ts:62-69](file://apps/electron/src/main/updater.ts#L62-L69)
+- [apps/electron/src/preload/index.ts:155-169](file://apps/electron/src/preload/index.ts#L155-L169)
+- [ui-react/src/components/layout/UpdateBanner.tsx:38-49](file://ui-react/src/components/layout/UpdateBanner.tsx#L38-L49)
+
+**章节来源**
+- [apps/electron/src/preload/index.ts:149-170](file://apps/electron/src/preload/index.ts#L149-L170)
+- [apps/electron/src/main/updater.ts:93-96](file://apps/electron/src/main/updater.ts#L93-L96)
+
+## GitHub Actions自动化发布
+
+**新增功能**：完整的CI/CD发布流程，基于GitHub Actions和Cloudflare R2实现自动化发布。
+
+### 发布工作流架构
+
+```mermaid
+flowchart TD
+A[推送vX.Y.Z标签] --> B[触发GitHub Actions]
+B --> C[设置Node.js环境]
+C --> D[构建macOS应用]
+D --> E[导入签名证书]
+E --> F[打包DMG和ZIP]
+F --> G[上传构建产物]
+G --> H[下载所有产物]
+H --> I[配置Cloudflare R2]
+I --> J[上传安装包]
+J --> K[上传描述文件]
+K --> L[验证文件可访问]
+L --> M[发布完成]
+```
+
+**图表来源**
+- [.github/workflows/electron-release.yml:4-7](file://.github/workflows/electron-release.yml#L4-L7)
+- [.github/workflows/electron-release.yml:58-70](file://.github/workflows/electron-release.yml#L58-L70)
+- [.github/workflows/electron-release.yml:118-141](file://.github/workflows/electron-release.yml#L118-L141)
+
+### 构建和签名流程
+
+发布工作流包含完整的构建、签名和发布流程：
+
+```mermaid
+classDiagram
+class BuildJob {
++name : "build-mac"
++runsOn : "macos-latest"
++strategy : MatrixStrategy
++steps : Step[]
+}
+class MacBuildStep {
++name : "Build & Package (macOS)"
++env : BuildEnv
++run : BashCommand
+}
+class SignCertificate {
++name : "Import signing certificate"
++env : CertificateEnv
++run : SecurityCommands
+}
+class UploadArtifacts {
++name : "Upload macOS artifacts"
++uses : "actions/upload-artifact"
++with : UploadConfig
+}
+class UploadR2Job {
++name : "upload-r2"
++needs : "build-mac"
++steps : R2Steps[]
+}
+class R2UploadStep {
++name : "Upload release files to R2"
++env : R2Env
++run : RcloneCommands
+}
+class VerifyUpload {
++name : "Verify upload"
++run : CurlCommand
+}
+BuildJob --> MacBuildStep : "包含步骤"
+BuildJob --> SignCertificate : "包含步骤"
+BuildJob --> UploadArtifacts : "包含步骤"
+UploadR2Job --> R2UploadStep : "包含步骤"
+UploadR2Job --> VerifyUpload : "包含步骤"
+```
+
+**图表来源**
+- [.github/workflows/electron-release.yml:18-82](file://.github/workflows/electron-release.yml#L18-L82)
+- [.github/workflows/electron-release.yml:84-150](file://.github/workflows/electron-release.yml#L84-L150)
+
+**章节来源**
+- [.github/workflows/electron-release.yml:1-150](file://.github/workflows/electron-release.yml#L1-L150)
+
+### Cloudflare R2存储配置
+
+发布流程使用Cloudflare R2作为存储后端：
+
+```mermaid
+classDiagram
+class R2Config {
++type : "s3"
++provider : "Cloudflare"
++access_key_id : "${R2_ACCESS_KEY_ID}"
++secret_access_key : "${R2_SECRET_ACCESS_KEY}"
++endpoint : "${R2_ENDPOINT}"
++acl : "private"
+}
+class UploadPaths {
++installers : "*.dmg, *.zip, *.blockmap"
++metadata : "*.yml"
++destination : "r2 : bucket-name/bossim/releases"
+}
+class RcloneCommands {
++copyInstallers : "rclone copy artifacts/ DEST --include '*.dmg' --include '*.zip' --include '*.blockmap'"
++copyMetadata : "rclone copy artifacts/ DEST --include '*.yml'"
++noUpdateModtime : "--no-update-modtime"
+}
+R2Config --> UploadPaths : "配置上传路径"
+UploadPaths --> RcloneCommands : "生成命令"
+```
+
+**图表来源**
+- [.github/workflows/electron-release.yml:108-116](file://.github/workflows/electron-release.yml#L108-L116)
+- [.github/workflows/electron-release.yml:127-141](file://.github/workflows/electron-release.yml#L127-L141)
+
+**章节来源**
+- [.github/workflows/electron-release.yml:83-150](file://.github/workflows/electron-release.yml#L83-L150)
 
 ## OAuth认证系统
 
@@ -962,62 +1264,75 @@ G[配置修补器]
 H[静态HTTP服务器]
 I[登录shell环境缓存]
 J[网关崩溃检测器]
+K[自动更新管理器]
+L[UpdateBanner组件]
 end
 subgraph "服务层"
-K[Gateway服务]
-L[Node.js运行时]
-M[本地HTTP服务]
-N[OAuth认证服务]
-O[文件锁服务]
-P[配置服务]
-Q[环境变量服务]
-R[崩溃监控服务]
+M[Gateway服务]
+N[Node.js运行时]
+O[本地HTTP服务]
+P[OAuth认证服务]
+Q[文件锁服务]
+R[配置服务]
+S[环境变量服务]
+T[崩溃监控服务]
+U[更新服务器]
+V[R2存储服务]
 end
 subgraph "基础设施层"
-S[Electron框架]
-T[React框架]
-U[WebSocket库]
-V[文件系统]
-W[Web API]
-X[加密库]
-Y[网络库]
+W[Electron框架]
+X[React框架]
+Y[WebSocket库]
+Z[文件系统]
+AA[Web API]
+BB[加密库]
+CC[网络库]
+DD[electron-updater]
+EE[Cloudflare R2]
 end
-A --> K
-A --> S
+A --> M
+A --> W
 B --> A
-B --> T
+B --> X
 C --> B
 D --> B
-E --> N
-F --> V
-G --> P
-H --> M
-I --> Q
-J --> R
-K --> L
-K --> M
-M --> U
-N --> W
-O --> V
-P --> X
-Q --> Y
-A --> V
-B --> V
-D --> N
-E --> W
-F --> V
-G --> P
-H --> Y
-I --> Y
-J --> Y
+E --> P
+F --> Z
+G --> R
+H --> O
+I --> S
+J --> T
+K --> U
+L --> K
+M --> N
+M --> O
+O --> Y
+P --> AA
+Q --> Z
+R --> BB
+S --> CC
+T --> CC
+U --> V
+V --> EE
+A --> Z
+B --> Z
+D --> P
+E --> AA
+F --> Z
+G --> R
+H --> CC
+I --> CC
+J --> CC
+K --> DD
+L --> DD
 ```
 
 **图表来源**
-- [apps/electron/package.json:18-38](file://apps/electron/package.json#L18-L38)
+- [apps/electron/package.json:19-30](file://apps/electron/package.json#L19-L30)
 - [apps/electron/tsup.config.ts:5-27](file://apps/electron/tsup.config.ts#L5-L27)
 
 **章节来源**
-- [apps/electron/package.json:1-40](file://apps/electron/package.json#L1-L40)
+- [apps/electron/package.json:1-43](file://apps/electron/package.json#L1-L43)
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
 
 ### 构建配置分析
@@ -1037,9 +1352,15 @@ J --> Y
 - 资源文件优化
 - 多平台支持
 
+**更新系统依赖：**
+- **electron-updater**：版本6.8.3，提供自动更新功能
+- **Cloudflare R2**：作为更新服务器存储
+- **GitHub Actions**：自动化发布流程
+
 **章节来源**
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
 - [apps/electron/electron-builder.yml:1-80](file://apps/electron/electron-builder.yml#L1-L80)
+- [apps/electron/package.json:24](file://apps/electron/package.json#L24)
 
 ## 性能考虑
 
@@ -1056,6 +1377,8 @@ J --> Y
 - 登录shell环境缓存
 - 静态HTTP服务器端口缓存
 - 网关崩溃检测回调缓存
+- **自动更新状态管理**
+- **更新提示组件状态缓存**
 
 ### 启动性能
 
@@ -1068,6 +1391,8 @@ J --> Y
 - 文件锁快速检查
 - 登录shell环境预热
 - 静态服务器并行启动
+- **延迟20秒开始更新检查**
+- **4小时间隔定时更新**
 
 ### 网络性能
 
@@ -1080,6 +1405,8 @@ J --> Y
 - 设备代码流轮询间隔自适应
 - 静态资源缓存
 - CORS配置优化
+- **Cloudflare R2 CDN加速**
+- **更新文件分块传输**
 
 ### OAuth性能优化
 
@@ -1091,11 +1418,13 @@ J --> Y
 - 错误状态快速失败
 - PKCE参数复用优化
 - 登录shell环境缓存预热
+- **自动更新下载进度优化**
 
 **章节来源**
 - [apps/electron/src/main/onboarding-oauth.ts:187-258](file://apps/electron/src/main/onboarding-oauth.ts#L187-L258)
 - [apps/electron/src/main/onboarding-oauth.ts:293-334](file://apps/electron/src/main/onboarding-oauth.ts#L293-L334)
 - [apps/electron/src/main/oauth-device-flow.ts:184-258](file://apps/electron/src/main/oauth-device-flow.ts#L184-L258)
+- [apps/electron/src/main/updater.ts:54-60](file://apps/electron/src/main/updater.ts#L54-L60)
 
 ## 故障排除指南
 
@@ -1115,6 +1444,7 @@ J --> Y
 - 确认IPC处理器注册
 - 排查WebSocket连接状态
 - 验证网关崩溃检测回调
+- **验证自动更新IPC事件**
 
 **窗口加载问题**
 - 检查CSP配置
@@ -1151,17 +1481,27 @@ J --> Y
 - 查看SPA回退逻辑
 - 验证CORS配置
 
-**网관崩溃检测失效**
+**网关崩溃检测失效**
 - 检查崩溃回调注册
 - 验证进程退出事件监听
 - 确认SIGTERM信号处理
 - 查看预期停止标志
 - 验证外部Gateway复用状态
 
+**自动更新问题**
+- **检查更新服务器可达性**
+- **验证Cloudflare R2配置**
+- **确认GitHub Actions发布成功**
+- **检查更新描述文件格式**
+- **验证electron-updater配置**
+- **查看更新下载进度日志**
+- **确认用户安装权限**
+
 **章节来源**
 - [apps/electron/src/main/gateway.ts:140-147](file://apps/electron/src/main/gateway.ts#L140-L147)
 - [apps/electron/src/main/ipc-wizard.ts:105-120](file://apps/electron/src/main/ipc-wizard.ts#L105-L120)
 - [apps/electron/src/main/window.ts:5-13](file://apps/electron/src/main/window.ts#L5-L13)
+- [apps/electron/src/main/updater.ts:71-73](file://apps/electron/src/main/updater.ts#L71-L73)
 
 ## 结论
 
@@ -1179,6 +1519,8 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 登录shell环境缓存机制
 - 静态HTTP服务器服务
 - 实时网关崩溃检测
+- **完整的自动更新系统**
+- **自动化发布流程**
 
 **用户体验：**
 - 流畅的启动体验
@@ -1190,6 +1532,7 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 智能的环境变量处理
 - 平滑的静态资源加载
 - 实时的崩溃通知
+- **无感的更新体验**
 
 **扩展性：**
 - 插件化架构支持
@@ -1199,17 +1542,18 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 易于添加新的OAuth提供商
 - 支持动态配置更新
 - 可扩展的崩溃检测机制
+- **可扩展的更新系统**
 
 **新增功能价值：**
-- 登录shell环境缓存解决了macOS打包应用的PATH变量问题
-- 静态HTTP服务器提供了有效的loopback HTTP origin，改善了origin相关问题
-- 网关崩溃检测机制提供了实时的状态监控和用户通知
-- OAuth设备代码流框架的完整实现
-- 单实例锁机制的可靠保护
-- URL协议处理的增强功能
-- 配置修补系统的灵活更新
-- 增强的错误处理和调试能力
-- 改进的用户认证体验
-- 更好的安全性和可靠性
+- **自动更新系统**：登录shell环境缓存解决了macOS打包应用的PATH变量问题
+- **GitHub Actions发布**：静态HTTP服务器提供了有效的loopback HTTP origin，改善了origin相关问题
+- **UpdateBanner组件**：网关崩溃检测机制提供了实时的状态监控和用户通知
+- **Cloudflare R2存储**：全新的OAuth认证系统，支持多种认证提供商
+- **electron-updater集成**：单实例锁机制的可靠保护
+- **自动化发布流程**：URL协议处理的增强功能
+- **CI/CD流水线**：配置修补系统的灵活更新
+- **R2存储配置**：增强的错误处理和调试能力
+- **发布验证机制**：改进的用户认证体验
+- **更新进度跟踪**：更好的安全性和可靠性
 
-该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。新增的登录shell环境缓存、静态HTTP服务器和网关崩溃检测功能，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力。
+该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。新增的自动更新系统、GitHub Actions自动化发布流程和UpdateBanner组件，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制。

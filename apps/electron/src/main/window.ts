@@ -217,11 +217,12 @@ export function createWindow(): BrowserWindow {
     "console-message",
     (_e, level, message, line, sourceId) => {
       // level: 0=verbose 1=info 2=warning 3=error
-      if (level >= 2) {
-        wlogError(
-          `[renderer] console(${level}): ${message} (${sourceId}:${line})`,
-        );
-      }
+      // 记录所有渲染进程日志（verbose 除外），方便排查 Gateway 重连问题
+      if (level === 0) return; // 跳过 verbose
+      const prefix = level >= 3 ? "[ERROR]" : level >= 2 ? "[WARN]" : "[INFO]";
+      // 过滤掉 Electron CSP 安全警告（打包前正常，不需要记录到业务日志）
+      if (message.includes("Insecure Content-Security-Policy")) return;
+      wlog(`[renderer]${prefix} ${message} (${sourceId}:${line})`);
     },
   );
 

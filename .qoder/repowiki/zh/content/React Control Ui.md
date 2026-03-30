@@ -1,4 +1,4 @@
-# React Control Ui
+# React 控制界面
 
 <cite>
 **本文档引用的文件**
@@ -13,12 +13,34 @@
 - [ui-react/src/pages/ChatPage.tsx](file://ui-react/src/pages/ChatPage.tsx)
 - [ui-react/src/components/chat/ChatSidebar.tsx](file://ui-react/src/components/chat/ChatSidebar.tsx)
 - [ui-react/src/components/setup-wizard/index.tsx](file://ui-react/src/components/setup-wizard/index.tsx)
-- [ui-react/package.json](file://ui-react/package.json)
-- [ui-react/src/types/gateway.ts](file://ui-react/src/types/gateway.ts)
+- [ui-react/src/pages/ChannelsPage.tsx](file://ui-react/src/pages/ChannelsPage.tsx)
+- [ui-react/src/pages/PluginsPage.tsx](file://ui-react/src/pages/PluginsPage.tsx)
+- [ui-react/src/components/channels/WeixinLoginPanel.tsx](file://ui-react/src/components/channels/WeixinLoginPanel.tsx)
+- [ui-react/src/components/channels/CatalogCard.tsx](file://ui-react/src/components/channels/CatalogCard.tsx)
+- [ui-react/src/components/channels/ChannelCard.tsx](file://ui-react/src/components/channels/ChannelCard.tsx)
+- [ui-react/src/components/channels/ChannelDetail.tsx](file://ui-react/src/components/channels/ChannelDetail.tsx)
+- [ui-react/src/components/channels/shared/AccountCardList.tsx](file://ui-react/src/components/channels/shared/AccountCardList.tsx)
+- [ui-react/src/components/channels/shared/ChannelConfigForm.tsx](file://ui-react/src/components/channels/shared/ChannelConfigForm.tsx)
+- [ui-react/src/components/channels/shared/ChannelStatusList.tsx](file://ui-react/src/components/channels/shared/ChannelStatusList.tsx)
+- [ui-react/src/components/plugins/PluginCard.tsx](file://ui-react/src/components/plugins/PluginCard.tsx)
+- [ui-react/src/components/plugins/PluginDetailDialog.tsx](file://ui-react/src/components/plugins/PluginDetailDialog.tsx)
+- [ui-react/src/components/plugins/PluginToggleConfirmDialog.tsx](file://ui-react/src/components/plugins/PluginToggleConfirmDialog.tsx)
+- [ui-react/src/store/channels.store.ts](file://ui-react/src/store/channels.store.ts)
+- [ui-react/src/store/plugins.store.ts](file://ui-react/src/store/plugins.store.ts)
+- [ui-react/src/types/channels.ts](file://ui-react/src/types/channels.ts)
 - [ui-react/src/store/settings.store.ts](file://ui-react/src/store/settings.store.ts)
 - [ui-react/vite.config.ts](file://ui-react/vite.config.ts)
 - [ui-react/src/lib/utils.ts](file://ui-react/src/lib/utils.ts)
+- [ui-react/package.json](file://ui-react/package.json)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 新增微信登录面板组件及其相关功能
+- 新增通道管理UI组件（CatalogCard、ChannelCard、ChannelDetail等）
+- 新增插件管理UI组件（PluginCard、PluginDetailDialog等）
+- 扩展通道状态管理和配置表单功能
+- 增强插件状态管理和安装功能
 
 ## 目录
 1. [简介](#简介)
@@ -26,20 +48,23 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考虑](#性能考虑)
-8. [故障排除指南](#故障排除指南)
-9. [结论](#结论)
+6. [新增功能模块](#新增功能模块)
+7. [依赖关系分析](#依赖关系分析)
+8. [性能考虑](#性能考虑)
+9. [故障排除指南](#故障排除指南)
+10. [结论](#结论)
 
 ## 简介
 
-React Control Ui 是 OpenClaw 个人 AI 助手项目中的 React 控制界面，负责提供用户与 Gateway 的交互界面。OpenClaw 是一个可在本地设备上运行的个人 AI 助手，支持多渠道消息集成、实时聊天、会话管理和技能系统。
+React 控制界面是 OpenClaw 个人 AI 助手项目中的 React 控制界面，负责提供用户与 Gateway 的交互界面。OpenClaw 是一个可在本地设备上运行的个人 AI 助手，支持多渠道消息集成、实时聊天、会话管理和技能系统。
 
 该控制界面基于 React 19 和 Vite 构建，使用 Zustand 进行状态管理，提供现代化的用户界面和流畅的用户体验。界面采用 shadcn/ui 设计系统，支持深色/浅色主题切换，并集成了完整的聊天功能。
 
+**更新** 新增了微信登录面板、通道管理和插件管理等核心功能模块，大幅增强了系统的可扩展性和用户体验。
+
 ## 项目结构
 
-React Control Ui 位于项目根目录下的 `ui-react` 文件夹中，采用模块化组织方式：
+React 控制界面位于项目根目录下的 `ui-react` 文件夹中，采用模块化组织方式：
 
 ```mermaid
 graph TB
@@ -53,19 +78,24 @@ A --> G[lib/]
 A --> H[adapters/]
 B --> B1[layout/]
 B --> B2[chat/]
-B --> B3[gateway/]
-B --> B4[setup-wizard/]
-B --> B5[ui/]
+B --> B3[channels/]
+B --> B4[plugins/]
+B --> B5[setup-wizard/]
+B --> B6[ui/]
 C --> C1[ChatPage]
-C --> C2[OverviewPage]
-C --> C3[SkillsPage]
-C --> C4[DebugPage]
-C --> C5[LogsPage]
+C --> C2[ChannelsPage]
+C --> C3[PluginsPage]
+C --> C4[OverviewPage]
+C --> C5[SkillsPage]
+C --> C6[DebugPage]
+C --> C7[LogsPage]
 D --> D1[gateway.store.ts]
 D --> D2[settings.store.ts]
 D --> D3[chat.store.ts]
-D --> D4[skills.store.ts]
-D --> D5[logs.store.ts]
+D --> D4[channels.store.ts]
+D --> D5[plugins.store.ts]
+D --> D6[skills.store.ts]
+D --> D7[logs.store.ts]
 end
 subgraph "配置文件"
 I[vite.config.ts]
@@ -165,47 +195,54 @@ GatewayClient --> GatewayStore : 触发事件
 
 ## 架构概览
 
-React Control Ui 采用分层架构设计，清晰分离关注点：
+React 控制界面采用分层架构设计，清晰分离关注点：
 
 ```mermaid
 graph TB
 subgraph "表现层 (Presentation Layer)"
 A[AppShell] --> B[ChatPage]
-A --> C[OverviewPage]
-A --> D[SkillsPage]
-A --> E[SetupWizard]
-B --> F[ThreadView]
-B --> G[Composer]
-B --> H[ChatSidebar]
-F --> I[AssistantMessage]
-F --> J[UserMessage]
-F --> K[ToolFallback]
+A --> C[ChannelsPage]
+A --> D[PluginsPage]
+A --> E[OverviewPage]
+A --> F[SkillsPage]
+A --> G[SetupWizard]
+B --> H[ThreadView]
+B --> I[Composer]
+B --> J[ChatSidebar]
+C --> K[ChannelCard]
+C --> L[CatalogCard]
+C --> M[ChannelDetail]
+C --> N[WeixinLoginPanel]
+D --> O[PluginCard]
+D --> P[PluginDetailDialog]
+E --> Q[ThreadView]
+F --> R[SkillCard]
 end
 subgraph "状态管理层 (State Management)"
-L[Zustand Stores]
-L --> M[gateway.store]
-L --> N[settings.store]
-L --> O[chat.store]
-L --> P[skills.store]
+S[Zustand Stores]
+S --> T[gateway.store]
+S --> U[settings.store]
+S --> V[chat.store]
+S --> W[channels.store]
+S --> X[plugins.store]
+S --> Y[skills.store]
 end
 subgraph "业务逻辑层 (Business Logic)"
-Q[useGateway Hook]
-Q --> R[GatewayClient]
-Q --> S[Device Identity]
-T[useSessionManager] --> U[Session Management]
-V[useChatEventBridge] --> W[Event Bridge]
+Z[useGateway Hook]
+Z --> AA[GatewayClient]
+Z --> AB[Device Identity]
+AC[useSessionManager] --> AD[Session Management]
+AE[useChatEventBridge] --> AF[Event Bridge]
+AG[useChannelsStore] --> AH[Channel Management]
+AI[usePluginsStore] --> AJ[Plugin Management]
 end
 subgraph "基础设施层 (Infrastructure)"
-X[WebSocket Protocol]
-Y[LocalStorage]
-Z[SessionStorage]
-end
-A --> L
-Q --> L
-R --> X
-M --> X
-N --> Y
-N --> Z
+AK[WebSocket Protocol]
+AL[LocalStorage]
+AM[SessionStorage]
+AN[Gateway RPC]
+AO[Plugin System]
+AP[Channel System]
 ```
 
 **图表来源**
@@ -355,9 +392,264 @@ DeviceError --> Disconnected : 需要手动修复
 - [ui-react/src/store/gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [ui-react/src/store/settings.store.ts:289-308](file://ui-react/src/store/settings.store.ts#L289-L308)
 
+## 新增功能模块
+
+### 微信登录面板 (WeixinLoginPanel)
+
+新增的微信登录面板提供了完整的二维码登录功能，支持微信扫码登录和状态监控：
+
+```mermaid
+flowchart TD
+Start([开始登录]) --> GenerateQR[生成二维码]
+GenerateQR --> ShowQR[显示二维码]
+ShowQR --> WaitScan[等待扫码]
+WaitScan --> CheckStatus[检查登录状态]
+CheckStatus --> Success[登录成功]
+CheckStatus --> Failed[登录失败]
+Failed --> ShowError[显示错误信息]
+ShowError --> Retry[重新尝试]
+Retry --> GenerateQR
+Success --> Connected[显示已连接状态]
+Connected --> End([完成])
+```
+
+**图表来源**
+- [ui-react/src/components/channels/WeixinLoginPanel.tsx:51-146](file://ui-react/src/components/channels/WeixinLoginPanel.tsx#L51-L146)
+
+**章节来源**
+- [ui-react/src/components/channels/WeixinLoginPanel.tsx:1-146](file://ui-react/src/components/channels/WeixinLoginPanel.tsx#L1-L146)
+
+### 通道管理组件
+
+#### 通道卡片 (ChannelCard)
+
+通道卡片组件提供了通道的可视化展示和状态管理功能：
+
+```mermaid
+classDiagram
+class ChannelCard {
++channelId : string
++label : string
++detailLabel : string
++accounts : ChannelAccountSnapshot[]
++onOpen : Function
++onDisable : Function
++onEnable : Function
++isChannelEnabled(accounts) boolean
++channelStatusDot(accounts) DotStatus
++handleToggle(e)
+}
+class DotStatus {
+<<enumeration>>
+RUNNING
+ERROR
+IDLE
+DISABLED
+}
+ChannelCard --> DotStatus : 使用
+```
+
+**图表来源**
+- [ui-react/src/components/channels/ChannelCard.tsx:20-128](file://ui-react/src/components/channels/ChannelCard.tsx#L20-L128)
+
+**章节来源**
+- [ui-react/src/components/channels/ChannelCard.tsx:1-128](file://ui-react/src/components/channels/ChannelCard.tsx#L1-L128)
+
+#### 通道目录卡片 (CatalogCard)
+
+通道目录卡片展示了可安装的通道插件信息：
+
+```mermaid
+classDiagram
+class CatalogCard {
++entry : ChannelCatalogEntry
++onEnablePlugin : Function
++enablingPluginId : string
++docsUrl : string
++isPluginDisabled : boolean
++isEnabling : boolean
+}
+class ChannelCatalogEntry {
++id : string
++label : string
++detailLabel : string
++blurb : string
++installed : boolean
++npmSpec : string
++pluginId : string
++pluginEnabled : boolean
+}
+CatalogCard --> ChannelCatalogEntry : 显示
+```
+
+**图表来源**
+- [ui-react/src/components/channels/CatalogCard.tsx:4-74](file://ui-react/src/components/channels/CatalogCard.tsx#L4-L74)
+
+**章节来源**
+- [ui-react/src/components/channels/CatalogCard.tsx:1-74](file://ui-react/src/components/channels/CatalogCard.tsx#L1-L74)
+
+#### 通道详情 (ChannelDetail)
+
+通道详情组件提供了详细的通道配置和状态信息：
+
+```mermaid
+classDiagram
+class ChannelDetail {
++channelId : string
++snapshot : ChannelsStatusSnapshot
++onSaved : Function
++renderChannelDetail() Component
+}
+class ChannelDetailComponents {
++GenericDetail : Function
++WhatsAppDetail : Function
++WeixinDetail : Function
++NostrDetail : Function
+}
+ChannelDetail --> ChannelDetailComponents : 使用
+```
+
+**图表来源**
+- [ui-react/src/components/channels/ChannelDetail.tsx:188-217](file://ui-react/src/components/channels/ChannelDetail.tsx#L188-L217)
+
+**章节来源**
+- [ui-react/src/components/channels/ChannelDetail.tsx:1-217](file://ui-react/src/components/channels/ChannelDetail.tsx#L1-L217)
+
+### 插件管理组件
+
+#### 插件卡片 (PluginCard)
+
+插件卡片提供了插件的完整信息展示和状态管理：
+
+```mermaid
+classDiagram
+class PluginCard {
++plugin : PluginRecord
++togglingPluginId : string
++toggleError : Record
++enablePlugin : Function
++handleToggleClick(enabling)
++handleConfirm()
+}
+class PluginRecord {
++id : string
++name : string
++version : string
++description : string
++status : string
++enabled : boolean
++origin : string
++toolNames : string[]
++channelIds : string[]
++services : string[]
++hookCount : number
+}
+PluginCard --> PluginRecord : 显示
+```
+
+**图表来源**
+- [ui-react/src/components/plugins/PluginCard.tsx:56-244](file://ui-react/src/components/plugins/PluginCard.tsx#L56-L244)
+
+**章节来源**
+- [ui-react/src/components/plugins/PluginCard.tsx:1-244](file://ui-react/src/components/plugins/PluginCard.tsx#L1-L244)
+
+#### 插件详情对话框 (PluginDetailDialog)
+
+插件详情对话框提供了插件的详细技术信息：
+
+```mermaid
+classDiagram
+class PluginDetailDialog {
++plugin : PluginRecord
++open : boolean
++onOpenChange : Function
++InfoRow : Function
++TagPill : Function
++Section : Function
+}
+class PluginDetailComponents {
++capabilities : string[]
++originColors : Record
++hasRealError : boolean
+}
+PluginDetailDialog --> PluginDetailComponents : 使用
+```
+
+**图表来源**
+- [ui-react/src/components/plugins/PluginDetailDialog.tsx:40-185](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L40-L185)
+
+**章节来源**
+- [ui-react/src/components/plugins/PluginDetailDialog.tsx:1-185](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L1-L185)
+
+### 共享组件
+
+#### 账户卡片列表 (AccountCardList)
+
+账户卡片列表组件展示了通道账户的详细状态信息：
+
+```mermaid
+classDiagram
+class AccountCardList {
++accounts : ChannelAccountSnapshot[]
++relativeTime(ms) string
++runningStatus(account) string
+}
+class ChannelAccountSnapshot {
++accountId : string
++name : string
++enabled : boolean
++configured : boolean
++running : boolean
++connected : boolean
++lastInboundAt : number
++lastError : string
+}
+AccountCardList --> ChannelAccountSnapshot : 渲染
+```
+
+**图表来源**
+- [ui-react/src/components/channels/shared/AccountCardList.tsx:21-89](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L21-L89)
+
+**章节来源**
+- [ui-react/src/components/channels/shared/AccountCardList.tsx:1-89](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L1-L89)
+
+#### 通道配置表单 (ChannelConfigForm)
+
+通道配置表单提供了动态的配置界面生成：
+
+```mermaid
+classDiagram
+class ChannelConfigForm {
++channelId : string
++configForm : Record
++configSchema : JsonSchema
++configUiHints : ConfigUiHints
++configSaving : boolean
++configSchemaLoading : boolean
++onPatch : Function
++onSave : Function
++onReload : Function
++RenderNode : Function
+}
+class JsonSchema {
++type : string
++properties : Record
++required : string[]
++items : JsonSchema
++enum : unknown[]
+}
+ChannelConfigForm --> JsonSchema : 使用
+```
+
+**图表来源**
+- [ui-react/src/components/channels/shared/ChannelConfigForm.tsx:260-324](file://ui-react/src/components/channels/shared/ChannelConfigForm.tsx#L260-L324)
+
+**章节来源**
+- [ui-react/src/components/channels/shared/ChannelConfigForm.tsx:1-324](file://ui-react/src/components/channels/shared/ChannelConfigForm.tsx#L1-L324)
+
 ## 依赖关系分析
 
-React Control Ui 采用模块化依赖管理，主要依赖包括：
+React 控制界面采用模块化依赖管理，主要依赖包括：
 
 ```mermaid
 graph TB
@@ -366,21 +658,23 @@ A[react@19.0.0]
 B[react-router@7.1.1]
 C[lucide-react@0.469.0]
 D[zustand@5.0.3]
+E[qrcode@^1.0.0]
 end
 subgraph "设计系统"
-E[radix-ui/react-*]
-F[class-variance-authority@0.7.1]
-G[tailwind-merge@2.6.0]
+F[radix-ui/react-*]
+G[class-variance-authority@0.7.1]
+H[tailwind-merge@2.6.0]
 end
 subgraph "工具库"
-H[@noble/ed25519@3.0.0]
-I[marked@17.0.4]
-J[dompurify@3.3.2]
+I[@noble/ed25519@3.0.0]
+J[marked@17.0.4]
+K[dompurify@3.3.2]
+L[date-fns@^3.0.0]
 end
 subgraph "开发工具"
-K[@vitejs/plugin-react@4.3.4]
-L[tailwindcss@4.1.0]
-M[vitest@4.0.0]
+M[@vitejs/plugin-react@4.3.4]
+N[tailwindcss@4.1.0]
+O[vitest@4.0.0]
 end
 App --> A
 App --> B
@@ -395,6 +689,8 @@ App --> J
 App --> K
 App --> L
 App --> M
+App --> N
+App --> O
 ```
 
 **图表来源**
@@ -425,6 +721,13 @@ App --> M
 2. **源码映射**: 生产环境启用 sourcemap 方便调试
 3. **静态资源复用**: 复用现有 Lit UI 的公共资源
 
+### 新增功能的性能优化
+
+1. **组件懒加载**: 通道和插件相关组件按需加载，减少初始包大小
+2. **状态缓存**: 使用 Zustand 的高效状态管理，避免不必要的重渲染
+3. **异步操作**: 所有网络请求都采用异步处理，避免阻塞主线程
+4. **错误边界**: 新增组件都包含错误边界，提高应用稳定性
+
 ## 故障排除指南
 
 ### 常见连接问题
@@ -436,12 +739,22 @@ App --> M
 | 设备认证 | DEVICE_IDENTITY_REQUIRED | 设备密钥丢失 | 清除浏览器存储重新生成 |
 | 权限不足 | PAIRING_REQUIRED | 未授权访问 | 完成设备配对流程 |
 
+### 通道管理问题
+
+| 问题类型 | 错误代码 | 可能原因 | 解决方案 |
+|---------|---------|---------|---------|
+| 通道启用失败 | ENABLE_CHANNEL_FAILED | 插件未正确安装 | 检查插件状态并重新安装 |
+| 通道配置错误 | CONFIG_SCHEMA_ERROR | 配置模式不匹配 | 检查配置格式和必填字段 |
+| 登录超时 | LOGIN_TIMEOUT | 网络延迟或服务端问题 | 重试登录或检查服务状态 |
+| 插件冲突 | PLUGIN_CONFLICT | 多个插件冲突 | 禁用冲突插件或升级版本 |
+
 ### 调试技巧
 
 1. **事件日志**: 查看调试页的事件日志了解连接状态变化
 2. **网络面板**: 使用浏览器开发者工具监控 WebSocket 连接
 3. **控制台日志**: 关注 GatewayClient 的连接状态日志
 4. **存储检查**: 检查 localStorage 和 sessionStorage 中的配置
+5. **状态检查**: 使用 React DevTools 检查组件状态变化
 
 **章节来源**
 - [ui-react/src/hooks/useGateway.ts:277-291](file://ui-react/src/hooks/useGateway.ts#L277-L291)
@@ -449,11 +762,14 @@ App --> M
 
 ## 结论
 
-React Control Ui 为 OpenClaw 项目提供了现代化、响应式的用户界面。通过精心设计的架构和状态管理，实现了以下关键特性：
+React 控制界面为 OpenClaw 项目提供了现代化、响应式的用户界面。通过精心设计的架构和状态管理，实现了以下关键特性：
 
 1. **模块化设计**: 清晰的组件层次结构，便于维护和扩展
 2. **高性能实现**: 优化的连接管理和内存使用策略
 3. **用户体验**: 流畅的动画效果和直观的交互设计
 4. **可维护性**: 类型安全的 TypeScript 实现和完善的测试覆盖
+5. **可扩展性**: 支持新增通道和插件的灵活架构
 
-该界面成功地将复杂的 Gateway 协议抽象为易用的用户界面，为 OpenClaw 的多平台部署提供了统一的控制入口。未来可以进一步优化移动端体验和离线功能支持。
+**更新** 新增的微信登录面板、通道管理和插件管理功能大幅增强了系统的实用性和可扩展性。这些功能通过统一的状态管理和组件化设计，为用户提供了完整的通道和插件生命周期管理能力。
+
+该界面成功地将复杂的 Gateway 协议抽象为易用的用户界面，为 OpenClaw 的多平台部署提供了统一的控制入口。未来可以进一步优化移动端体验和离线功能支持，同时考虑添加更多通道类型和插件生态系统的集成。

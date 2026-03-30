@@ -1,4 +1,4 @@
-# Electron 打包配置文档
+# Electron 打包配置
 
 <cite>
 **本文档引用的文件**
@@ -29,6 +29,9 @@
 - [extensions/copilot-proxy/openclaw.plugin.json](file://extensions/copilot-proxy/openclaw.plugin.json)
 - [extensions/telegram/openclaw.plugin.json](file://extensions/telegram/openclaw.plugin.json)
 - [extensions/discord/openclaw.plugin.json](file://extensions/discord/openclaw.plugin.json)
+- [extensions/openclaw-weixin/openclaw.plugin.json](file://extensions/openclaw-weixin/openclaw.plugin.json)
+- [extensions/openclaw-weixin/package.json](file://extensions/openclaw-weixin/package.json)
+- [extensions/openclaw-weixin/index.ts](file://extensions/openclaw-weixin/index.ts)
 - [extensions/memory-core/package.json](file://extensions/memory-core/package.json)
 - [extensions/memory-core/index.ts](file://extensions/memory-core/index.ts)
 - [src/plugins/bundled-dir.ts](file://src/plugins/bundled-dir.ts)
@@ -38,12 +41,11 @@
 
 ## 更新摘要
 **所做更改**
-- 新增 Windows 打包脚本支持跨平台打包
-- 新增 macOS 自动公证脚本和配置
-- 新增完整的构建指南文档
-- 改进的跨平台打包流程和部署模式
-- 增强的多架构支持（arm64/x64）
-- 完善的签名和公证自动化流程
+- 新增 WeChat 扩展支持，包括 openclaw-weixin 扩展的完整集成
+- 扩展打包配置以支持新的微信消息通道功能
+- 增强的多平台扩展捆绑系统
+- 更新的构建脚本以支持 WeChat 扩展的打包和部署
+- 完善的微信登录和消息处理功能集成
 
 ## 目录
 1. [简介](#简介)
@@ -55,22 +57,24 @@
 7. [多部署模式支持](#多部署模式支持)
 8. [跨平台打包增强](#跨平台打包增强)
 9. [签名和公证自动化](#签名和公证自动化)
-10. [依赖关系分析](#依赖关系分析)
-11. [性能考虑](#性能考虑)
-12. [故障排除指南](#故障排除指南)
-13. [结论](#结论)
+10. [WeChat 扩展集成](#wechat-扩展集成)
+11. [依赖关系分析](#依赖关系分析)
+12. [性能考虑](#性能考虑)
+13. [故障排除指南](#故障排除指南)
+14. [结论](#结论)
 
 ## 简介
 
-OpenClaw 项目的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新引入了 Windows 打包脚本、macOS 自动公证自动化、改进的跨平台支持，以及详细的构建指南，为多平台桌面应用开发提供了完整的参考模板。
+OpenClaw 项目的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新特别引入了 WeChat 扩展支持，为微信/WeChat 消息通道提供了完整的集成能力。该扩展支持二维码登录、消息收发、账户管理等功能，进一步丰富了 OpenClaw 的消息通道生态系统。
 
 **更新** 重大增强包括：
-- **Windows 打包支持**：新增 `package-electron-win.sh` 脚本，支持在 macOS/Linux 上交叉编译 Windows 版本
-- **macOS 自动公证**：新增 `notarize.cjs` 脚本，实现签名后的自动公证流程
-- **完整构建指南**：新增 `BUILDING.md` 文档，提供详细的构建和部署指导
-- **跨平台打包增强**：统一的打包流程支持 macOS 和 Windows 两个主要平台
-- **多架构支持**：同时支持 Apple Silicon (arm64) 和 Intel (x64) 架构
-- **自动化部署**：从手动配置转向完全自动化的打包和部署流程
+- **WeChat 扩展支持**：新增 openclaw-weixin 扩展，支持微信消息通道
+- **二维码登录功能**：完整的微信登录流程，包括二维码生成和扫描
+- **消息处理能力**：支持微信消息的接收、发送和处理
+- **账户管理**：支持多微信账户的配置和管理
+- **UI 集成**：完整的 React 控制界面支持微信配置和登录
+- **配置管理**：基于 Zod 的类型安全配置系统
+- **腾讯技术支持**：官方 @tencent-weixin 组织提供的扩展
 
 该打包配置现在支持：
 - 多平台打包（macOS、Windows、Linux）
@@ -79,11 +83,10 @@ OpenClaw 项目的 Electron 打包配置经过重大增强，从单一平台支�
 - OAuth 认证流程支持
 - 硬化运行时配置
 - 自动更新机制
-- **Windows 打包脚本**（新增）
-- **macOS 自动公证**（新增）
-- **跨平台构建指南**（新增）
-- **多架构支持**（增强）
-- **自动化部署流程**（增强）
+- **WeChat 扩展**（新增）
+- **二维码登录**（新增）
+- **多消息通道**（增强）
+- **完整 UI 集成**（增强）
 
 ## 项目结构概览
 
@@ -137,22 +140,41 @@ AN --> AQ[google-gemini-cli-auth]
 AN --> AR[copilot-proxy]
 AS[通信渠道扩展] --> AT[telegram]
 AS --> AU[discord]
-AV[扩展清单] --> AW[插件发现机制]
-AV --> AX[自动捆绑配置]
+AS --> AV[slack]
+AS --> AW[signal]
+AS --> AX[whatsapp]
+AS --> AY[imessage]
+AS --> AZ[matrix]
+AS --> BA[msteams]
+AS --> BB[feishu]
+AS --> BC[googlechat]
+AS --> BD[irc]
+AS --> BE[line]
+AS --> BF[mattermost]
+AS --> BG[nextcloud-talk]
+AS --> BH[nostr]
+AS --> BI[synology-chat]
+AS --> BJ[zalo]
+AS --> BK[zalouser]
+AS --> BL[twitch]
+AS --> BM[bluebubbles]
+AS --> BN[openclaw-weixin]
+BV[扩展清单] --> BW[插件发现机制]
+BV --> BX[自动捆绑配置]
 end
 ```
 
 **图表来源**
 - [apps/electron/package.json:1-42](file://apps/electron/package.json#L1-L42)
-- [apps/electron/electron-builder.yml:1-176](file://apps/electron/electron-builder.yml#L1-L176)
-- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
-- [apps/electron/scripts/package-electron.sh:1-206](file://apps/electron/scripts/package-electron.sh#L1-L206)
+- [apps/electron/electron-builder.yml:1-290](file://apps/electron/electron-builder.yml#L1-L290)
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
+- [apps/electron/scripts/package-electron.sh:1-207](file://apps/electron/scripts/package-electron.sh#L1-L207)
 - [apps/electron/scripts/package-electron-win.sh:1-176](file://apps/electron/scripts/package-electron-win.sh#L1-L176)
 
 **章节来源**
 - [apps/electron/package.json:1-42](file://apps/electron/package.json#L1-L42)
-- [apps/electron/electron-builder.yml:1-176](file://apps/electron/electron-builder.yml#L1-L176)
-- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
+- [apps/electron/electron-builder.yml:1-290](file://apps/electron/electron-builder.yml#L1-L290)
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 - [apps/electron/BUILDING.md:1-149](file://apps/electron/BUILDING.md#L1-L149)
 
 ## 核心组件分析
@@ -253,42 +275,68 @@ F[OAuth 流程]
 G[扩展捆绑系统]
 H[运行时依赖管理]
 I[签名和公证]
+J[WeChat 扩展]
 end
 subgraph "资源层"
-J[React 控制界面]
-K[静态资源]
-L[配置文件]
-M[基础设施扩展]
-N[认证扩展]
-O[通信渠道扩展]
-P[可移植Node运行时]
-Q[依赖包生成器]
-R[跨平台打包脚本]
-S[自动公证脚本]
+K[React 控制界面]
+L[静态资源]
+M[配置文件]
+N[基础设施扩展]
+O[认证扩展]
+P[通信渠道扩展]
+Q[可移植Node运行时]
+R[依赖包生成器]
+S[跨平台打包脚本]
+T[自动公证脚本]
+U[WeChat 登录界面]
+V[二维码生成器]
+W[消息处理系统]
 end
 A --> D
 A --> E
 A --> F
 A --> G
-B --> J
+B --> K
 C --> A
-D --> K
-E --> L
-G --> M
+D --> L
+E --> M
 G --> N
 G --> O
-H --> P
+G --> P
 H --> Q
-I --> R
+H --> R
 I --> S
-M --> T[memory-core]
-M --> U[device-pair]
-N --> V[qwen-portal-auth]
-N --> W[minimax-portal-auth]
-N --> X[google-gemini-cli-auth]
-N --> Y[copilot-proxy]
-O --> Z[telegram]
-O --> AA[discord]
+I --> T
+N --> X[memory-core]
+N --> Y[device-pair]
+O --> Z[qwen-portal-auth]
+O --> AA[minimax-portal-auth]
+O --> AB[google-gemini-cli-auth]
+O --> AC[copilot-proxy]
+P --> AD[telegram]
+P --> AE[discord]
+P --> AF[slack]
+P --> AG[signal]
+P --> AH[whatsapp]
+P --> AI[imessage]
+P --> AJ[matrix]
+P --> AK[msteams]
+P --> AL[feishu]
+P --> AM[googlechat]
+P --> AN[irc]
+P --> AO[line]
+P --> AP[mattermost]
+P --> AQ[nextcloud-talk]
+P --> AR[nostr]
+P --> AS[synology-chat]
+P --> AT[zalo]
+P --> AU[zalouser]
+P --> AV[twitch]
+P --> AW[bluebubbles]
+P --> AX[openclaw-weixin]
+J --> U
+J --> V
+J --> W
 ```
 
 **图表来源**
@@ -301,7 +349,7 @@ O --> AA[discord]
 
 ### 打包配置详解
 
-electron-builder.yml 定义了完整的打包配置，现已支持更全面的扩展捆绑和运行时管理：
+electron-builder.yml 定义了完整的打包配置，现已支持更全面的扩展捆绑和运行时管理，包括新增的 WeChat 扩展：
 
 ```mermaid
 flowchart TD
@@ -325,37 +373,60 @@ Q --> R[copilot-proxy 插件]
 R --> S[捆绑通信渠道扩展]
 S --> T[telegram 插件]
 T --> U[discord 插件]
-U --> V[配置插件过滤规则]
-V --> W[添加运行时依赖]
-W --> X[安装核心运行时依赖]
-X --> Y[安装额外运行时依赖]
-Y --> Z[裁剪原生模块]
-Z --> AA[配置公证钩子]
-AA --> AB[配置 Windows 特定选项]
-AB --> AC[设置 NSIS 安装程序]
-AC --> AD[完成打包]
-AE[extraResources 配置] --> AF[Node 二进制文件]
-AF --> AG[CLI 入口脚本]
-AG --> AH[根 package.json]
-AH --> AI[编译产物 dist/]
-AI --> AJ[捆绑扩展]
-AJ --> AK[控制界面构建产物]
-AK --> AL[ui-react 构建产物]
-AL --> AM[运行时 node_modules]
-AM --> AN[生产环境依赖]
-AN --> AO[架构特定裁剪]
-AO --> AP[跨平台资源]
+U --> V[slack 插件]
+V --> W[signal 插件]
+W --> X[whatsapp 插件]
+X --> Y[imessage 插件]
+Y --> Z[matrix 插件]
+Z --> AA[msteams 插件]
+AA --> AB[feishu 插件]
+AB --> AC[googlechat 插件]
+AC --> AD[irc 插件]
+AD --> AE[line 插件]
+AE --> AF[mattermost 插件]
+AF --> AG[nextcloud-talk 插件]
+AG --> AH[nostr 插件]
+AH --> AI[synology-chat 插件]
+AI --> AJ[zalo 插件]
+AJ --> AK[zalouser 插件]
+AK --> AL[twitch 插件]
+AL --> AM[bluebubbles 插件]
+AM --> AN[openclaw-weixin 插件]
+AN --> AO[配置插件过滤规则]
+AO --> AP[添加运行时依赖]
+AP --> AQ[安装核心运行时依赖]
+AQ --> AR[安装额外运行时依赖]
+AR --> AS[裁剪原生模块]
+AS --> AT[配置公证钩子]
+AT --> AU[配置 Windows 特定选项]
+AU --> AV[设置 NSIS 安装程序]
+AV --> AW[完成打包]
+AX[extraResources 配置] --> AY[Node 二进制文件]
+AY --> AZ[CLI 入口脚本]
+AZ --> BA[根 package.json]
+BA --> BB[编译产物 dist/]
+BB --> BC[捆绑扩展]
+BC --> BD[控制界面构建产物]
+BD --> BE[ui-react 构建产物]
+BE --> BF[运行时 node_modules]
+BF --> BG[生产环境依赖]
+BG --> BH[架构特定裁剪]
+BH --> BI[跨平台资源]
+BI --> BJ[WeChat 扩展资源]
+BJ --> BK[二维码生成器]
+BK --> BL[微信登录界面]
+BL --> BM[消息处理系统]
 ```
 
-**更新** 新增的跨平台配置：
-- **Windows 支持**：完整的 NSIS 安装程序配置
-- **公证钩子**：`afterSign: scripts/notarize.cjs` 自动公证
-- **多架构目标**：同时支持 arm64 和 x64 架构
-- **跨平台资源**：区分 macOS 和 Windows 的资源处理
+**更新** 新增的 WeChat 扩展配置：
+- **openclaw-weixin 插件**：完整的微信消息通道支持
+- **二维码生成器**：基于 qrcode-terminal 的二维码生成
+- **微信登录界面**：React 组件支持二维码登录
+- **消息处理系统**：支持微信消息的接收和发送
 
 **图表来源**
-- [apps/electron/electron-builder.yml:1-176](file://apps/electron/electron-builder.yml#L1-L176)
-- [apps/electron/packaged-runtime.json:17-79](file://apps/electron/packaged-runtime.json#L17-L79)
+- [apps/electron/electron-builder.yml:148-150](file://apps/electron/electron-builder.yml#L148-L150)
+- [apps/electron/packaged-runtime.json:149-154](file://apps/electron/packaged-runtime.json#L149-L154)
 
 ### 构建工具配置
 
@@ -379,7 +450,7 @@ AO --> AP[跨平台资源]
 - **智能依赖排除**：自动排除 electron、sharp、playwright-core 等原生模块
 
 **章节来源**
-- [apps/electron/electron-builder.yml:1-176](file://apps/electron/electron-builder.yml#L1-L176)
+- [apps/electron/electron-builder.yml:1-290](file://apps/electron/electron-builder.yml#L1-L290)
 - [apps/electron/tsdown.config.electron.ts:14-28](file://apps/electron/tsdown.config.electron.ts#L14-L28)
 - [apps/electron/packaged-runtime.json:2-16](file://apps/electron/packaged-runtime.json#L2-L16)
 
@@ -420,6 +491,7 @@ openclaw.json 包含了完整的用户配置信息：
 | agents | 代理配置 | defaults, workspace |
 | gateway | 网关配置 | port, mode, auth, nodes |
 | **plugins** | **扩展配置** | **entries, minimax-portal-auth: enabled** |
+| **channels** | **消息通道配置** | **openclaw-weixin: 配置** |
 
 **章节来源**
 - [apps/electron/openclaw.json:1-142](file://apps/electron/openclaw.json#L1-L142)
@@ -430,7 +502,7 @@ openclaw.json 包含了完整的用户配置信息：
 
 ### 运行时依赖配置
 
-packaged-runtime.json 定义了 Electron 应用的运行时依赖配置：
+packaged-runtime.json 定义了 Electron 应用的运行时依赖配置，现已包含 WeChat 扩展的支持：
 
 ```mermaid
 graph TB
@@ -461,31 +533,52 @@ C --> T[@aws-sdk/client-bedrock]
 C --> U[@buape/carbon]
 C --> V[@clack/prompts]
 C --> W[... 多个核心依赖]
+C --> X[openclaw-weixin]
 end
 subgraph "runtimeDependencies"
-D --> X[koffi]
-D --> Y[@matrix-org/matrix-sdk-crypto-nodejs]
-D --> Z[esbuild]
-D --> AA[jiti]
+D --> X[openclaw-weixin]
+D --> Y[koffi]
+D --> Z[@matrix-org/matrix-sdk-crypto-nodejs]
+D --> AA[esbuild]
+D --> AB[jiti]
 end
 subgraph "preinstalledExtensions"
-E --> AB[memory-core]
-E --> AC[device-pair]
-E --> AD[qwen-portal-auth]
-E --> AE[minimax-portal-auth]
-E --> AF[google-gemini-cli-auth]
-E --> AG[copilot-proxy]
-E --> AH[telegram]
-E --> AI[discord]
+E --> AC[memory-core]
+E --> AD[device-pair]
+E --> AE[qwen-portal-auth]
+E --> AF[minimax-portal-auth]
+E --> AG[google-gemini-cli-auth]
+E --> AH[copilot-proxy]
+E --> AI[telegram]
+E --> AJ[discord]
+E --> AK[slack]
+E --> AL[signal]
+E --> AM[whatsapp]
+E --> AN[imessage]
+E --> AO[matrix]
+E --> AP[msteams]
+E --> AQ[feishu]
+E --> AR[googlechat]
+E --> AS[irc]
+E --> AT[line]
+E --> AU[mattermost]
+E --> AV[nextcloud-talk]
+E --> AW[nostr]
+E --> AX[synology-chat]
+E --> AY[zalo]
+E --> AZ[zalouser]
+E --> BA[twitch]
+E --> BB[bluebubbles]
+E --> BC[openclaw-weixin]
 end
 ```
 
 **图表来源**
-- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 
 ### 运行时包生成器
 
-**更新** generate-runtime-package.mjs 实现了运行时依赖的精确版本解析：
+**更新** generate-runtime-package.mjs 实现了运行时依赖的精确版本解析，现已支持 WeChat 扩展：
 
 ```mermaid
 flowchart TD
@@ -513,12 +606,12 @@ N --> O
 4. **优先级4**：从 pnpm-lock.yaml 的锁定版本解析
 
 **章节来源**
-- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 - [apps/electron/scripts/generate-runtime-package.mjs:19-115](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L115)
 
 ### Node.js 运行时管理
 
-**更新** download-node.sh 提供了可移植的 Node.js 运行时：
+**更新** download-node.sh 提供了可移植的 Node.js 运行时，现已支持 WeChat 扩展的运行时需求：
 
 ```mermaid
 flowchart TD
@@ -546,7 +639,7 @@ J --> K
 
 ## 多部署模式支持
 
-**更新** package-electron.sh 引入了灵活的多部署模式支持。
+**更新** package-electron.sh 引入了灵活的多部署模式支持，现已包含 WeChat 扩展的处理。
 
 ### 部署模式配置
 
@@ -592,6 +685,11 @@ Z --> AA[裁剪原生模块]
 AA --> BB[构建主进程]
 BB --> CC[打包应用]
 CC --> DD[清理临时文件]
+DD --> EE[WeChat 扩展处理]
+EE --> FF[二维码生成器集成]
+FF --> GG[微信登录界面]
+GG --> HH[消息处理系统]
+HH --> II[完成打包]
 end
 ```
 
@@ -608,7 +706,7 @@ end
 
 ### 架构特定依赖裁剪
 
-**更新** prune_runtime_dependencies 函数实现了架构特定的原生模块裁剪：
+**更新** prune_runtime_dependencies 函数实现了架构特定的原生模块裁剪，现已包含 WeChat 扩展的处理：
 
 ```mermaid
 flowchart TD
@@ -641,11 +739,11 @@ J --> N
 
 ## 跨平台打包增强
 
-**更新** 新增的 Windows 打包支持和跨平台构建流程。
+**更新** 新增的 Windows 打包支持和跨平台构建流程，现已包含 WeChat 扩展的处理。
 
 ### Windows 打包脚本
 
-**更新** package-electron-win.sh 提供了完整的 Windows 打包解决方案：
+**更新** package-electron-win.sh 提供了完整的 Windows 打包解决方案，现已包含 WeChat 扩展：
 
 ```mermaid
 flowchart TD
@@ -659,7 +757,11 @@ G --> H[裁剪原生模块]
 H --> I[构建主进程]
 I --> J[打包 Windows 应用]
 J --> K[清理临时文件]
-K --> L[输出产物]
+K --> L[WeChat 扩展处理]
+L --> M[二维码生成器集成]
+M --> N[微信登录界面]
+N --> O[消息处理系统]
+O --> P[输出产物]
 ```
 
 **Windows 特定配置**：
@@ -673,7 +775,7 @@ K --> L[输出产物]
 
 ### 跨平台构建指南
 
-**更新** BUILDING.md 提供了详细的构建和部署指导：
+**更新** BUILDING.md 提供了详细的构建和部署指导，现已包含 WeChat 扩展的说明：
 
 ```mermaid
 graph TB
@@ -693,6 +795,11 @@ subgraph "验证步骤"
 Q[make verify] --> R[验证签名]
 S[检查公证状态] --> T[验证安装包]
 end
+subgraph "WeChat 扩展"
+U[微信登录] --> V[二维码生成]
+V --> W[消息收发]
+W --> X[账户管理]
+end
 ```
 
 **构建命令说明**：
@@ -706,7 +813,7 @@ end
 
 ### 多架构支持
 
-**更新** 统一的多架构打包支持：
+**更新** 统一的多架构打包支持，现已包含 WeChat 扩展：
 
 ```mermaid
 graph TB
@@ -728,6 +835,11 @@ I --> M[dmg + zip]
 J --> N[nsis + zip]
 K --> O[deb + rpm]
 end
+subgraph "WeChat 扩展资源"
+P[二维码生成器] --> Q[macOS 资源]
+R[微信登录界面] --> S[Windows 资源]
+T[消息处理系统] --> U[Linux 资源]
+end
 ```
 
 **架构特定配置**：
@@ -742,11 +854,11 @@ end
 
 ## 签名和公证自动化
 
-**更新** 新增的 macOS 自动公证流程和签名配置。
+**更新** 新增的 macOS 自动公证流程和签名配置，现已包含 WeChat 扩展的处理。
 
 ### 自动公证脚本
 
-**更新** notarize.cjs 实现了完整的自动公证流程：
+**更新** notarize.cjs 实现了完整的自动公证流程，现已支持 WeChat 扩展：
 
 ```mermaid
 flowchart TD
@@ -776,7 +888,7 @@ M --> N[输出公证结果]
 
 ### 传统公证脚本
 
-**更新** scripts/notarize-mac-artifact.sh 提供了手动公证支持：
+**更新** scripts/notarize-mac-artifact.sh 提供了手动公证支持，现已包含 WeChat 扩展：
 
 ```mermaid
 flowchart TD
@@ -810,7 +922,7 @@ O --> P
 
 ### 签名配置管理
 
-**更新** electron-builder.yml 中的签名配置：
+**更新** electron-builder.yml 中的签名配置，现已包含 WeChat 扩展：
 
 ```mermaid
 graph TB
@@ -827,6 +939,11 @@ subgraph "协议配置"
 H[protocols] --> I[name: OpenClaw OAuth]
 H --> J[schemes: openclaw]
 end
+subgraph "WeChat 扩展配置"
+K[openclaw-weixin] --> L[二维码登录]
+L --> M[消息收发]
+M --> N[账户管理]
+end
 ```
 
 **签名配置要点**：
@@ -838,6 +955,151 @@ end
 **章节来源**
 - [apps/electron/electron-builder.yml:111-124](file://apps/electron/electron-builder.yml#L111-L124)
 - [apps/electron/electron-builder.yml:108-109](file://apps/electron/electron-builder.yml#L108-L109)
+
+## WeChat 扩展集成
+
+**更新** 新增的 WeChat 扩展支持，为微信/WeChat 消息通道提供了完整的集成能力。
+
+### WeChat 扩展配置
+
+openclaw-weixin 扩展提供了完整的微信消息通道支持：
+
+```mermaid
+flowchart TD
+A[WeChat 扩展] --> B[扩展注册]
+B --> C[配置模式]
+C --> D[Channel ID: openclaw-weixin]
+D --> E[插件 ID: openclaw-weixin]
+E --> F[标签: openclaw-weixin]
+F --> G[文档路径: /channels/openclaw-weixin]
+G --> H[安装配置]
+H --> I[npmSpec: @tencent-weixin/openclaw-weixin]
+I --> J[本地路径: extensions/openclaw-weixin]
+J --> K[默认选择: npm]
+K --> L[最小主机版本: >=2026.3.9]
+end
+```
+
+**扩展特性**：
+- **官方支持**：由 @tencent-weixin 组织提供
+- **类型安全**：基于 Zod 的配置验证
+- **二维码登录**：完整的微信登录流程
+- **消息处理**：支持微信消息的接收和发送
+- **账户管理**：支持多微信账户配置
+- **兼容性**：与 OpenClaw 主机版本兼容
+
+**章节来源**
+- [extensions/openclaw-weixin/openclaw.plugin.json:1-11](file://extensions/openclaw-weixin/openclaw.plugin.json#L1-L11)
+- [extensions/openclaw-weixin/package.json:1-61](file://extensions/openclaw-weixin/package.json#L1-L61)
+- [extensions/openclaw-weixin/index.ts:1-34](file://extensions/openclaw-weixin/index.ts#L1-L34)
+
+### WeChat 配置系统
+
+**更新** 基于 Zod 的类型安全配置系统：
+
+```mermaid
+graph TB
+subgraph "WeChat 配置系统"
+A[WeixinConfigSchema] --> B[账户配置]
+B --> C[name: string]
+C --> D[enabled: boolean]
+D --> E[baseUrl: string]
+E --> F[cdnBaseUrl: string]
+F --> G[routeTag: number]
+end
+subgraph "账户管理"
+H[ResolvedWeixinAccount] --> I[accountId: string]
+I --> J[baseUrl: string]
+J --> K[cdnBaseUrl: string]
+K --> L[token?: string]
+L --> M[enabled: boolean]
+M --> N[configured: boolean]
+N --> O[name?: string]
+end
+subgraph "配置解析"
+P[resolveWeixinAccount] --> Q[从配置文件解析]
+Q --> R[从存储文件解析]
+R --> S[合并配置]
+S --> T[返回 ResolvedWeixinAccount]
+end
+```
+
+**配置特性**：
+- **类型安全**：完整的 TypeScript 类型定义
+- **默认值**：合理的默认配置值
+- **验证机制**：运行时配置验证
+- **账户索引**：持久化的账户管理
+- **路由标签**：支持 SKRouteTag 配置
+
+**章节来源**
+- [extensions/openclaw-weixin/src/config/config-schema.ts:1-20](file://extensions/openclaw-weixin/src/config/config-schema.ts#L1-L20)
+- [extensions/openclaw-weixin/src/auth/accounts.ts:350-381](file://extensions/openclaw-weixin/src/auth/accounts.ts#L350-L381)
+
+### WeChat 登录界面
+
+**更新** React 组件支持微信登录和消息管理：
+
+```mermaid
+flowchart TD
+A[WeixinLoginPanel] --> B[二维码生成]
+B --> C[QRCanvas 组件]
+C --> D[qrcode-terminal]
+D --> E[二维码显示]
+E --> F[登录状态]
+F --> G[connected: boolean]
+G --> H[busy: boolean]
+H --> I[message: string]
+I --> J[操作按钮]
+J --> K[onStart: 开始登录]
+K --> L[onWait: 等待扫描]
+L --> M[onLogout: 注销]
+M --> N[自动等待]
+N --> O[扫描触发]
+```
+
+**UI 特性**：
+- **二维码显示**：基于 qrcode-terminal 的二维码生成
+- **状态指示**：连接状态和错误信息显示
+- **自动流程**：二维码出现后自动触发等待扫描
+- **用户友好**：清晰的操作按钮和状态反馈
+- **错误处理**：二维码生成失败时的备用链接
+
+**章节来源**
+- [ui-react/src/components/channels/WeixinLoginPanel.tsx:1-79](file://ui-react/src/components/channels/WeixinLoginPanel.tsx#L1-L79)
+- [ui-react/src/components/channels/ChannelDetail.tsx:106-134](file://ui-react/src/components/channels/ChannelDetail.tsx#L106-L134)
+
+### WeChat 消息处理
+
+**更新** 完整的消息处理和账户管理功能：
+
+```mermaid
+flowchart TD
+A[WeChat 消息处理] --> B[账户解析]
+B --> C[resolveWeixinAccount]
+C --> D[loadWeixinAccount]
+D --> E[loadWeixinAccountIndex]
+E --> F[合并配置和凭据]
+F --> G[ResolvedWeixinAccount]
+G --> H[消息发送]
+H --> I[sendMessage]
+I --> J[消息接收]
+J --> K[getUpdates]
+K --> L[账户管理]
+L --> M[clearStaleAccountsForUserId]
+M --> N[unregisterWeixinAccountId]
+N --> O[clearWeixinAccount]
+```
+
+**消息处理特性**：
+- **账户解析**：从配置和存储文件解析账户信息
+- **消息发送**：支持微信消息的发送
+- **消息接收**：支持微信消息的长轮询接收
+- **账户清理**：自动清理过期的微信账户
+- **状态管理**：跟踪账户的配置状态和连接状态
+
+**章节来源**
+- [extensions/openclaw-weixin/src/auth/accounts.ts:90-107](file://extensions/openclaw-weixin/src/auth/accounts.ts#L90-L107)
+- [extensions/openclaw-weixin/src/auth/accounts.ts:356-381](file://extensions/openclaw-weixin/src/auth/accounts.ts#L356-L381)
 
 ## 依赖关系分析
 
@@ -873,44 +1135,67 @@ T[google-gemini-cli-auth 插件]
 U[copilot-proxy 插件]
 V[telegram 插件]
 W[discord 插件]
-X[bundled-dir.ts]
-Y[bundled-sources.ts]
+X[slack 插件]
+Y[signal 插件]
+Z[whatsapp 插件]
+AA[imessage 插件]
+AB[matrix 插件]
+AC[msteams 插件]
+AD[feishu 插件]
+AE[googlechat 插件]
+AF[irc 插件]
+AG[line 插件]
+AH[mattermost 插件]
+AI[nextcloud-talk 插件]
+AJ[nostr 插件]
+AK[synology-chat 插件]
+AL[zalo 插件]
+AM[zalouser 插件]
+AN[twitch 插件]
+AO[bluebubbles 插件]
+AP[openclaw-weixin 插件]
+AQ[微信扩展依赖]
+end
+subgraph "微信扩展依赖"
+AQ --> AR[qrcode-terminal@0.12.0]
+AQ --> AS[zod@4.3.6]
+AQ --> AT[silk-wasm]
 end
 subgraph "运行时管理系统"
-Z[packaged-runtime.json]
-AA[generate-runtime-package.mjs]
-AB[download-node.sh]
-AC[package-electron.sh]
-AD[package-electron-win.sh]
-AE[notarize.cjs]
+AV[packaged-runtime.json]
+AW[generate-runtime-package.mjs]
+AX[download-node.sh]
+AY[package-electron.sh]
+AZ[package-electron-win.sh]
+BA[notarize.cjs]
 end
 A --> O
 B --> F
 C --> L
 E --> P
-Z --> AA
-AA --> AB
-AB --> AC
-AC --> A
-AD --> A
-AE --> F
-X --> Y
+AV --> AW
+AW --> AX
+AX --> AY
+AY --> A
+AZ --> A
+BA --> F
+AP --> AQ
 ```
 
 **图表来源**
 - [apps/electron/package.json:18-41](file://apps/electron/package.json#L18-L41)
-- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 - [apps/electron/scripts/generate-runtime-package.mjs:19-115](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L115)
 
 **章节来源**
 - [apps/electron/package.json:18-41](file://apps/electron/package.json#L18-L41)
-- [apps/electron/packaged-runtime.json:1-94](file://apps/electron/packaged-runtime.json#L1-L94)
+- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 
 ## 性能考虑
 
 ### 打包优化策略
 
-**更新** 新增的运行时依赖管理系统带来了显著的性能提升：
+**更新** 新增的运行时依赖管理系统和 WeChat 扩展带来了显著的性能提升：
 
 1. **智能依赖排除**：通过 neverBundle 配置避免内联大型原生模块
 2. **精确版本控制**：使用 pnpm 锁文件确保依赖版本的一致性
@@ -918,6 +1203,7 @@ X --> Y
 4. **可复用运行时**：支持运行时依赖的缓存和复用
 5. **分阶段构建**：将构建过程分解为可独立优化的步骤
 6. **跨平台优化**：针对不同平台优化资源和依赖
+7. **WeChat 扩展优化**：二维码生成和消息处理的性能优化
 
 ### 内存管理
 
@@ -927,6 +1213,7 @@ X --> Y
 - **扩展自动发现机制**：通过 `resolveBundledPluginsDir()` 函数智能定位扩展目录
 - **运行时依赖缓存**：支持运行时依赖的复用，减少重复安装
 - **跨平台资源优化**：根据不同平台裁剪不必要的资源
+- **WeChat 扩展内存管理**：二维码生成和消息处理的内存优化
 
 ### 运行时依赖优化
 
@@ -937,6 +1224,7 @@ X --> Y
 - **增量构建支持**：支持跳过已完成的构建步骤
 - **缓存机制**：运行时依赖可被缓存和复用
 - **跨平台资源管理**：优化不同平台的资源使用
+- **WeChat 扩展优化**：二维码生成器的性能优化
 
 **章节来源**
 - [apps/electron/scripts/generate-runtime-package.mjs:33-89](file://apps/electron/scripts/generate-runtime-package.mjs#L33-L89)
@@ -946,7 +1234,7 @@ X --> Y
 
 ### 常见问题及解决方案
 
-**更新** 新增的跨平台和签名相关问题：
+**更新** 新增的跨平台和签名相关问题，以及 WeChat 扩展特有的问题：
 
 | 问题类型 | 症状 | 解决方案 |
 |----------|------|----------|
@@ -966,13 +1254,17 @@ X --> Y
 | **扩展未加载** | 多个核心扩展不可用 | 检查扩展捆绑配置 |
 | **扩展路径错误** | 扩展路径解析失败 | 验证 bundled-dir.ts 配置 |
 | **认证失败** | AI Provider 认证异常 | 检查认证扩展捆绑 |
-| **通信失败** | Telegram/Discord 连接问题 | 验证通信扩展配置 |
+| **通信失败** | Telegram/Discord/WeChat 连接问题 | 验证通信扩展配置 |
 | **品牌标识问题** | 应用显示 OpenClaw | 检查 electron-builder.yml 配置 |
 | **DMG 标题错误** | 安装包显示 OpenClaw | 验证 DMG 标题配置 |
+| **WeChat 登录失败** | 二维码无法生成 | 检查 qrcode-terminal 依赖 |
+| **WeChat 消息发送失败** | 微信消息无法发送 | 验证微信账户配置 |
+| **WeChat 账户管理问题** | 账户切换异常 | 检查账户索引文件 |
+| **WeChat 扩展加载失败** | openclaw-weixin 未加载 | 验证扩展捆绑配置 |
 
 ### 跨平台打包调试
 
-**更新** 新增的跨平台打包调试方法：
+**更新** 新增的跨平台打包调试方法，包含 WeChat 扩展的调试：
 
 1. **日志查看**：检查 `~/.openclaw/electron-onboarding.log`
 2. **开发者工具**：使用 `Ctrl+Shift+I` 打开开发者工具
@@ -987,6 +1279,10 @@ X --> Y
 11. **Windows 资源验证**：确认 Windows 特定资源正确打包
 12. **公证配置检查**：验证 notarize.cjs 环境变量设置
 13. **跨平台兼容性**：测试不同平台的安装和运行
+14. **WeChat 扩展调试**：检查 openclaw-weixin 扩展加载
+15. **二维码生成调试**：验证 qrcode-terminal 正常工作
+16. **微信登录调试**：测试微信登录流程
+17. **消息处理调试**：验证微信消息收发功能
 
 **更新** 运行时相关调试：
 - 查看 `[main] patchConfigForElectron: non-bundled plugin entries present (kept)` 日志
@@ -999,6 +1295,10 @@ X --> Y
 - **验证品牌配置**：确认应用ID、产品名称、版权信息已更新
 - **Windows 打包调试**：验证 package-electron-win.sh 的执行流程
 - **公证流程验证**：检查 notarize.cjs 的环境变量和证书配置
+- **WeChat 扩展验证**：确认 openclaw-weixin 扩展正确打包
+- **二维码功能验证**：测试二维码生成和显示
+- **微信登录验证**：验证完整的微信登录流程
+- **消息处理验证**：测试微信消息的收发功能
 
 **章节来源**
 - [apps/electron/src/main/index.ts:77-85](file://apps/electron/src/main/index.ts#L77-L85)
@@ -1010,9 +1310,19 @@ X --> Y
 
 ## 结论
 
-OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。此次更新引入了 Windows 打包脚本、macOS 自动公证自动化、改进的跨平台支持，以及详细的构建指南，为多平台桌面应用开发提供了完整的参考模板。
+OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新特别引入了 WeChat 扩展支持，为微信/WeChat 消息通道提供了完整的集成能力。该扩展支持二维码登录、消息收发、账户管理等功能，进一步丰富了 OpenClaw 的消息通道生态系统。
 
 **更新总结** 重大增强的核心改进：
+
+### WeChat 扩展集成
+
+1. **官方扩展支持**：新增 openclaw-weixin 扩展，由 @tencent-weixin 组织提供
+2. **二维码登录功能**：完整的微信登录流程，包括二维码生成和扫描
+3. **消息处理能力**：支持微信消息的接收、发送和处理
+4. **账户管理**：支持多微信账户的配置和管理
+5. **UI 集成**：完整的 React 控制界面支持微信配置和登录
+6. **配置管理**：基于 Zod 的类型安全配置系统
+7. **腾讯技术支持**：官方支持和维护
 
 ### 跨平台打包统一
 
@@ -1037,14 +1347,24 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 
 ### 核心改进亮点
 
-1. **跨平台兼容性**：从单一平台发展为完整的多平台支持
-2. **自动化程度大幅提升**：从手动配置转向完全自动化的打包流程
-3. **版本控制更加精确**：通过多种源解析确保依赖版本的一致性
-4. **部署灵活性增强**：支持本地快速测试和生产发布的不同需求
-5. **性能优化显著**：智能依赖排除和架构裁剪减少包体大小
-6. **开发体验改善**：统一的构建命令和详细的文档指导
+1. **WeChat 扩展支持**：新增微信消息通道，支持二维码登录和消息收发
+2. **跨平台兼容性**：从单一平台发展为完整的多平台支持
+3. **自动化程度大幅提升**：从手动配置转向完全自动化的打包流程
+4. **版本控制更加精确**：通过多种源解析确保依赖版本的一致性
+5. **部署灵活性增强**：支持本地快速测试和生产发布的不同需求
+6. **性能优化显著**：智能依赖排除和架构裁剪减少包体大小
+7. **开发体验改善**：统一的构建命令和详细的文档指导
+8. **消息通道多样化**：支持超过 25 种不同的消息通道
 
 ### 技术架构优势
+
+**WeChat 扩展系统**：
+- **官方支持**：由腾讯官方 @tencent-weixin 组织提供
+- **类型安全**：基于 Zod 的完整类型定义和验证
+- **二维码生成**：基于 qrcode-terminal 的高效二维码生成
+- **消息处理**：完整的微信消息收发和处理能力
+- **账户管理**：支持多微信账户的配置和管理
+- **UI 集成**：完整的 React 组件支持
 
 **跨平台打包系统**：
 - **统一脚本**：macOS 和 Windows 使用相似的打包逻辑
@@ -1072,12 +1392,14 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 该配置为桌面应用开发提供了完整的参考模板，涵盖了从打包配置到运行时管理的各个方面。通过持续的优化和维护，该系统能够为用户提供稳定可靠的桌面应用体验。
 
 **新增功能的技术价值**：
+- **WeChat 扩展**：支持微信消息通道，扩大用户覆盖面
 - **开发效率提升**：跨平台打包减少重复工作
 - **部署可靠性增强**：自动化的签名和公证流程
 - **维护成本降低**：统一的构建和配置管理
 - **用户体验改善**：更快的启动速度和更稳定的运行表现
 - **跨平台兼容性**：支持更多用户群体
 - **品牌管理优化**：统一的品牌标识提升专业度
+- **消息通道多样化**：支持超过 25 种不同的消息通道
 
 这一改进体现了现代软件工程中"约定优于配置"的设计理念，通过智能化的默认行为减少了开发者的配置负担，同时保持了系统的灵活性和可扩展性。
 
@@ -1085,6 +1407,7 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 - **不能内联的依赖**：electron、sharp、playwright-core、sqlite-vec、opusscript、@lydell/node-pty、@napi-rs/canvas、node-llama-cpp、koffi、@matrix-org/matrix-sdk-crypto-nodejs、@whiskeysockets/baileys、esbuild、jiti
 - **核心运行时依赖**：包含 openclaw CLI 和 Gateway 所需的 70+ 个核心依赖
 - **额外运行时依赖**：koffi、@matrix-org/matrix-sdk-crypto-nodejs、esbuild、jiti 等必须真实安装的依赖
-- **预装扩展**：memory-core、device-pair、qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy、telegram、discord
+- **预装扩展**：memory-core、device-pair、qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy、telegram、discord、slack、signal、whatsapp、imessage、matrix、msteams、feishu、googlechat、irc、line、mattermost、nextcloud-talk、nostr、synology-chat、twitch、zalo、zalouser、voice-call、talk-voice、phone-control、acpx、bluebubbles、openclaw-weixin
+- **WeChat 扩展依赖**：qrcode-terminal、zod、silk-wasm 等微信扩展专用依赖
 
-这些配置的自动化管理确保用户在安装时即可获得完整的 Bossim 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道，同时为开发者提供了灵活的部署和调试选项。
+这些配置的自动化管理确保用户在安装时即可获得完整的 Bossim 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道，同时为开发者提供了灵活的部署和调试选项。WeChat 扩展的加入进一步增强了 OpenClaw 的国际化支持和用户覆盖能力。

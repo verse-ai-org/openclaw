@@ -245,10 +245,6 @@ export function CompletionStep(_props: CompletionStepProps) {
             </p>
           )}
 
-          {/* Workspace ID hint */}
-          <p className="m-0 text-xs font-normal text-[rgb(91,64,65)]">
-            {resolvedModelId ? `Model: ${resolvedModelId}` : "OpenClaw · Ready"}
-          </p>
         </div>
       </div>
     </div>

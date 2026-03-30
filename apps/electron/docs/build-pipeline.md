@@ -52,7 +52,7 @@
 
 **脚本**：`apps/electron/scripts/download-node.sh <arch>`
 
-- 从 nodejs.org 下载 Node 22 官方预编译二进制（`node-v22.x.x-darwin-<arch>.tar.gz`）
+- 从 nodejs.org 下载 Node 24 官方预编译二进制（`node-v24.x.x-darwin-<arch>.tar.gz`）
 - 仅提取 `bin/node`，保存到 `resources/node-<arch>/node`
 - **已存在则跳过**，避免重复下载
 - gateway 在 Electron 包内运行时，Electron 主进程用这个 Node 二进制 `spawn` gateway 子进程
@@ -100,7 +100,7 @@ Bossim.app/
     Resources/
       app/                    ← Electron 主进程 (dist/main/index.cjs)
       openclaw/               ← openclaw 核心 (dist/ + plugin-sdk/)
-      node-<arch>/node        ← 内嵌 Node 22 二进制
+      node-<arch>/node        ← 内嵌 Node 24 二进制
       prod-node_modules/      ← 运行时 node_modules
       ui-react/               ← React Control UI 静态资源
 ```
@@ -138,7 +138,7 @@ Bossim.app/
 | 文件 | 作用 |
 |------|------|
 | `apps/electron/scripts/package-electron.sh` | macOS 打包主脚本，串联所有阶段 |
-| `apps/electron/scripts/download-node.sh` | 下载 Node 22 二进制 |
+| `apps/electron/scripts/download-node.sh` | 下载 Node 24 二进制 |
 | `apps/electron/scripts/generate-runtime-package.mjs` | 生成运行时 package.json |
 | `apps/electron/scripts/notarize.cjs` | electron-builder 公证钩子 |
 | `apps/electron/packaged-runtime.json` | 声明打包内嵌的运行时依赖白名单 |
