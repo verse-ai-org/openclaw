@@ -110,9 +110,6 @@ extraResources:
   - from: "../../extensions/google-gemini-cli-auth"
     to: "openclaw/extensions/google-gemini-cli-auth"
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/google-antigravity-auth"
-    to: "openclaw/extensions/google-antigravity-auth"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
   - from: "../../extensions/copilot-proxy"
     to: "openclaw/extensions/copilot-proxy"
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
