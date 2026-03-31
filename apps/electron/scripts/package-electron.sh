@@ -191,7 +191,10 @@ build_electron_main() {
 package_electron_app() {
   echo ""
   echo "📦 [5/5] 打包 Electron App"
-  (cd "$ELECTRON_DIR" && pnpm exec electron-builder "${BUILDER_ARGS[@]}")
+  # macOS 15+/Node 22+ 可能输出 [DEP0190] 到 pnpm JSON 输出流，
+  # 会触发 electron-builder 的 pnpm 依赖树解析失败（No JSON content found in output）。
+  # 这里关闭 Node deprecation warning，避免污染 JSON 输出。
+  (cd "$ELECTRON_DIR" && NODE_NO_WARNINGS=1 pnpm exec electron-builder "${BUILDER_ARGS[@]}")
 }
 
 cleanup_runtime_dependencies() {

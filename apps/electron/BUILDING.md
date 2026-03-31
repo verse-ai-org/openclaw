@@ -9,6 +9,8 @@ make dev          # 本地开发
 make package-fast # 本地打包测试（无签名）
 make package      # 正式打包（签名 + 公证）
 make release      # 一键完整发布：双架构打包 + 上传 R2 + 验证
+make bump-version VERSION=2026.3.31
+make release-with-version VERSION=2026.3.31
 ```
 
 ## 所有命令
@@ -33,10 +35,12 @@ make release      # 一键完整发布：双架构打包 + 上传 R2 + 验证
   package-win-fast 快速打包 Windows（跳过构建，复用产物）
 
 发布（上传到 Cloudflare R2）
+  bump-version     更新 apps/electron/package.json 的 version（需传 VERSION=...）
   r2-setup         首次配置 rclone r2 remote
   upload-r2        上传 release/ 产物到 R2（先传包，最后传 yml）
   upload-r2-verify 验证 latest-mac.yml 是否可公开访问
   release          一键完整发布：双架构打包 + 上传 R2 + 验证
+  release-with-version 先更新 version 再执行完整发布（需传 VERSION=...）
 
 工具
   setup            初次设置：复制 .env 模板
@@ -132,6 +136,22 @@ make package-win-fast # 跳过构建步骤，复用现有产物
 ```
 
 产物：`apps/electron/release/` 下的 `.exe` 安装包和 `.zip`。
+
+### 版本号管理（发布前）
+
+Electron 安装包版本来自 `apps/electron/package.json` 的 `version` 字段。
+
+可用以下命令管理版本：
+
+```bash
+# 仅更新 electron 包版本
+make bump-version VERSION=2026.3.31
+
+# 更新版本并执行完整发布
+make release-with-version VERSION=2026.3.31
+```
+
+> `make release` 本身不会自动改版本；如果不走 `release-with-version`，请先手动改 version。
 
 ---
 

@@ -93,6 +93,17 @@ package-win-fast: ## 快速打包 Windows（跳过构建，复用现有产物）
 ##@ 发布（上传到 Cloudflare R2）
 # ─────────────────────────────────────────────────────
 
+.PHONY: bump-version
+bump-version: ## 更新 apps/electron/package.json 的 version（用法: make bump-version VERSION=2026.3.31）
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ 请传入 VERSION，例如: make bump-version VERSION=2026.3.31"; exit 1; \
+	fi
+	@node -e 'const fs=require("fs");const p="$(ELECTRON_DIR)/package.json";const pkg=JSON.parse(fs.readFileSync(p,"utf8"));const prev=pkg.version;pkg.version="$(VERSION)";fs.writeFileSync(p,JSON.stringify(pkg,null,2)+"\n");console.log(`✅ version: $${prev} -> $${pkg.version}`);'
+
+.PHONY: release-with-version
+release-with-version: bump-version ## 一键发布（先改版本再执行 release，用法: make release-with-version VERSION=2026.3.31）
+	$(MAKE) release
+
 # R2 配置可放在 .env 中，或直接导出环境变量：
 #   R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET_NAME
 R2_DEST ?= r2:$(R2_BUCKET_NAME)/bossim/releases
