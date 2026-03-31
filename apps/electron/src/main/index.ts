@@ -208,10 +208,14 @@ ipcMain.handle("onboarding:oauthCancel", async (_, authMethod: string) => {
 
 // IPC：验证邀请码 — 调用后端 API 返回关联的 apiKey 和 model
 ipcMain.handle("onboarding:validateInviteCode", async (_, code: string) => {
-  await writeDebugLog(`[main] validateInviteCode: code=${code.substring(0, 8)}...`);
+  await writeDebugLog(
+    `[main] validateInviteCode: code=${code.substring(0, 8)}...`,
+  );
   try {
     const result = await validateInviteCode(code);
-    await writeDebugLog(`[main] validateInviteCode result: ${JSON.stringify(result)}`);
+    await writeDebugLog(
+      `[main] validateInviteCode result: ${JSON.stringify(result)}`,
+    );
     return result;
   } catch (err) {
     const msg = String(err);
@@ -477,9 +481,12 @@ async function main() {
       checkForUpdates();
     }, 20_000);
     // 每 4 小时定时检查一次
-    setInterval(() => {
-      checkForUpdates();
-    }, 4 * 60 * 60 * 1_000);
+    setInterval(
+      () => {
+        checkForUpdates();
+      },
+      4 * 60 * 60 * 1_000,
+    );
   }
 
   mlog("[main] main() 完成");

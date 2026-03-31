@@ -46,12 +46,42 @@ extraResources:
     filter:
       - "**/*"
       - "!**/*.map"
+      - "!**/*.d.ts"
       - "!**/test/**"
       - "!**/tests/**"
       - "!**/__tests__/**"
+      - "!**/__mocks__/**"
       - "!**/docs/**"
+      # - "!**/doc/**"
+      - "!**/documentation/**"
       - "!**/example/**"
       - "!**/examples/**"
+      - "!**/*.md"
+      - "!**/LICENSE*"
+      - "!**/README*"
+      - "!**/CHANGELOG*"
+      - "!**/HISTORY*"
+      - "!**/CHANGES*"
+      - "!**/.github/**"
+      - "!**/.gitlab/**"
+      - "!**/.circleci/**"
+      - "!**/.vscode/**"
+      - "!**/.idea/**"
+      # - "!**/bin/**"
+      # - "!**/scripts/**"
+      - "!**/*.sh"
+      - "!**/*.bat"
+      - "!**/*.ps1"
+      # - "!**/*.yml"
+      # - "!**/*.yaml"
+      # - "!**/*.jsonc"
+      # - "!**/*.config.js"
+      # - "!**/*.config.ts"
+      - "!**/tsconfig*.json"
+      - "!**/jest*.json"
+      - "!**/vitest*.json"
+      # pdf-parse 内置多份 pdf.js 版本作为 fallback，只保留最新版（v2.0.550）
+      - "!**/pdf-parse/lib/pdf.js/v1*/**"
 
   # 内置 Skills（Built-in Skills 页面数据来源）
   - from: "../../skills"
@@ -160,22 +190,22 @@ extraResources:
   - from: "../../extensions/nextcloud-talk"
     to: "openclaw/extensions/nextcloud-talk"
     filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/nostr"
-    to: "openclaw/extensions/nostr"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/synology-chat"
-    to: "openclaw/extensions/synology-chat"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # - from: "../../extensions/nostr"
+  #   to: "openclaw/extensions/nostr"
+  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # - from: "../../extensions/synology-chat"
+  #   to: "openclaw/extensions/synology-chat"
+  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
   # tlon: 依赖 git 依赖 @tloncorp/api，生产环境无法可靠安装，暂不打包
-  - from: "../../extensions/twitch"
-    to: "openclaw/extensions/twitch"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/zalo"
-    to: "openclaw/extensions/zalo"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/zalouser"
-    to: "openclaw/extensions/zalouser"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # - from: "../../extensions/twitch"
+  #   to: "openclaw/extensions/twitch"
+  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # - from: "../../extensions/zalo"
+  #   to: "openclaw/extensions/zalo"
+  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # - from: "../../extensions/zalouser"
+  #   to: "openclaw/extensions/zalouser"
+  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
 
   # 语音 / 设备控制
   - from: "../../extensions/voice-call"

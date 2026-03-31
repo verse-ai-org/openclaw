@@ -195,7 +195,9 @@ async function resolveLoginShellEnv(): Promise<Record<string, string>> {
         }
       }
       _loginShellEnv = result;
-      log(`[gateway] resolveLoginShellEnv: loaded ${Object.keys(result).length} vars from login shell`);
+      log(
+        `[gateway] resolveLoginShellEnv: loaded ${Object.keys(result).length} vars from login shell`,
+      );
       resolve(result);
     });
     child.on("error", (err) => {
@@ -217,7 +219,9 @@ const GATEWAY_READY_TIMEOUT_MS = 15_000;
 const GATEWAY_READY_POLL_MS = 200;
 
 /** Optional callback invoked when the self-managed Gateway process crashes unexpectedly. */
-let _onGatewayCrash: ((code: number | null, signal: NodeJS.Signals | null) => void) | null = null;
+let _onGatewayCrash:
+  | ((code: number | null, signal: NodeJS.Signals | null) => void)
+  | null = null;
 
 /**
  * Register a callback that fires when the Gateway subprocess exits with a
@@ -459,7 +463,10 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
       >;
       auditConfigPlugins(cfg);
     } catch (err) {
-      logEvent("audit-config-plugins", { status: "parse-error", error: String(err) });
+      logEvent("audit-config-plugins", {
+        status: "parse-error",
+        error: String(err),
+      });
     }
   }
 
@@ -474,7 +481,11 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
       return;
     }
     // 未运行，在配置端口启动（不带 --force，不干扰其他端口上的进程）
-    logEvent("spawn-gateway", { port: configPort, force: false, reason: "config-port-no-instance" });
+    logEvent("spawn-gateway", {
+      port: configPort,
+      force: false,
+      reason: "config-port-no-instance",
+    });
     _activePort = configPort;
     await spawnGateway({
       port: configPort,
@@ -546,6 +557,7 @@ async function spawnGateway(opts: {
     entry: openclawEntry,
     port: opts.port,
     force: opts.force,
+    cwd: path.dirname(openclawEntry),
   });
 
   // Merge login shell env (already cached by warmLoginShellEnv) so that
@@ -563,9 +575,12 @@ async function spawnGateway(opts: {
   const basePath =
     process.env.PATH ?? shellEnv.PATH ?? "/usr/local/bin:/usr/bin:/bin";
   const mergedPath =
-    packagedNodeDir != null ? `${packagedNodeDir}${path.delimiter}${basePath}` : basePath;
+    packagedNodeDir != null
+      ? `${packagedNodeDir}${path.delimiter}${basePath}`
+      : basePath;
 
   gatewayProcess = spawn(nodeBin, args, {
+    cwd: path.dirname(openclawEntry),
     env: {
       HOME: os.homedir(),
       ...shellEnv,
@@ -591,8 +606,17 @@ async function spawnGateway(opts: {
     gatewayProcess = null;
     // Distinguish deliberate stop (SIGTERM from stopGateway) from unexpected crashes.
     // Reusing an external Gateway is never managed by us, so no crash notification.
-    if (!_intentionalStop && !reusingExternalGateway && (code !== 0 || signal !== null && signal !== "SIGTERM")) {
-      logEvent("crash", { code, signal, intentionalStop: _intentionalStop, reusingExternal: reusingExternalGateway });
+    if (
+      !_intentionalStop &&
+      !reusingExternalGateway &&
+      (code !== 0 || (signal !== null && signal !== "SIGTERM"))
+    ) {
+      logEvent("crash", {
+        code,
+        signal,
+        intentionalStop: _intentionalStop,
+        reusingExternal: reusingExternalGateway,
+      });
       _onGatewayCrash?.(code, signal);
     }
     _intentionalStop = false;
@@ -602,7 +626,10 @@ async function spawnGateway(opts: {
     logEvent("spawn-error", { error: err.message });
   });
 
-  logEvent("wait-ready", { port: opts.port, timeoutMs: GATEWAY_READY_TIMEOUT_MS });
+  logEvent("wait-ready", {
+    port: opts.port,
+    timeoutMs: GATEWAY_READY_TIMEOUT_MS,
+  });
   await waitForGatewayReady(opts.port, GATEWAY_READY_TIMEOUT_MS);
   logEvent("ready", { port: opts.port });
 }

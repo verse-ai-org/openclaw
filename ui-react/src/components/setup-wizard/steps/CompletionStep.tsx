@@ -184,7 +184,7 @@ export function CompletionStep(_props: CompletionStepProps) {
             onClick={handleStartChat}
             disabled={isStarting}
             className={[
-              "flex h-[76px] w-full items-center justify-center gap-3 rounded-full border-0",
+              "flex h-20 w-full items-center justify-center gap-3 rounded-full border-0",
               "bg-[linear-gradient(90deg,rgb(186,0,52)_0%,rgb(222,41,74)_100%)]",
               "shadow-[0_8px_32px_rgba(186,0,52,0.28)] transition-opacity",
               isStarting
@@ -233,11 +233,11 @@ export function CompletionStep(_props: CompletionStepProps) {
             )}
           </button>
 
-          {isStarting && (
+          {/* {isStarting && (
             <p className="m-0 text-center text-[13px] font-medium text-[rgb(91,64,65)]">
               Initializing gateway and finalizing setup. This may take a few seconds.
             </p>
-          )}
+          )} */}
 
           {startError && (
             <p className="m-0 text-center text-[13px] font-semibold text-[rgb(186,0,52)]">

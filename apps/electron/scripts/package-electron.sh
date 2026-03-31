@@ -135,6 +135,8 @@ install_runtime_dependencies() {
   (cd "$PROD_DEPLOY_DIR" && pnpm install --prod --no-frozen-lockfile --ignore-workspace)
 }
 
+
+
 prune_runtime_dependencies() {
   echo ""
   echo "🧹 [3c/5] 裁剪运行时依赖（按当前架构）"
