@@ -35,7 +35,7 @@ make release-with-version VERSION=2026.3.31
   package-win-fast 快速打包 Windows（跳过构建，复用产物）
 
 发布（上传到 Cloudflare R2）
-  bump-version     更新 apps/electron/package.json 的 version（需传 VERSION=...）
+  bump-version     自动递增版本号（支持 TYPE=major|beta|patch）
   r2-setup         首次配置 rclone r2 remote
   upload-r2        上传 release/ 产物到 R2（先传包，最后传 yml）
   upload-r2-verify 验证 latest-mac.yml 是否可公开访问
@@ -141,17 +141,37 @@ make package-win-fast # 跳过构建步骤，复用现有产物
 
 Electron 安装包版本来自 `apps/electron/package.json` 的 `version` 字段。
 
+**版本格式：** `YYYY.M.DD[-patch.N | -beta.N]`
+
 可用以下命令管理版本：
 
 ```bash
-# 仅更新 electron 包版本
+# 1. 自动递增（推荐）
+make bump-version                    # 自动检测并递增
+make bump-version TYPE=major         # 强制升级到主版本（YYYY.M.DD）
+make bump-version TYPE=beta          # 创建/递增 beta 版本
+make bump-version TYPE=patch         # 创建/递增 patch 版本
+
+# 2. 手动指定版本
 make bump-version VERSION=2026.3.31
 
-# 更新版本并执行完整发布
+# 3. 更新版本并执行完整发布
 make release-with-version VERSION=2026.3.31
 ```
 
-> `make release` 本身不会自动改版本；如果不走 `release-with-version`，请先手动改 version。
+**自动递增规则示例：**
+
+| 当前版本 | 命令 | 递增后 | 说明 |
+|---------|------|--------|------|
+| `2026.4.1` | `make bump-version` | `2026.4.1-patch.1` | 同一天第 2 次发布 |
+| `2026.4.1-patch.1` | `make bump-version` | `2026.4.1-patch.2` | 补丁版本递增 |
+| `2026.4.1` | `make bump-version TYPE=beta` | `2026.4.1-beta.1` | 创建 beta 版本 |
+| `2026.4.1-beta.1` | `make bump-version TYPE=beta` | `2026.4.1-beta.2` | Beta 版本递增 |
+| `2026.4.1-beta.2` | `make bump-version TYPE=major` | `2026.4.1` | Beta 转正 |
+
+> **注意：** 
+> - `make release` 本身不会自动改版本，需要先用 `bump-version` 更新
+> - 默认行为会自动检测当天版本并递增（优先 patch → beta → major）
 
 ---
 

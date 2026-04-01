@@ -94,11 +94,74 @@ package-win-fast: ## 快速打包 Windows（跳过构建，复用现有产物）
 # ─────────────────────────────────────────────────────
 
 .PHONY: bump-version
-bump-version: ## 更新 apps/electron/package.json 的 version（用法: make bump-version VERSION=2026.3.31）
-	@if [ -z "$(VERSION)" ]; then \
-		echo "❌ 请传入 VERSION，例如: make bump-version VERSION=2026.3.31"; exit 1; \
+bump-version: ## 自动更新版本号（用法：make bump-version [VERSION=2026.3.31] [TYPE=major|minor|patch|beta]）
+	@if [ -n "$(VERSION)" ]; then \
+		echo "📍 使用指定版本：$(VERSION)"; \
+		node -e 'const fs=require("fs");const p="$(ELECTRON_DIR)/package.json";const pkg=JSON.parse(fs.readFileSync(p,"utf8"));const prev=pkg.version;pkg.version="$(VERSION)";fs.writeFileSync(p,JSON.stringify(pkg,null,2)+"\n");console.log(`✅ version: $${prev} -> $${pkg.version}`);'; \
+	else \
+		echo "🔍 自动检测并递增版本号..."; \
+		TODAY=$$(date +'%Y.%-m.%-d'); \
+		CURRENT_VERSION=$$(node -p "require('./package.json').version"); \
+		if echo "$$CURRENT_VERSION" | grep -qE "^$$TODAY(-|$$)"; then \
+			SUFFIX=$$(echo "$$CURRENT_VERSION" | sed -n "s/^$$TODAY-\(.*\)$$/\1/p"); \
+			if [ "$(TYPE)" = "major" ]; then \
+				NEXT_VERSION="$$TODAY"; \
+				echo "ℹ️  强制升级到主版本：$$NEXT_VERSION"; \
+			elif [ "$(TYPE)" = "beta" ]; then \
+				if [ -z "$$SUFFIX" ]; then \
+					NEXT_VERSION="$$TODAY-beta.1"; \
+				elif echo "$$SUFFIX" | grep -qE '^beta\.[0-9]+$$'; then \
+					BETA_NUM=$$(echo "$$SUFFIX" | sed 's/beta\.//'); \
+					NEXT_BETA=$$((BETA_NUM + 1)); \
+					NEXT_VERSION="$$TODAY-beta.$$NEXT_BETA"; \
+				else \
+					NEXT_VERSION="$$TODAY-beta.1"; \
+				fi; \
+				echo "ℹ️  Beta 版本：$$NEXT_VERSION"; \
+			elif [ "$(TYPE)" = "patch" ]; then \
+				if [ -z "$$SUFFIX" ]; then \
+					NEXT_VERSION="$$TODAY-patch.1"; \
+				elif echo "$$SUFFIX" | grep -qE '^patch\.[0-9]+$$'; then \
+					PATCH_NUM=$$(echo "$$SUFFIX" | sed 's/patch\.//'); \
+					NEXT_PATCH=$$((PATCH_NUM + 1)); \
+					NEXT_VERSION="$$TODAY-patch.$$NEXT_PATCH"; \
+				else \
+					NEXT_VERSION="$$TODAY-patch.1"; \
+				fi; \
+				echo "ℹ️  补丁版本：$$NEXT_VERSION"; \
+			else \
+				if [ -z "$$SUFFIX" ]; then \
+					NEXT_VERSION="$$TODAY-patch.1"; \
+					echo "ℹ️  今日基础版本 $$TODAY 已存在，自动生成补丁版本：$$NEXT_VERSION"; \
+				elif echo "$$SUFFIX" | grep -qE '^beta\.[0-9]+$$'; then \
+					BETA_NUM=$$(echo "$$SUFFIX" | sed 's/beta\.//'); \
+					NEXT_BETA=$$((BETA_NUM + 1)); \
+					NEXT_VERSION="$$TODAY-beta.$$NEXT_BETA"; \
+					echo "ℹ️  检测到 beta.$$BETA_NUM，递增至：$$NEXT_VERSION"; \
+				elif echo "$$SUFFIX" | grep -qE '^patch\.[0-9]+$$'; then \
+					PATCH_NUM=$$(echo "$$SUFFIX" | sed 's/patch\.//'); \
+					NEXT_PATCH=$$((PATCH_NUM + 1)); \
+					NEXT_VERSION="$$TODAY-patch.$$NEXT_PATCH"; \
+					echo "ℹ️  检测到 patch.$$PATCH_NUM，递增至：$$NEXT_VERSION"; \
+				else \
+					echo "⚠️  今日版本已存在且格式特殊 ($$CURRENT_VERSION)，请手动指定：make bump-version VERSION=$$TODAY-patch.2"; \
+					exit 1; \
+				fi; \
+			fi; \
+		else \
+			if [ "$(TYPE)" = "beta" ]; then \
+				NEXT_VERSION="$$TODAY-beta.1"; \
+				echo "ℹ️  创建 Beta 版本：$$NEXT_VERSION"; \
+			elif [ "$(TYPE)" = "patch" ]; then \
+				NEXT_VERSION="$$TODAY-patch.1"; \
+				echo "ℹ️  创建补丁版本：$$NEXT_VERSION"; \
+			else \
+				NEXT_VERSION="$$TODAY"; \
+				echo "ℹ️  使用今日日期版本：$$NEXT_VERSION"; \
+			fi; \
+		fi; \
+		node -e 'const fs=require("fs");const p="$(ELECTRON_DIR)/package.json";const pkg=JSON.parse(fs.readFileSync(p,"utf8"));const prev=pkg.version;const next="'"$$NEXT_VERSION"'";pkg.version=next;fs.writeFileSync(p,JSON.stringify(pkg,null,2)+"\n");console.log(`✅ version: $${prev} -> $${pkg.version}`);'; \
 	fi
-	@node -e 'const fs=require("fs");const p="$(ELECTRON_DIR)/package.json";const pkg=JSON.parse(fs.readFileSync(p,"utf8"));const prev=pkg.version;pkg.version="$(VERSION)";fs.writeFileSync(p,JSON.stringify(pkg,null,2)+"\n");console.log(`✅ version: $${prev} -> $${pkg.version}`);'
 
 .PHONY: release-with-version
 release-with-version: bump-version ## 一键发布（先改版本再执行 release，用法: make release-with-version VERSION=2026.3.31）
@@ -166,7 +229,7 @@ upload-r2-verify: ## 验证 latest-mac.yml 是否可公开访问
 release: ## 一键完整发布：双架构打包 + 上传 R2 + 验证
 	@echo "🚀 开始完整发布流程..."
 	$(MAKE) package-arm64
-	$(MAKE) package-x64
+	# $(MAKE) package-x64
 	$(MAKE) upload-r2
 	$(MAKE) upload-r2-verify
 	@echo "🎉 发布完成！"

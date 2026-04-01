@@ -23,19 +23,18 @@
 - [.github/workflows/electron-release.yml](file://.github/workflows/electron-release.yml)
 - [apps/electron/scripts/package-electron.sh](file://apps/electron/scripts/package-electron.sh)
 - [apps/electron/scripts/download-node.sh](file://apps/electron/scripts/download-node.sh)
-- [apps/electron/scripts/notarize-mac-artifact.sh](file://scripts/notarize-mac-artifact.sh)
+- [apps/electron/scripts/notarize.cjs](file://apps/electron/scripts/notarize.cjs)
 - [apps/electron/packaged-runtime.json](file://apps/electron/packaged-runtime.json)
 - [apps/electron/scripts/generate-runtime-package.mjs](file://apps/electron/scripts/generate-runtime-package.mjs)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- Node.js版本升级至24.14.1，替换原有22.x版本
-- GitHub CLI集成替换为App Store Connect API密钥处理
-- 构建配置更新，支持Node.js 24运行时捆绑
-- Apple Store Connect API密钥处理改进，支持文件路径和环境变量两种方式
-- 新增详细的运行时依赖管理和裁剪机制
-- 改进的打包脚本和公证流程
+- **pdf-parse扩展优化**：在electron-builder.yml中增加pdf-parse文件过滤规则，只保留最新版本的pdf.js（v2.0.550），减少打包体积
+- **Windows平台支持临时禁用**：在electron-builder.yml中注释掉Windows相关的扩展（nostr、synology-chat、twitch、zalo、zalouser），暂时不支持Windows平台
+- **文件过滤规则改进**：优化了各种扩展和依赖的过滤规则，包括测试文件、文档文件、配置文件等的排除
+- **打包体积优化**：通过更精确的文件过滤和依赖裁剪，显著减少应用包大小
+- **扩展打包策略调整**：对某些扩展的打包策略进行了临时调整，以确保稳定性和兼容性
 
 ## 目录
 1. [简介](#简介)
@@ -85,6 +84,8 @@ OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务�
 - **增强的错误处理和日志记录系统**
 - **改进的预加载桥接功能和OAuth验证适配器支持**
 - **优化的IPC通信机制和错误恢复能力**
+- **pdf-parse扩展优化**：通过文件过滤规则减少打包体积
+- **Windows平台支持临时禁用**：注释掉Windows相关扩展以确保稳定性
 
 该应用的主要特点包括：
 - 内置Node.js 24运行时和OpenClaw CLI
@@ -97,6 +98,8 @@ OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务�
 - 单实例锁保护机制
 - 实时网关状态监控
 - 自动更新功能
+- **优化的打包配置和文件过滤规则**
+- **临时的Windows平台支持策略**
 
 ## 项目结构
 
@@ -123,7 +126,7 @@ B --> P[oauth-utils.ts - OAuth工具]
 B --> Q[updater.ts - 自动更新]
 F --> R[package-electron.sh - 打包脚本]
 F --> S[download-node.sh - Node下载脚本]
-F --> T[notarize-mac-artifact.sh - 公证脚本]
+F --> T[notarize.cjs - 公证脚本]
 F --> U[generate-runtime-package.mjs - 运行时包生成]
 C --> V[ui-react/ - React构建产物]
 C --> W[UpdateBanner.tsx - 更新提示组件]
@@ -250,15 +253,25 @@ end
 - 自动公证和装订流程
 - 详细的打包进度和状态报告
 
+### 扩展打包策略
+
+**新增功能**：针对不同平台的扩展打包策略调整。
+
+**功能特性：**
+- Windows平台扩展临时禁用
+- pdf-parse扩展优化
+- 文件过滤规则改进
+- 打包体积优化
+
 **章节来源**
 - [apps/electron/src/main/index.ts:1-215](file://apps/electron/src/main/index.ts#L1-L215)
 - [apps/electron/src/preload/index.ts:1-171](file://apps/electron/src/preload/index.ts#L1-L171)
 - [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
 - [apps/electron/src/main/onboarding-oauth.ts:1-234](file://apps/electron/src/main/onboarding-oauth.ts#L1-L234)
 - [apps/electron/src/main/updater.ts:1-97](file://apps/electron/src/main/updater.ts#L1-L97)
-- [apps/electron/scripts/package-electron.sh:1-227](file://apps/electron/scripts/package-electron.sh#L1-L227)
+- [apps/electron/scripts/package-electron.sh:1-232](file://apps/electron/scripts/package-electron.sh#L1-L232)
 - [apps/electron/scripts/download-node.sh:1-57](file://apps/electron/scripts/download-node.sh#L1-L57)
-- [apps/electron/scripts/notarize-mac-artifact.sh:1-66](file://scripts/notarize-mac-artifact.sh#L1-L66)
+- [apps/electron/scripts/notarize.cjs:1-84](file://apps/electron/scripts/notarize.cjs#L1-L84)
 - [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 
 ## 架构概览
@@ -287,58 +300,62 @@ N[Node.js 24运行时管理器]
 O[Apple Store Connect密钥处理器]
 P[运行时依赖管理器]
 Q[打包和公证管理器]
+R[扩展打包策略]
 end
 subgraph "服务层"
-R[Gateway子进程]
-S[Node.js 24运行时]
-T[本地HTTP服务器]
-U[OAuth认证服务]
-V[文件锁服务]
-W[环境变量服务]
-X[崩溃监控服务]
-Y[更新服务器]
-Z[R2存储服务]
-AA[App Store Connect API]
+S[Gateway子进程]
+T[Node.js 24运行时]
+U[本地HTTP服务器]
+V[OAuth认证服务]
+W[文件锁服务]
+X[环境变量服务]
+Y[崩溃监控服务]
+Z[更新服务器]
+AA[R2存储服务]
+AB[App Store Connect API]
 end
 subgraph "系统集成层"
-AB[Electron框架]
-AC[React框架]
-AD[WebSocket库]
-AE[文件系统API]
-AF[网络API]
-AG[Cloudflare R2存储]
-AH[Apple开发者服务]
-AI[GitHub Actions]
+AC[Electron框架]
+AD[React框架]
+AE[WebSocket库]
+AF[文件系统API]
+AG[网络API]
+AH[Cloudflare R2存储]
+AI[Apple开发者服务]
+AJ[GitHub Actions]
+AK[Windows平台支持]
 end
 A --> F
 B --> E
 C --> G
 D --> M
-E --> R
-F --> AB
+E --> S
+F --> AC
 G --> AF
 H --> AF
 I --> AE
-J --> AD
-K --> W
-L --> X
-M --> Y
-N --> S
-O --> AA
-P --> S
-Q --> AH
-R --> S
-R --> T
-S --> AF
-T --> AD
-U --> AF
-V --> AE
+J --> AE
+K --> X
+L --> Y
+M --> Z
+N --> T
+O --> AB
+P --> T
+Q --> AI
+R --> AK
+S --> T
+S --> U
+T --> AF
+U --> AE
+V --> AF
 W --> AE
 X --> AE
-Y --> Z
-Z --> AG
+Y --> AE
+Z --> AA
 AA --> AH
-AH --> AI
+AB --> AI
+AI --> AJ
+AK --> AF
 ```
 
 **图表来源**
@@ -365,6 +382,7 @@ participant Window as 窗口管理
 participant StaticServer as 静态服务器
 participant Updater as 自动更新系统
 participant NodeRuntime as Node.js 24运行时
+participant ExtensionPacker as 扩展打包策略
 UI->>Adapter : 用户操作
 Adapter->>Preload : IPC请求
 Preload->>Main : OAuth请求
@@ -382,6 +400,7 @@ Main->>Window : 更新UI状态
 Window-->>UI : 渲染更新
 Note over Main,Gateway : 双向通信通过WebSocket实现
 Note over Main,Updater : 更新检查通过electron-updater实现
+Note over Main,ExtensionPacker : Windows平台扩展临时禁用
 ```
 
 **图表来源**
@@ -671,11 +690,11 @@ GitHubActionsWorkflow --> UpdateServerConfig : "配置发布"
 ```
 
 **图表来源**
-- [apps/electron/electron-builder.yml:214-217](file://apps/electron/electron-builder.yml#L214-L217)
+- [apps/electron/electron-builder.yml:241-244](file://apps/electron/electron-builder.yml#L241-L244)
 - [.github/workflows/electron-release.yml:83-150](file://.github/workflows/electron-release.yml#L83-L150)
 
 **章节来源**
-- [apps/electron/electron-builder.yml:211-218](file://apps/electron/electron-builder.yml#L211-L218)
+- [apps/electron/electron-builder.yml:238-245](file://apps/electron/electron-builder.yml#L238-L245)
 - [.github/workflows/electron-release.yml:1-150](file://.github/workflows/electron-release.yml#L1-L150)
 
 ### IPC通信机制
@@ -1468,7 +1487,7 @@ AppleStoreConnectKeyProcessor --> NotarizationAuthenticator : "支持多种认�
 - [apps/electron/scripts/package-electron.sh:36-65](file://apps/electron/scripts/package-electron.sh#L36-L65)
 
 **章节来源**
-- [apps/electron/scripts/package-electron.sh:1-227](file://apps/electron/scripts/package-electron.sh#L1-L227)
+- [apps/electron/scripts/package-electron.sh:1-232](file://apps/electron/scripts/package-electron.sh#L1-L232)
 
 ## 运行时依赖管理
 
@@ -1554,7 +1573,7 @@ K --> L[打印完成信息]
 ```
 
 **图表来源**
-- [apps/electron/scripts/package-electron.sh:212-227](file://apps/electron/scripts/package-electron.sh#L212-L227)
+- [apps/electron/scripts/package-electron.sh:212-232](file://apps/electron/scripts/package-electron.sh#L212-L232)
 
 ### 公证和装订流程
 
@@ -1586,12 +1605,12 @@ NotarizationManager --> ArtifactProcessor : "处理不同类型的产物"
 ```
 
 **图表来源**
-- [scripts/notarize-mac-artifact.sh:32-40](file://scripts/notarize-mac-artifact.sh#L32-L40)
-- [scripts/notarize-mac-artifact.sh:45-53](file://scripts/notarize-mac-artifact.sh#L45-L53)
+- [apps/electron/scripts/notarize.cjs:32-40](file://apps/electron/scripts/notarize.cjs#L32-L40)
+- [apps/electron/scripts/notarize.cjs:45-53](file://apps/electron/scripts/notarize.cjs#L45-L53)
 
 **章节来源**
-- [apps/electron/scripts/package-electron.sh:1-227](file://apps/electron/scripts/package-electron.sh#L1-L227)
-- [scripts/notarize-mac-artifact.sh:1-66](file://scripts/notarize-mac-artifact.sh#L1-L66)
+- [apps/electron/scripts/package-electron.sh:1-232](file://apps/electron/scripts/package-electron.sh#L1-L232)
+- [apps/electron/scripts/notarize.cjs:1-84](file://apps/electron/scripts/notarize.cjs#L1-L84)
 
 ## 依赖关系分析
 
@@ -1616,19 +1635,20 @@ M[Node.js 24运行时管理器]
 N[Apple Store Connect密钥处理器]
 O[运行时依赖管理器]
 P[打包和公证管理器]
+Q[扩展打包策略]
 end
 subgraph "服务层"
-Q[Gateway服务]
-R[Node.js 24运行时]
-S[本地HTTP服务]
-T[OAuth认证服务]
-U[文件锁服务]
-V[配置服务]
-W[环境变量服务]
-X[崩溃监控服务]
-Y[更新服务器]
-Z[R2存储服务]
-AA[App Store Connect API]
+R[Gateway服务]
+S[Node.js 24运行时]
+T[本地HTTP服务]
+U[OAuth认证服务]
+V[文件锁服务]
+W[配置服务]
+X[环境变量服务]
+Y[崩溃监控服务]
+Z[更新服务器]
+AA[R2存储服务]
+AB[App Store Connect API]
 BB[Cloudflare R2]
 end
 subgraph "基础设施层"
@@ -1647,40 +1667,40 @@ NN[Node.js 24运行时]
 OO[App Store Connect API]
 PP[GitHub CLI]
 end
-A --> Q
+A --> R
 A --> CC
 B --> A
 B --> DD
 C --> B
 D --> B
-E --> T
+E --> U
 F --> FF
-G --> V
-H --> S
-I --> W
-J --> X
-K --> Y
+G --> W
+H --> T
+I --> X
+J --> Y
+K --> Z
 L --> K
-Q --> R
-Q --> S
-R --> NN
-S --> EE
-T --> GG
-U --> FF
-V --> HH
-W --> II
+R --> S
+R --> T
+S --> NN
+T --> EE
+U --> GG
+V --> FF
+W --> HH
 X --> II
-Y --> Z
-Z --> BB
-AA --> OO
+Y --> II
+Z --> AA
+AA --> BB
+AB --> OO
 LL --> MM
 MM --> PP
 A --> FF
 B --> FF
-D --> T
+D --> U
 E --> GG
 F --> FF
-G --> V
+G --> W
 H --> II
 I --> II
 J --> II
@@ -1690,6 +1710,7 @@ M --> NN
 N --> OO
 O --> NN
 P --> LL
+Q --> FF
 ```
 
 **图表来源**
@@ -1728,6 +1749,11 @@ P --> LL
 - **原生依赖裁剪**：针对特定架构优化
 - **Apple Store Connect**：改进的API密钥处理
 
+**扩展打包策略：**
+- **pdf-parse优化**：通过文件过滤规则减少打包体积
+- **Windows平台临时禁用**：注释掉相关扩展以确保稳定性
+- **文件过滤改进**：优化各种扩展和依赖的过滤规则
+
 **章节来源**
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
 - [apps/electron/electron-builder.yml:1-80](file://apps/electron/electron-builder.yml#L1-L80)
@@ -1752,6 +1778,7 @@ P --> LL
 - **更新提示组件状态缓存**
 - **Node.js 24运行时内存优化**
 - **原生依赖裁剪减少内存占用**
+- **pdf-parse扩展优化减少内存占用**
 
 ### 启动性能
 
@@ -1768,6 +1795,7 @@ P --> LL
 - **4小时间隔定时更新**
 - **Node.js 24运行时预加载**
 - **智能依赖解析减少启动时间**
+- **优化的扩展打包策略**
 
 ### 网络性能
 
@@ -1797,6 +1825,7 @@ P --> LL
 - **自动更新下载进度优化**
 - **Apple Store Connect API密钥缓存**
 - **Node.js 24运行时预热**
+- **pdf-parse扩展优化提升性能**
 
 **章节来源**
 - [apps/electron/src/main/onboarding-oauth.ts:187-258](file://apps/electron/src/main/onboarding-oauth.ts#L187-L258)
@@ -1816,6 +1845,7 @@ P --> LL
 - 验证登录shell环境缓存
 - 检查静态HTTP服务器状态
 - **验证Node.js 24运行时下载**
+- **检查pdf-parse扩展优化是否生效**
 
 **IPC通信异常**
 - 验证预加载脚本加载
@@ -1825,6 +1855,7 @@ P --> LL
 - 验证网关崩溃检测回调
 - **验证自动更新IPC事件**
 - **检查Node.js 24运行时集成**
+- **验证扩展打包策略**
 
 **窗口加载问题**
 - 检查CSP配置
@@ -1833,6 +1864,7 @@ P --> LL
 - 查看开发服务器连接
 - 验证静态HTTP服务器端口
 - **验证运行时依赖完整性**
+- **检查Windows平台支持状态**
 
 **OAuth认证失败**
 - 检查网络连接
@@ -1843,6 +1875,7 @@ P --> LL
 - 验证PKCE参数生成
 - 验证登录shell环境变量
 - **检查Apple Store Connect API密钥**
+- **验证pdf-parse扩展配置**
 
 **单实例锁冲突**
 - 检查锁文件是否存在
@@ -1879,6 +1912,7 @@ P --> LL
 - **查看更新下载进度日志**
 - **确认用户安装权限**
 - **验证Node.js 24运行时更新**
+- **检查pdf-parse扩展更新**
 
 **Node.js 24运行时问题**
 - **检查Node.js 24下载完整性**
@@ -1886,6 +1920,7 @@ P --> LL
 - **确认执行权限设置**
 - **检查electron-builder集成**
 - **验证运行时依赖解析**
+- **验证扩展打包策略**
 
 **Apple Store Connect密钥问题**
 - **验证API密钥文件路径**
@@ -1900,6 +1935,7 @@ P --> LL
 - **确认原生依赖裁剪**
 - **验证预安装扩展**
 - **检查依赖完整性**
+- **验证pdf-parse扩展优化**
 
 **打包和公证问题**
 - **验证打包脚本执行**
@@ -1907,6 +1943,13 @@ P --> LL
 - **确认装订流程**
 - **验证产物完整性**
 - **检查Apple开发者服务**
+- **验证Windows平台支持状态**
+
+**扩展打包问题**
+- **检查pdf-parse扩展过滤规则**
+- **验证Windows平台扩展禁用状态**
+- **确认文件过滤规则生效**
+- **检查扩展打包策略配置**
 
 **章节来源**
 - [apps/electron/src/main/gateway.ts:140-147](file://apps/electron/src/main/gateway.ts#L140-L147)
@@ -1939,6 +1982,8 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **Apple Store Connect API密钥处理**
 - **智能运行时依赖管理**
 - **改进的打包和公证流程**
+- **pdf-parse扩展优化**
+- **Windows平台支持临时禁用策略**
 
 **用户体验：**
 - 流畅的启动体验
@@ -1953,6 +1998,7 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **无感的更新体验**
 - **高效的Node.js 24运行时启动**
 - **稳定的Apple Store Connect认证**
+- **优化的pdf-parse扩展性能**
 
 **扩展性：**
 - 插件化架构支持
@@ -1965,8 +2011,12 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **可扩展的更新系统**
 - **可扩展的运行时管理**
 - **可扩展的打包流程**
+- **可扩展的Windows平台支持**
 
 **新增功能价值：**
+- **pdf-parse扩展优化**：通过文件过滤规则减少打包体积，提升应用启动速度和运行效率
+- **Windows平台支持临时禁用**：通过注释掉相关扩展确保应用稳定性和兼容性，为未来Windows支持做好准备
+- **文件过滤规则改进**：优化各种扩展和依赖的过滤规则，减少不必要的文件打包，降低应用体积
 - **Node.js 24运行时集成**：登录shell环境缓存解决了macOS打包应用的PATH变量问题
 - **Apple Store Connect API密钥处理**：改进的认证方式支持文件路径和环境变量
 - **智能运行时依赖管理**：原生依赖裁剪减少了应用体积和启动时间
@@ -1982,5 +2032,6 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **发布验证机制**：改进的用户认证体验
 - **更新进度跟踪**：更好的安全性和可靠性
 - **运行时依赖裁剪**：优化的应用性能和资源使用
+- **打包体积优化**：通过更精确的文件过滤和依赖裁剪显著减少应用包大小
 
-该应用为类似的企业级桌面应用提供了优秀的参考模板，展示了如何在保证安全性的同时提供出色的用户体验。新增的Node.js 24运行时集成、Apple Store Connect API密钥处理、智能运行时依赖管理和改进的打包流程，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性。
+该应用为类似的企业级桌面应用提供了优秀的参考模板，展现了如何在保证安全性的同时提供出色的用户体验。新增的pdf-parse扩展优化、Windows平台支持临时禁用策略、改进的文件过滤规则和优化的打包配置，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性。这些优化措施不仅提升了应用的性能和稳定性，也为未来的功能扩展和平台支持奠定了坚实的基础。

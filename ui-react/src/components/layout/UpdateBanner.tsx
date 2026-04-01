@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, X } from "lucide-react";
+import { Download, X, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface UpdateInfo {
@@ -16,6 +16,7 @@ interface UpdateInfo {
 export function UpdateBanner() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [installing, setInstalling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // 仅在 Electron 环境中注册监听
@@ -24,7 +25,7 @@ export function UpdateBanner() {
       installUpdate?: () => Promise<void>;
     } }).electronBridge;
 
-    if (!bridge?.onUpdateReady) return;
+    if (!bridge?.onUpdateReady) { return; }
 
     const unsub = bridge.onUpdateReady((info) => {
       setUpdateInfo(info);
@@ -33,18 +34,29 @@ export function UpdateBanner() {
     return unsub;
   }, []);
 
-  if (!updateInfo) return null;
+  if (!updateInfo) { return null; }
 
   const handleInstall = async () => {
     setInstalling(true);
+    setError(null);
     try {
       const bridge = (window as Window & { electronBridge?: {
         installUpdate?: () => Promise<void>;
       } }).electronBridge;
-      await bridge?.installUpdate?.();
-    } catch {
-      // quitAndInstall 会直接退出 app，catch 通常不会触发
+      
+      // 添加超时保护：5 秒后如果还没完成，认为安装失败
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error("Installation timed out, please retry")), 5000)
+      );
+      
+      const installPromise = bridge?.installUpdate?.() || Promise.reject(new Error("Installation method is unavailable"));
+      
+      await Promise.race([installPromise, timeoutPromise]);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Installation failed, please retry";
+      setError(errorMsg);
       setInstalling(false);
+      console.error("[UpdateBanner] Installation failed:", err);
     }
   };
 
@@ -55,28 +67,54 @@ export function UpdateBanner() {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 px-4 py-2 text-sm",
-        "bg-blue-50 text-blue-700 border-b border-blue-200",
+        "flex items-center gap-2 px-4 py-2 text-sm border-b",
+        error 
+          ? "bg-red-50 text-red-700 border-red-200"
+          : "bg-blue-50 text-blue-700 border-blue-200",
       )}
     >
-      <Download className="size-4 shrink-0" />
+      {error ? (
+        <AlertTriangle className="size-4 shrink-0" />
+      ) : (
+        <Download className="size-4 shrink-0" />
+      )}
       <span className="flex-1 truncate">
-        新版本 <span className="font-semibold">v{updateInfo.version}</span> 已下载完成，重启即可更新。
+        {error ? (
+          <span className="font-medium">Install failed:</span>
+        ) : (
+          <>
+            new version <span className="font-semibold">v{updateInfo.version}</span> has been downloaded,
+          </>
+        )}
+        {error ? error : "Restart to update."}
       </span>
-      <button
-        onClick={handleInstall}
-        disabled={installing}
-        className="flex items-center gap-1 text-xs font-medium hover:underline shrink-0 disabled:opacity-60"
-      >
-        {installing ? "正在重启…" : "重启安装"}
-      </button>
-      <button
-        className="ml-1 opacity-60 hover:opacity-100 shrink-0"
-        aria-label="稍后提示"
-        onClick={handleDismiss}
-      >
-        <X className="size-3.5" />
-      </button>
+      {!error && (
+        <>
+          <button
+            onClick={handleInstall}
+            disabled={installing}
+            className="flex items-center gap-1 text-xs font-medium hover:underline shrink-0 disabled:opacity-60"
+          >
+            {installing ? "Restarting…" : "Restart and install"}
+          </button>
+          <button
+            className="ml-1 opacity-60 hover:opacity-100 shrink-0"
+            aria-label="Dismiss later"
+            onClick={handleDismiss}
+          >
+            <X className="size-3.5" />
+          </button>
+        </>
+      )}
+      {error && (
+        <button
+          className="ml-1 opacity-60 hover:opacity-100 shrink-0"
+          aria-label="Close error message"
+          onClick={handleDismiss}
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
     </div>
   );
 }

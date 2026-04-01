@@ -214,6 +214,70 @@ print_completion() {
   ls -lh "$ELECTRON_DIR/release/" 2>/dev/null || true
 }
 
+# ─────────────────────────────────────────────────────
+# 签名与公证验证
+# ─────────────────────────────────────────────────────
+
+verify_code_signature() {
+  echo ""
+  echo "🔍 [6/6] 验证代码签名与公证状态"
+
+  # 查找打包后的 .app 路径
+  local app_path
+  app_path=$(ls -d "$ELECTRON_DIR/release/mac-"*/Bossim.app 2>/dev/null | head -1 || true)
+
+  if [ -z "$app_path" ]; then
+    # 尝试备用路径（可能在 release/mac-arm64 或 release/mac/）
+    app_path=$(ls -d "$ELECTRON_DIR/release/"*/Bossim.app 2>/dev/null | head -1 || true)
+  fi
+
+  if [ -z "$app_path" ]; then
+    echo "⚠️  未找到 .app，跳过签名验证"
+    return 0
+  fi
+
+  echo "📍 验证应用: $app_path"
+  echo ""
+
+  # 跳过本地快速打包（无签名）
+  if [ "$LOCAL_FAST" = "1" ]; then
+    echo "⏭️  LOCAL_FAST=1，跳过签名验证（无签名模式）"
+    return 0
+  fi
+
+  # 1. 验证签名详情
+  echo "1️⃣  检查签名详情..."
+  if codesign -dv --verbose=4 "$app_path" 2>&1; then
+    echo "✅ 签名详情验证通过"
+  else
+    echo "❌ 签名详情验证失败"
+    return 1
+  fi
+  echo ""
+
+  # 2. 验证签名链（深度验证 + 严格模式）
+  echo "2️⃣  验证签名链（--deep --strict）..."
+  if codesign --verify --deep --strict --verbose=2 "$app_path" 2>&1; then
+    echo "✅ 签名链验证通过"
+  else
+    echo "❌ 签名链验证失败"
+    return 1
+  fi
+  echo ""
+
+  # 3. 验证 Gatekeeper 公证状态
+  echo "3️⃣  验证 Gatekeeper 公证..."
+  if spctl --assess --type exec --verbose "$app_path" 2>&1; then
+    echo "✅ Gatekeeper 公证验证通过"
+  else
+    echo "❌ Gatekeeper 公证验证失败"
+    return 1
+  fi
+  echo ""
+
+  echo "🎉 所有签名验证通过！"
+}
+
 main() {
   load_env
   print_banner
@@ -225,6 +289,7 @@ main() {
   build_electron_main
   package_electron_app
   cleanup_runtime_dependencies
+  verify_code_signature  # 验证签名与公证
   print_completion
 }
 

@@ -8,17 +8,40 @@
     <!-- 允许未签名的可执行内存（Node.js 需要） -->
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <true/>
-    <!-- 允许出站网络连接（WebSocket 连接 Gateway） -->
+    <!-- 允许动态库环境变量（某些原生模块需要） -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <!-- 允许执行外部进程（openclaw CLI、shell 脚本等） -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    
+    <!-- 网络连接 -->
     <key>com.apple.security.network.client</key>
     <true/>
-    <!-- 允许入站网络连接（Gateway 监听本地端口） -->
     <key>com.apple.security.network.server</key>
     <true/>
-    <!-- 允许读写用户选择的文件（workspace 目录） -->
+    
+    <!-- 文件系统访问 -->
+    <!-- 允许访问用户选择的文件 -->
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
-    <!-- 允许读写用户主目录下的文件（~/.openclaw 配置目录） -->
+    <!-- 允许访问下载目录 -->
     <key>com.apple.security.files.downloads.read-write</key>
     <true/>
+    <!-- 允许访问缓存目录（electron-updater 需要） -->
+    <key>com.apple.security.files.caches.read-write</key>
+    <true/>
+    <!-- 允许访问应用沙盒内的书签 -->
+    <key>com.apple.security.files.bookmarks.app-scope</key>
+    <true/>
+    <key>com.apple.security.files.bookmarks.document-scope</key>
+    <true/>
+    
+    <!-- 临时例外权限（用于访问 /Applications 和其他系统目录） -->
+    <!-- 注意：这会使 App Store 审核不通过，但 Developer ID 分发可以 -->
+    <key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+    <array>
+      <string>/</string>
+    </array>
   </dict>
 </plist>

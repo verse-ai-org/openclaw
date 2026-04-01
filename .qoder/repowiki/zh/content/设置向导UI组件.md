@@ -32,6 +32,8 @@
 - 简化AccessStep参数，移除onNextInvite回调，优化状态管理
 - 新增OptionalFeaturesStep步骤，提供可选功能配置
 - 增强CompletionStep组件，优化启动流程和错误处理
+- **更新**：调整CompletionStep按钮高度从h-12增加到h-20，提升触摸目标可访问性
+- **更新**：临时注释掉CompletionStep中的启动信息文本块，待后续版本恢复
 
 ## 目录
 1. [简介](#简介)
@@ -49,7 +51,7 @@
 
 设置向导UI组件是OpenClaw项目中的一个独立React组件包，专门用于提供用户友好的安装和配置体验。该组件包采用模块化设计，支持多种平台适配器，包括Web和Electron环境，并提供了完整的状态管理和持久化功能。
 
-**重大更新**：重构了整个设置向导流程，采用模块化的组件架构。新增了Welcome步骤的WebGL Orb动画背景，提供沉浸式视觉体验。优化了WizardFooter组件的高度和布局，提升了移动端适配性。简化了AccessStep组件的参数传递，移除了冗余的回调函数。新增了OptionalFeaturesStep步骤，允许用户选择额外的功能模块。
+**重大更新**：重构了整个设置向导流程，采用模块化的组件架构。新增了Welcome步骤的WebGL Orb动画背景，提供沉浸式视觉体验。优化了WizardFooter组件的高度和布局，提升了移动端适配性。简化了AccessStep组件的参数传递，移除了冗余的回调函数。新增了OptionalFeaturesStep步骤，允许用户选择额外的功能模块。**更新**：调整了CompletionStep组件的按钮高度，从h-12增加到h-20，提升了触摸目标的可访问性。同时临时注释掉了启动过程中的信息文本块，为后续版本的改进预留空间。
 
 该组件包的核心目标是为用户提供一个直观、响应式的设置向导界面，涵盖从欢迎页面到最终完成的所有配置步骤。通过使用现代前端技术栈和设计系统，确保了良好的用户体验和跨平台兼容性。
 
@@ -200,14 +202,14 @@ BaseComponent <|-- Select
 - **SecurityStep**：安全确认和条款同意
 - **AccessStep**：**更新**：简化参数传递，移除onNextInvite回调
 - **OptionalFeaturesStep**：**新增**：可选功能配置步骤
-- **CompletionStep**：**更新**：增强启动流程和错误处理
+- **CompletionStep**：**更新**：增强启动流程和错误处理，调整按钮高度提升可访问性
 - **ModelSelectionStep**：模块化的AI模型选择界面
 - **ApiKeyStep**：模块化的API密钥步骤，支持OAuth和API Key两种认证方式
 
 ### UI基础组件
 提供通用的UI组件，如向导底部导航等，用于构建一致的用户体验。
 
-**更新**：所有步骤组件现在都使用新的基础UI组件系统，提升了组件的一致性和可维护性。
+**更新**：所有步骤组件现在都使用新的基础UI组件系统，提升了组件的一致性和可维护性。**更新**：WizardFooter组件的按钮高度已调整为h-12，提供更好的触摸目标体验。
 
 **章节来源**
 - [ui-react/src/components/setup-wizard/index.tsx:1-31](file://ui-react/src/components/setup-wizard/index.tsx#L1-L31)
@@ -470,7 +472,7 @@ OptionalFeaturesStep --> Checkbox : 使用复选框
 
 #### CompletionStep 完成步骤
 
-**更新**：CompletionStep增强了启动流程和错误处理：
+**更新**：CompletionStep增强了启动流程和错误处理，调整了按钮高度以提升可访问性：
 
 ```mermaid
 classDiagram
@@ -494,12 +496,21 @@ class Icons {
 +Globe : React.ComponentType
 +Settings : React.ComponentType
 }
+class Button {
++h-20 : string
++rounded-full : string
++bg-linear-to-b : string
++shadow-[0_8px_32px_rgba(186,0,52,0.28)] : string
+}
 CompletionStep --> SetupSummary : 显示配置摘要
 CompletionStep --> Icons : 使用图标组件
+CompletionStep --> Button : 使用大尺寸按钮
 ```
 
 **图表来源**
 - [ui-react/src/components/setup-wizard/steps/CompletionStep.tsx:23-257](file://ui-react/src/components/setup-wizard/steps/CompletionStep.tsx#L23-L257)
+
+**更新**：按钮高度从h-12调整为h-20，提供更大的触摸目标区域，提升移动设备的可访问性。同时临时注释掉了启动过程中的信息文本块，待后续版本恢复。
 
 ### 状态管理系统
 
@@ -676,6 +687,8 @@ A --> S
 - **动画性能监控**：实时监控帧率和内存使用
 - **网络请求优化**：邀请码验证的缓存策略
 
+**更新**：按钮高度调整提升了触摸目标的可访问性，特别是在移动设备上提供了更好的用户体验。临时注释掉的信息文本块减少了不必要的DOM元素，提升了渲染性能。
+
 ## 故障排除指南
 
 ### 常见问题及解决方案
@@ -752,6 +765,22 @@ A --> S
 2. 验证响应式布局
 3. 调整固定定位属性
 
+#### CompletionStep按钮可访问性问题
+**症状**: 移动设备上按钮难以点击
+**原因**: 按钮高度过小或触摸目标不足
+**解决方案**:
+1. 检查按钮高度类名（应为h-20）
+2. 验证触摸目标区域大小
+3. 确认按钮样式和阴影效果正常
+
+#### 临时注释信息文本块问题
+**症状**: 启动过程中缺少状态提示
+**原因**: 信息文本块被临时注释掉
+**解决方案**:
+1. 检查CompletionStep中的注释代码
+2. 确认信息文本块的显示逻辑
+3. 在后续版本中恢复注释功能
+
 **章节来源**
 - [ui-react/src/components/setup-wizard/WizardContainer.tsx:41-62](file://ui-react/src/components/setup-wizard/WizardContainer.tsx#L41-L62)
 
@@ -775,6 +804,7 @@ A --> S
 - **一致性**: 统一的设计语言和交互模式
 - **沉浸式体验**: WebGL Orb动画提供视觉吸引力
 - **可定制性**: 支持用户选择额外功能模块
+- **可访问性优化**: **更新**：按钮高度调整提升了移动设备的可访问性
 
 ### 扩展性
 - **插件架构**: 支持自定义步骤和适配器
@@ -782,6 +812,6 @@ A --> S
 - **主题系统**: 灵活的主题和样式定制
 - **测试友好**: 完善的单元测试和集成测试
 
-**重大更新**：重构后的设置向导采用了更加简洁高效的两步流程，移除了复杂的多模式访问步骤，专注于提供更好的用户体验。新增的模块化API密钥步骤架构支持OAuth和API Key两种认证方式，为不同用户需求提供了灵活的选择。新增的WebGL Orb动画组件显著提升了视觉体验，而简化的AccessStep参数传递优化了代码结构和可维护性。
+**重大更新**：重构后的设置向导采用了更加简洁高效的两步流程，移除了复杂的多模式访问步骤，专注于提供更好的用户体验。新增的模块化API密钥步骤架构支持OAuth和API Key两种认证方式，为不同用户需求提供了灵活的选择。新增的WebGL Orb动画组件显著提升了视觉体验，而简化的AccessStep参数传递优化了代码结构和可维护性。**更新**：CompletionStep组件的按钮高度调整从h-12增加到h-20，显著提升了移动设备的可访问性。临时注释掉的信息文本块为后续版本的改进预留了空间，体现了持续优化的开发理念。
 
 该组件包为OpenClaw项目提供了一个坚实的技术基础，能够有效提升用户的初始体验和产品采用率。其模块化的设计使得未来的功能扩展和维护变得更加容易和可控。

@@ -40,12 +40,11 @@
 
 ## 更新摘要
 **所做更改**
-- 新增 Windows 打包系统重大改进，包括新增 package-electron-win.sh 脚本
-- Makefile 增强，新增 Windows 打包目标和命令
-- electron-builder 配置更新，支持 Windows 平台特定配置
-- Node.js 运行时管理改进，支持 Windows 架构的 Node 二进制下载
-- 跨平台打包流程统一，实现 macOS 和 Windows 的相似打包逻辑
-- 自动化签名和公证流程优化，支持 Windows 平台的签名配置
+- 优化了 electron-builder.yml 中的文件过滤规则，增强了扩展打包策略
+- 改进了扩展过滤规则，支持更精细的文件排除控制
+- 优化了运行时依赖的打包策略，提升了打包效率和体积控制
+- 增强了跨平台打包的文件过滤一致性
+- 改进了 WeChat 扩展的打包配置和过滤规则
 
 ## 目录
 1. [简介](#简介)
@@ -162,15 +161,15 @@ end
 
 **图表来源**
 - [apps/electron/package.json:1-44](file://apps/electron/package.json#L1-L44)
-- [apps/electron/electron-builder.yml:1-285](file://apps/electron/electron-builder.yml#L1-L285)
+- [apps/electron/electron-builder.yml:1-315](file://apps/electron/electron-builder.yml#L1-L315)
 - [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
-- [apps/electron/scripts/package-electron.sh:1-230](file://apps/electron/scripts/package-electron.sh#L1-L230)
+- [apps/electron/scripts/package-electron.sh:1-232](file://apps/electron/scripts/package-electron.sh#L1-L232)
 - [apps/electron/scripts/package-electron-win.sh:1-198](file://apps/electron/scripts/package-electron-win.sh#L1-L198)
 - [apps/electron/Makefile:1-221](file://apps/electron/Makefile#L1-L221)
 
 **章节来源**
 - [apps/electron/package.json:1-44](file://apps/electron/package.json#L1-L44)
-- [apps/electron/electron-builder.yml:1-285](file://apps/electron/electron-builder.yml#L1-L285)
+- [apps/electron/electron-builder.yml:1-315](file://apps/electron/electron-builder.yml#L1-L315)
 - [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 - [apps/electron/BUILDING.md:1-244](file://apps/electron/BUILDING.md#L1-L244)
 - [apps/electron/Makefile:1-221](file://apps/electron/Makefile#L1-L221)
@@ -425,7 +424,7 @@ BA --> BC[.zip 压缩包]
 - **架构支持**：固定支持 x64 架构（可扩展为 arm64）
 
 **图表来源**
-- [apps/electron/electron-builder.yml:256-282](file://apps/electron/electron-builder.yml#L256-L282)
+- [apps/electron/electron-builder.yml:286-315](file://apps/electron/electron-builder.yml#L286-L315)
 - [apps/electron/packaged-runtime.json:145-147](file://apps/electron/packaged-runtime.json#L145-L147)
 
 ### 构建工具配置
@@ -450,7 +449,7 @@ BA --> BC[.zip 压缩包]
 - **智能依赖排除**：自动排除 electron、sharp、playwright-core 等原生模块
 
 **章节来源**
-- [apps/electron/electron-builder.yml:1-285](file://apps/electron/electron-builder.yml#L1-L285)
+- [apps/electron/electron-builder.yml:1-315](file://apps/electron/electron-builder.yml#L1-L315)
 - [apps/electron/tsdown.config.electron.ts:14-28](file://apps/electron/tsdown.config.electron.ts#L14-L28)
 - [apps/electron/packaged-runtime.json:2-16](file://apps/electron/packaged-runtime.json#L2-L16)
 
@@ -849,7 +848,7 @@ end
 - **打包格式**：根据平台选择合适的安装包格式
 
 **章节来源**
-- [apps/electron/electron-builder.yml:256-282](file://apps/electron/electron-builder.yml#L256-L282)
+- [apps/electron/electron-builder.yml:286-315](file://apps/electron/electron-builder.yml#L286-L315)
 - [apps/electron/scripts/package-electron-win.sh:13-25](file://apps/electron/scripts/package-electron-win.sh#L13-L25)
 
 ### Makefile 增强
@@ -990,8 +989,8 @@ end
 - **自动公证**：配置打包后的自动公证钩子
 
 **章节来源**
-- [apps/electron/electron-builder.yml:219-236](file://apps/electron/electron-builder.yml#L219-L236)
-- [apps/electron/electron-builder.yml:228-231](file://apps/electron/electron-builder.yml#L228-L231)
+- [apps/electron/electron-builder.yml:249-266](file://apps/electron/electron-builder.yml#L249-L266)
+- [apps/electron/electron-builder.yml:258-261](file://apps/electron/electron-builder.yml#L258-L261)
 
 ## WeChat 扩展集成
 
@@ -1396,7 +1395,7 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 1. **统一脚本设计**：macOS 和 Windows 使用相似的打包逻辑
 2. **环境变量驱动**：通过 ARCH 环境变量控制目标架构
 3. **平台特定优化**：针对不同平台优化资源和依赖配置
-4. **Makefile 支持**：完整的构建命令和目标配置
+4. **Makefile 支port**：完整的构建命令和目标配置
 5. **快速模式支持**：支持跳过构建步骤的快速验证流程
 
 ### 自动化签名和公证
