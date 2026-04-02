@@ -47,14 +47,14 @@ export type TabGroup = {
 
 export const TAB_GROUPS: TabGroup[] = [
   { label: "Message", tabs: ["chat"] },
-  { label: "Team", tabs: ["employee", "skills"] },
+  { label: "Team", tabs: ["employees", "skills"] },
   { label: "Tools", tabs: ["channels", "plugins"] },
   { label: "settings", tabs: ["overview", "settings"] },
 ];
 
 export const TAB_PATHS: Record<Tab, string> = {
   agents: "/agents",
-  employee: "/employee",
+  employees: "/employees",
   overview: "/overview",
   channels: "/channels",
   skills: "/skills",

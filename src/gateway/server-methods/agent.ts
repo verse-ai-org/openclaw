@@ -22,9 +22,15 @@ import {
   resolveAgentOutboundTarget,
 } from "../../infra/outbound/agent-delivery.js";
 import { resolveMessageChannelSelection } from "../../infra/outbound/channel-selection.js";
-import { classifySessionKeyShape, normalizeAgentId } from "../../routing/session-key.js";
+import {
+  classifySessionKeyShape,
+  normalizeAgentId,
+} from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
-import { normalizeInputProvenance, type InputProvenance } from "../../sessions/input-provenance.js";
+import {
+  normalizeInputProvenance,
+  type InputProvenance,
+} from "../../sessions/input-provenance.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { normalizeSessionDeliveryFields } from "../../utils/delivery-context.js";
 import {
@@ -37,7 +43,10 @@ import { resolveAssistantIdentity } from "../assistant-identity.js";
 import { parseMessageWithAttachments } from "../chat-attachments.js";
 import { resolveAssistantAvatarUrl } from "../control-ui-shared.js";
 import { ADMIN_SCOPE } from "../method-scopes.js";
-import { GATEWAY_CLIENT_CAPS, hasGatewayClientCap } from "../protocol/client-info.js";
+import {
+  GATEWAY_CLIENT_CAPS,
+  hasGatewayClientCap,
+} from "../protocol/client-info.js";
 import {
   ErrorCodes,
   errorShape,
@@ -63,12 +72,19 @@ import {
   waitForTerminalGatewayDedupe,
 } from "./agent-wait-dedupe.js";
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
-import type { GatewayRequestHandlerOptions, GatewayRequestHandlers } from "./types.js";
+import type {
+  GatewayRequestHandlerOptions,
+  GatewayRequestHandlers,
+} from "./types.js";
 
 const RESET_COMMAND_RE = /^\/(new|reset)(?:\s+([\s\S]*))?$/i;
 
-function resolveSenderIsOwnerFromClient(client: GatewayRequestHandlerOptions["client"]): boolean {
-  const scopes = Array.isArray(client?.connect?.scopes) ? client.connect.scopes : [];
+function resolveSenderIsOwnerFromClient(
+  client: GatewayRequestHandlerOptions["client"],
+): boolean {
+  const scopes = Array.isArray(client?.connect?.scopes)
+    ? client.connect.scopes
+    : [];
   return scopes.includes(ADMIN_SCOPE);
 }
 
@@ -101,7 +117,11 @@ function dispatchAgentRunFromGateway(params: {
   respond: GatewayRequestHandlerOptions["respond"];
   context: GatewayRequestHandlerOptions["context"];
 }) {
-  void agentCommandFromIngress(params.ingressOpts, defaultRuntime, params.context.deps)
+  void agentCommandFromIngress(
+    params.ingressOpts,
+    defaultRuntime,
+    params.context.deps,
+  )
     .then((result) => {
       const payload = {
         runId: params.runId,
@@ -205,7 +225,8 @@ export const agentHandlers: GatewayRequestHandlers = {
       workspaceDir: request.workspaceDir,
     });
     let resolvedGroupId: string | undefined = normalizedSpawned.groupId;
-    let resolvedGroupChannel: string | undefined = normalizedSpawned.groupChannel;
+    let resolvedGroupChannel: string | undefined =
+      normalizedSpawned.groupChannel;
     let resolvedGroupSpace: string | undefined = normalizedSpawned.groupSpace;
     let spawnedByValue = normalizedSpawned.spawnedBy;
     const inputProvenance = normalizeInputProvenance(request.inputProvenance);
@@ -216,34 +237,51 @@ export const agentHandlers: GatewayRequestHandlers = {
       });
       return;
     }
-    const normalizedAttachments = normalizeRpcAttachmentsToChatAttachments(request.attachments);
+    const normalizedAttachments = normalizeRpcAttachmentsToChatAttachments(
+      request.attachments,
+    );
     const requestedBestEffortDeliver =
-      typeof request.bestEffortDeliver === "boolean" ? request.bestEffortDeliver : undefined;
+      typeof request.bestEffortDeliver === "boolean"
+        ? request.bestEffortDeliver
+        : undefined;
 
     let message = (request.message ?? "").trim();
     let images: Array<{ type: "image"; data: string; mimeType: string }> = [];
     if (normalizedAttachments.length > 0) {
       try {
-        const parsed = await parseMessageWithAttachments(message, normalizedAttachments, {
-          maxBytes: 5_000_000,
-          log: context.logGateway,
-        });
+        const parsed = await parseMessageWithAttachments(
+          message,
+          normalizedAttachments,
+          {
+            maxBytes: 5_000_000,
+            log: context.logGateway,
+          },
+        );
         message = parsed.message.trim();
         images = parsed.images;
       } catch (err) {
-        respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, String(err)));
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, String(err)),
+        );
         return;
       }
     }
 
-    const isKnownGatewayChannel = (value: string): boolean => isGatewayMessageChannel(value);
+    const isKnownGatewayChannel = (value: string): boolean =>
+      isGatewayMessageChannel(value);
     const channelHints = [request.channel, request.replyChannel]
       .filter((value): value is string => typeof value === "string")
       .map((value) => value.trim())
       .filter(Boolean);
     for (const rawChannel of channelHints) {
       const normalized = normalizeMessageChannel(rawChannel);
-      if (normalized && normalized !== "last" && !isKnownGatewayChannel(normalized)) {
+      if (
+        normalized &&
+        normalized !== "last" &&
+        !isKnownGatewayChannel(normalized)
+      ) {
         respond(
           false,
           undefined,
@@ -256,7 +294,8 @@ export const agentHandlers: GatewayRequestHandlers = {
       }
     }
 
-    const agentIdRaw = typeof request.agentId === "string" ? request.agentId.trim() : "";
+    const agentIdRaw =
+      typeof request.agentId === "string" ? request.agentId.trim() : "";
     const agentId = agentIdRaw ? normalizeAgentId(agentIdRaw) : undefined;
     if (agentId) {
       const knownAgents = listAgentIds(cfg);
@@ -298,7 +337,9 @@ export const agentHandlers: GatewayRequestHandlers = {
         agentId,
       });
     if (agentId && requestedSessionKeyRaw) {
-      const sessionAgentId = resolveAgentIdFromSessionKey(requestedSessionKeyRaw);
+      const sessionAgentId = resolveAgentIdFromSessionKey(
+        requestedSessionKeyRaw,
+      );
       if (sessionAgentId !== agentId) {
         respond(
           false,
@@ -320,7 +361,8 @@ export const agentHandlers: GatewayRequestHandlers = {
 
     const resetCommandMatch = message.match(RESET_COMMAND_RE);
     if (resetCommandMatch && requestedSessionKey) {
-      const resetReason = resetCommandMatch[1]?.toLowerCase() === "new" ? "new" : "reset";
+      const resetReason =
+        resetCommandMatch[1]?.toLowerCase() === "new" ? "new" : "reset";
       const resetResult = await runSessionResetFromAgent({
         key: requestedSessionKey,
         reason: resetReason,
@@ -353,7 +395,8 @@ export const agentHandlers: GatewayRequestHandlers = {
     }
 
     if (requestedSessionKey) {
-      const { cfg, storePath, entry, canonicalKey } = loadSessionEntry(requestedSessionKey);
+      const { cfg, storePath, entry, canonicalKey } =
+        loadSessionEntry(requestedSessionKey);
       cfgForAgent = cfg;
       const now = Date.now();
       const sessionId = entry?.sessionId ?? randomUUID();
@@ -367,7 +410,10 @@ export const agentHandlers: GatewayRequestHandlers = {
       let inheritedGroup:
         | { groupId?: string; groupChannel?: string; groupSpace?: string }
         | undefined;
-      if (spawnedByValue && (!resolvedGroupId || !resolvedGroupChannel || !resolvedGroupSpace)) {
+      if (
+        spawnedByValue &&
+        (!resolvedGroupId || !resolvedGroupChannel || !resolvedGroupSpace)
+      ) {
         try {
           const parentEntry = loadSessionEntry(spawnedByValue)?.entry;
           inheritedGroup = {
@@ -380,7 +426,8 @@ export const agentHandlers: GatewayRequestHandlers = {
         }
       }
       resolvedGroupId = resolvedGroupId || inheritedGroup?.groupId;
-      resolvedGroupChannel = resolvedGroupChannel || inheritedGroup?.groupChannel;
+      resolvedGroupChannel =
+        resolvedGroupChannel || inheritedGroup?.groupChannel;
       resolvedGroupSpace = resolvedGroupSpace || inheritedGroup?.groupSpace;
       const deliveryFields = normalizeSessionDeliveryFields(entry);
       const nextEntryPatch: SessionEntry = {
@@ -420,7 +467,10 @@ export const agentHandlers: GatewayRequestHandlers = {
         respond(
           false,
           undefined,
-          errorShape(ErrorCodes.INVALID_REQUEST, "send blocked by session policy"),
+          errorShape(
+            ErrorCodes.INVALID_REQUEST,
+            "send blocked by session policy",
+          ),
         );
         return;
       }
@@ -441,13 +491,19 @@ export const agentHandlers: GatewayRequestHandlers = {
             canonicalKey: target.canonicalKey,
             candidates: target.storeKeys,
           });
-          const merged = mergeSessionEntry(store[canonicalSessionKey], nextEntryPatch);
+          const merged = mergeSessionEntry(
+            store[canonicalSessionKey],
+            nextEntryPatch,
+          );
           store[canonicalSessionKey] = merged;
           return merged;
         });
         sessionEntry = persisted;
       }
-      if (canonicalSessionKey === mainSessionKey || canonicalSessionKey === "global") {
+      if (
+        canonicalSessionKey === mainSessionKey ||
+        canonicalSessionKey === "global"
+      ) {
         context.addChatRun(idem, {
           sessionKey: canonicalSessionKey,
           clientRunId: idem,
@@ -460,7 +516,8 @@ export const agentHandlers: GatewayRequestHandlers = {
     }
 
     const runId = idem;
-    const connId = typeof client?.connId === "string" ? client.connId : undefined;
+    const connId =
+      typeof client?.connId === "string" ? client.connId : undefined;
     const wantsToolEvents = hasGatewayClientCap(
       client?.connect?.caps,
       GATEWAY_CLIENT_CAPS.TOOL_EVENTS,
@@ -471,7 +528,10 @@ export const agentHandlers: GatewayRequestHandlers = {
       // late-joining clients (e.g. page refresh mid-response) receive
       // in-progress tool events without leaking cross-session data.
       for (const [activeRunId, active] of context.chatAbortControllers) {
-        if (activeRunId !== runId && active.sessionKey === requestedSessionKey) {
+        if (
+          activeRunId !== runId &&
+          active.sessionKey === requestedSessionKey
+        ) {
           context.registerToolEventRecipient(activeRunId, connId);
         }
       }
@@ -493,7 +553,9 @@ export const agentHandlers: GatewayRequestHandlers = {
         ? request.channel.trim()
         : undefined;
     const turnSourceTo =
-      typeof request.to === "string" && request.to.trim() ? request.to.trim() : undefined;
+      typeof request.to === "string" && request.to.trim()
+        ? request.to.trim()
+        : undefined;
     const turnSourceAccountId =
       typeof request.accountId === "string" && request.accountId.trim()
         ? request.accountId.trim()
@@ -520,7 +582,9 @@ export const agentHandlers: GatewayRequestHandlers = {
     if (wantsDelivery && resolvedChannel === INTERNAL_MESSAGE_CHANNEL) {
       const cfgResolved = cfgForAgent ?? cfg;
       try {
-        const selection = await resolveMessageChannelSelection({ cfg: cfgResolved });
+        const selection = await resolveMessageChannelSelection({
+          cfg: cfgResolved,
+        });
         resolvedChannel = selection.channel;
         deliveryTargetMode = deliveryTargetMode ?? "implicit";
         effectivePlan = {
@@ -530,7 +594,11 @@ export const agentHandlers: GatewayRequestHandlers = {
           resolvedAccountId,
         };
       } catch (err) {
-        respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, String(err)));
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, String(err)),
+        );
         return;
       }
     }
@@ -571,7 +639,8 @@ export const agentHandlers: GatewayRequestHandlers = {
         ? INTERNAL_MESSAGE_CHANNEL
         : resolvedChannel);
 
-    const deliver = request.deliver === true && resolvedChannel !== INTERNAL_MESSAGE_CHANNEL;
+    const deliver =
+      request.deliver === true && resolvedChannel !== INTERNAL_MESSAGE_CHANNEL;
 
     const accepted = {
       runId,
@@ -611,7 +680,8 @@ export const agentHandlers: GatewayRequestHandlers = {
           groupId: resolvedGroupId,
           groupChannel: resolvedGroupChannel,
           groupSpace: resolvedGroupSpace,
-          currentThreadTs: resolvedThreadId != null ? String(resolvedThreadId) : undefined,
+          currentThreadTs:
+            resolvedThreadId != null ? String(resolvedThreadId) : undefined,
         },
         groupId: resolvedGroupId,
         groupChannel: resolvedGroupChannel,
@@ -654,7 +724,8 @@ export const agentHandlers: GatewayRequestHandlers = {
     }
     const p = params;
     const agentIdRaw = typeof p.agentId === "string" ? p.agentId.trim() : "";
-    const sessionKeyRaw = typeof p.sessionKey === "string" ? p.sessionKey.trim() : "";
+    const sessionKeyRaw =
+      typeof p.sessionKey === "string" ? p.sessionKey.trim() : "";
     let agentId = agentIdRaw ? normalizeAgentId(agentIdRaw) : undefined;
     if (sessionKeyRaw) {
       if (classifySessionKeyShape(sessionKeyRaw) === "malformed_agent") {
@@ -747,12 +818,19 @@ export const agentHandlers: GatewayRequestHandlers = {
     });
 
     const first = await Promise.race([
-      lifecyclePromise.then((snapshot) => ({ source: "lifecycle" as const, snapshot })),
-      dedupePromise.then((snapshot) => ({ source: "dedupe" as const, snapshot })),
+      lifecyclePromise.then((snapshot) => ({
+        source: "lifecycle" as const,
+        snapshot,
+      })),
+      dedupePromise.then((snapshot) => ({
+        source: "dedupe" as const,
+        snapshot,
+      })),
     ]);
 
-    let snapshot: AgentWaitTerminalSnapshot | Awaited<ReturnType<typeof waitForAgentJob>> =
-      first.snapshot;
+    let snapshot:
+      | AgentWaitTerminalSnapshot
+      | Awaited<ReturnType<typeof waitForAgentJob>> = first.snapshot;
     if (snapshot) {
       if (first.source === "lifecycle") {
         dedupeAbortController.abort();
@@ -760,7 +838,10 @@ export const agentHandlers: GatewayRequestHandlers = {
         lifecycleAbortController.abort();
       }
     } else {
-      snapshot = first.source === "lifecycle" ? await dedupePromise : await lifecyclePromise;
+      snapshot =
+        first.source === "lifecycle"
+          ? await dedupePromise
+          : await lifecyclePromise;
       lifecycleAbortController.abort();
       dedupeAbortController.abort();
     }

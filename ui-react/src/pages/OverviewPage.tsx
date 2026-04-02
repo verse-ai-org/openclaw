@@ -1,8 +1,19 @@
-import { ServerIcon, UsersIcon, MessageSquareIcon, ClockIcon } from "lucide-react";
+import {
+  ServerIcon,
+  UsersIcon,
+  MessageSquareIcon,
+  ClockIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
@@ -14,7 +25,6 @@ export function OverviewPage() {
   const presenceEntries = useGatewayStore((s) => s.presenceEntries);
   const lastError = useGatewayStore((s) => s.lastError);
   const lastErrorCode = useGatewayStore((s) => s.lastErrorCode);
-  const updateAvailable = useGatewayStore((s) => s.updateAvailable);
   const settings = useSettingsStore((s) => s.settings);
 
   const [sessionsCount, setSessionsCount] = useState<number | null>(null);
@@ -68,19 +78,15 @@ export function OverviewPage() {
   const isAuthRequired = !isConnected && lastErrorCode?.includes("AUTH");
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto w-full">
-      <div>
-        <h1 className="text-2xl font-semibold">Overview</h1>
-        <p className="text-sm text-muted-foreground">Gateway status and system information.</p>
+    <div className="flex flex-col gap-6 p-8 max-w-4xl mx-auto w-full">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-[48px] font-extrabold leading-tight tracking-tight text-foreground">
+          Overview
+        </h2>
+        <p className="text-lg font-medium text-muted-foreground">
+          Server status and system information.
+        </p>
       </div>
-
-      {updateAvailable && (
-        <Card className="border-blue-500/50 bg-blue-500/5">
-          <CardContent className="pt-6">
-            <p className="font-medium">Update Available: {updateAvailable.version}</p>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
@@ -104,15 +110,24 @@ export function OverviewPage() {
               />
               <div>
                 <p className="font-medium">
-                  {isConnected ? "Connected" : isConnecting ? "Connecting..." : "Disconnected"}
+                  {isConnected
+                    ? "Connected"
+                    : isConnecting
+                      ? "Connecting..."
+                      : "Disconnected"}
                 </p>
                 {isConnected && serverVersion && (
-                  <p className="text-sm text-muted-foreground">v{serverVersion}</p>
+                  <p className="text-sm text-muted-foreground">
+                    v{serverVersion}
+                  </p>
                 )}
               </div>
             </div>
             {!isConnected && (
-              <Button onClick={() => window.location.reload()} disabled={isConnecting}>
+              <Button
+                onClick={() => window.location.reload()}
+                disabled={isConnecting}
+              >
                 Connect
               </Button>
             )}
@@ -156,10 +171,14 @@ export function OverviewPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Uptime</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Uptime
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold">{formatUptime(snapshot?.uptimeMs)}</p>
+              <p className="text-2xl font-semibold">
+                {formatUptime(snapshot?.uptimeMs)}
+              </p>
             </CardContent>
           </Card>
 
@@ -207,7 +226,9 @@ export function OverviewPage() {
         <Card>
           <CardHeader>
             <CardTitle>System Information</CardTitle>
-            <CardDescription>Gateway configuration and runtime details.</CardDescription>
+            <CardDescription>
+              Gateway configuration and runtime details.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -216,14 +237,22 @@ export function OverviewPage() {
                 <p className="text-sm font-mono">{hello?.protocol ?? "N/A"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Tick Interval</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Tick Interval
+                </p>
                 <p className="text-sm font-mono">
-                  {snapshot?.policy?.tickIntervalMs ? `${snapshot.policy.tickIntervalMs}ms` : "N/A"}
+                  {snapshot?.policy?.tickIntervalMs
+                    ? `${snapshot.policy.tickIntervalMs}ms`
+                    : "N/A"}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Connection ID</p>
-                <p className="text-sm font-mono truncate">{hello?.server?.connId ?? "N/A"}</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Connection ID
+                </p>
+                <p className="text-sm font-mono truncate">
+                  {hello?.server?.connId ?? "N/A"}
+                </p>
               </div>
             </div>
           </CardContent>

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export function SectionCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("bg-[#FBFBFB] rounded-3xl p-8", className)}>
+    <div className={cn("p-6", className)}>
       {children}
     </div>
   );

@@ -76,7 +76,9 @@ function auditBundledExtensions(): void {
     }> = [];
 
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+      if (!entry.isDirectory()) {
+        continue;
+      }
       const id = entry.name;
       const extDir = path.join(extensionsDir, id);
       const manifestPath = path.join(extDir, "openclaw.plugin.json");

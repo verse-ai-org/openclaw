@@ -156,7 +156,7 @@ export function SkillsPage() {
   const detailFrontmatter = parsedDetailContent.frontmatter;
 
   return (
-    <div className="flex flex-col gap-12 px-12 py-12 max-w-[1020px] mx-auto w-full">
+    <div className="flex flex-col gap-12 p-8 max-w-4xl mx-auto w-full">
       {/* Header */}
       <div className="flex flex-col gap-2">
         <h2 className="text-[48px] font-extrabold leading-tight tracking-tight text-foreground">

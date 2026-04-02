@@ -23,7 +23,7 @@ export const router = createHashRouter([
       { path: "channels", element: <ChannelsPage /> },
       { path: "cron", element: <CronPage /> },
       { path: "agents", element: <AgentsPage /> },
-      { path: "employee", element: <AgentsPage /> },
+      { path: "employees", element: <AgentsPage /> },
       { path: "skills", element: <SkillsPage /> },
       { path: "plugins", element: <PluginsPage /> },
       { path: "settings", element: <ConfigPage /> }

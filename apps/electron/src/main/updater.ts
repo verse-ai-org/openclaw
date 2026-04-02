@@ -32,8 +32,11 @@ export function initAutoUpdater(
   autoUpdater.autoDownload = false;
   // 下载完成后不自动安装，等待用户确认
   autoUpdater.autoInstallOnAppQuit = true;
-  // 禁用预发布版本（beta/alpha）的自动推送
-  autoUpdater.allowPrerelease = false;
+  // 允许预发布版本（beta/alpha）的自动推送
+  // 当前版本包含预发布标签时会自动启用，也可显式设置
+  autoUpdater.allowPrerelease = true;
+  // 设置更新通道：beta 用户可以接收 beta 和 latest 版本
+  autoUpdater.channel = "beta";
 
   autoUpdater.on("checking-for-update", () => {
     _log("[updater] 检查更新中…");

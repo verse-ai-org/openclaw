@@ -1,252 +1,115 @@
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import {
-  ChevronRightIcon,
-  FileTextIcon,
-  Loader2Icon,
-  RefreshCwIcon,
-} from "lucide-react";
+import { FileTextIcon, Loader2Icon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
-import { ProfileHeroSection, ProfessionalSummarySection } from "../components/agents/profile";
-import { CoreSkillsSection } from "../components/agents/skills";
-import { ToolsSection } from "../components/agents/tools";
+import { AgentCard } from "../components/agents/card";
+import { AgentDetailDrawer } from "../components/agents/detail-drawer";
 
-// ── Section card wrapper ───────────────────────────────────────────────────────
-
-function SectionCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn("bg-[#FBFBFB] rounded-3xl p-8", className)}>
-      {children}
-    </div>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">{children}</p>
-  );
-}
-
-// ── Profile / Summary / Skills moved to ./agents/* ───────────────────────────
-
-// ── Files Section ─────────────────────────────────────────────────────────────
-
-function isMarkdownFile(name: string) {
-  const n = name.toLowerCase();
-  return n.endsWith(".md") || n.endsWith(".mdx");
-}
-
-function FilesSection({ agentId }: { agentId: string }) {
-  const agentFilesList = useAgentsStore((s) => s.agentFilesList);
-  const agentFilesLoading = useAgentsStore((s) => s.agentFilesLoading);
-  const agentFilesError = useAgentsStore((s) => s.agentFilesError);
-  const agentFileActive = useAgentsStore((s) => s.agentFileActive);
-  const agentFileContents = useAgentsStore((s) => s.agentFileContents);
-  const agentFileDrafts = useAgentsStore((s) => s.agentFileDrafts);
-  const agentFileSaving = useAgentsStore((s) => s.agentFileSaving);
-  const loadAgentFiles = useAgentsStore((s) => s.loadAgentFiles);
-  const loadFileContent = useAgentsStore((s) => s.loadFileContent);
-  const selectFile = useAgentsStore((s) => s.selectFile);
-  const changeFileDraft = useAgentsStore((s) => s.changeFileDraft);
-  const resetFileDraft = useAgentsStore((s) => s.resetFileDraft);
-  const saveFile = useAgentsStore((s) => s.saveFile);
-  const [mdEditMode, setMdEditMode] = useState(false);
-
-  useEffect(() => {
-    if (agentFilesList?.agentId !== agentId) { void loadAgentFiles(agentId); }
-  }, [agentId, agentFilesList?.agentId, loadAgentFiles]);
-
-  const files = agentFilesList?.files ?? [];
-
-  const handleSelect = (name: string) => {
-    setMdEditMode(false);
-    selectFile(name);
-    if (!(name in agentFileContents)) { void loadFileContent(agentId, name); }
-  };
-
-  useEffect(() => {
-    if (!agentFileActive && files.length > 0) {
-      handleSelect(files[0].name);
-    }
-  }, [agentFileActive, files]);
-
-  return (
-    <SectionCard>
-      <SectionLabel>Agent Files</SectionLabel>
-
-      {agentFilesLoading && !agentFilesList && (
-        <div className="flex items-center gap-2 text-[#8E8E93] text-sm mt-4">
-          <Loader2Icon className="size-4 animate-spin" /> Loading files…
-        </div>
-      )}
-      {agentFilesError && <p className="text-sm text-red-500 mt-4">{agentFilesError}</p>}
-
-      {files.length > 0 && (
-        <div className="mt-6">
-          <Tabs
-            value={agentFileActive ?? files[0]?.name}
-            onValueChange={handleSelect}
-            className="gap-4"
-          >
-              <TabsList variant="line" className="bg-transparent p-0 w-max min-w-full justify-start">
-                {files.map((f) => {
-                  const hasDraft = f.name in agentFileDrafts;
-                  return (
-                    <TabsTrigger
-                      key={f.name}
-                      value={f.name}
-                      className={cn(
-                        "h-auto px-2 py-2 rounded-lg border border-transparent data-[state=active]:border-[#E5E7EB] data-[state=active]:bg-white",
-                        "data-[state=active]:text-[#BA0034] font-mono text-[13px]",
-                      )}
-                    >
-                      <span className="truncate">{f.name}</span>
-                      {hasDraft && <span className="ml-1.5 inline-block size-1.5 rounded-full bg-amber-400 align-middle" />}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-
-            {files.map((f) => {
-              const isMarkdown = isMarkdownFile(f.name);
-              const base = agentFileContents[f.name] ?? "";
-              const fileDraft = agentFileDrafts[f.name];
-              const fileContent = fileDraft ?? base;
-              const fileDirty = fileDraft !== undefined && fileDraft !== base;
-              const isEditing = !isMarkdown || mdEditMode;
-
-              return (
-                <TabsContent key={f.name} value={f.name} className="mt-2">
-                  <div className="rounded-2xl p-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold font-mono text-[#BA0034] truncate">{f.name}</p>
-                        <p className="text-[12px] text-[#8E8E93] truncate">{f.path}</p>
-                      </div>
-                      <div className="text-[11px] font-bold text-[#8E8E93] shrink-0">
-                        {f.updatedAtMs
-                          ? new Date(f.updatedAtMs).toLocaleDateString()
-                          : f.size !== undefined
-                            ? (f.size < 1024 ? `${f.size}B` : `${(f.size / 1024).toFixed(1)}KB`)
-                            : ""}
-                      </div>
-                    </div>
-
-                    {f.missing && !fileContent && (
-                      <p className="text-xs text-[#8E8E93]">File does not exist yet — will be created on save.</p>
-                    )}
-
-                    {!isEditing ? (
-                      <div className="rounded-2xl bg-white px-5 py-4">
-                        <div className="prose prose-sm max-w-none prose-headings:font-bold prose-p:text-black prose-li:text-black prose-code:text-[#BA0034]">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {fileContent || "*Empty markdown file.*"}
-                          </ReactMarkdown>
-                        </div>
-                      </div>
-                    ) : (
-                      <textarea
-                        className="w-full resize-none rounded-2xl bg-white px-4 py-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#BA0034]/20"
-                        value={fileContent}
-                        onChange={(e) => changeFileDraft(f.name, e.target.value)}
-                        spellCheck={false}
-                        rows={14}
-                      />
-                    )}
-
-                    <div className="flex gap-2 justify-end">
-                      {isMarkdown && !mdEditMode ? (
-                        <button
-                          type="button"
-                          className="text-[13px] font-semibold px-4 py-1 rounded-full bg-[#111827] text-white hover:bg-black"
-                          onClick={() => setMdEditMode(true)}
-                        >
-                          Edit
-                        </button>
-                      ) : (
-                        <>
-                          {isMarkdown && (
-                            <button
-                              type="button"
-                              className="text-[13px] text-[#8E8E93] hover:text-black px-3 py-1"
-                              onClick={() => setMdEditMode(false)}
-                            >
-                              Preview
-                            </button>
-                          )}
-                          {fileDirty && (
-                            <button
-                              type="button"
-                              className="text-[13px] text-[#8E8E93] hover:text-black px-3 py-1"
-                              onClick={() => resetFileDraft(f.name)}
-                            >
-                              Reset
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            disabled={!fileDirty || agentFileSaving}
-                            onClick={() => void saveFile(f.name)}
-                            className={cn(
-                              "text-[13px] font-semibold px-4 py-1 rounded-full transition-colors",
-                              fileDirty && !agentFileSaving
-                                ? "bg-[#BA0034] text-white hover:bg-[#9b0029]"
-                                : "bg-[#E5E7EB] text-[#8E8E93] cursor-not-allowed",
-                            )}
-                          >
-                            {agentFileSaving ? "Saving…" : "Save"}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-              );
-            })}
-          </Tabs>
-        </div>
-      )}
-      {files.length === 0 && !agentFilesLoading && (
-        <p className="text-sm text-[#8E8E93] mt-4">No files found.</p>
-      )}
-    </SectionCard>
-  );
-}
-
-// ── Tools moved to ./agents/tools ───────────────────────────────────────────
-
-// ── Agent list item ───────────────────────────────────────────────────────────
-
-function AgentListItem({
-  name, emoji, selected, onClick,
-}: {
-  id: string; name: string; emoji?: string; selected: boolean; onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-lg transition-colors",
-        selected
-          ? "bg-accent text-accent-foreground"
-          : "hover:bg-muted/60 text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <span className="shrink-0 text-lg leading-none">{emoji ?? "🤖"}</span>
-      <span className="flex-1 text-sm font-medium truncate">{name}</span>
-      <ChevronRightIcon className={cn("size-3.5 shrink-0 transition-transform", selected && "rotate-90")} />
-    </button>
-  );
-}
+// ── Agent Card Component moved to ./agents/card ─────────────────────────────
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+
+// ── Create Agent Dialog ───────────────────────────────────────────────────────
+
+// ── Create Agent Dialog ───────────────────────────────────────────────────────
+
+function CreateAgentDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const createAgent = useAgentsStore((s) => s.createAgent);
+  const [name, setName] = useState("");
+  const [emoji, setEmoji] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimName = name.trim();
+    if (!trimName) { setErr("Name is required."); return; }
+    setSubmitting(true);
+    setErr(null);
+    // workspace defaults to ~/.openclaw/agents/<id>
+    const workspaceName = trimName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    const workspace = `~/.openclaw/agents/${workspaceName}`;
+    const res = await createAgent({
+      name: trimName,
+      workspace,
+      ...(emoji.trim() ? { emoji: emoji.trim() } : {}),
+    });
+    setSubmitting(false);
+    if (res) {
+      setName("");
+      setEmoji("");
+      onOpenChange(false);
+    } else {
+      setErr("Failed to create agent. Please try again.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New Agent</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4 py-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="agent-name">Name <span className="text-destructive">*</span></Label>
+            <Input
+              id="agent-name"
+              placeholder="e.g. Travel Planner"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="agent-emoji">Emoji (optional)</Label>
+            <Input
+              id="agent-emoji"
+              placeholder="e.g. ✈️"
+              value={emoji}
+              onChange={(e) => setEmoji(e.target.value)}
+              maxLength={8}
+            />
+          </div>
+          {err && <p className="text-sm text-destructive">{err}</p>}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting || !name.trim()}>
+              {submitting ? (
+                <><Loader2Icon className="size-4 animate-spin mr-1" /> Creating…</>
+              ) : "Create Agent"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function AgentsPage() {
   const isConnected = useGatewayStore((s) => s.status === "connected");
@@ -257,9 +120,21 @@ export function AgentsPage() {
   const loadAgents  = useAgentsStore((s) => s.loadAgents);
   const selectAgent = useAgentsStore((s) => s.selectAgent);
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   useEffect(() => {
     if (isConnected && !agentsList) { void loadAgents(); }
   }, [isConnected, agentsList, loadAgents]);
+
+  // Open drawer when an agent is selected
+  useEffect(() => {
+    if (selectedId) {
+      setDrawerOpen(true);
+    } else {
+      setDrawerOpen(false);
+    }
+  }, [selectedId]);
 
   if (!isConnected) {
     return (
@@ -288,78 +163,117 @@ export function AgentsPage() {
   }
 
   const agents = agentsList?.agents ?? [];
-  const showFilesSection = false;
+  const DEFAULT_AGENT_ID = agentsList?.defaultId ?? "main";
+
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Sidebar */}
-      {agents?.length > 1 && (
-        <div className="w-52 shrink-0 border-r flex flex-col">
-          <div className="flex items-center justify-between px-3 py-3 border-b shrink-0">
-            <h2 className="text-sm font-semibold">Agents</h2>
+      <>
+        <div className="flex flex-col gap-10 p-8 max-w-4xl mx-auto w-full">
+        {/* Header */}
+        <div className="flex items-center justify-between shrink-0">
+          <div className="flex flex-col gap-2">
+              <h2 className="text-[48px] font-extrabold leading-tight tracking-tight text-foreground">
+                Employees
+              </h2>
+              <p className="text-lg font-medium text-muted-foreground">
+                Manage your employees and their roles
+              </p>
+            </div>
+          <div className="flex items-center gap-2">
             <Button
-              size="icon"
-              variant="ghost"
-              className="size-7"
+              variant="outline"
+              className="size-10"
               disabled={loading}
               onClick={() => void loadAgents()}
               title="Refresh"
             >
               <RefreshCwIcon
-                className={cn("size-3.5", loading && "animate-spin")}
+                className={cn("size-4", loading && "animate-spin")}
               />
             </Button>
+            <Button
+              className="gap-2 rounded-full bg-primary text-white hover:bg-primary/90"
+              onClick={() => setCreateOpen(true)}
+            >
+              <PlusIcon className="size-4" />
+              New Employee
+            </Button>
           </div>
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-0.5">
-              {agents.map((agent) => {
-                const ident = agent.identity as
-                  | Record<string, unknown>
-                  | undefined;
-                return (
-                  <AgentListItem
-                    key={agent.id}
-                    id={agent.id}
-                    name={(agent.name ?? ident?.name ?? agent.id) as string}
-                    emoji={ident?.emoji as string | undefined}
-                    selected={selectedId === agent.id}
-                    onClick={() => selectAgent(agent.id)}
-                  />
-                );
-              })}
-            </div>
-          </ScrollArea>
         </div>
-      )}
 
-      {/* Main content */}
-      {selectedId ? (
-        <ScrollArea className="flex-1 bg-white">
-          <div className="px-8 pt-12 pb-32 max-w-4xl mx-auto flex flex-col gap-8">
-            {/* Profile Hero */}
-            <ProfileHeroSection agentId={selectedId} />
+        {/* Content */}
+        <ScrollArea className="flex-1">
+          <div>
+            {loading && !agentsList ? (
+              <div className="flex items-center justify-center gap-2 text-muted-foreground py-20">
+                <Loader2Icon className="size-6 animate-spin" />
+                <span className="text-sm">Loading agents…</span>
+              </div>
+            ) : error && !agentsList ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-20">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button size="sm" variant="outline" onClick={() => void loadAgents()}>
+                  Retry
+                </Button>
+              </div>
+            ) : agents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+                <FileTextIcon className="size-16 text-[#E5E7EB]" />
+                <div>
+                  <p className="text-base font-semibold text-[#111827]">No agents yet</p>
+                  <p className="text-sm text-[#8E8E93] mt-1">
+                    Create your first agent to get started
+                  </p>
+                </div>
+                <Button
+                  className="gap-2 bg-[#BA0034] text-white hover:bg-[#9b0029]"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <PlusIcon className="size-4" />
+                  Create Agent
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {agents.map((agent) => {
+                  const ident = agent.identity;
+                  const agentName = agent.name ?? ident?.name ?? agent.id;
+                  const agentEmoji = ident?.emoji;
+                  const agentAvatar = ident?.avatarUrl;
 
-            {/* Professional Summary */}
-            <ProfessionalSummarySection agentId={selectedId} />
-
-            {/* Core Skills */}
-            <CoreSkillsSection agentId={selectedId} />
-
-            {/* Tools */}
-            <ToolsSection agentId={selectedId} />
-
-            {/* Agent Files (temporary hidden) */}
-            {showFilesSection && <FilesSection agentId={selectedId} />}
+                  return (
+                    <AgentCard
+                      key={agent.id}
+                      id={agent.id}
+                      name={agentName}
+                      emoji={agentEmoji}
+                      avatar={agentAvatar}
+                      isSelected={selectedId === agent.id}
+                      onClick={() => selectAgent(agent.id)}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
         </ScrollArea>
-      ) : (
-        <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <FileTextIcon className="size-10 text-[#E5E7EB]" />
-            <p>Select an agent to view details.</p>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+
+      {/* Create Agent Dialog */}
+      <CreateAgentDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      {/* Agent Detail Drawer */}
+      <AgentDetailDrawer
+        open={drawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) {
+            selectAgent("");
+          }
+        }}
+        agentId={selectedId}
+        defaultAgentId={DEFAULT_AGENT_ID}
+      />
+    </>
   );
 }

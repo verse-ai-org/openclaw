@@ -11,6 +11,8 @@ import type {
   CronJob,
   CronStatus,
   AgentsPanel,
+  AgentsCreateResult,
+  AgentsDeleteResult,
 } from "@/types/agents";
 import type { ChannelsStatusSnapshot } from "@/types/channels";
 import { useGatewayStore } from "./gateway.store";
@@ -147,6 +149,19 @@ interface AgentsState {
   disableAllAgentSkills: (agentId: string) => void;
   loadChannelsStatus: () => Promise<void>;
   loadCronStatus: () => Promise<void>;
+  /** Create a new agent and refresh the agents list */
+  createAgent: (params: {
+    name: string;
+    workspace: string;
+    emoji?: string;
+    avatar?: string;
+    skills?: string[];
+  }) => Promise<AgentsCreateResult | null>;
+  /** Delete an agent and refresh the agents list */
+  deleteAgent: (
+    agentId: string,
+    deleteFiles?: boolean,
+  ) => Promise<AgentsDeleteResult | null>;
 }
 
 // ── Store initial state ───────────────────────────────────────────────────────
@@ -195,9 +210,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       const res = await client.request<AgentsListResult>("agents.list", {});
       if (res) {
         const prev = get().selectedAgentId;
-        const known = res.agents.some((a) => a.id === prev);
-        const selectedAgentId =
-          prev && known ? prev : (res.defaultId ?? res.agents[0]?.id ?? null);
+        const known = prev ? res.agents.some((a) => a.id === prev) : false;
+        // Only auto-select if there was a previous selection and it's still valid
+        const selectedAgentId = prev && known ? prev : null;
         set({ agentsList: res, selectedAgentId });
         if (selectedAgentId) void get().loadAgentIdentity(selectedAgentId);
         void get().loadConfig();
@@ -229,21 +244,31 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   selectPanel: (panel) => {
     set({ activePanel: panel });
     const agentId = get().selectedAgentId;
-    if (!agentId) return;
-    if (panel === "files" && get().agentFilesList?.agentId !== agentId)
+    if (!agentId) {
+      return;
+    }
+    if (panel === "files" && get().agentFilesList?.agentId !== agentId) {
       void get().loadAgentFiles(agentId);
-    if (panel === "tools" && get().toolsCatalogResult?.agentId !== agentId)
+    }
+    if (panel === "tools" && get().toolsCatalogResult?.agentId !== agentId) {
       void get().loadToolsCatalog(agentId);
-    if (panel === "skills" && get().agentSkillsAgentId !== agentId)
+    }
+    if (panel === "skills" && get().agentSkillsAgentId !== agentId) {
       void get().loadAgentSkills(agentId);
-    if (panel === "channels" && !get().channelsSnapshot)
+    }
+    if (panel === "channels" && !get().channelsSnapshot) {
       void get().loadChannelsStatus();
-    if (panel === "cron" && !get().cronStatus) void get().loadCronStatus();
+    }
+    if (panel === "cron" && !get().cronStatus) {
+      void get().loadCronStatus();
+    }
   },
 
   loadAgentIdentity: async (agentId) => {
     const client = getClient();
-    if (!client || !isConnected()) return;
+    if (!client || !isConnected()) {
+      return;
+    }
     set({ agentIdentityLoading: true, agentIdentityError: null });
     try {
       const res = await client.request<AgentIdentityResult>("agents.identity", {
@@ -262,7 +287,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   loadConfig: async () => {
     const client = getClient();
-    if (!client || !isConnected()) return;
+    if (!client || !isConnected()) {
+      return;
+    }
     set({ configLoading: true });
     try {
       const res = await client.request<{ config?: Record<string, unknown> }>(
@@ -284,9 +311,13 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   saveConfig: async () => {
     const client = getClient();
-    if (!client) return;
+    if (!client) {
+      return;
+    }
     const configForm = get().configForm;
-    if (!configForm) return;
+    if (!configForm) {
+      return;
+    }
     set({ configSaving: true });
     try {
       await client.request("config.set", { config: configForm });
@@ -304,11 +335,15 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   },
   changeAgentModel: (agentId, modelId) => {
     const form = get().configForm;
-    if (!form) return;
+    if (!form) {
+      return;
+    }
     const agents = (form.agents as Record<string, unknown>) ?? {};
     const list = [...((agents.list as Record<string, unknown>[]) ?? [])];
     const idx = list.findIndex((a) => a.id === agentId);
-    if (idx === -1) return;
+    if (idx === -1) {
+      return;
+    }
     const entry = { ...list[idx] };
     if (modelId) {
       const ex = entry.model;
@@ -328,11 +363,15 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   changeAgentModelFallbacks: (agentId, fallbacks) => {
     const form = get().configForm;
-    if (!form) return;
+    if (!form) {
+      return;
+    }
     const agents = (form.agents as Record<string, unknown>) ?? {};
     const list = [...((agents.list as Record<string, unknown>[]) ?? [])];
     const idx = list.findIndex((a) => a.id === agentId);
-    if (idx === -1) return;
+    if (idx === -1) {
+      return;
+    }
     const entry = { ...list[idx] };
     const ex = entry.model;
     if (ex && typeof ex === "object")
@@ -349,11 +388,15 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   changeToolsProfile: (agentId, profile, clearAllow) => {
     const form = get().configForm;
-    if (!form) return;
+    if (!form) {
+      return;
+    }
     const agents = (form.agents as Record<string, unknown>) ?? {};
     const list = [...((agents.list as Record<string, unknown>[]) ?? [])];
     const idx = list.findIndex((a) => a.id === agentId);
-    if (idx === -1) return;
+    if (idx === -1) {
+      return;
+    }
     const entry = { ...list[idx] };
     const tools = { ...((entry.tools as Record<string, unknown>) ?? {}) };
     if (profile) tools.profile = profile;
@@ -372,11 +415,15 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   changeToolsOverrides: (agentId, alsoAllow, deny) => {
     const form = get().configForm;
-    if (!form) return;
+    if (!form) {
+      return;
+    }
     const agents = (form.agents as Record<string, unknown>) ?? {};
     const list = [...((agents.list as Record<string, unknown>[]) ?? [])];
     const idx = list.findIndex((a) => a.id === agentId);
-    if (idx === -1) return;
+    if (idx === -1) {
+      return;
+    }
     const entry = { ...list[idx] };
     const tools = { ...((entry.tools as Record<string, unknown>) ?? {}) };
     if (alsoAllow.length > 0) tools.alsoAllow = alsoAllow;
@@ -393,7 +440,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   loadToolsCatalog: async (agentId) => {
     const client = getClient();
-    if (!client || !isConnected() || get().toolsCatalogLoading) return;
+    if (!client || !isConnected() || get().toolsCatalogLoading) {
+      return;
+    }
     set({ toolsCatalogLoading: true, toolsCatalogError: null });
     try {
       const res = await client.request<ToolsCatalogResult>("tools.catalog", {
@@ -409,7 +458,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   },
   loadAgentFiles: async (agentId) => {
     const client = getClient();
-    if (!client || !isConnected() || get().agentFilesLoading) return;
+    if (!client || !isConnected() || get().agentFilesLoading) {
+      return;
+    }
     set({ agentFilesLoading: true, agentFilesError: null });
     try {
       const res = await client.request<AgentsFilesListResult>(
@@ -426,7 +477,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   loadFileContent: async (agentId, name) => {
     const client = getClient();
-    if (!client || !isConnected()) return;
+    if (!client || !isConnected()) {
+      return;
+    }
     try {
       const res = await client.request<AgentsFilesGetResult>(
         "agents.files.get",
@@ -466,9 +519,13 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   saveFile: async (name) => {
     const client = getClient();
-    if (!client) return;
+    if (!client) {
+      return;
+    }
     const agentId = get().selectedAgentId;
-    if (!agentId) return;
+    if (!agentId) {
+      return;
+    }
     const content =
       get().agentFileDrafts[name] ?? get().agentFileContents[name] ?? "";
     set({ agentFileSaving: true });
@@ -497,7 +554,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   loadAgentSkills: async (agentId) => {
     const client = getClient();
-    if (!client || !isConnected() || get().agentSkillsLoading) return;
+    if (!client || !isConnected() || get().agentSkillsLoading) {
+      return;
+    }
     set({
       agentSkillsLoading: true,
       agentSkillsError: null,
@@ -520,7 +579,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   toggleAgentSkill: async (agentId, skillName, enabled) => {
     const client = getClient();
-    if (!client) return;
+    if (!client) {
+      return;
+    }
     // skillKey is the unique key used by skills.update; name maps to skillKey here
     // enabled=true means currently disabled → we want to enable it (pass enabled: true)
     // enabled=false means currently enabled → we want to disable it (pass enabled: false)
@@ -542,14 +603,18 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   disableAllAgentSkills: (_agentId?: string) => {
     const report = get().agentSkillsReport;
-    if (!report) return;
+    if (!report) {
+      return;
+    }
     const skills = report.skills.map((s) => ({ ...s, disabled: true }));
     set({ agentSkillsReport: { ...report, skills } });
   },
 
   loadChannelsStatus: async () => {
     const client = getClient();
-    if (!client || !isConnected()) return;
+    if (!client || !isConnected()) {
+      return;
+    }
     set({ channelsLoading: true, channelsError: null });
     try {
       const res = await client.request<ChannelsStatusSnapshot>(
@@ -566,7 +631,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
 
   loadCronStatus: async () => {
     const client = getClient();
-    if (!client || !isConnected()) return;
+    if (!client || !isConnected()) {
+      return;
+    }
     set({ cronLoading: true, cronError: null });
     try {
       const statusRes = await client.request<CronStatus>("cron.status", {});
@@ -582,6 +649,53 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       set({ cronError: getErrorMessage(err) });
     } finally {
       set({ cronLoading: false });
+    }
+  },
+
+  createAgent: async (params) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return null;
+    }
+    try {
+      const res = await client.request<AgentsCreateResult>(
+        "agents.create",
+        params,
+      );
+      if (res) {
+        // Refresh list and select the new agent
+        await get().loadAgents();
+        get().selectAgent(res.agentId);
+      }
+      return res ?? null;
+    } catch (err) {
+      set({ error: getErrorMessage(err) });
+      return null;
+    }
+  },
+
+  deleteAgent: async (agentId, deleteFiles = true) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return null;
+    }
+    try {
+      const res = await client.request<AgentsDeleteResult>("agents.delete", {
+        agentId,
+        deleteFiles,
+      });
+      if (res?.ok) {
+        // Refresh list; if the deleted agent was selected, loadAgents will pick next
+        const prev = get().selectedAgentId;
+        if (prev === agentId) {
+          set({ selectedAgentId: null });
+        }
+        await get().loadAgents();
+      }
+      return res ?? null;
+    } catch (err) {
+      set({ error: getErrorMessage(err) });
+      return null;
     }
   },
 }));

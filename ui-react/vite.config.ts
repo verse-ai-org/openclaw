@@ -10,8 +10,8 @@ export default defineConfig(() => {
   return {
     base: "./",
     plugins: [react(), tailwindcss()],
-    // Reuse public assets (favicons etc.) from the existing Lit UI
-    publicDir: path.resolve(here, "../ui/public"),
+    // Serve public assets from ui-react/public (includes avatars and static resources)
+    publicDir: path.resolve(here, "public"),
     define: {
       // Expose gateway port to client so resolveDefaultGatewayUrl() can use
       // the correct port (Electron uses 18790, standalone dev uses 18789).
@@ -54,6 +54,7 @@ export default defineConfig(() => {
       host: true,
       port: 5174,
       strictPort: true,
+      middlewareMode: false,
     },
   };
 });

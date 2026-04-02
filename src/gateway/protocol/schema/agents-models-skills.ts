@@ -32,7 +32,10 @@ export const AgentSummarySchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const AgentsListParamsSchema = Type.Object({}, { additionalProperties: false });
+export const AgentsListParamsSchema = Type.Object(
+  {},
+  { additionalProperties: false },
+);
 
 export const AgentsListResultSchema = Type.Object(
   {
@@ -50,6 +53,10 @@ export const AgentsCreateParamsSchema = Type.Object(
     workspace: NonEmptyString,
     emoji: Type.Optional(Type.String()),
     avatar: Type.Optional(Type.String()),
+    /** Skill whitelist for this agent; empty array = all skills allowed */
+    skills: Type.Optional(Type.Array(Type.String())),
+    /** Short description shown in the agent list */
+    description: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
 );
@@ -71,6 +78,9 @@ export const AgentsUpdateParamsSchema = Type.Object(
     workspace: Type.Optional(NonEmptyString),
     model: Type.Optional(NonEmptyString),
     avatar: Type.Optional(Type.String()),
+    /** Skill whitelist override; null = remove restriction (allow all) */
+    skills: Type.Optional(Type.Array(Type.String())),
+    description: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
 );
@@ -164,7 +174,10 @@ export const AgentsFilesSetResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const ModelsListParamsSchema = Type.Object({}, { additionalProperties: false });
+export const ModelsListParamsSchema = Type.Object(
+  {},
+  { additionalProperties: false },
+);
 
 export const ModelsListResultSchema = Type.Object(
   {
@@ -180,7 +193,10 @@ export const SkillsStatusParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const SkillsBinsParamsSchema = Type.Object({}, { additionalProperties: false });
+export const SkillsBinsParamsSchema = Type.Object(
+  {},
+  { additionalProperties: false },
+);
 
 export const SkillsBinsResultSchema = Type.Object(
   {
@@ -267,7 +283,9 @@ export const SkillsFileSetResultSchema = Type.Object(
 export const SkillsImportParamsSchema = Type.Object(
   {
     kind: Type.Union([Type.Literal("url"), Type.Literal("upload")]),
-    target: Type.Optional(Type.Union([Type.Literal("workspace"), Type.Literal("managed")])),
+    target: Type.Optional(
+      Type.Union([Type.Literal("workspace"), Type.Literal("managed")]),
+    ),
     url: Type.Optional(NonEmptyString),
     data: Type.Optional(NonEmptyString),
     filename: Type.Optional(NonEmptyString),

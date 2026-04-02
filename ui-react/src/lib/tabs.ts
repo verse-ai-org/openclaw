@@ -34,7 +34,7 @@ export function tabIcon(tab: Tab) {
       return Loader;
     case "agents":
       return FolderOpen;
-    case "employee":
+    case "employees":
       return UserRound;
     case "plugins":
       return Blocks;
@@ -65,7 +65,7 @@ export function tabLabel(tab: Tab): string {
     usage: "Usage",
     cron: "Cron",
     agents: "Agents",
-    employee: "Employee",
+    employees: "Employees",
     plugins: "Plugins",
     skills: "Skills",
     nodes: "Nodes",

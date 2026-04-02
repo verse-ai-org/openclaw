@@ -6,7 +6,11 @@ import {
   extractContentBlocks,
   mergeToolResults,
 } from "@/hooks/useChatEventBridge";
-import { useChatStore, registerHistoryReload, unregisterHistoryReload } from "@/store/chat.store";
+import {
+  useChatStore,
+  registerHistoryReload,
+  unregisterHistoryReload,
+} from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 
@@ -28,7 +32,9 @@ export interface SessionEntry {
  * Priority: displayName > derivedTitle > label > key
  */
 export function resolveSessionDisplayName(session: SessionEntry): string {
-  return session.displayName ?? session.derivedTitle ?? session.label ?? session.key;
+  return (
+    session.displayName ?? session.derivedTitle ?? session.label ?? session.key
+  );
 }
 
 export function useSessionManager() {
@@ -38,7 +44,8 @@ export function useSessionManager() {
   const client = useGatewayStore((s) => s.client);
   const gatewayStatus = useGatewayStore((s) => s.status);
   const settings = useSettingsStore((s) => s.settings);
-  const sessionKey = useChatStore((s) => s.sessionKey) ?? settings.sessionKey ?? "main";
+  const sessionKey =
+    useChatStore((s) => s.sessionKey) ?? settings.sessionKey ?? "main";
 
   // Load session list from gateway
   const loadSessions = useCallback(async () => {
@@ -47,10 +54,13 @@ export function useSessionManager() {
     }
     setLoading(true);
     try {
-      const result = await client.request<{ sessions?: SessionEntry[] }>("sessions.list", {
-        includeDerivedTitles: true,
-        includeLastMessage: true,
-      });
+      const result = await client.request<{ sessions?: SessionEntry[] }>(
+        "sessions.list",
+        {
+          includeDerivedTitles: true,
+          includeLastMessage: true,
+        },
+      );
       setSessions(result?.sessions ?? []);
     } catch {
       setSessions([{ key: sessionKey }]);
@@ -70,9 +80,12 @@ export function useSessionManager() {
       }
       useChatStore.getState().setMessagesLoading(true);
       try {
-        const result = await client.request<{ messages?: unknown[] }>("chat.history", {
-          sessionKey: key,
-        });
+        const result = await client.request<{ messages?: unknown[] }>(
+          "chat.history",
+          {
+            sessionKey: key,
+          },
+        );
         if (Array.isArray(result?.messages)) {
           const merged = mergeToolResults(result.messages);
           const normalized = merged.map((m: unknown) => {
@@ -103,28 +116,47 @@ export function useSessionManager() {
   const switchSession = useCallback(
     async (key: string) => {
       useChatStore.getState().setSessionKey(key);
-      useSettingsStore.getState().updateSettings({ sessionKey: key, lastActiveSessionKey: key });
+      useSettingsStore
+        .getState()
+        .updateSettings({ sessionKey: key, lastActiveSessionKey: key });
       await loadHistory(key);
     },
     [loadHistory],
   );
 
-  // Create a new session
-  const newSession = useCallback(async () => {
-    if (!client?.connected) {
-      return;
-    }
-    try {
-      const result = await client.request<{ sessionKey?: string }>("chat.session.new", {});
-      const newKey = result?.sessionKey ?? crypto.randomUUID().slice(0, 8);
-      setSessions((prev) => [...prev, { key: newKey }]);
-      await switchSession(newKey);
-    } catch {
-      const newKey = crypto.randomUUID().slice(0, 8);
-      setSessions((prev) => [...prev, { key: newKey }]);
-      await switchSession(newKey);
-    }
-  }, [client, switchSession]);
+  // Create a new session, optionally scoped to an agentId.
+  // When agentId is provided the session key is formatted as
+  // "agent:<agentId>:<uuid8>" so Gateway routes the session to that agent.
+  const newSession = useCallback(
+    async (agentId?: string) => {
+      if (!client?.connected) {
+        return;
+      }
+      // Build a local key immediately so the sidebar renders the item right away.
+      const localKey = agentId
+        ? `agent:${agentId}:${crypto.randomUUID().slice(0, 8)}`
+        : crypto.randomUUID().slice(0, 8);
+      try {
+        const result = await client.request<{ sessionKey?: string }>(
+          "chat.session.new",
+          {},
+        );
+        // Prefer the server-assigned key, but re-scope it to the target agent if
+        // the server returned a generic key (e.g. a short uuid).
+        const serverKey = result?.sessionKey;
+        const newKey =
+          agentId && serverKey && !serverKey.startsWith(`agent:${agentId}:`)
+            ? localKey
+            : (serverKey ?? localKey);
+        setSessions((prev) => [...prev, { key: newKey }]);
+        await switchSession(newKey);
+      } catch {
+        setSessions((prev) => [...prev, { key: localKey }]);
+        await switchSession(localKey);
+      }
+    },
+    [client, switchSession],
+  );
 
   // Register reload callback for chat.final events
   useEffect(() => {

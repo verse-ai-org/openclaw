@@ -38,7 +38,7 @@ export function PluginsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-12 px-12 py-12 max-w-[1020px] mx-auto w-full">
+    <div className="flex flex-col gap-12 px-12 p-8 max-w-4xl mx-auto w-full">
       {/* Header */}
       <div className="flex items-end justify-between gap-4">
         <div className="flex flex-col gap-2">

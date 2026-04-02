@@ -30,12 +30,17 @@ export type AgentSummary = {
   isDefault: boolean;
 };
 
-type AgentEntry = NonNullable<NonNullable<OpenClawConfig["agents"]>["list"]>[number];
+type AgentEntry = NonNullable<
+  NonNullable<OpenClawConfig["agents"]>["list"]
+>[number];
 
 export type AgentIdentity = AgentIdentityFile;
 export { listAgentEntries };
 
-export function findAgentEntryIndex(list: AgentEntry[], agentId: string): number {
+export function findAgentEntryIndex(
+  list: AgentEntry[],
+  agentId: string,
+): number {
   const id = normalizeAgentId(agentId);
   return list.findIndex((entry) => normalizeAgentId(entry.id) === id);
 }
@@ -94,7 +99,9 @@ export function buildAgentSummaries(cfg: OpenClawConfig): AgentSummary[] {
     bindingCounts.set(agentId, (bindingCounts.get(agentId) ?? 0) + 1);
   }
 
-  const ordered = orderedIds.filter((id, index) => orderedIds.indexOf(id) === index);
+  const ordered = orderedIds.filter(
+    (id, index) => orderedIds.indexOf(id) === index,
+  );
 
   return ordered.map((id) => {
     const workspace = resolveAgentWorkspaceDir(cfg, id);
@@ -132,6 +139,8 @@ export function applyAgentConfig(
     workspace?: string;
     agentDir?: string;
     model?: string;
+    /** Skill whitelist; undefined = leave unchanged, [] = allow all */
+    skills?: string[];
   },
 ): OpenClawConfig {
   const agentId = normalizeAgentId(params.agentId);
@@ -145,12 +154,19 @@ export function applyAgentConfig(
     ...(params.workspace ? { workspace: params.workspace } : {}),
     ...(params.agentDir ? { agentDir: params.agentDir } : {}),
     ...(params.model ? { model: params.model } : {}),
+    // skills: undefined means "unchanged"; empty array means "allow all"
+    ...(params.skills !== undefined
+      ? { skills: params.skills.length > 0 ? params.skills : undefined }
+      : {}),
   };
   const nextList = [...list];
   if (index >= 0) {
     nextList[index] = nextEntry;
   } else {
-    if (nextList.length === 0 && agentId !== normalizeAgentId(resolveDefaultAgentId(cfg))) {
+    if (
+      nextList.length === 0 &&
+      agentId !== normalizeAgentId(resolveDefaultAgentId(cfg))
+    ) {
       nextList.push({ id: resolveDefaultAgentId(cfg) });
     }
     nextList.push(nextEntry);
@@ -174,11 +190,15 @@ export function pruneAgentConfig(
 } {
   const id = normalizeAgentId(agentId);
   const agents = listAgentEntries(cfg);
-  const nextAgentsList = agents.filter((entry) => normalizeAgentId(entry.id) !== id);
+  const nextAgentsList = agents.filter(
+    (entry) => normalizeAgentId(entry.id) !== id,
+  );
   const nextAgents = nextAgentsList.length > 0 ? nextAgentsList : undefined;
 
   const bindings = cfg.bindings ?? [];
-  const filteredBindings = bindings.filter((binding) => normalizeAgentId(binding.agentId) !== id);
+  const filteredBindings = bindings.filter(
+    (binding) => normalizeAgentId(binding.agentId) !== id,
+  );
 
   const allow = cfg.tools?.agentToAgent?.allow ?? [];
   const filteredAllow = allow.filter((entry) => entry !== id);

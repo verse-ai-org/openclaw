@@ -11,6 +11,7 @@ export type GatewayAgentRow = {
     name?: string;
     emoji?: string;
     avatar?: string;
+    avatarUrl?: string;
     theme?: string;
   };
   [key: string]: unknown;
@@ -60,6 +61,21 @@ export type AgentsFilesSetResult = {
   agentId: string;
   workspace: string;
   file: AgentFileEntry;
+};
+
+// ── Agent CRUD ────────────────────────────────────────────────────────────────
+
+export type AgentsCreateResult = {
+  ok: true;
+  agentId: string;
+  name: string;
+  workspace: string;
+};
+
+export type AgentsDeleteResult = {
+  ok: true;
+  agentId: string;
+  removedBindings: number;
 };
 
 // ── Tools catalog ─────────────────────────────────────────────────────────────
@@ -226,7 +242,13 @@ export type CronJobsListResult = {
 
 // ── Panel tabs ────────────────────────────────────────────────────────────────
 
-export type AgentsPanel = "overview" | "files" | "tools" | "skills" | "channels" | "cron";
+export type AgentsPanel =
+  | "overview"
+  | "files"
+  | "tools"
+  | "skills"
+  | "channels"
+  | "cron";
 
 // ── Config helpers ────────────────────────────────────────────────────────────
 

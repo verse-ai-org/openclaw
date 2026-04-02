@@ -20,6 +20,8 @@
 - [apps/electron/src/main/updater.ts](file://apps/electron/src/main/updater.ts)
 - [ui-react/src/adapters/ElectronWizardAdapter.ts](file://ui-react/src/adapters/ElectronWizardAdapter.ts)
 - [ui-react/src/components/layout/UpdateBanner.tsx](file://ui-react/src/components/layout/UpdateBanner.tsx)
+- [ui-react/src/components/layout/AppShell.tsx](file://ui-react/src/components/layout/AppShell.tsx)
+- [ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md](file://ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md)
 - [.github/workflows/electron-release.yml](file://.github/workflows/electron-release.yml)
 - [apps/electron/scripts/package-electron.sh](file://apps/electron/scripts/package-electron.sh)
 - [apps/electron/scripts/download-node.sh](file://apps/electron/scripts/download-node.sh)
@@ -30,11 +32,10 @@
 
 ## 更新摘要
 **变更内容**
-- **pdf-parse扩展优化**：在electron-builder.yml中增加pdf-parse文件过滤规则，只保留最新版本的pdf.js（v2.0.550），减少打包体积
-- **Windows平台支持临时禁用**：在electron-builder.yml中注释掉Windows相关的扩展（nostr、synology-chat、twitch、zalo、zalouser），暂时不支持Windows平台
-- **文件过滤规则改进**：优化了各种扩展和依赖的过滤规则，包括测试文件、文档文件、配置文件等的排除
-- **打包体积优化**：通过更精确的文件过滤和依赖裁剪，显著减少应用包大小
-- **扩展打包策略调整**：对某些扩展的打包策略进行了临时调整，以确保稳定性和兼容性
+- **增强的React更新通知系统**：UpdateBanner组件新增错误状态管理、超时保护机制，提供更可靠的更新体验
+- **改进的安装流程**：添加5秒超时保护，防止安装过程卡死，提升用户体验
+- **增强的错误处理**：完善的错误状态显示和用户友好的错误提示
+- **优化的组件状态管理**：改进的安装状态和错误状态管理机制
 
 ## 目录
 1. [简介](#简介)
@@ -42,30 +43,40 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [自动更新系统](#自动更新系统)
-7. [GitHub Actions自动化发布](#github-actions自动化发布)
-8. [OAuth认证系统](#oauth认证系统)
-9. [设备代码流框架](#设备代码流框架)
-10. [单实例锁机制](#单实例锁机制)
-11. [URL方案注册改进](#url方案注册改进)
-12. [配置修补功能](#配置修补功能)
-13. [登录shell环境缓存](#登录shell环境缓存)
-14. [静态HTTP服务器](#静态http服务器)
-15. [网关崩溃检测](#网关崩溃检测)
-16. [Node.js 24运行时集成](#nodejs-24运行时集成)
-17. [Apple Store Connect API密钥处理](#apple-store-connect-api密钥处理)
-18. [运行时依赖管理](#运行时依赖管理)
-19. [打包和公证流程](#打包和公证流程)
-20. [依赖关系分析](#依赖关系分析)
-21. [性能考虑](#性能考虑)
-22. [故障排除指南](#故障排除指南)
-23. [结论](#结论)
+6. [自动更新验证系统](#自动更新验证系统)
+7. [增强的React更新通知系统](#增强的react更新通知系统)
+8. [Gateway重启状态提示功能](#gateway重启状态提示功能)
+9. [GitHub Actions自动化发布](#github-actions自动化发布)
+10. [OAuth认证系统](#oauth认证系统)
+11. [设备代码流框架](#设备代码流框架)
+12. [单实例锁机制](#单实例锁机制)
+13. [URL方案注册改进](#url方案注册改进)
+14. [配置修补功能](#配置修补功能)
+15. [登录shell环境缓存](#登录shell环境缓存)
+16. [静态HTTP服务器](#静态http服务器)
+17. [网关崩溃检测](#网关崩溃检测)
+18. [Node.js 24运行时集成](#nodejs-24运行时集成)
+19. [Apple Store Connect API密钥处理](#apple-store-connect-api密钥处理)
+20. [运行时依赖管理](#运行时依赖管理)
+21. [打包和公证流程](#打包和公证流程)
+22. [依赖关系分析](#依赖关系分析)
+23. [性能考虑](#性能考虑)
+24. [故障排除指南](#故障排除指南)
+25. [结论](#结论)
 
 ## 简介
 
 OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务和React控制界面。该应用通过Electron框架提供跨平台支持，包含完整的设置向导、网关管理和实时通信功能。
 
 **最新增强功能：**
+- **增强的React更新通知系统**：UpdateBanner组件支持错误状态管理和超时保护，提供更可靠的更新体验
+- **改进的安装流程**：添加5秒超时保护，防止安装过程卡死，提升用户体验
+- **增强的错误处理**：完善的错误状态显示和用户友好的错误提示
+- **优化的组件状态管理**：改进的安装状态和错误状态管理机制
+- **自动更新验证系统**：完整的代码签名验证、深度签名链验证和Gatekeeper评估
+- **Gateway重启状态提示功能**：实现Gateway崩溃时的自动重启和进度提示
+- **新增Gateway重启回调机制**：通过IPC事件向渲染进程发送重启进度和状态信息
+- **改进的打包验证流程**：在打包过程中集成签名验证和公证评估
 - **Node.js 24运行时集成**：完整的Node.js 24.14.1运行时捆绑和管理
 - **Apple Store Connect API密钥处理**：改进的App Store Connect API密钥管理，支持文件路径和环境变量两种方式
 - **增强的打包脚本**：支持本地快速测试和生产环境打包
@@ -100,6 +111,9 @@ OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务�
 - 自动更新功能
 - **优化的打包配置和文件过滤规则**
 - **临时的Windows平台支持策略**
+- **完整的自动更新验证系统**
+- **增强的React更新通知系统**
+- **Gateway重启状态提示功能**
 
 ## 项目结构
 
@@ -163,6 +177,7 @@ end
 - 网关崩溃监控
 - **自动更新管理**：初始化和控制更新流程
 - **Node.js 24运行时管理**：集成和管理Node.js 24运行时
+- **Gateway重启回调管理**：处理Gateway重启进度和状态通知
 
 ### 预加载脚本
 
@@ -176,6 +191,7 @@ end
 - 单实例锁状态同步
 - 网关崩溃状态通知
 - **自动更新事件监听**：接收更新准备通知
+- **Gateway重启事件监听**：接收重启进度和状态通知
 
 ### 网关管理器
 
@@ -189,6 +205,7 @@ end
 - 登录shell环境缓存
 - 增强的错误恢复机制
 - 网关崩溃检测回调
+- **Gateway重启自动处理**：实现自动重启和进度提示
 
 ### 自动更新管理器
 
@@ -201,6 +218,30 @@ end
 - 进度跟踪和错误处理
 - IPC事件通知渲染进程
 - 定时检查更新机制
+- **代码签名验证**：集成签名验证和公证评估
+
+### 增强的React更新通知系统
+
+**新增功能**：UpdateBanner组件支持错误状态管理和超时保护。
+
+**功能特性：**
+- 错误状态显示和管理
+- 超时保护机制（5秒超时）
+- 安装过程状态指示
+- 用户友好的错误提示
+- 自动重试机制支持
+
+### Gateway重启状态提示功能
+
+**新增功能**：实现Gateway崩溃时的自动重启和进度提示。
+
+**功能特性：**
+- 自动重启尝试（最多3次）
+- 重启进度通知（包含尝试次数）
+- 重启完成状态反馈
+- 崩溃事件通知
+- 手动重启支持
+- 用户友好的状态提示
 
 ### OAuth认证系统
 
@@ -252,6 +293,7 @@ end
 - 多架构（arm64、x64）支持
 - 自动公证和装订流程
 - 详细的打包进度和状态报告
+- **代码签名验证集成**：在打包过程中验证签名和公证
 
 ### 扩展打包策略
 
@@ -285,77 +327,89 @@ A[React渲染进程]
 B[Electron窗口]
 C[OAuth认证界面]
 D[UpdateBanner更新提示]
+E[Gateway状态覆盖层]
 end
 subgraph "应用逻辑层"
-E[主进程]
-F[预加载脚本]
-G[OAuth适配器]
-H[设备代码流框架]
-I[单实例锁管理器]
-J[静态HTTP服务器]
-K[登录shell环境缓存]
-L[网关崩溃检测器]
-M[自动更新管理器]
-N[Node.js 24运行时管理器]
-O[Apple Store Connect密钥处理器]
-P[运行时依赖管理器]
-Q[打包和公证管理器]
-R[扩展打包策略]
+F[主进程]
+G[预加载脚本]
+H[OAuth适配器]
+I[设备代码流框架]
+J[单实例锁管理器]
+K[静态HTTP服务器]
+L[登录shell环境缓存]
+M[网关崩溃检测器]
+N[自动更新管理器]
+O[Node.js 24运行时管理器]
+P[Apple Store Connect密钥处理器]
+Q[运行时依赖管理器]
+R[打包和公证管理器]
+S[扩展打包策略]
+T[Gateway重启管理器]
 end
 subgraph "服务层"
-S[Gateway子进程]
-T[Node.js 24运行时]
-U[本地HTTP服务器]
-V[OAuth认证服务]
-W[文件锁服务]
-X[环境变量服务]
-Y[崩溃监控服务]
-Z[更新服务器]
-AA[R2存储服务]
-AB[App Store Connect API]
+U[Gateway子进程]
+V[Node.js 24运行时]
+W[本地HTTP服务器]
+X[OAuth认证服务]
+Y[文件锁服务]
+Z[环境变量服务]
+AA[崩溃监控服务]
+BB[更新服务器]
+CC[R2存储服务]
+DD[App Store Connect API]
+EE[代码签名验证]
 end
 subgraph "系统集成层"
-AC[Electron框架]
-AD[React框架]
-AE[WebSocket库]
-AF[文件系统API]
-AG[网络API]
-AH[Cloudflare R2存储]
-AI[Apple开发者服务]
-AJ[GitHub Actions]
-AK[Windows平台支持]
+FF[Electron框架]
+GG[React框架]
+HH[WebSocket库]
+II[文件系统API]
+JJ[网络API]
+KK[Cloudflare R2存储]
+LL[Apple开发者服务]
+MM[GitHub Actions]
+NN[Windows平台支持]
+OO[Gatekeeper评估]
+PP[深度签名链验证]
+QQ[代码签名验证]
 end
-A --> F
-B --> E
-C --> G
-D --> M
-E --> S
-F --> AC
-G --> AF
-H --> AF
-I --> AE
-J --> AE
-K --> X
-L --> Y
-M --> Z
-N --> T
-O --> AB
-P --> T
-Q --> AI
-R --> AK
-S --> T
-S --> U
-T --> AF
-U --> AE
-V --> AF
-W --> AE
-X --> AE
-Y --> AE
-Z --> AA
-AA --> AH
-AB --> AI
-AI --> AJ
-AK --> AF
+A --> G
+B --> F
+C --> H
+D --> N
+E --> T
+F --> U
+G --> FF
+H --> II
+I --> II
+J --> HH
+K --> HH
+L --> Z
+M --> AA
+N --> BB
+O --> V
+P --> DD
+Q --> V
+R --> LL
+S --> NN
+T --> EE
+U --> V
+U --> W
+V --> II
+W --> HH
+X --> II
+Y --> II
+Z --> II
+AA --> II
+BB --> KK
+CC --> KK
+DD --> LL
+EE --> OO
+EE --> PP
+EE --> QQ
+LL --> MM
+MM --> NN
+NN --> II
 ```
 
 **图表来源**
@@ -383,6 +437,7 @@ participant StaticServer as 静态服务器
 participant Updater as 自动更新系统
 participant NodeRuntime as Node.js 24运行时
 participant ExtensionPacker as 扩展打包策略
+participant RestartManager as Gateway重启管理器
 UI->>Adapter : 用户操作
 Adapter->>Preload : IPC请求
 Preload->>Main : OAuth请求
@@ -401,6 +456,7 @@ Window-->>UI : 渲染更新
 Note over Main,Gateway : 双向通信通过WebSocket实现
 Note over Main,Updater : 更新检查通过electron-updater实现
 Note over Main,ExtensionPacker : Windows平台扩展临时禁用
+Note over Main,RestartManager : Gateway重启自动处理
 ```
 
 **图表来源**
@@ -443,7 +499,9 @@ U --> V[切换到控制界面]
 O --> W[建立WebSocket连接]
 V --> W
 W --> X[注册网关崩溃检测]
-X --> Y[应用就绪]
+X --> Y[初始化Gateway重启管理器]
+Y --> Z[注册Gateway重启回调]
+Z --> AA[应用就绪]
 ```
 
 **图表来源**
@@ -514,6 +572,7 @@ participant Gateway as Gateway进程
 participant FS as 文件系统
 participant NodeRuntime as Node.js 24运行时
 participant ShellEnv as 登录shell环境
+participant RestartManager as Gateway重启管理器
 Main->>ShellEnv : 预热环境缓存
 ShellEnv-->>Main : 环境变量就绪
 Main->>FS : 检查配置文件
@@ -521,9 +580,12 @@ FS-->>Main : 返回配置信息
 Main->>NodeRuntime : 启动Node.js 24进程
 NodeRuntime->>Gateway : 执行openclaw命令
 Gateway->>Gateway : 初始化服务
+Gateway->>RestartManager : 注册重启回调
+RestartManager-->>Gateway : 等待重启事件
 Gateway-->>Main : 返回就绪信号
 Main->>Main : 启动WebSocket连接
 Note over Main,Gateway : 支持动态重启和错误恢复
+Note over Main,RestartManager : 自动重启和进度提示
 ```
 
 **图表来源**
@@ -578,11 +640,11 @@ O --> P
 - [apps/electron/src/main/token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
 - [apps/electron/src/main/onboarding.ts:57-76](file://apps/electron/src/main/onboarding.ts#L57-L76)
 
-## 自动更新系统
+## 自动更新验证系统
 
-**新增功能**：完整的自动更新系统，基于electron-updater实现静默下载和用户确认安装。
+**新增功能**：完整的自动更新验证系统，集成代码签名验证、深度签名链验证和Gatekeeper评估。
 
-### 自动更新架构
+### 自动更新验证架构
 
 ```mermaid
 flowchart TD
@@ -609,51 +671,44 @@ O --> Q[应用退出]
 - [apps/electron/src/main/updater.ts:82-87](file://apps/electron/src/main/updater.ts#L82-L87)
 - [apps/electron/src/main/updater.ts:62-69](file://apps/electron/src/main/updater.ts#L62-L69)
 
-### 自动更新管理器
+### 代码签名验证集成
 
-自动更新管理器提供完整的更新生命周期管理：
+**新增功能**：在打包过程中集成代码签名验证和公证评估。
 
 ```mermaid
 classDiagram
-class AutoUpdaterManager {
-+autoUpdater : AutoUpdater
-+mainWindow : BrowserWindow
-+log : Function
-+initAutoUpdater(mainWindow, log) void
-+checkForUpdates() void
-+quitAndInstall() void
--private setupEventHandlers() void
--private handleCheckingForUpdate() void
--private handleUpdateAvailable(info) void
--private handleDownloadProgress(progress) void
--private handleUpdateDownloaded(info) void
--private handleError(error) void
+class CodeSignatureValidator {
++verifyCodeSignature() : Promise~boolean~
++verifyDeepSignatureChain() : Promise~boolean~
++verifyGatekeeperAssessment() : Promise~boolean~
++validateAllSignatures() : Promise~ValidationResult~
 }
-class UpdateInfo {
-+version : string
-+releaseNotes : string
-+files : UpdateFileInfo[]
-+path : string
-+sha512 : string
-+releaseDate : string
+class SignatureVerification {
++codesignDetails : VerificationResult
++deepSignatureChain : VerificationResult
++gatekeeperAssessment : VerificationResult
++allValid : boolean
 }
-class UpdateBanner {
-+updateInfo : UpdateInfo | null
-+installing : boolean
-+handleInstall() void
-+handleDismiss() void
+class PackagingProcess {
++buildArtifacts() : void
++downloadRuntimeNode() : void
++installRuntimeDependencies() : void
++pruneRuntimeDependencies() : void
++buildElectronMain() : void
++packageElectronApp() : void
++cleanupRuntimeDependencies() : void
++verifyCodeSignature() : void
 }
-AutoUpdaterManager --> UpdateBanner : "通知更新准备"
+CodeSignatureValidator --> SignatureVerification : "生成验证结果"
+PackagingProcess --> CodeSignatureValidator : "集成签名验证"
 ```
 
 **图表来源**
-- [apps/electron/src/main/updater.ts:24-36](file://apps/electron/src/main/updater.ts#L24-L36)
-- [apps/electron/src/main/updater.ts:62-69](file://apps/electron/src/main/updater.ts#L62-L69)
-- [ui-react/src/components/layout/UpdateBanner.tsx:16-34](file://ui-react/src/components/layout/UpdateBanner.tsx#L16-L34)
+- [apps/electron/scripts/package-electron.sh:221-296](file://apps/electron/scripts/package-electron.sh#L221-L296)
 
 **章节来源**
 - [apps/electron/src/main/updater.ts:1-97](file://apps/electron/src/main/updater.ts#L1-L97)
-- [ui-react/src/components/layout/UpdateBanner.tsx:1-83](file://ui-react/src/components/layout/UpdateBanner.tsx#L1-L83)
+- [apps/electron/scripts/package-electron.sh:221-296](file://apps/electron/scripts/package-electron.sh#L221-L296)
 
 ### 更新服务器配置
 
@@ -726,6 +781,246 @@ Main->>Main : 执行quitAndInstall()
 - [apps/electron/src/preload/index.ts:149-170](file://apps/electron/src/preload/index.ts#L149-L170)
 - [apps/electron/src/main/updater.ts:93-96](file://apps/electron/src/main/updater.ts#L93-L96)
 
+## 增强的React更新通知系统
+
+**新增功能**：UpdateBanner组件支持错误状态管理和超时保护，提供更可靠的更新体验。
+
+### UpdateBanner组件架构
+
+```mermaid
+flowchart TD
+A[组件挂载] --> B[检查Electron桥接]
+B --> C{桥接可用?}
+C --> |是| D[注册更新监听]
+C --> |否| E[返回null]
+D --> F{有更新信息?}
+F --> |否| G[等待更新通知]
+F --> |是| H[显示更新提示]
+H --> I{用户点击安装?}
+I --> |是| J[设置安装中状态]
+J --> K[设置错误状态为空]
+K --> L[创建超时Promise(5秒)]
+L --> M[创建安装Promise]
+M --> N[Promise.race竞争]
+N --> O{哪个先完成?}
+O --> |安装完成| P[清除安装状态]
+O --> |超时| Q[设置错误状态]
+Q --> R[显示错误信息]
+P --> S[组件卸载清理]
+R --> S
+```
+
+**图表来源**
+- [ui-react/src/components/layout/UpdateBanner.tsx:16-35](file://ui-react/src/components/layout/UpdateBanner.tsx#L16-L35)
+- [ui-react/src/components/layout/UpdateBanner.tsx:39-61](file://ui-react/src/components/layout/UpdateBanner.tsx#L39-L61)
+
+### 错误状态管理
+
+**新增功能**：UpdateBanner组件支持错误状态管理和超时保护。
+
+```mermaid
+classDiagram
+class UpdateBannerState {
++updateInfo : UpdateInfo | null
++installing : boolean
++error : string | null
++setUpdateInfo(info) : void
++setInstalling(status) : void
++setError(msg) : void
+}
+class ErrorHandling {
++timeoutDuration : 5000
++handleInstall() : Promise~void~
++handleDismiss() : void
++setErrorState(error) : void
+}
+class UpdateBannerUI {
++render() : JSX.Element
++renderSuccess() : JSX.Element
++renderError() : JSX.Element
+}
+UpdateBannerState --> ErrorHandling : "管理错误状态"
+UpdateBannerState --> UpdateBannerUI : "渲染UI状态"
+```
+
+**图表来源**
+- [ui-react/src/components/layout/UpdateBanner.tsx:16-35](file://ui-react/src/components/layout/UpdateBanner.tsx#L16-L35)
+- [ui-react/src/components/layout/UpdateBanner.tsx:39-61](file://ui-react/src/components/layout/UpdateBanner.tsx#L39-L61)
+
+**章节来源**
+- [ui-react/src/components/layout/UpdateBanner.tsx:1-121](file://ui-react/src/components/layout/UpdateBanner.tsx#L1-L121)
+
+### 超时保护机制
+
+**新增功能**：UpdateBanner组件实现5秒超时保护机制，防止安装过程卡死。
+
+```mermaid
+classDiagram
+class TimeoutProtection {
++timeoutDuration : 5000
++timeoutPromise : Promise~never~
++installPromise : Promise~void~
++handleInstall() : Promise~void~
++createTimeoutPromise() : Promise~never~
++handleTimeoutError() : void
+}
+class ErrorStateManagement {
++error : string | null
++setError(errorMsg) : void
++clearError() : void
+}
+class InstallationFlow {
++setInstalling(true) : void
++setInstalling(false) : void
++handleInstall() : Promise~void~
+}
+TimeoutProtection --> ErrorStateManagement : "设置错误状态"
+InstallationFlow --> TimeoutProtection : "使用超时保护"
+```
+
+**图表来源**
+- [ui-react/src/components/layout/UpdateBanner.tsx:39-61](file://ui-react/src/components/layout/UpdateBanner.tsx#L39-L61)
+
+**章节来源**
+- [ui-react/src/components/layout/UpdateBanner.tsx:1-121](file://ui-react/src/components/layout/UpdateBanner.tsx#L1-L121)
+
+### 用户友好的错误提示
+
+**新增功能**：UpdateBanner组件提供用户友好的错误提示和重试机制。
+
+```mermaid
+classDiagram
+class UserFriendlyErrorHandling {
++error : string | null
++installing : boolean
++renderError() : JSX.Element
++getErrorIcon() : JSX.Element
++getErrorTitle() : string
++getErrorDescription() : string
++handleRetry() : void
+}
+class ErrorDisplay {
++errorColor : "bg-red-50 text-red-700"
++errorBorder : "border-red-200"
++errorIcon : AlertTriangle
+}
+class SuccessState {
++installing : boolean
++renderSuccess() : JSX.Element
++getSuccessIcon() : JSX.Element
++getSuccessMessage() : string
+}
+UserFriendlyErrorHandling --> ErrorDisplay : "使用错误样式"
+UserFriendlyErrorHandling --> SuccessState : "切换状态"
+```
+
+**图表来源**
+- [ui-react/src/components/layout/UpdateBanner.tsx:63-121](file://ui-react/src/components/layout/UpdateBanner.tsx#L63-L121)
+
+**章节来源**
+- [ui-react/src/components/layout/UpdateBanner.tsx:1-121](file://ui-react/src/components/layout/UpdateBanner.tsx#L1-L121)
+
+## Gateway重启状态提示功能
+
+**新增功能**：实现Gateway崩溃时的自动重启和进度提示，改善用户体验。
+
+### Gateway重启管理架构
+
+```mermaid
+flowchart TD
+A[Gateway崩溃] --> B{是否意外崩溃?}
+B --> |是| C[启动自动重启流程]
+B --> |否| D[预期停止，不重启]
+C --> E[初始化重启计数器]
+E --> F[检查最大重启次数]
+F --> G{超过最大次数?}
+G --> |是| H[显示错误状态]
+G --> |否| I[计算延迟时间]
+I --> J[发送重启中事件]
+J --> K[等待延迟]
+K --> L[重启Gateway]
+L --> M{重启成功?}
+M --> |是| N[发送重启完成事件]
+M --> |否| O[增加重启计数器]
+O --> F
+N --> P[应用恢复正常]
+H --> Q[允许用户手动重试]
+```
+
+**图表来源**
+- [apps/electron/src/main/gateway.ts:90-103](file://apps/electron/src/main/gateway.ts#L90-L103)
+- [apps/electron/src/main/gateway.ts:420-430](file://apps/electron/src/main/gateway.ts#L420-L430)
+
+### Gateway重启回调机制
+
+**新增功能**：通过IPC事件向渲染进程发送重启进度和状态信息。
+
+```mermaid
+classDiagram
+class GatewayRestartManager {
++autoRestartAttempts : number
++maxAutoRestartAttempts : number
++autoRestartDelayMS : number
++handleGatewayCrashWithAutoRestart(code, signal) : void
++sendRestartProgress(attempt, maxAttempts) : void
++sendRestartComplete(success, error?) : void
+}
+class IPCEventHandler {
++onGatewayRestarting(callback) : void
++onGatewayRestarted(callback) : void
++onGatewayCrashed(callback) : void
+}
+class UIIntegration {
++GatewayStatusContext : Context
++GatewayStatusOverlay : Component
++handleRestartProgress(data) : void
++handleRestartComplete(data) : void
+}
+GatewayRestartManager --> IPCEventHandler : "发送IPC事件"
+GatewayRestartManager --> UIIntegration : "更新UI状态"
+```
+
+**图表来源**
+- [apps/electron/src/main/gateway.ts:90-103](file://apps/electron/src/main/gateway.ts#L90-L103)
+- [apps/electron/src/preload/index.ts:62-97](file://apps/electron/src/preload/index.ts#L62-L97)
+
+**章节来源**
+- [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
+- [apps/electron/src/preload/index.ts:60-171](file://apps/electron/src/preload/index.ts#L60-L171)
+
+### Gateway重启状态提示实现
+
+**新增功能**：Gateway状态覆盖层组件提供直观的重启状态提示。
+
+```mermaid
+classDiagram
+class GatewayStatusContext {
++status : GatewayStatus
++countdown : number
++setMaxCountdown(seconds) : void
++setStatus(status) : void
+}
+class GatewayStatusOverlay {
++render() : JSX.Element
++renderRestarting() : JSX.Element
++renderCrashed() : JSX.Element
++renderError() : JSX.Element
+}
+class GatewayStatus {
++idle : "idle"
++restarting : "restarting"
++crashed : "crashed"
++error : "error"
+}
+GatewayStatusContext --> GatewayStatusOverlay : "提供状态数据"
+```
+
+**图表来源**
+- [ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md:105-123](file://ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md#L105-L123)
+
+**章节来源**
+- [ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md:1-176](file://ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md#L1-L176)
+
 ## GitHub Actions自动化发布
 
 **新增功能**：完整的CI/CD发布流程，基于GitHub Actions和Cloudflare R2实现自动化发布。
@@ -745,7 +1040,9 @@ H --> I[配置Cloudflare R2]
 I --> J[上传安装包]
 J --> K[上传描述文件]
 K --> L[验证文件可访问]
-L --> M[发布完成]
+L --> M[执行签名验证]
+M --> N[验证Gatekeeper公证]
+N --> O[发布完成]
 ```
 
 **图表来源**
@@ -794,11 +1091,16 @@ class VerifyUpload {
 +name : "Verify upload"
 +run : CurlCommand
 }
+class CodeSignatureVerification {
++name : "Verify code signature"
++run : CodeSignVerification
+}
 BuildJob --> MacBuildStep : "包含步骤"
 BuildJob --> SignCertificate : "包含步骤"
 BuildJob --> UploadArtifacts : "包含步骤"
 UploadR2Job --> R2UploadStep : "包含步骤"
 UploadR2Job --> VerifyUpload : "包含步骤"
+UploadR2Job --> CodeSignatureVerification : "包含步骤"
 ```
 
 **图表来源**
@@ -1612,6 +1914,33 @@ NotarizationManager --> ArtifactProcessor : "处理不同类型的产物"
 - [apps/electron/scripts/package-electron.sh:1-232](file://apps/electron/scripts/package-electron.sh#L1-L232)
 - [apps/electron/scripts/notarize.cjs:1-84](file://apps/electron/scripts/notarize.cjs#L1-L84)
 
+### 代码签名验证集成
+
+**新增功能**：在打包过程中集成代码签名验证和公证评估。
+
+```mermaid
+classDiagram
+class CodeSignatureVerifier {
++verifyCodesignDetails() : Promise~boolean~
++verifyDeepSignatureChain() : Promise~boolean~
++verifyGatekeeperAssessment() : Promise~boolean~
++validateAllSignatures() : Promise~boolean~
+}
+class PackagingValidation {
++codesignValidation : ValidationStep
++deepChainValidation : ValidationStep
++gatekeeperValidation : ValidationStep
++overallValidation : boolean
+}
+PackagingValidation --> CodeSignatureVerifier : "执行验证"
+```
+
+**图表来源**
+- [apps/electron/scripts/package-electron.sh:221-296](file://apps/electron/scripts/package-electron.sh#L221-L296)
+
+**章节来源**
+- [apps/electron/scripts/package-electron.sh:221-296](file://apps/electron/scripts/package-electron.sh#L221-L296)
+
 ## 依赖关系分析
 
 应用的依赖关系体现了清晰的层次结构和模块化设计：
@@ -1636,81 +1965,98 @@ N[Apple Store Connect密钥处理器]
 O[运行时依赖管理器]
 P[打包和公证管理器]
 Q[扩展打包策略]
+R[Gateway重启管理器]
+S[Gateway状态覆盖层]
+T[代码签名验证器]
+U[自动更新验证系统]
+V[增强的React更新通知系统]
 end
 subgraph "服务层"
-R[Gateway服务]
-S[Node.js 24运行时]
-T[本地HTTP服务]
-U[OAuth认证服务]
-V[文件锁服务]
-W[配置服务]
-X[环境变量服务]
-Y[崩溃监控服务]
-Z[更新服务器]
-AA[R2存储服务]
-AB[App Store Connect API]
-BB[Cloudflare R2]
+W[Gateway服务]
+X[Node.js 24运行时]
+Y[本地HTTP服务]
+Z[OAuth认证服务]
+AA[文件锁服务]
+BB[配置服务]
+CC[环境变量服务]
+DD[崩溃监控服务]
+EE[更新服务器]
+FF[R2存储服务]
+GG[App Store Connect API]
+HH[代码签名验证服务]
+II[Gatekeeper评估服务]
+JJ[深度签名链验证服务]
+KK[自动更新验证服务]
 end
 subgraph "基础设施层"
-CC[Electron框架]
-DD[React框架]
-EE[WebSocket库]
-FF[文件系统]
-GG[Web API]
-HH[加密库]
-II[网络库]
-JJ[electron-updater]
-KK[Cloudflare R2]
-LL[Apple开发者服务]
-MM[GitHub Actions]
-NN[Node.js 24运行时]
-OO[App Store Connect API]
-PP[GitHub CLI]
+LL[Electron框架]
+MM[React框架]
+NN[WebSocket库]
+OO[文件系统]
+PP[Web API]
+QQ[加密库]
+RR[网络库]
+SS[electron-updater]
+TT[Cloudflare R2]
+UU[Apple开发者服务]
+VV[GitHub Actions]
+WW[Windows平台支持]
+XX[代码签名工具]
+YY[Gatekeeper工具]
+ZZ[深度签名工具]
+AAA[自动更新工具]
 end
-A --> R
-A --> CC
+A --> W
+A --> LL
 B --> A
-B --> DD
+B --> MM
 C --> B
 D --> B
-E --> U
-F --> FF
-G --> W
-H --> T
-I --> X
-J --> Y
-K --> Z
+E --> Z
+F --> OO
+G --> BB
+H --> Y
+I --> CC
+J --> DD
+K --> EE
 L --> K
-R --> S
-R --> T
-S --> NN
-T --> EE
-U --> GG
-V --> FF
-W --> HH
-X --> II
-Y --> II
-Z --> AA
-AA --> BB
-AB --> OO
-LL --> MM
-MM --> PP
-A --> FF
-B --> FF
-D --> U
-E --> GG
-F --> FF
-G --> W
-H --> II
-I --> II
-J --> II
-K --> JJ
-L --> JJ
+W --> X
+W --> Y
+X --> NN
+Y --> NN
+Z --> PP
+AA --> OO
+BB --> QQ
+CC --> RR
+DD --> RR
+EE --> FF
+FF --> TT
+GG --> UU
+UU --> VV
+VV --> WW
+A --> OO
+B --> OO
+D --> Z
+E --> PP
+F --> OO
+G --> BB
+H --> RR
+I --> RR
+J --> RR
+K --> SS
+L --> SS
 M --> NN
-N --> OO
+N --> GG
 O --> NN
-P --> LL
-Q --> FF
+P --> UU
+Q --> OO
+R --> HH
+S --> R
+T --> XX
+U --> HH
+V --> YY
+W --> ZZ
+X --> AAA
 ```
 
 **图表来源**
@@ -1754,6 +2100,19 @@ Q --> FF
 - **Windows平台临时禁用**：注释掉相关扩展以确保稳定性
 - **文件过滤改进**：优化各种扩展和依赖的过滤规则
 
+**新增功能依赖：**
+- **代码签名验证**：集成codesign和spctl工具
+- **深度签名链验证**：支持--deep --strict参数
+- **Gatekeeper评估**：验证应用执行权限
+- **Gateway重启管理**：自动重启和进度提示
+- **增强的UpdateBanner**：错误状态管理和超时保护
+- **自动更新下载进度优化**
+- **Apple Store Connect API密钥缓存**
+- **Node.js 24运行时预热**
+- **pdf-parse扩展优化提升性能**
+- **Gateway重启状态提示优化**
+- **代码签名验证性能优化**
+
 **章节来源**
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
 - [apps/electron/electron-builder.yml:1-80](file://apps/electron/electron-builder.yml#L1-L80)
@@ -1779,6 +2138,9 @@ Q --> FF
 - **Node.js 24运行时内存优化**
 - **原生依赖裁剪减少内存占用**
 - **pdf-parse扩展优化减少内存占用**
+- **Gateway重启状态缓存优化**
+- **代码签名验证缓存**
+- **增强的UpdateBanner组件状态管理**
 
 ### 启动性能
 
@@ -1796,6 +2158,8 @@ Q --> FF
 - **Node.js 24运行时预加载**
 - **智能依赖解析减少启动时间**
 - **优化的扩展打包策略**
+- **Gateway重启自动处理优化**
+- **增强的UpdateBanner组件初始化优化**
 
 ### 网络性能
 
@@ -1811,6 +2175,7 @@ Q --> FF
 - **Cloudflare R2 CDN加速**
 - **更新文件分块传输**
 - **App Store Connect API优化**
+- **自动更新验证网络优化**
 
 ### OAuth性能优化
 
@@ -1826,6 +2191,9 @@ Q --> FF
 - **Apple Store Connect API密钥缓存**
 - **Node.js 24运行时预热**
 - **pdf-parse扩展优化提升性能**
+- **Gateway重启状态提示优化**
+- **代码签名验证性能优化**
+- **增强的UpdateBanner组件性能优化**
 
 **章节来源**
 - [apps/electron/src/main/onboarding-oauth.ts:187-258](file://apps/electron/src/main/onboarding-oauth.ts#L187-L258)
@@ -1846,6 +2214,8 @@ Q --> FF
 - 检查静态HTTP服务器状态
 - **验证Node.js 24运行时下载**
 - **检查pdf-parse扩展优化是否生效**
+- **验证Gateway重启回调是否正常**
+- **检查增强的UpdateBanner组件状态**
 
 **IPC通信异常**
 - 验证预加载脚本加载
@@ -1856,6 +2226,8 @@ Q --> FF
 - **验证自动更新IPC事件**
 - **检查Node.js 24运行时集成**
 - **验证扩展打包策略**
+- **验证Gateway重启IPC事件**
+- **检查增强的UpdateBanner IPC通信**
 
 **窗口加载问题**
 - 检查CSP配置
@@ -1865,6 +2237,7 @@ Q --> FF
 - 验证静态HTTP服务器端口
 - **验证运行时依赖完整性**
 - **检查Windows平台支持状态**
+- **验证增强的UpdateBanner组件**
 
 **OAuth认证失败**
 - 检查网络连接
@@ -1876,6 +2249,7 @@ Q --> FF
 - 验证登录shell环境变量
 - **检查Apple Store Connect API密钥**
 - **验证pdf-parse扩展配置**
+- **检查增强的UpdateBanner组件OAuth状态**
 
 **单实例锁冲突**
 - 检查锁文件是否存在
@@ -1913,6 +2287,27 @@ Q --> FF
 - **确认用户安装权限**
 - **验证Node.js 24运行时更新**
 - **检查pdf-parse扩展更新**
+- **验证代码签名验证系统**
+- **检查增强的UpdateBanner组件状态**
+- **验证5秒超时保护机制**
+
+**Gateway重启问题**
+- **检查重启回调注册**
+- **验证重启事件发送**
+- **确认最大重启次数限制**
+- **检查重启延迟配置**
+- **验证重启进度通知**
+- **检查手动重启功能**
+- **验证增强的UpdateBanner重启状态**
+
+**UpdateBanner组件问题**
+- **验证错误状态管理**
+- **检查超时保护机制**
+- **确认安装状态指示**
+- **验证用户交互响应**
+- **检查错误信息显示**
+- **验证5秒超时保护**
+- **检查错误状态重置**
 
 **Node.js 24运行时问题**
 - **检查Node.js 24下载完整性**
@@ -1921,6 +2316,7 @@ Q --> FF
 - **检查electron-builder集成**
 - **验证运行时依赖解析**
 - **验证扩展打包策略**
+- **验证增强的UpdateBanner运行时状态**
 
 **Apple Store Connect密钥问题**
 - **验证API密钥文件路径**
@@ -1936,6 +2332,7 @@ Q --> FF
 - **验证预安装扩展**
 - **检查依赖完整性**
 - **验证pdf-parse扩展优化**
+- **验证增强的UpdateBanner依赖**
 
 **打包和公证问题**
 - **验证打包脚本执行**
@@ -1944,12 +2341,22 @@ Q --> FF
 - **验证产物完整性**
 - **检查Apple开发者服务**
 - **验证Windows平台支持状态**
+- **验证代码签名验证流程**
+- **验证增强的UpdateBanner打包状态**
 
 **扩展打包问题**
 - **检查pdf-parse扩展过滤规则**
 - **验证Windows平台扩展禁用状态**
 - **确认文件过滤规则生效**
 - **检查扩展打包策略配置**
+
+**代码签名验证问题**
+- **验证codesign工具可用性**
+- **检查深度签名链验证**
+- **确认Gatekeeper评估通过**
+- **验证签名证书有效性**
+- **检查公证状态**
+- **验证增强的UpdateBanner签名验证**
 
 **章节来源**
 - [apps/electron/src/main/gateway.ts:140-147](file://apps/electron/src/main/gateway.ts#L140-L147)
@@ -1976,7 +2383,9 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 登录shell环境缓存机制
 - 静态HTTP服务器服务
 - 实时网关崩溃检测
-- **完整的自动更新系统**
+- **完整的自动更新验证系统**
+- **增强的React更新通知系统**
+- **Gateway重启状态提示功能**
 - **自动化发布流程**
 - **Node.js 24运行时集成**
 - **Apple Store Connect API密钥处理**
@@ -1996,9 +2405,12 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 平滑的静态资源加载
 - 实时的崩溃通知
 - **无感的更新体验**
+- **可靠的更新验证**
+- **直观的重启状态提示**
 - **高效的Node.js 24运行时启动**
 - **稳定的Apple Store Connect认证**
 - **优化的pdf-parse扩展性能**
+- **增强的UpdateBanner用户体验**
 
 **扩展性：**
 - 插件化架构支持
@@ -2008,14 +2420,25 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - 易于添加新的OAuth提供商
 - 支持动态配置更新
 - 可扩展的崩溃检测机制
-- **可扩展的更新系统**
+- **可扩展的更新验证系统**
+- **可扩展的重启状态提示**
+- **可扩展的代码签名验证**
 - **可扩展的运行时管理**
 - **可扩展的打包流程**
 - **可扩展的Windows平台支持**
+- **可扩展的增强UpdateBanner功能**
 
 **新增功能价值：**
+- **增强的React更新通知系统**：UpdateBanner组件支持错误状态管理和超时保护，提供更可靠的更新体验
+- **改进的安装流程**：添加5秒超时保护，防止安装过程卡死，提升用户体验
+- **增强的错误处理**：完善的错误状态显示和用户友好的错误提示
+- **优化的组件状态管理**：改进的安装状态和错误状态管理机制
+- **自动更新验证系统**：通过代码签名验证、深度签名链验证和Gatekeeper评估确保更新包的完整性和安全性
+- **Gateway重启状态提示功能**：实现Gateway崩溃时的自动重启和进度提示，显著改善用户体验
+- **Gateway重启回调机制**：通过IPC事件向渲染进程发送重启进度和状态信息，实现完整的状态同步
+- **代码签名验证集成**：在打包过程中集成签名验证和公证评估，确保应用分发的安全性
 - **pdf-parse扩展优化**：通过文件过滤规则减少打包体积，提升应用启动速度和运行效率
-- **Windows平台支持临时禁用**：通过注释掉相关扩展确保应用稳定性和兼容性，为未来Windows支持做好准备
+- **Windows平台支持临时禁用策略**：通过注释掉相关扩展确保应用稳定性和兼容性，为未来Windows支持做好准备
 - **文件过滤规则改进**：优化各种扩展和依赖的过滤规则，减少不必要的文件打包，降低应用体积
 - **Node.js 24运行时集成**：登录shell环境缓存解决了macOS打包应用的PATH变量问题
 - **Apple Store Connect API密钥处理**：改进的认证方式支持文件路径和环境变量
@@ -2023,15 +2446,13 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **增强的打包流程**：支持本地快速测试和生产环境打包
 - **改进的公证流程**：支持多种认证方式的macOS公证
 - **GitHub Actions发布**：静态HTTP服务器提供了有效的loopback HTTP origin，改善了origin相关问题
-- **UpdateBanner组件**：网关崩溃检测机制提供了实时的状态监控和用户通知
-- **Cloudflare R2存储**：全新的OAuth认证系统，支持多种认证提供商
-- **electron-updater集成**：单实例锁机制的可靠保护
-- **自动化发布流程**：URL协议处理的增强功能
 - **CI/CD流水线**：配置修补系统的灵活更新
 - **R2存储配置**：增强的错误处理和调试能力
 - **发布验证机制**：改进的用户认证体验
 - **更新进度跟踪**：更好的安全性和可靠性
 - **运行时依赖裁剪**：优化的应用性能和资源使用
 - **打包体积优化**：通过更精确的文件过滤和依赖裁剪显著减少应用包大小
+- **5秒超时保护机制**：防止安装过程卡死，提升用户体验
+- **用户友好的错误提示**：清晰的错误信息和重试机制
 
-该应用为类似的企业级桌面应用提供了优秀的参考模板，展现了如何在保证安全性的同时提供出色的用户体验。新增的pdf-parse扩展优化、Windows平台支持临时禁用策略、改进的文件过滤规则和优化的打包配置，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性。这些优化措施不仅提升了应用的性能和稳定性，也为未来的功能扩展和平台支持奠定了坚实的基础。
+该应用为类似的企业级桌面应用提供了优秀的参考模板，展现了如何在保证安全性的同时提供出色的用户体验。新增的增强的React更新通知系统、自动更新验证系统、Gateway重启状态提示功能以及改进的打包验证流程，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性。这些优化措施不仅提升了应用的性能和稳定性，也为未来的功能扩展和平台支持奠定了坚实的基础。

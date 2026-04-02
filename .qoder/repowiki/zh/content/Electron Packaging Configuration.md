@@ -36,15 +36,19 @@
 - [src/plugins/bundled-sources.ts](file://src/plugins/bundled-sources.ts)
 - [apps/electron/BUILDING.md](file://apps/electron/BUILDING.md)
 - [apps/electron/Makefile](file://apps/electron/Makefile)
+- [src/version.ts](file://src/version.ts)
+- [scripts/sync-plugin-versions.ts](file://scripts/sync-plugin-versions.ts)
+- [scripts/codesign-mac-app.sh](file://scripts/codesign-mac-app.sh)
+- [apps/electron/.env.example](file://apps/electron/.env.example)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 优化了 electron-builder.yml 中的文件过滤规则，增强了扩展打包策略
-- 改进了扩展过滤规则，支持更精细的文件排除控制
-- 优化了运行时依赖的打包策略，提升了打包效率和体积控制
-- 增强了跨平台打包的文件过滤一致性
-- 改进了 WeChat 扩展的打包配置和过滤规则
+- 新增智能版本管理系统（bump-version目标），支持自动版本号递增和同步
+- 引入代码签名验证系统，提供完整的签名和权限验证流程
+- 扩展macOS权限配置，新增临时例外权限和动态库环境变量支持
+- 增强Windows打包系统，完善跨平台构建流程
+- 优化扩展版本同步机制，确保插件版本与核心版本一致
 
 ## 目录
 1. [简介](#简介)
@@ -52,36 +56,47 @@
 3. [核心组件分析](#核心组件分析)
 4. [架构总览](#架构总览)
 5. [详细组件分析](#详细组件分析)
-6. [运行时依赖管理系统](#运行时依赖管理系统)
-7. [多部署模式支持](#多部署模式支持)
-8. [跨平台打包增强](#跨平台打包增强)
-9. [签名和公证自动化](#签名和公证自动化)
-10. [WeChat 扩展集成](#wechat-扩展集成)
-11. [依赖关系分析](#依赖关系分析)
-12. [性能考虑](#性能考虑)
-13. [故障排除指南](#故障排除指南)
-14. [结论](#结论)
+6. [智能版本管理系统](#智能版本管理系统)
+7. [代码签名验证系统](#代码签名验证系统)
+8. [macOS权限扩展](#macos权限扩展)
+9. [运行时依赖管理系统](#运行时依赖管理系统)
+10. [多部署模式支持](#多部署模式支持)
+11. [跨平台打包增强](#跨平台打包增强)
+12. [签名和公证自动化](#签名和公证自动化)
+13. [WeChat 扩展集成](#wechat-扩展集成)
+14. [依赖关系分析](#依赖关系分析)
+15. [性能考虑](#性能考虑)
+16. [故障排除指南](#故障排除指南)
+17. [结论](#结论)
 
 ## 简介
 
-OpenClaw 项目的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新特别引入了 Windows 打包系统，通过新增的 package-electron-win.sh 脚本实现了在 macOS/Linux 上交叉编译 Windows 版本的能力。该系统现在支持：
-- 多平台打包（macOS、Windows、Linux）
-- 内置 Node.js 运行时环境
-- React 控制界面集成
-- OAuth 认证流程支持
-- 硬化运行时配置
-- 自动更新机制
-- **Windows 打包支持**（新增）
-- **跨平台构建流程**（新增）
-- **统一打包脚本**（增强）
-- **架构特定优化**（增强）
+OpenClaw 项目的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新特别引入了智能版本管理系统、代码签名验证系统和macOS权限扩展等重大增强功能，显著提升了打包的安全性和自动化程度。
 
-**更新** Windows 打包系统的关键改进：
-- **package-electron-win.sh**：全新的 Windows 打包脚本，支持交叉编译
-- **Makefile 增强**：新增 Windows 打包目标和命令
-- **electron-builder 配置**：更新以支持 Windows 平台特定设置
-- **Node.js 运行时**：改进的跨平台 Node 二进制下载和管理
-- **打包流程**：统一的构建和打包逻辑，支持多平台
+**更新** 重大增强功能概述：
+- **智能版本管理系统**：新增 `make bump-version` 目标，支持自动版本号递增和同步
+- **代码签名验证系统**：引入 `scripts/codesign-mac-app.sh`，提供完整的签名和权限验证
+- **macOS权限扩展**：更新 `entitlements.mac.plist`，新增临时例外权限和动态库环境变量
+- **Windows打包系统增强**：完善跨平台构建流程，支持更灵活的打包配置
+- **扩展版本同步**：新增 `scripts/sync-plugin-versions.ts`，确保插件版本与核心版本一致
+
+**智能版本管理系统**：
+- 支持 `major`、`minor`、`patch`、`beta` 四种版本类型递增
+- 自动检测当前版本并生成下一级版本号
+- 支持手动指定版本号和自定义版本格式
+- 与扩展系统集成，自动同步插件版本
+
+**代码签名验证系统**：
+- 完整的签名身份选择和验证流程
+- 支持 Developer ID Application、Apple Distribution、Apple Development 三种证书类型
+- 自动团队ID审计和权限验证
+- 支持临时例外和开发模式配置
+
+**macOS权限扩展**：
+- 新增 `com.apple.security.cs.allow-dyld-environment-variables` 权限
+- 添加 `com.apple.security.temporary-exception.files.home-relative-path.read-write` 临时例外
+- 支持动态库环境变量和系统目录访问权限
+- 完善的权限配置和验证机制
 
 ## 项目结构概览
 
@@ -120,59 +135,65 @@ AB[scripts/] --> AC[package-mac-app.sh]
 AB --> AD[create-dmg.sh]
 AB --> AE[release-mac-local.sh]
 AB --> AF[notarize-mac-artifact.sh]
+AB --> AG[codesign-mac-app.sh]
+AB --> AH[sync-plugin-versions.ts]
 end
 subgraph "配置文件"
-AG[.env.example] --> AH[签名配置]
-AG --> AI[R2 上传配置]
+AI[.env.example] --> AJ[签名配置]
+AI --> AK[R2 上传配置]
+AL[.env] --> AM[环境变量]
 end
 subgraph "扩展捆绑系统"
-AJ[基础设施扩展] --> AK[memory-core]
-AJ --> AL[device-pair]
-AJ --> AM[基础功能]
-AN[认证扩展] --> AO[qwen-portal-auth]
-AN --> AP[minimax-portal-auth]
-AN --> AQ[google-gemini-cli-auth]
-AN --> AR[copilot-proxy]
-AS[通信渠道扩展] --> AT[telegram]
-AS --> AU[discord]
-AS --> AV[slack]
-AS --> AW[signal]
-AS --> AX[whatsapp]
-AS --> AY[imessage]
-AS --> AZ[matrix]
-AS --> BA[msteams]
-AS --> BB[feishu]
-AS --> BC[googlechat]
-AS --> BD[irc]
-AS --> BE[line]
-AS --> BF[mattermost]
-AS --> BG[nextcloud-talk]
-AS --> BH[nostr]
-AS --> BI[synology-chat]
-AS --> BJ[zalo]
-AS --> BK[zalouser]
-AS --> BL[twitch]
-AS --> BM[bluebubbles]
-AS --> BN[openclaw-weixin]
-BV[扩展清单] --> BW[插件发现机制]
-BV --> BX[自动捆绑配置]
+AN[基础设施扩展] --> AO[memory-core]
+AN --> AP[device-pair]
+AN --> AQ[基础功能]
+AR[认证扩展] --> AS[qwen-portal-auth]
+AR --> AT[minimax-portal-auth]
+AR --> AU[google-gemini-cli-auth]
+AR --> AV[copilot-proxy]
+AW[通信渠道扩展] --> AX[telegram]
+AW --> AY[discord]
+AW --> AZ[slack]
+AW --> BA[signal]
+AW --> BB[whatsapp]
+AW --> BC[imessage]
+AW --> BD[matrix]
+AW --> BE[msteams]
+AW --> BF[feishu]
+AW --> BG[googlechat]
+AW --> BH[irc]
+AW --> BI[line]
+AW --> BJ[mattermost]
+AW --> BK[nextcloud-talk]
+AW --> BL[nostr]
+AW --> BM[synology-chat]
+AW --> BN[zalo]
+AW --> BO[zalouser]
+AW --> BP[twitch]
+AW --> BQ[bluebubbles]
+AW --> BR[openclaw-weixin]
+BS[版本管理系统] --> BT[bump-version 目标]
+BS --> BU[sync-plugin-versions 脚本]
+BT --> BV[自动版本递增]
+BU --> BW[插件版本同步]
 end
 ```
 
 **图表来源**
 - [apps/electron/package.json:1-44](file://apps/electron/package.json#L1-L44)
-- [apps/electron/electron-builder.yml:1-315](file://apps/electron/electron-builder.yml#L1-L315)
+- [apps/electron/electron-builder.yml:1-317](file://apps/electron/electron-builder.yml#L1-L317)
 - [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 - [apps/electron/scripts/package-electron.sh:1-232](file://apps/electron/scripts/package-electron.sh#L1-L232)
 - [apps/electron/scripts/package-electron-win.sh:1-198](file://apps/electron/scripts/package-electron-win.sh#L1-L198)
-- [apps/electron/Makefile:1-221](file://apps/electron/Makefile#L1-L221)
+- [apps/electron/Makefile:96-164](file://apps/electron/Makefile#L96-L164)
+- [scripts/sync-plugin-versions.ts:41-101](file://scripts/sync-plugin-versions.ts#L41-L101)
 
 **章节来源**
 - [apps/electron/package.json:1-44](file://apps/electron/package.json#L1-L44)
-- [apps/electron/electron-builder.yml:1-315](file://apps/electron/electron-builder.yml#L1-L315)
+- [apps/electron/electron-builder.yml:1-317](file://apps/electron/electron-builder.yml#L1-L317)
 - [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 - [apps/electron/BUILDING.md:1-244](file://apps/electron/BUILDING.md#L1-L244)
-- [apps/electron/Makefile:1-221](file://apps/electron/Makefile#L1-L221)
+- [apps/electron/Makefile:1-284](file://apps/electron/Makefile#L1-L284)
 
 ## 核心组件分析
 
@@ -274,75 +295,84 @@ H[运行时依赖管理]
 I[签名和公证]
 J[WeChat 扩展]
 K[Windows 打包系统]
+L[智能版本管理]
+M[代码签名验证]
+N[macOS权限扩展]
 end
 subgraph "资源层"
-L[React 控制界面]
-M[静态资源]
-N[配置文件]
-O[基础设施扩展]
-P[认证扩展]
-Q[通信渠道扩展]
-R[可移植Node运行时]
-S[依赖包生成器]
-T[跨平台打包脚本]
-U[自动公证脚本]
-V[WeChat 登录界面]
-W[二维码生成器]
-X[消息处理系统]
-Y[Windows 资源处理]
-Z[Node.exe 可执行文件]
-AA[NSIS 安装程序]
-BB[Windows 架构支持]
+O[React 控制界面]
+P[静态资源]
+Q[配置文件]
+R[基础设施扩展]
+S[认证扩展]
+T[通信渠道扩展]
+U[可移植Node运行时]
+V[依赖包生成器]
+W[跨平台打包脚本]
+X[自动公证脚本]
+Y[WeChat 登录界面]
+Z[二维码生成器]
+AA[消息处理系统]
+AB[Windows 资源处理]
+AC[Node.exe 可执行文件]
+AD[NSIS 安装程序]
+AE[Windows 架构支持]
+AF[版本同步机制]
+AG[签名验证工具]
+AH[权限配置文件]
 end
 A --> D
 A --> E
 A --> F
 A --> G
-B --> L
+B --> O
 C --> A
-D --> M
-E --> N
-G --> O
-G --> P
-G --> Q
-H --> R
-H --> S
-I --> T
-I --> U
-O --> AC[memory-core]
-O --> AD[device-pair]
-P --> AE[qwen-portal-auth]
-P --> AF[minimax-portal-auth]
-P --> AG[google-gemini-cli-auth]
-P --> AH[copilot-proxy]
-Q --> AI[telegram]
-Q --> AJ[discord]
-Q --> AK[slack]
-Q --> AL[signal]
-Q --> AM[whatsapp]
-Q --> AN[imessage]
-Q --> AO[matrix]
-Q --> AP[msteams]
-Q --> AQ[feishu]
-Q --> AR[googlechat]
-Q --> AS[irc]
-Q --> AT[line]
-Q --> AU[mattermost]
-Q --> AV[nextcloud-talk]
-Q --> AW[nostr]
-Q --> AX[synology-chat]
-Q --> AY[zalo]
-Q --> AZ[zalouser]
-Q --> BA[twitch]
-Q --> BB[bluebubbles]
-Q --> BC[openclaw-weixin]
-J --> V
-J --> W
-J --> X
-K --> Y
-K --> Z
-K --> AA
-K --> BB
+D --> P
+E --> Q
+G --> R
+G --> S
+G --> T
+H --> U
+H --> V
+I --> W
+I --> X
+R --> AJ[memory-core]
+R --> AK[device-pair]
+S --> AL[qwen-portal-auth]
+S --> AM[minimax-portal-auth]
+S --> AN[google-gemini-cli-auth]
+S --> AO[copilot-proxy]
+T --> AP[telegram]
+T --> AQ[discord]
+T --> AR[slack]
+T --> AS[signal]
+T --> AT[whatsapp]
+T --> AU[imessage]
+T --> AV[matrix]
+T --> AW[msteams]
+T --> AX[feishu]
+T --> AY[googlechat]
+T --> AZ[irc]
+T --> BA[line]
+T --> BB[mattermost]
+T --> BC[nextcloud-talk]
+T --> BD[nostr]
+T --> BE[synology-chat]
+T --> BF[zalo]
+T --> BG[zalouser]
+T --> BH[twitch]
+T --> BI[bluebubbles]
+T --> BJ[openclaw-weixin]
+J --> Y
+J --> Z
+J --> AA
+K --> AB
+K --> AC
+K --> AD
+K --> AE
+L --> AF
+M --> AG
+N --> AH
 ```
 
 **图表来源**
@@ -351,6 +381,8 @@ K --> BB
 - [apps/electron/packaged-runtime.json:17-73](file://apps/electron/packaged-runtime.json#L17-L73)
 - [apps/electron/scripts/notarize.cjs:1-84](file://apps/electron/scripts/notarize.cjs#L1-L84)
 - [apps/electron/scripts/package-electron-win.sh:1-198](file://apps/electron/scripts/package-electron-win.sh#L1-L198)
+- [apps/electron/Makefile:96-164](file://apps/electron/Makefile#L96-L164)
+- [scripts/codesign-mac-app.sh:1-290](file://scripts/codesign-mac-app.sh#L1-L290)
 
 ## 详细组件分析
 
@@ -424,7 +456,7 @@ BA --> BC[.zip 压缩包]
 - **架构支持**：固定支持 x64 架构（可扩展为 arm64）
 
 **图表来源**
-- [apps/electron/electron-builder.yml:286-315](file://apps/electron/electron-builder.yml#L286-L315)
+- [apps/electron/electron-builder.yml:286-317](file://apps/electron/electron-builder.yml#L286-L317)
 - [apps/electron/packaged-runtime.json:145-147](file://apps/electron/packaged-runtime.json#L145-L147)
 
 ### 构建工具配置
@@ -449,33 +481,42 @@ BA --> BC[.zip 压缩包]
 - **智能依赖排除**：自动排除 electron、sharp、playwright-core 等原生模块
 
 **章节来源**
-- [apps/electron/electron-builder.yml:1-315](file://apps/electron/electron-builder.yml#L1-L315)
+- [apps/electron/electron-builder.yml:1-317](file://apps/electron/electron-builder.yml#L1-L317)
 - [apps/electron/tsdown.config.electron.ts:14-28](file://apps/electron/tsdown.config.electron.ts#L14-L28)
 - [apps/electron/packaged-runtime.json:2-16](file://apps/electron/packaged-runtime.json#L2-L16)
 
 ### macOS 硬化运行时配置
 
-entitlements.mac.plist 定义了 macOS 应用的权限配置：
+**更新** entitlements.mac.plist 扩展了权限配置，新增了临时例外和动态库支持：
 
 ```mermaid
 graph LR
 subgraph "权限配置"
 A[com.apple.security.cs.allow-jit] --> B[JIT 编译]
 C[com.apple.security.cs.allow-unsigned-executable-memory] --> D[未签名内存]
-E[com.apple.security.network.client] --> F[出站网络]
-G[com.apple.security.network.server] --> H[入站网络]
-I[com.apple.security.files.user-selected.read-write] --> J[用户文件]
-K[com.apple.security.files.downloads.read-write] --> L[下载文件]
-M[com.apple.security.cs.debugger] --> N[调试器访问]
-O[com.apple.security.application-groups] --> P[应用组]
+E[com.apple.security.cs.allow-dyld-environment-variables] --> F[动态库环境变量]
+G[com.apple.security.cs.disable-library-validation] --> H[库验证禁用]
+I[com.apple.security.network.client] --> J[出站网络]
+K[com.apple.security.network.server] --> L[入站网络]
+M[com.apple.security.files.user-selected.read-write] --> N[用户文件]
+O[com.apple.security.files.downloads.read-write] --> P[下载文件]
+Q[com.apple.security.files.caches.read-write] --> R[缓存目录]
+S[com.apple.security.files.bookmarks.app-scope] --> T[应用书签]
+U[com.apple.security.files.bookmarks.document-scope] --> V[文档书签]
+W[com.apple.security.temporary-exception.files.home-relative-path.read-write] --> X[系统目录访问]
 end
 ```
 
+**更新** 新增权限说明：
+- **动态库环境变量**：允许原生模块访问环境变量
+- **库验证禁用**：支持开发模式下的库验证绕过
+- **临时例外权限**：允许访问系统根目录（开发者分发场景）
+
 **图表来源**
-- [apps/electron/resources/entitlements.mac.plist:1-25](file://apps/electron/resources/entitlements.mac.plist#L1-L25)
+- [apps/electron/resources/entitlements.mac.plist:1-48](file://apps/electron/resources/entitlements.mac.plist#L1-L48)
 
 **章节来源**
-- [apps/electron/resources/entitlements.mac.plist:1-25](file://apps/electron/resources/entitlements.mac.plist#L1-L25)
+- [apps/electron/resources/entitlements.mac.plist:1-48](file://apps/electron/resources/entitlements.mac.plist#L1-L48)
 
 ### 用户配置管理
 
@@ -494,6 +535,306 @@ openclaw.json 包含了完整的用户配置信息：
 
 **章节来源**
 - [apps/electron/openclaw.json:1-142](file://apps/electron/openclaw.json#L1-L142)
+
+## 智能版本管理系统
+
+**更新** 新增的智能版本管理系统提供了完整的版本控制和同步功能。
+
+### 版本管理目标
+
+**更新** Makefile 中新增的 `bump-version` 目标支持多种版本类型：
+
+```mermaid
+flowchart TD
+A[版本管理] --> B[bump-version 目标]
+B --> C[手动指定版本]
+B --> D[自动检测版本]
+D --> E{当前版本格式?}
+E --> |YYYY-MM-DD| F[生成补丁版本]
+E --> |YYYY-MM-DD-beta.N| G[递增Beta版本]
+E --> |YYYY-MM-DD-patch.N| H[递增补丁版本]
+E --> |其他格式| I[提示手动指定]
+F --> J[YYYY-MM-DD-patch.1]
+G --> K[YYYY-MM-DD-beta.(N+1)]
+H --> L[YYYY-MM-DD-patch.(N+1)]
+C --> M[使用指定版本]
+M --> N[更新 package.json]
+D --> O[自动检测并递增]
+O --> P[生成新版本号]
+P --> Q[更新 package.json]
+```
+
+**版本类型支持**：
+- **major**：强制升级到主版本（YYYY-MM-DD 格式）
+- **beta**：创建或递增 Beta 版本（beta.1, beta.2...）
+- **patch**：创建或递增补丁版本（patch.1, patch.2...）
+- **默认**：根据当前版本自动选择合适类型
+
+**章节来源**
+- [apps/electron/Makefile:96-164](file://apps/electron/Makefile#L96-L164)
+
+### 版本同步机制
+
+**更新** sync-plugin-versions.ts 脚本实现了插件版本的自动同步：
+
+```mermaid
+flowchart TD
+A[版本同步] --> B[读取根 package.json]
+B --> C[获取目标版本号]
+C --> D[遍历扩展目录]
+D --> E{扩展 package.json 存在?}
+E --> |否| F[跳过扩展]
+E --> |是| G[读取扩展版本]
+G --> H{版本需要更新?}
+H --> |否| I[跳过扩展]
+H --> |是| J[更新扩展版本]
+J --> K[写入新的 package.json]
+K --> L[记录更新日志]
+F --> M[继续下一个扩展]
+I --> M
+L --> M
+M --> N[处理完成]
+```
+
+**同步功能特性**：
+- **自动版本检测**：从根 package.json 读取目标版本
+- **批量更新**：自动处理所有扩展的版本同步
+- **变更日志**：为每个扩展生成版本更新条目
+- **工作区依赖清理**：移除扩展中的 workspace:* 依赖
+
+**章节来源**
+- [scripts/sync-plugin-versions.ts:41-101](file://scripts/sync-plugin-versions.ts#L41-L101)
+
+### 版本解析系统
+
+**更新** src/version.ts 提供了完整的版本解析和管理功能：
+
+```mermaid
+flowchart TD
+A[版本解析] --> B[readVersionFromPackageJsonForModuleUrl]
+B --> C[搜索 package.json 候选路径]
+C --> D{找到有效版本?}
+D --> |是| E[返回版本号]
+D --> |否| F[尝试构建信息]
+F --> G[readVersionFromBuildInfoForModuleUrl]
+G --> H{找到构建版本?}
+H --> |是| I[返回构建版本]
+H --> |否| J[使用注入版本]
+J --> K{有注入版本?}
+K --> |是| L[返回注入版本]
+K --> |否| M[使用捆绑版本]
+M --> N{有捆绑版本?}
+N --> |是| O[返回捆绑版本]
+N --> |否| P[使用回退版本]
+O --> Q[版本解析完成]
+P --> Q
+I --> Q
+E --> Q
+```
+
+**版本解析优先级**：
+1. **注入版本**：编译时注入的版本（最高优先级）
+2. **模块URL解析**：从 package.json 解析版本
+3. **构建信息**：从 build-info.json 解析版本
+4. **捆绑版本**：从运行时捆绑的版本解析
+5. **回退版本**：默认的 0.0.0 版本
+
+**章节来源**
+- [src/version.ts:19-87](file://src/version.ts#L19-L87)
+- [src/version.ts:121-129](file://src/version.ts#L121-L129)
+
+## 代码签名验证系统
+
+**更新** 新增的代码签名验证系统提供了完整的签名和权限验证流程。
+
+### 签名验证脚本
+
+**更新** scripts/codesign-mac-app.sh 提供了智能的签名验证和权限配置：
+
+```mermaid
+flowchart TD
+A[代码签名验证] --> B[选择签名身份]
+B --> C{首选 Developer ID Application?}
+C --> |是| D[使用 Developer ID]
+C --> |否| E{Apple Distribution?}
+E --> |是| F[使用 Apple Distribution]
+E --> |否| G{Apple Development?}
+G --> |是| H[使用 Apple Development]
+G --> |否| I{允许临时签名?}
+I --> |是| J[使用临时签名]
+I --> |否| K[报错退出]
+D --> L[验证签名]
+F --> L
+H --> L
+J --> L
+K --> L
+L --> M[检查时间戳模式]
+M --> N{时间戳模式?}
+N --> |auto| O[根据证书类型设置]
+N --> |on| P[启用时间戳]
+N --> |off| Q[禁用时间戳]
+O --> R[设置签名选项]
+P --> R
+Q --> R
+R --> S[创建权限配置文件]
+S --> T[签名主二进制文件]
+T --> U[深度签名 Sparkle 框架]
+U --> V[签名其他嵌入框架]
+V --> W[最终签名应用包]
+W --> X[验证团队ID]
+X --> Y[清理临时文件]
+Y --> Z[签名完成]
+```
+
+**签名身份选择优先级**：
+1. **Developer ID Application**：生产分发证书（最高优先级）
+2. **Apple Distribution**：分发证书
+3. **Apple Development**：开发证书
+4. **临时签名**：临时签名（仅开发模式）
+
+**权限配置**：
+- **基础权限**：Apple Events、音频输入、摄像头访问
+- **应用权限**：位置信息访问
+- **运行时权限**：JIT 编译、未签名内存、动态库验证禁用
+- **临时例外**：系统根目录访问权限
+
+**章节来源**
+- [scripts/codesign-mac-app.sh:32-86](file://scripts/codesign-mac-app.sh#L32-L86)
+- [scripts/codesign-mac-app.sh:138-187](file://scripts/codesign-mac-app.sh#L138-L187)
+- [scripts/codesign-mac-app.sh:209-248](file://scripts/codesign-mac-app.sh#L209-L248)
+
+### 签名验证流程
+
+**更新** 完整的签名验证和权限审计流程：
+
+```mermaid
+sequenceDiagram
+participant User as 用户
+participant Script as 签名脚本
+participant System as macOS 系统
+participant App as 应用包
+User->>Script : 执行签名验证
+Script->>System : 选择签名身份
+System-->>Script : 返回证书信息
+Script->>App : 应用签名配置
+Script->>App : 签名主二进制
+Script->>App : 深度签名框架
+Script->>App : 最终签名
+Script->>System : 验证团队ID
+System->>Script : 返回验证结果
+Script->>User : 显示签名状态
+Script->>System : 验证公证状态
+System->>User : 显示公证状态
+```
+
+**验证步骤**：
+1. **签名身份验证**：确保使用正确的证书类型
+2. **团队ID审计**：验证所有嵌入组件的团队ID一致性
+3. **权限配置验证**：检查权限文件的正确性
+4. **签名完整性验证**：使用 codesign 工具验证签名
+5. **公证状态验证**：使用 spctl 工具验证公证状态
+
+**章节来源**
+- [scripts/codesign-mac-app.sh:250-284](file://scripts/codesign-mac-app.sh#L250-L284)
+- [apps/electron/Makefile:263-274](file://apps/electron/Makefile#L263-L274)
+
+### 环境变量配置
+
+**更新** .env.example 提供了完整的签名和上传配置：
+
+| 环境变量 | 用途 | 示例值 |
+|----------|------|--------|
+| APP_STORE_CONNECT_ISSUER_ID | App Store Connect 发行者ID | ea28a93d-c801-40f8-a977-a852359700fe |
+| APP_STORE_CONNECT_KEY_ID | App Store Connect 密钥ID | 8H77P47ZP4 |
+| APP_STORE_CONNECT_TEAM_ID | 开发者团队ID | CBFA4655YD |
+| APP_STORE_CONNECT_API_KEY_PATH | API 密钥文件路径 | /Users/heyuan/Workspace/apple/AuthKey_8H77P47ZP4.p8 |
+| R2_ACCESS_KEY_ID | Cloudflare R2 访问密钥ID | efa014c84810d89c3edadf23a00eac07 |
+| R2_SECRET_ACCESS_KEY | Cloudflare R2 秘密访问密钥 | a3cf8e8fc198d251bd566e80bf6accf14323b4c6ef66b130e62f6a50fc66e4f2 |
+| R2_ENDPOINT | Cloudflare R2 端点URL | https://f3add25f595daf0c1deda724c8c7ac45.r2.cloudflarestorage.com |
+| R2_BUCKET_NAME | Cloudflare R2 存储桶名称 | aiverse-storage |
+| NEXT_PUBLIC_R2_PUBLIC_BASE_URL | R2 公共访问域名 | https://files.aiverser.com |
+
+**章节来源**
+- [apps/electron/.env.example:42-67](file://apps/electron/.env.example#L42-L67)
+
+## macOS权限扩展
+
+**更新** 新增的 macOS 权限扩展显著增强了应用的系统集成功能。
+
+### 权限配置详解
+
+**更新** entitlements.mac.plist 扩展了权限配置，新增了多项关键权限：
+
+```mermaid
+graph TB
+subgraph "运行时权限"
+A[com.apple.security.cs.allow-jit] --> B[V8 引擎 JIT 编译]
+C[com.apple.security.cs.allow-unsigned-executable-memory] --> D[Node.js 运行时]
+E[com.apple.security.cs.allow-dyld-environment-variables] --> F[原生模块环境变量]
+G[com.apple.security.cs.disable-library-validation] --> H[开发模式库验证]
+end
+subgraph "网络权限"
+I[com.apple.security.network.client] --> J[出站网络连接]
+K[com.apple.security.network.server] --> L[入站网络监听]
+end
+subgraph "文件系统权限"
+M[com.apple.security.files.user-selected.read-write] --> N[用户选择文件访问]
+O[com.apple.security.files.downloads.read-write] --> P[下载目录访问]
+Q[com.apple.security.files.caches.read-write] --> R[缓存目录访问]
+S[com.apple.security.files.bookmarks.app-scope] --> T[应用书签访问]
+U[com.apple.security.files.bookmarks.document-scope] --> V[文档书签访问]
+end
+subgraph "系统权限"
+W[com.apple.security.temporary-exception.files.home-relative-path.read-write] --> X[系统根目录访问]
+end
+```
+
+**新增权限说明**：
+- **动态库环境变量**：允许原生模块访问环境变量，解决某些依赖的运行时问题
+- **库验证禁用**：支持开发模式下的库验证绕过，便于调试和开发
+- **系统根目录访问**：临时例外权限，允许访问系统根目录（开发者分发场景）
+
+**权限审计机制**：
+- **团队ID一致性检查**：确保所有嵌入组件使用相同的团队ID
+- **签名完整性验证**：使用 codesign 工具验证签名完整性
+- **权限配置验证**：检查权限文件的正确性和完整性
+
+**章节来源**
+- [apps/electron/resources/entitlements.mac.plist:1-48](file://apps/electron/resources/entitlements.mac.plist#L1-L48)
+- [scripts/codesign-mac-app.sh:209-248](file://scripts/codesign-mac-app.sh#L209-L248)
+
+### 权限验证流程
+
+**更新** 完整的权限验证和审计流程：
+
+```mermaid
+flowchart TD
+A[权限验证] --> B[检查团队ID一致性]
+B --> C{团队ID匹配?}
+C --> |是| D[权限配置正确]
+C --> |否| E[团队ID不匹配错误]
+D --> F[验证签名完整性]
+F --> G[codesign 验证]
+G --> H{验证通过?}
+H --> |是| I[权限验证完成]
+H --> |否| J[签名验证失败]
+E --> K[检查权限配置]
+K --> L[检查权限文件]
+L --> M[检查权限键值]
+M --> N[修复权限配置]
+N --> O[重新验证]
+O --> P[验证通过]
+```
+
+**验证流程**：
+1. **团队ID审计**：检查应用包和所有嵌入组件的团队ID一致性
+2. **签名验证**：使用 codesign 工具验证签名的完整性
+3. **权限配置检查**：验证权限文件的正确性和完整性
+4. **权限生效验证**：通过系统 API 验证权限的实际生效情况
+
+**章节来源**
+- [scripts/codesign-mac-app.sh:209-248](file://scripts/codesign-mac-app.sh#L209-L248)
+- [scripts/codesign-mac-app.sh:250-284](file://scripts/codesign-mac-app.sh#L250-L284)
 
 ## 运行时依赖管理系统
 
@@ -848,7 +1189,7 @@ end
 - **打包格式**：根据平台选择合适的安装包格式
 
 **章节来源**
-- [apps/electron/electron-builder.yml:286-315](file://apps/electron/electron-builder.yml#L286-L315)
+- [apps/electron/electron-builder.yml:286-317](file://apps/electron/electron-builder.yml#L286-L317)
 - [apps/electron/scripts/package-electron-win.sh:13-25](file://apps/electron/scripts/package-electron-win.sh#L13-L25)
 
 ### Makefile 增强
@@ -871,15 +1212,21 @@ B --> N[bash package-electron-win.sh]
 D --> O[LOCAL_FAST=1]
 D --> P[ARCH=x64]
 end
+subgraph "版本管理目标"
+Q[bump-version] --> R[自动版本递增]
+R --> S[支持 major/minor/patch/beta]
+S --> T[手动版本指定]
+end
 subgraph "环境变量支持"
-Q[ARCH] --> R[架构检测]
-Q --> S[可覆盖: ARCH=x64 make package]
-R --> T[默认: uname -m | sed 's/x86_64/x64/' ]
+U[ARCH] --> V[架构检测]
+U --> W[可覆盖: ARCH=x64 make package]
+V --> X[默认: uname -m | sed 's/x86_64/x64/' ]
 end
 ```
 
 **Makefile 增强特性**：
 - **Windows 目标**：新增 package-win 和 package-win-fast 目标
+- **版本管理**：新增 bump-version 目标，支持智能版本递增
 - **环境变量**：支持 ARCH 环境变量覆盖架构设置
 - **统一命令**：使用相同的打包脚本实现跨平台支持
 - **快速模式**：支持 Windows 的快速打包模式
@@ -887,6 +1234,7 @@ end
 **章节来源**
 - [apps/electron/Makefile:83-91](file://apps/electron/Makefile#L83-L91)
 - [apps/electron/Makefile:22-24](file://apps/electron/Makefile#L22-L24)
+- [apps/electron/Makefile:96-164](file://apps/electron/Makefile#L96-L164)
 
 ## 签名和公证自动化
 
@@ -1162,74 +1510,94 @@ M[tailwindcss@4.2.1]
 N[@tailwindcss/vite@4.2.1]
 O[make 命令]
 P[Windows 支持]
+Q[版本管理工具]
+R[签名验证工具]
 end
 subgraph "扩展系统"
-Q[memory-core 插件]
-R[device-pair 插件]
-S[qwen-portal-auth 插件]
-T[minimax-portal-auth 插件]
-U[google-gemini-cli-auth 插件]
-V[copilot-proxy 插件]
-W[telegram 插件]
-X[discord 插件]
-Y[slack 插件]
-Z[signal 插件]
-AA[whatsapp 插件]
-AB[imessage 插件]
-AC[matrix 插件]
-AD[msteams 插件]
-AE[feishu 插件]
-AF[googlechat 插件]
-AG[irc 插件]
-AH[line 插件]
-AI[mattermost 插件]
-AJ[nextcloud-talk 插件]
-AK[nostr 插件]
-AL[synology-chat 插件]
-AM[zalo 插件]
-AN[zalouser 插件]
-AO[twitch 插件]
-AP[bluebubbles 插件]
-AQ[openclaw-weixin 插件]
-AR[微信扩展依赖]
-AS[Windows 打包依赖]
+S[memory-core 插件]
+T[device-pair 插件]
+U[qwen-portal-auth 插件]
+V[minimax-portal-auth 插件]
+W[google-gemini-cli-auth 插件]
+X[copilot-proxy 插件]
+Y[telegram 插件]
+Z[discord 插件]
+AA[slack 插件]
+AB[signal 插件]
+AC[whatsapp 插件]
+AD[imessage 插件]
+AE[matrix 插件]
+AF[msteams 插件]
+AG[feishu 插件]
+AH[googlechat 插件]
+AI[irc 插件]
+AJ[line 插件]
+AK[mattermost 插件]
+AL[nextcloud-talk 插件]
+AM[nostr 插件]
+AN[synology-chat 插件]
+AO[zalo 插件]
+AP[zalouser 插件]
+AQ[twitch 插件]
+AR[bluebubbles 插件]
+AS[openclaw-weixin 插件]
+AT[微信扩展依赖]
+AU[Windows 打包依赖]
+AV[版本同步机制]
+AW[签名验证系统]
 end
 subgraph "微信扩展依赖"
-AR --> AT[qrcode-terminal@0.12.0]
-AR --> AU[zod@4.3.6]
-AR --> AV[silk-wasm]
+AT --> AX[qrcode-terminal@0.12.0]
+AT --> AY[zod@4.3.6]
+AT --> AZ[silk-wasm]
 end
 subgraph "Windows 打包依赖"
-AS --> AW[NSIS 安装程序]
-AS --> AX[Windows 资源处理]
-AS --> AY[Node.exe 可执行文件]
+AU --> BA[NSIS 安装程序]
+AU --> BB[Windows 资源处理]
+AU --> BC[Node.exe 可执行文件]
+end
+subgraph "版本管理系统"
+AV --> BD[bump-version 目标]
+AV --> BE[sync-plugin-versions 脚本]
+BD --> BF[自动版本递增]
+BE --> BG[插件版本同步]
+end
+subgraph "签名验证系统"
+AW --> BH[codesign-mac-app.sh]
+BH --> BI[签名身份验证]
+BH --> BJ[权限配置验证]
+BH --> BK[团队ID审计]
 end
 subgraph "运行时管理系统"
-AZ[packaged-runtime.json]
-BA[generate-runtime-package.mjs]
-BB[download-node.sh]
-BC[package-electron.sh]
-BD[package-electron-win.sh]
-BE[notarize.cjs]
+BL[packaged-runtime.json]
+BM[generate-runtime-package.mjs]
+BN[download-node.sh]
+BO[package-electron.sh]
+BP[package-electron-win.sh]
+BQ[notarize.cjs]
 end
 A --> O
 B --> F
 C --> L
 E --> P
-AZ --> BA
-BA --> BB
-BB --> BC
-BC --> A
-BD --> A
-BE --> F
-AQ --> AR
-AS --> AW
+BL --> BM
+BM --> BN
+BN --> BO
+BO --> A
+BP --> A
+BQ --> F
+AS --> AT
+AU --> BA
+AV --> BH
 ```
 
 **图表来源**
 - [apps/electron/package.json:18-44](file://apps/electron/package.json#L18-L44)
 - [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
 - [apps/electron/scripts/generate-runtime-package.mjs:19-115](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L115)
+- [apps/electron/Makefile:96-164](file://apps/electron/Makefile#L96-L164)
+- [scripts/sync-plugin-versions.ts:41-101](file://scripts/sync-plugin-versions.ts#L41-L101)
+- [scripts/codesign-mac-app.sh:1-290](file://scripts/codesign-mac-app.sh#L1-L290)
 
 **章节来源**
 - [apps/electron/package.json:18-44](file://apps/electron/package.json#L18-L44)
@@ -1249,6 +1617,8 @@ AS --> AW
 6. **跨平台优化**：针对不同平台优化资源和依赖
 7. **WeChat 扩展优化**：二维码生成和消息处理的性能优化
 8. **Windows 打包优化**：交叉编译和资源处理的性能优化
+9. **版本管理优化**：智能版本递增减少手动配置错误
+10. **签名验证优化**：批量权限配置减少重复验证
 
 ### 内存管理
 
@@ -1260,6 +1630,8 @@ AS --> AW
 - **跨平台资源优化**：根据不同平台裁剪不必要的资源
 - **WeChat 扩展内存管理**：二维码生成和消息处理的内存优化
 - **Windows 资源管理**：优化 Windows 平台的资源使用
+- **版本同步优化**：批量处理插件版本减少处理时间
+- **签名验证优化**：智能权限配置减少验证开销
 
 ### 运行时依赖优化
 
@@ -1272,11 +1644,14 @@ AS --> AW
 - **跨平台资源管理**：优化不同平台的资源使用
 - **WeChat 扩展优化**：二维码生成器的性能优化
 - **Windows 打包优化**：交叉编译和资源处理的性能优化
+- **版本管理优化**：智能版本递增算法提高效率
+- **签名验证优化**：批量权限配置减少重复工作
 
 **章节来源**
 - [apps/electron/scripts/generate-runtime-package.mjs:33-89](file://apps/electron/scripts/generate-runtime-package.mjs#L33-L89)
 - [apps/electron/scripts/package-electron.sh:81-84](file://apps/electron/scripts/package-electron.sh#L81-L84)
 - [apps/electron/scripts/package-electron-win.sh:168-175](file://apps/electron/scripts/package-electron-win.sh#L168-L175)
+- [scripts/sync-plugin-versions.ts:41-101](file://scripts/sync-plugin-versions.ts#L41-L101)
 
 ## 故障排除指南
 
@@ -1312,6 +1687,9 @@ AS --> AW
 | **Windows 资源处理失败** | node.exe 文件缺失 | 检查 Windows 资源配置 |
 | **NSIS 安装程序问题** | 安装包无法创建 | 验证 NSIS 配置和权限 |
 | **Windows 架构不匹配** | 应用无法运行 | 检查 ARCH 环境变量设置 |
+| **版本管理错误** | 版本号递增失败 | 检查 bump-version 目标配置 |
+| **签名验证失败** | 权限配置错误 | 检查 entitlements.mac.plist 配置 |
+| **权限审计失败** | 团队ID不匹配 | 检查签名证书和权限配置 |
 
 ### 跨平台打包调试
 
@@ -1337,6 +1715,9 @@ AS --> AW
 18. **Windows 打包调试**：验证 package-electron-win.sh 的执行流程
 19. **NSIS 安装程序调试**：检查安装包创建过程
 20. **架构特定问题**：验证不同架构下的运行时依赖
+21. **版本管理调试**：验证 bump-version 目标的版本递增逻辑
+22. **签名验证调试**：检查 codesign-mac-app.sh 的权限配置
+23. **权限审计调试**：验证团队ID审计和签名验证流程
 
 **更新** 运行时相关调试：
 - 查看 `[main] patchConfigForElectron: non-bundled plugin entries present (kept)` 日志
@@ -1354,6 +1735,9 @@ AS --> AW
 - **微信登录验证**：验证完整的微信登录流程
 - **消息处理验证**：测试微信消息的收发功能
 - **Makefile 目标验证**：确认 Windows 打包目标正确配置
+- **版本管理验证**：检查 bump-version 目标的版本递增逻辑
+- **签名验证验证**：确认 codesign-mac-app.sh 的权限配置正确
+- **权限审计验证**：验证团队ID审计和签名验证流程
 
 **章节来源**
 - [apps/electron/src/main/index.ts:77-85](file://apps/electron/src/main/index.ts#L77-L85)
@@ -1363,12 +1747,38 @@ AS --> AW
 - [apps/electron/scripts/package-electron-win.sh:162-173](file://apps/electron/scripts/package-electron-win.sh#L162-L173)
 - [apps/electron/scripts/notarize.cjs:34-40](file://apps/electron/scripts/notarize.cjs#L34-L40)
 - [apps/electron/Makefile:83-91](file://apps/electron/Makefile#L83-L91)
+- [apps/electron/Makefile:96-164](file://apps/electron/Makefile#L96-L164)
+- [scripts/codesign-mac-app.sh:209-248](file://scripts/codesign-mac-app.sh#L209-L248)
 
 ## 结论
 
-OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新特别引入了 Windows 打包系统，通过新增的 package-electron-win.sh 脚本实现了在 macOS/Linux 上交叉编译 Windows 版本的能力。该扩展支持二维码登录、消息收发、账户管理等功能，进一步丰富了 OpenClaw 的消息通道生态系统。
+OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新特别引入了智能版本管理系统、代码签名验证系统和macOS权限扩展等重大增强功能，显著提升了打包的安全性、自动化程度和用户体验。
 
 **更新总结** 重大增强的核心改进：
+
+### 智能版本管理系统
+
+1. **bump-version 目标**：新增 `make bump-version` 目标，支持自动版本号递增
+2. **多版本类型支持**：支持 `major`、`minor`、`patch`、`beta` 四种版本类型
+3. **智能版本检测**：自动检测当前版本并生成下一级版本号
+4. **手动版本指定**：支持手动指定版本号和自定义版本格式
+5. **插件版本同步**：与扩展系统集成，自动同步插件版本
+
+### 代码签名验证系统
+
+1. **智能签名身份选择**：支持 Developer ID Application、Apple Distribution、Apple Development 三种证书类型
+2. **完整权限配置**：新增动态库环境变量和临时例外权限
+3. **团队ID审计**：自动检查所有嵌入组件的团队ID一致性
+4. **签名完整性验证**：使用 codesign 工具验证签名完整性
+5. **公证状态验证**：使用 spctl 工具验证公证状态
+
+### macOS权限扩展
+
+1. **动态库环境变量**：允许原生模块访问环境变量
+2. **临时例外权限**：允许访问系统根目录（开发者分发场景）
+3. **库验证禁用**：支持开发模式下的库验证绕过
+4. **权限配置验证**：完整的权限文件检查和验证机制
+5. **权限生效验证**：通过系统 API 验证权限的实际生效情况
 
 ### Windows 打包系统
 
@@ -1414,16 +1824,38 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 
 **核心改进亮点**：
 
-1. **Windows 打包支持**：新增 package-electron-win.sh 脚本，支持在 macOS/Linux 上交叉编译 Windows 版本
-2. **Makefile 增强**：新增 Windows 打包目标和命令，统一构建流程
-3. **electron-builder 配置更新**：支持 Windows 平台特定配置和资源处理
-4. **WeChat 扩展支持**：新增微信消息通道，支持二维码登录和消息收发
-5. **跨平台兼容性**：从单一平台发展为完整的多平台支持
-6. **自动化程度大幅提升**：从手动配置转向完全自动化的打包流程
-7. **版本控制更加精确**：通过多种源解析确保依赖版本的一致性
-8. **部署灵活性增强**：支持本地快速测试和生产发布的不同需求
+1. **智能版本管理**：新增 `make bump-version` 目标，支持自动版本号递增和同步
+2. **代码签名验证**：引入 `scripts/codesign-mac-app.sh`，提供完整的签名和权限验证
+3. **macOS权限扩展**：更新 `entitlements.mac.plist`，新增临时例外和动态库支持
+4. **Windows 打包支持**：新增 package-electron-win.sh 脚本，支持在 macOS/Linux 上交叉编译 Windows 版本
+5. **Makefile 增强**：新增 Windows 打包目标和版本管理目标，统一构建流程
+6. **electron-builder 配置更新**：支持 Windows 平台特定配置和资源处理
+7. **WeChat 扩展支持**：新增微信消息通道，支持二维码登录和消息收发
+8. **跨平台兼容性**：从单一平台发展为完整的多平台支持
+9. **自动化程度大幅提升**：从手动配置转向完全自动化的打包流程
+10. **版本控制更加精确**：通过多种源解析确保依赖版本的一致性
+11. **部署灵活性增强**：支持本地快速测试和生产发布的不同需求
+12. **安全性显著提升**：智能签名验证和权限管理确保应用安全运行
 
 **技术架构优势**：
+
+**智能版本管理系统**：
+- **多版本类型支持**：支持 major、minor、patch、beta 四种版本类型
+- **自动版本检测**：智能检测当前版本并生成下一级版本号
+- **插件版本同步**：自动同步扩展版本，确保版本一致性
+- **批量版本处理**：支持一次性处理多个扩展的版本同步
+
+**代码签名验证系统**：
+- **智能证书选择**：自动选择最适合的签名证书类型
+- **完整权限配置**：支持新增的动态库环境变量和临时例外权限
+- **团队ID审计**：确保所有组件使用相同的团队ID
+- **签名完整性验证**：使用系统工具验证签名的完整性和有效性
+
+**macOS权限扩展**：
+- **动态库支持**：允许原生模块访问环境变量
+- **临时例外权限**：支持开发者分发场景下的系统目录访问
+- **权限配置验证**：完整的权限文件检查和验证机制
+- **权限生效监控**：通过系统 API 验证权限的实际生效情况
 
 **Windows 打包系统**：
 - **交叉编译支持**：在 macOS/Linux 上构建 Windows 版本
@@ -1465,6 +1897,9 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 该配置为桌面应用开发提供了完整的参考模板，涵盖了从打包配置到运行时管理的各个方面。通过持续的优化和维护，该系统能够为用户提供稳定可靠的桌面应用体验。
 
 **新增功能的技术价值**：
+- **智能版本管理**：提升版本控制效率，减少手动配置错误
+- **代码签名验证**：增强应用安全性，确保权限配置正确性
+- **macOS权限扩展**：提升系统集成功能，支持更复杂的权限需求
 - **Windows 打包**：支持在 macOS/Linux 上构建 Windows 版本，扩大部署范围
 - **开发效率提升**：跨平台打包减少重复工作，统一构建流程
 - **部署可靠性增强**：自动化的签名和公证流程，支持 Windows 平台
@@ -1473,6 +1908,7 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 - **跨平台兼容性**：支持 macOS、Windows、Linux 多个平台
 - **品牌管理优化**：统一的品牌标识提升专业度
 - **消息通道多样化**：支持超过 25 种不同的消息通道
+- **安全性显著提升**：智能签名验证和权限管理确保应用安全运行
 
 这一改进体现了现代软件工程中"约定优于配置"的设计理念，通过智能化的默认行为减少了开发者的配置负担，同时保持了系统的灵活性和可扩展性。
 
@@ -1483,5 +1919,7 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 - **预装扩展**：memory-core、device-pair、qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy、telegram、discord、slack、signal、whatsapp、imessage、matrix、msteams、feishu、googlechat、irc、line、mattermost、nextcloud-talk、nostr、synology-chat、twitch、zalo、zalouser、voice-call、talk-voice、phone-control、acpx、bluebubbles、openclaw-weixin
 - **WeChat 扩展依赖**：qrcode-terminal、zod、silk-wasm 等微信扩展专用依赖
 - **Windows 打包依赖**：NSIS 安装程序、Windows 资源处理、Node.exe 可执行文件
+- **版本管理工具**：bump-version 目标、sync-plugin-versions 脚本
+- **签名验证工具**：codesign-mac-app.sh、entitlements.mac.plist
 
-这些配置的自动化管理确保用户在安装时即可获得完整的 Bossim 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道，同时为开发者提供了灵活的部署和调试选项。Windows 打包系统的加入进一步增强了 OpenClaw 的跨平台支持和用户覆盖能力。
+这些配置的自动化管理确保用户在安装时即可获得完整的 Bossim 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道，同时为开发者提供了灵活的部署和调试选项。Windows 打包系统的加入进一步增强了 OpenClaw 的跨平台支持和用户覆盖能力。智能版本管理系统和代码签名验证系统的引入显著提升了应用的安全性和可靠性，为用户提供了更好的使用体验。
