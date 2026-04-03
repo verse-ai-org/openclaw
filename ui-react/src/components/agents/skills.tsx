@@ -191,10 +191,20 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
 
   const allSkills = agentSkillsReport?.skills ?? [];
 
-  const boundSkillIds = useMemo(
-    () => Array.from(new Set((selectedAgent?.skills ?? []).filter(Boolean))),
-    [selectedAgent?.skills],
-  );
+  // Whether the agent has an explicit skills allowlist in the config.
+  // undefined = no restriction (all eligible skills are active).
+  const hasExplicitSkillsList = selectedAgent?.skills !== undefined;
+
+  const boundSkillIds = useMemo(() => {
+    if (hasExplicitSkillsList) {
+      // Use the explicit allowlist from the agent config.
+      return Array.from(new Set((selectedAgent?.skills ?? []).filter(Boolean)));
+    }
+    // No explicit allowlist → all non-disabled, non-blocked skills are active.
+    return allSkills
+      .filter((s) => !s.disabled && !s.blockedByAllowlist)
+      .map((s) => skillIdOf(s));
+  }, [hasExplicitSkillsList, selectedAgent?.skills, allSkills]);
 
   const skillById = useMemo(() => {
     const map = new Map<string, AgentSkillStatusEntry>();
@@ -271,6 +281,12 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
         <p className="text-sm text-red-500">{agentSkillsError}</p>
       )}
 
+      {!hasExplicitSkillsList && !agentSkillsLoading && boundSkills.length > 0 && (
+        <p className="text-[11px] text-[#8E8E93] mb-3">
+          No restrictions — all active skills are available. Add a skill to create an explicit allowlist.
+        </p>
+      )}
+
       {boundSkills.length > 0 ? (
         <div className="grid grid-cols-3 gap-3">
           {boundSkills.map((skill) => (
@@ -285,16 +301,18 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
                     <p className="text-[11px] text-amber-600 mt-1">Missing from current skills catalog</p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="shrink-0 rounded-full p-1 text-[#8E8E93] hover:text-[#BA0034] hover:bg-[#FFF3F7]"
-                  onClick={() => void handleRemove(skill.id)}
-                  disabled={updating}
-                  aria-label={`Remove ${skill.label}`}
-                  title="Remove"
-                >
-                  <XIcon className="size-3.5" />
-                </button>
+                {hasExplicitSkillsList && (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full p-1 text-[#8E8E93] hover:text-[#BA0034] hover:bg-[#FFF3F7]"
+                    onClick={() => void handleRemove(skill.id)}
+                    disabled={updating}
+                    aria-label={`Remove ${skill.label}`}
+                    title="Remove"
+                  >
+                    <XIcon className="size-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
