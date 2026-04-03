@@ -23,7 +23,7 @@ import { AgentSessionList } from "./AgentSessionList";
 type SidebarView = "agents" | "sessions";
 
 export function ChatSidebar() {
-  const { sessions, loading, sessionKey, switchSession, newSession } = useSessionManager();
+  const { sessions, loading, sessionKey, switchSession, newSession, deleteSession } = useSessionManager();
   const gatewayStatus = useGatewayStore((s) => s.status);
   const isConnected = gatewayStatus === "connected";
   const agentsList = useAgentsStore((s) => s.agentsList);
@@ -117,6 +117,7 @@ export function ChatSidebar() {
                 onBack={handleBack}
                 onSwitchSession={(key) => void switchSession(key)}
                 onNewSession={(agentId) => void newSession(agentId)}
+                onDeleteSession={(key) => deleteSession(key).then(() => {})}
                 isConnected={isConnected}
               />
             )}

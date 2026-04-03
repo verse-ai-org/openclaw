@@ -1,4 +1,15 @@
-import { ArrowLeftIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { resolveSessionDisplayName, type SessionEntry } from "@/hooks/useSessionManager";
 import type { GatewayAgentRow } from "@/types/agents";
@@ -25,42 +36,96 @@ function SessionItem({
   session,
   isActive,
   onClick,
+  onDelete,
 }: {
   session: SessionEntry;
   isActive: boolean;
   onClick: () => void;
+  onDelete: () => void;
 }) {
   const label = resolveSessionDisplayName(session);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmOpen(true);
+  };
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "w-full rounded-xl px-4 py-2 text-left transition-colors",
-        "flex items-start gap-3",
-        isActive ? "bg-[rgb(186,0,52)]/5" : "hover:bg-[rgb(243,244,246)]",
-      )}
-    >
-      <div className="flex flex-1 min-w-0 flex-col gap-0.5">
-        <span className="truncate text-[13px] font-semibold leading-5 text-foreground">
-          {session.lastMessagePreview && (
-            <span
-              className={cn(
-                "truncate text-[12px] leading-4 font-medium",
-                isActive ? "text-[rgb(186,0,52)]" : "font-normal",
+    <>
+      <div
+        className={cn(
+          "group/session relative w-full rounded-xl transition-colors",
+          isActive ? "bg-[rgb(186,0,52)]/5" : "hover:bg-[rgb(243,244,246)]",
+        )}
+      >
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full px-4 py-2 text-left flex items-start gap-3"
+        >
+          <div className="flex flex-1 min-w-0 flex-col gap-0.5 pr-6">
+            <span className="truncate text-[13px] font-semibold leading-5 text-foreground">
+              {session.lastMessagePreview && (
+                <span
+                  className={cn(
+                    "truncate text-[12px] leading-4 font-medium",
+                    isActive ? "text-[rgb(186,0,52)]" : "font-normal",
+                  )}
+                >
+                  {session.lastMessagePreview}
+                </span>
               )}
-            >
-              {session.lastMessagePreview}
+              {label}
             </span>
+            <span className="truncate text-[rgb(142,142,147)] text-[12px] leading-4 font-medium">
+              {session.updatedAt ? formatRelative(session.updatedAt) : "Session"}
+            </span>
+          </div>
+        </button>
+
+        {/* Delete button — appears on hover, offset right */}
+        <button
+          type="button"
+          onClick={handleDeleteClick}
+          title="Delete session"
+          aria-label="Delete session"
+          className={cn(
+            "absolute right-2 top-1/2 -translate-y-1/2",
+            "flex size-6 items-center justify-center rounded-md",
+            "text-muted-foreground transition-all duration-150",
+            "opacity-0 group-hover/session:opacity-100",
+            "hover:bg-destructive/10 hover:text-destructive",
           )}
-          {label}
-        </span>
-        <span className="truncate text-[rgb(142,142,147)] text-[12px] leading-4 font-medium">
-          {session.updatedAt ? formatRelative(session.updatedAt) : "Session"}
-        </span>
+        >
+          <Trash2Icon className="size-3.5" />
+        </button>
       </div>
-    </button>
+
+      {/* Confirmation dialog */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{label}</strong> and all its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setConfirmOpen(false);
+                onDelete();
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -74,6 +139,7 @@ interface AgentSessionListProps {
   onBack: () => void;
   onSwitchSession: (key: string) => void;
   onNewSession: (agentId: string) => void;
+  onDeleteSession: (key: string) => Promise<void>;
   isConnected: boolean;
 }
 
@@ -86,6 +152,7 @@ export function AgentSessionList({
   onBack,
   onSwitchSession,
   onNewSession,
+  onDeleteSession,
   isConnected,
 }: AgentSessionListProps) {
   const agentPrefix = `agent:${agent.id}:`;
@@ -166,6 +233,7 @@ export function AgentSessionList({
               session={s}
               isActive={s.key === sessionKey}
               onClick={() => onSwitchSession(s.key)}
+              onDelete={() => void onDeleteSession(s.key)}
             />
           ))}
         </div>

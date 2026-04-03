@@ -1,12 +1,5 @@
 import { useEffect } from "react";
-import { useChatStore, triggerHistoryReload } from "@/store/chat.store";
-import type {
-  ToolStreamEntry,
-  ChatMessage,
-  ChatMessageRole,
-  ToolCallPart,
-  ContentBlock,
-} from "@/store/chat.store";
+import { useChatStore, type ToolStreamEntry, type ChatMessage, type ChatMessageRole, type ToolCallPart, type ContentBlock } from "@/store/chat.store";
 import { registerChatDispatch, unregisterChatDispatch } from "@/store/gateway.store";
 
 // ---------------------------------------------------------------------------
@@ -54,8 +47,8 @@ export function normalizeContent(raw: unknown): string {
 }
 
 /**
- * Normalize a raw Gateway message role to one of the three roles
- * that assistant-ui supports: "user" | "assistant" | "system".
+ * Normalize a raw Gateway message role to one of the two roles
+ * that assistant-ui supports: "user" | "assistant".
  *
  * Gateway can return: "user", "assistant", "tool", "toolResult",
  * "tool_result", "toolresult", "function", "node", and others.
@@ -71,6 +64,60 @@ export function normalizeRole(raw: string | undefined): ChatMessageRole {
       // assistant, tool, toolresult, tooluse, function, system, node, unknown -> assistant
       return "assistant";
   }
+}
+
+/**
+ * Merge consecutive tool-call-only assistant ChatMessages into one.
+ *
+ * History returns each agent tool-use turn as a separate message:
+ *   [assistantMsg{contentBlocks:[tool-call]}, assistantMsg{contentBlocks:[tool-call]}, ...]
+ *
+ * Consolidating them lets MessagePrimitive.Parts see N consecutive tool-call
+ * parts in a single message, which triggers ToolGroup wrapping.
+ * Messages that contain text (or have no contentBlocks) are left unchanged.
+ */
+export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] {
+  const result: ChatMessage[] = [];
+  let i = 0;
+
+  while (i < messages.length) {
+    const msg = messages[i];
+
+    if (msg.role !== "assistant") {
+      result.push(msg);
+      i++;
+      continue;
+    }
+
+    const blocks = msg.contentBlocks;
+    const isToolOnly =
+      blocks &&
+      blocks.length > 0 &&
+      blocks.every((b) => b.type === "tool-call");
+
+    if (!isToolOnly) {
+      result.push(msg);
+      i++;
+      continue;
+    }
+
+    // Absorb consecutive tool-only assistant messages into one
+    const groupBlocks: ContentBlock[] = [...blocks];
+    let j = i + 1;
+    while (j < messages.length) {
+      const next = messages[j];
+      if (next.role !== "assistant") break;
+      const nb = next.contentBlocks;
+      if (!nb || nb.length === 0 || !nb.every((b) => b.type === "tool-call")) break;
+      groupBlocks.push(...nb);
+      j++;
+    }
+
+    result.push({ ...msg, contentBlocks: groupBlocks });
+    i = j;
+  }
+
+  return result;
 }
 
 /**
@@ -94,20 +141,15 @@ export function mergeToolResults(rawMessages: unknown[]): unknown[] {
 
     if (roleStr === "toolresult" || roleStr === "tool") {
       // Find the last preceding non-toolResult assistant message and append result blocks.
-      // Gateway sends toolResult as a separate message whose content is [{type:"text", text:"..."}].
-      // We need to wrap those text blocks as {type:"toolresult", toolCallId, text} so
-      // extractContentBlocks can match them to their toolCall block by id.
       for (let i = out.length - 1; i >= 0; i--) {
         const prev = out[i];
         const prevRole = ((prev.role as string) ?? "").toLowerCase().replace(/_/g, "");
         if (prevRole === "toolresult" || prevRole === "tool") {
           continue;
         }
-        // Find the first unmatched toolCall in prev.content to get its id
         const prevContent = Array.isArray(prev.content)
           ? (prev.content as Array<Record<string, unknown>>)
           : [];
-        // Collect toolCall ids already paired with a toolresult block
         const pairedIds = new Set(
           prevContent
             .filter((b) => (b.type as string) === "toolresult")
@@ -120,7 +162,6 @@ export function mergeToolResults(rawMessages: unknown[]): unknown[] {
         );
         const toolCallId = unpaired?.id as string | undefined;
 
-        // Build wrapped toolresult blocks from the incoming text blocks
         const rawContent = Array.isArray(msg.content)
           ? (msg.content as Array<Record<string, unknown>>)
           : [];
@@ -252,25 +293,17 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
  * Extract ordered ContentBlocks (text + tool-call) from a raw message content
  * array, preserving the original interleaved order so the UI can render
  * them as: text → tool card → text → tool card …
- *
- * Handles:
- * - plain string content (returns a single text block)
- * - array of blocks with type "text", "tool_call"/"tool_use"/"toolCall"/"toolUse"
- * - merges matching toolResult blocks into the corresponding tool-call block
  */
 export function extractContentBlocks(rawContent: unknown): ContentBlock[] | undefined {
   if (!Array.isArray(rawContent)) {
-    // Plain string — no interleaving needed; caller can fall back to text-only path
     return undefined;
   }
 
   const blocks = rawContent as Array<Record<string, unknown>>;
 
-  // Debug: log raw blocks in dev to inspect field names
-  if (process.env.NODE_ENV === "development") {
-    // eslint-disable-next-line no-console
-    console.log("[extractContentBlocks] blocks:", JSON.stringify(blocks.slice(0, 10), null, 2));
-  }
+  // if (import.meta.env.DEV) {
+  //   console.log("[extractContentBlocks] blocks:", JSON.stringify(blocks.slice(0, 10), null, 2));
+  // }
 
   // Build a map of toolCallId -> result/error for the second pass
   const resultMap = new Map<string, { result?: string; phase: "result" | "error" }>();
@@ -373,14 +406,11 @@ export function useChatEventBridge() {
 
           if (state === "delta") {
             // Gateway sends cumulative text on each delta (not incremental chunks).
-            // We set the stream to the latest full value rather than appending.
             const text = extractMessageText(chatPayload?.message);
             if (text) {
               useChatStore.getState().setStream(text);
             }
           } else if (state === "final") {
-            // Stream complete: message may contain inline content, or gateway
-            // sends it via chat.history separately. Handle both.
             const text = extractMessageText(chatPayload?.message);
             if (text) {
               // Inline message — add directly, clear stream
@@ -393,8 +423,8 @@ export function useChatEventBridge() {
                 runId: chatPayload?.runId,
               };
               useChatStore.getState().setMessages([...useChatStore.getState().messages, finalMsg]);
-            } else if (useChatStore.getState().stream) {
-              // We accumulated stream chunks — finalize them
+            } else if (useChatStore.getState().stream !== null || useChatStore.getState().committedBlocks.length > 0) {
+              // We accumulated stream chunks — finalize them (preserves tool calls)
               useChatStore.getState().finalizeStream();
             } else {
               // No inline message and no stream buffer — reload history from gateway
@@ -403,9 +433,8 @@ export function useChatEventBridge() {
                 typeof chatPayload?.sessionKey === "string"
                   ? chatPayload.sessionKey
                   : (useChatStore.getState().sessionKey ?? "main");
-              // Strip agent session prefix: "agent:main:main" -> "main"
-              const cleanKey = rawKey.replace(/^agent:[^:]+:/, "");
-              triggerHistoryReload(cleanKey);
+              // Use the raw session key as-is; do not strip agent prefix
+              useChatStore.getState().setPendingHistoryReloadKey(rawKey);
             }
             useChatStore.getState().setSending(false);
             useChatStore.getState().setRunId(null);
@@ -413,11 +442,16 @@ export function useChatEventBridge() {
             useChatStore.getState().resetStream();
             useChatStore.getState().setSending(false);
             useChatStore.getState().setRunId(null);
+            if (state === "error") {
+              const errMsg = chatPayload?.errorMessage ?? "Generation failed. Please try again.";
+              useChatStore.getState().setLastError(typeof errMsg === "string" ? errMsg : "Generation failed. Please try again.");
+            }
           }
           break;
         }
 
-        // -------------------------------------------------------------- events: tool calls and lifecycle
+        // ----------------------------------------------------------------
+        // Agent streaming events: tool calls and lifecycle
         // ----------------------------------------------------------------
         case "agent": {
           const agentPayload = p;
@@ -429,11 +463,10 @@ export function useChatEventBridge() {
             const toolCallId = data.toolCallId as string | undefined;
             const toolName = data.name as string | undefined;
 
-            console.log("[agent:tool]", phase, "toolCallId:", toolCallId, "toolName:", toolName);
-
             if (phase === "start") {
-              // Commit any in-progress streaming text as a segment
-              useChatStore.getState().commitStreamSegment();
+              // Freeze any in-progress streaming text as a committed block
+              // so it stays visible while the tool call card renders below it
+              useChatStore.getState().commitCurrentText();
 
               const entry: ToolStreamEntry = {
                 id: toolCallId ?? crypto.randomUUID(),
@@ -442,21 +475,16 @@ export function useChatEventBridge() {
                 input: data.args,
               };
               useChatStore.getState().upsertToolStream(entry);
-              console.log(
-                "[agent:tool:start] ✅ Tool added, total:",
-                useChatStore.getState().toolStreamOrder.length,
-              );
             } else if (phase === "result") {
               const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
               if (existing) {
-                // Mark tool as completed. Use meta as temporary output.
-                // Actual result content will come from chat.history later.
                 useChatStore.getState().upsertToolStream({
                   ...existing,
                   phase: "result",
-                  output: data.meta ?? "Tool executed successfully",
+                  // Use meta if available; undefined means the drawer shows no result
+                  // until history reloads with the real output
+                  output: data.meta ?? undefined,
                 });
-                console.log("[agent:tool:result] ✅ Tool marked as result, meta:", data.meta);
               }
             } else if (phase === "error") {
               const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
@@ -466,12 +494,8 @@ export function useChatEventBridge() {
                   phase: "error",
                   error: (data.error as string) ?? "unknown error",
                 });
-                console.log("[agent:tool:error] ✅ Tool error updated");
               }
             }
-          } else if (stream === "lifecycle" && data) {
-            const phase = data.phase as string | undefined;
-            console.log("[agent:lifecycle]", phase);
           }
           break;
         }
@@ -481,9 +505,39 @@ export function useChatEventBridge() {
         // ----------------------------------------------------------------
         case "chat.history": {
           const msgs = (p?.messages ?? []) as RawMessage[];
-          // Merge standalone toolResult messages into their preceding assistant
-          // message's content array so extractContentBlocks can populate block.result.
+
+          if (import.meta.env.DEV) {
+            console.group("[chat.history] raw messages");
+            console.log(`total: ${msgs.length}`);
+            msgs.slice(0, 20).forEach((m, i) => {
+              const role = (m.role ?? "?");
+              const content = m.content;
+              const preview = Array.isArray(content)
+                ? (content as Array<Record<string,unknown>>).map(b => `${b.type}${b.name ? `:${b.name}` : b.toolCallId ? `:${String(b.toolCallId).slice(0,8)}` : ""}`).join(", ")
+                : String(content ?? "").slice(0, 60);
+              console.log(`  [${i}] role=${role} content=[${preview}]`);
+            });
+            console.groupEnd();
+          }
+
+          // Step 1: merge standalone toolResult messages into their preceding
+          // assistant message so extractContentBlocks can correlate results.
           const mergedMsgs = mergeToolResults(msgs) as RawMessage[];
+
+          if (import.meta.env.DEV) {
+            console.group("[chat.history] after mergeToolResults");
+            console.log(`total: ${mergedMsgs.length}`);
+            mergedMsgs.slice(0, 20).forEach((m, i) => {
+              const role = (m.role ?? "?");
+              const content = m.content;
+              const preview = Array.isArray(content)
+                ? (content as Array<Record<string,unknown>>).map(b => `${b.type}${b.name ? `:${b.name}` : b.toolCallId ? `:${String(b.toolCallId).slice(0,8)}` : ""}`).join(", ")
+                : String(content ?? "").slice(0, 60);
+              console.log(`  [${i}] role=${role} content=[${preview}]`);
+            });
+            console.groupEnd();
+          }
+
           const normalized: ChatMessage[] = mergedMsgs.map((m) => ({
             id: m.id ?? crypto.randomUUID(),
             role: normalizeRole(m.role),
@@ -491,12 +545,41 @@ export function useChatEventBridge() {
             ts: m.ts ?? m.timestamp ?? Date.now(),
             runId: m.runId,
             sessionKey: m.sessionKey,
-            // Extract embedded tool calls from content blocks (assistant messages)
             toolCalls: extractToolCallParts(m.content),
-            // Preserve original block order for interleaved text + tool rendering
             contentBlocks: extractContentBlocks(m.content),
           }));
-          useChatStore.getState().setMessages(normalized);
+
+          if (import.meta.env.DEV) {
+            console.group("[chat.history] after normalize");
+            console.log(`total: ${normalized.length}`);
+            normalized.slice(0, 20).forEach((m, i) => {
+              const blocks = m.contentBlocks;
+              const preview = blocks
+                ? blocks.map(b => b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0,20)}`).join(", ")
+                : `[no blocks] content=${m.content.slice(0,40)}`;
+              console.log(`  [${i}] role=${m.role} blocks=[${preview}]`);
+            });
+            console.groupEnd();
+          }
+
+          // Step 2: merge consecutive tool-call-only assistant messages into one
+          // so MessagePrimitive.Parts can group them with ToolGroup.
+          const consolidated = consolidateToolMessages(normalized);
+
+          if (import.meta.env.DEV) {
+            console.group("[chat.history] after consolidate");
+            console.log(`total: ${consolidated.length} (was ${normalized.length})`);
+            consolidated.slice(0, 20).forEach((m, i) => {
+              const blocks = m.contentBlocks;
+              const preview = blocks
+                ? blocks.map(b => b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0,20)}`).join(", ")
+                : `[no blocks] content=${m.content.slice(0,40)}`;
+              console.log(`  [${i}] role=${m.role} blocks=[${preview}]`);
+            });
+            console.groupEnd();
+          }
+
+          useChatStore.getState().setMessages(consolidated);
           useChatStore.getState().setMessagesLoading(false);
           break;
         }
@@ -509,10 +592,9 @@ export function useChatEventBridge() {
           useChatStore.getState().resetStream();
           useChatStore.getState().resetToolStream();
           useChatStore.getState().setRunId(runId);
-          // NOTE: user message is added optimistically in GatewayChatRuntimeProvider.onNew;
-          // skip re-adding here to avoid duplicates. If Gateway provides userMessage for
-          // sessions started elsewhere (e.g. other clients), add it only when no recent
-          // user message exists in the store.
+          useChatStore.getState().setLastError(null);
+
+          // Add user message only if not already optimistically added
           if (p?.userMessage) {
             const um = p.userMessage as RawMessage;
             const msgs = useChatStore.getState().messages;
@@ -548,14 +630,19 @@ export function useChatEventBridge() {
           break;
         }
 
-        case "chat.stream.abort":
-        case "chat.stream.error": {
+        case "chat.stream.abort": {
           useChatStore.getState().resetStream();
           useChatStore.getState().setSending(false);
           break;
         }
 
-        // ----------------------------------------------------------------
+        case "chat.stream.error": {
+          useChatStore.getState().resetStream();
+          useChatStore.getState().setSending(false);
+          useChatStore.getState().setLastError("Generation failed. Please try again.");
+          break;
+        }
+
         default:
           break;
       }

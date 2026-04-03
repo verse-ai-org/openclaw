@@ -12,13 +12,12 @@ import {
   DatabaseIcon,
   FolderIcon,
   WrenchIcon,
-  MessageSquareText,
+  ChevronRightIcon,
 } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader } from "@/components/ui/card";
 import {
   Drawer,
   DrawerClose,
@@ -34,7 +33,7 @@ import { plainMdComponents } from "./markdown-components";
 // Tool type classification
 // ---------------------------------------------------------------------------
 
-type ToolCategory =
+export type ToolCategory =
   | "read"
   | "write"
   | "exec"
@@ -45,7 +44,7 @@ type ToolCategory =
   | "function"
   | "default";
 
-function classifyTool(name: string): ToolCategory {
+export function classifyTool(name: string): ToolCategory {
   const lower = name.toLowerCase();
   if (/\bread\b|get|fetch|load|view|cat|head|tail/.test(lower)) {
     return "read";
@@ -74,7 +73,7 @@ function classifyTool(name: string): ToolCategory {
   return "default";
 }
 
-const TOOL_CATEGORY_CONFIG: Record<
+export const TOOL_CATEGORY_CONFIG: Record<
   ToolCategory,
   {
     Icon: React.ElementType;
@@ -193,7 +192,7 @@ function StatusBadge({ status, isCancelled }: StatusBadgeProps) {
 // ---------------------------------------------------------------------------
 
 /** Format a snake_case or camelCase tool name into a human-readable label. */
-function formatToolLabel(name: string): string {
+export function formatToolLabel(name: string): string {
   return name
     .replace(/[_-]/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -385,60 +384,61 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
 
   return (
     <>
-      <Card
+      {/* Card — matches ToolCallGroup's rounded-xl border style */}
+      <div
         className={cn(
-          "w-full overflow-hidden text-sm my-2 py-1 transition-colors",
-          cfg.borderAccent,
+          "my-1 overflow-hidden rounded-xl border bg-card text-sm transition-colors",
+          // Thin left accent for category colour, overridden to destructive on error
           statusType === "incomplete"
-            ? "border-destructive/40 bg-destructive/5"
-            : isCancelled
-              ? "bg-muted/30"
-              : "bg-card",
+            ? "border-destructive/60 bg-destructive/5"
+            : `${cfg.borderAccent}`,
+          canViewDetail && "cursor-pointer hover:bg-muted/50",
         )}
+        role={canViewDetail ? "button" : undefined}
+        tabIndex={canViewDetail ? 0 : undefined}
+        onClick={canViewDetail ? () => setDrawerOpen(true) : undefined}
+        onKeyDown={
+          canViewDetail
+            ? (e) => (e.key === "Enter" || e.key === " ") && setDrawerOpen(true)
+            : undefined
+        }
+        aria-label={canViewDetail ? `View details for ${toolLabel}` : undefined}
       >
-        <CardHeader className="flex flex-row items-center gap-2.5 p-3">
-          {/* Category icon */}
+        <div className="flex w-full items-center gap-2.5 px-3 py-2.5">
+          {/* Category icon — same size as ToolCallGroup header icons */}
           <span
             className={cn(
-              "flex size-7 shrink-0 items-center justify-center rounded-md",
+              "flex size-6 shrink-0 items-center justify-center rounded-md",
               cfg.iconBg,
             )}
           >
-            <Icon className={cn("size-4", cfg.iconColor)} />
+            <Icon className={cn("size-3.5", cfg.iconColor)} />
           </span>
 
-          {/* Action label + tool name */}
-          <div className="flex flex-1 flex-col gap-0.5 min-w-0">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {/* Action label prefix + tool name, single line */}
+          <span className="flex flex-1 items-baseline gap-1.5 min-w-0">
+            <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               {cfg.actionLabel}
             </span>
             <span
               className={cn(
-                "truncate font-semibold leading-tight",
+                "truncate text-[12px] font-semibold text-foreground",
                 isCancelled && "line-through text-muted-foreground",
               )}
             >
               {toolLabel}
             </span>
-          </div>
+          </span>
 
           {/* Status badge */}
           <StatusBadge status={statusType} isCancelled={isCancelled} />
 
-          {/* View details button */}
+          {/* Chevron — replaces "Details" text button */}
           {canViewDetail && (
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              aria-label="View tool details"
-            >
-              <MessageSquareText />
-              Details
-            </button>
+            <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
           )}
-        </CardHeader>
-      </Card>
+        </div>
+      </div>
 
       {/* Drawer — portal'd outside card */}
       <ToolDetailDrawer

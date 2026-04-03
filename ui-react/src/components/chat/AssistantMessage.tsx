@@ -4,14 +4,14 @@ import { type FC, memo } from "react";
 import remarkGfm from "remark-gfm";
 import { mdComponents } from "./markdown-components";
 import { ToolFallback } from "./ToolFallback";
+import { ToolCallGroup } from "./ToolCallGroup";
 
 // ---------------------------------------------------------------------------
-// MarkdownText component
+// MarkdownText — uses assistant-ui part context for streaming-aware rendering
 // ---------------------------------------------------------------------------
 const MarkdownTextImpl: FC = () => (
   <MarkdownTextPrimitive remarkPlugins={[remarkGfm]} components={mdComponents} />
 );
-
 const MarkdownText = memo(MarkdownTextImpl) as unknown as TextMessagePartComponent;
 
 // ---------------------------------------------------------------------------
@@ -35,10 +35,13 @@ export const AssistantMessage: FC = () => {
             <span className="size-1.5 rounded-full bg-foreground/40 animate-bounce [animation-delay:300ms]" />
           </span>
         </AuiIf>
+        {/* ToolGroup wraps consecutive tool-call parts in a collapsible container.
+            Single tool (startIndex===endIndex) renders as-is without wrapper. */}
         <MessagePrimitive.Parts
           components={{
             Text: MarkdownText,
             tools: { Fallback: ToolFallback },
+            ToolGroup: ToolCallGroup,
           }}
         />
       </div>

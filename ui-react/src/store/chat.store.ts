@@ -1,27 +1,14 @@
 import { create } from "zustand";
 
 // ---------------------------------------------------------------------------
-// History reload callback — injected from SessionSelector / GatewayChatRuntimeProvider
-// to avoid circular imports. Called when a chat.final event arrives without
-// an inline message, so the UI fetches the latest history from the gateway.
+// History reload via Zustand state — set a pending key to trigger reload.
+// useSessionManager watches pendingHistoryReloadKey and calls loadHistory.
 // ---------------------------------------------------------------------------
-type HistoryReloadFn = (sessionKey: string) => void;
-let _reloadHistory: HistoryReloadFn | null = null;
-
-export function registerHistoryReload(fn: HistoryReloadFn) {
-  _reloadHistory = fn;
-}
-export function unregisterHistoryReload() {
-  _reloadHistory = null;
-}
-export function triggerHistoryReload(sessionKey: string) {
-  _reloadHistory?.(sessionKey);
-}
 
 // ---------------------------------------------------------------------------
-// Chat message types (minimal for Phase 1)
+// Chat message types
 // ---------------------------------------------------------------------------
-export type ChatMessageRole = "user" | "assistant" | "tool";
+export type ChatMessageRole = "user" | "assistant";
 
 /** A tool call extracted from a message content block (assistant role). */
 export interface ToolCallPart {
@@ -72,8 +59,6 @@ export interface ChatMessage {
   ts: number;
   runId?: string;
   sessionKey?: string;
-  // Optional tool-call id — set when role=="tool" and this message carries a tool result
-  toolCallId?: string;
   /** Tool calls embedded in this message (assistant messages with tool use) */
   toolCalls?: ToolCallPart[];
   /**
@@ -84,11 +69,6 @@ export interface ChatMessage {
   contentBlocks?: ContentBlock[];
 }
 
-export interface ChatStreamSegment {
-  text: string;
-  ts: number;
-}
-
 interface ChatState {
   // History (loaded from gateway)
   messages: ChatMessage[];
@@ -96,26 +76,34 @@ interface ChatState {
 
   // Live streaming
   stream: string | null;
-  streamStartedAt: number | null;
-  streamSegments: ChatStreamSegment[];
   runId: string | null;
+
+  /**
+   * Frozen content blocks accumulated before the current stream cursor.
+   * When a tool call starts mid-stream, the current text is committed here
+   * so it stays visible while the tool call card renders below it.
+   * Cleared on resetStream / finalizeStream.
+   */
+  committedBlocks: ContentBlock[];
 
   // Tool call streaming
   toolStreamById: Map<string, ToolStreamEntry>;
   toolStreamOrder: string[];
 
-  // Input
-  message: string;
+  // Input state
   sending: boolean;
-
-  // Queue (messages waiting while sending)
-  queue: Array<{ id: string; text: string }>;
 
   // Active session key
   sessionKey: string | null;
 
+  // Pending history reload: set to a session key to request a silent reload.
+  // useSessionManager watches this and calls loadHistory when non-null.
+  pendingHistoryReloadKey: string | null;
+
+  // Last error message (shown inline in the thread)
+  lastError: string | null;
+
   // Actions
-  setMessage: (msg: string) => void;
   setSending: (v: boolean) => void;
   setMessages: (msgs: ChatMessage[]) => void;
   setMessagesLoading: (v: boolean) => void;
@@ -124,30 +112,42 @@ interface ChatState {
   appendStreamChunk: (text: string) => void;
   setStream: (text: string) => void;
   setRunId: (id: string | null) => void;
+  /**
+   * Freeze the current stream text as a committed text block.
+   * Called when a tool call starts so the preceding text stays rendered.
+   */
+  commitCurrentText: () => void;
+  /**
+   * Finalize the stream into a permanent ChatMessage, preserving all
+   * committed blocks and in-flight tool calls.
+   */
   finalizeStream: () => void;
   resetStream: () => void;
-  commitStreamSegment: () => void;
   upsertToolStream: (entry: ToolStreamEntry) => void;
   resetToolStream: () => void;
-  enqueueMessage: (id: string, text: string) => void;
-  dequeueMessage: (id: string) => void;
+  setPendingHistoryReloadKey: (key: string | null) => void;
+  setLastError: (msg: string | null) => void;
+  /**
+   * Truncate the message list to keep only messages whose ID comes before
+   * (and including) the given parentId. Pass null to clear all messages.
+   * Used for message editing: discard everything after the edited message's parent.
+   */
+  truncateMessagesAfter: (parentId: string | null) => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
   messages: [],
   messagesLoading: false,
   stream: null,
-  streamStartedAt: null,
-  streamSegments: [],
   runId: null,
+  committedBlocks: [],
   toolStreamById: new Map(),
   toolStreamOrder: [],
-  message: "",
   sending: false,
-  queue: [],
   sessionKey: null,
+  pendingHistoryReloadKey: null,
+  lastError: null,
 
-  setMessage: (msg) => set({ message: msg }),
   setSending: (v) => set({ sending: v }),
 
   setMessages: (msgs) => set({ messages: msgs }),
@@ -156,79 +156,102 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     set({
       messages: [],
       stream: null,
-      streamStartedAt: null,
-      streamSegments: [],
       runId: null,
+      committedBlocks: [],
       toolStreamById: new Map(),
       toolStreamOrder: [],
     }),
   setSessionKey: (key) => set({ sessionKey: key }),
 
   appendStreamChunk: (text) => {
-    const now = Date.now();
     set((state) => ({
       stream: (state.stream ?? "") + text,
-      streamSegments: [...state.streamSegments, { text, ts: now }],
-      streamStartedAt: state.streamStartedAt ?? now,
     }));
   },
 
   // Replace the entire stream buffer with a new cumulative value
   setStream: (text) => {
-    set((state) => ({
-      stream: text,
-      streamStartedAt: state.streamStartedAt ?? Date.now(),
-    }));
+    set({ stream: text });
   },
 
   setRunId: (id) => set({ runId: id }),
 
-  finalizeStream: () => {
-    const { stream, runId } = get();
-    if (stream !== null) {
-      const msg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: stream,
-        ts: Date.now(),
-        runId: runId ?? undefined,
-      };
-      set((state) => ({
-        messages: [...state.messages, msg],
-        stream: null,
-        streamStartedAt: null,
-        streamSegments: [],
-        runId: null,
-      }));
+  commitCurrentText: () => {
+    const { stream, committedBlocks } = get();
+    if (stream && stream.trim().length > 0) {
+      set({
+        committedBlocks: [...committedBlocks, { type: "text", text: stream }],
+        stream: "",
+      });
     }
+  },
+
+  finalizeStream: () => {
+    const { stream, runId, committedBlocks, toolStreamById, toolStreamOrder } = get();
+
+    // Build ordered content blocks: committed text segments + current stream text + tool calls
+    const contentBlocks: ContentBlock[] = [...committedBlocks];
+
+    if (stream && stream.trim()) {
+      contentBlocks.push({ type: "text", text: stream });
+    }
+
+    for (const id of toolStreamOrder) {
+      const entry = toolStreamById.get(id);
+      if (!entry) continue;
+      contentBlocks.push({
+        type: "tool-call",
+        toolCallId: entry.id,
+        toolName: entry.toolName ?? "tool",
+        argsText: entry.input != null ? JSON.stringify(entry.input, null, 2) : undefined,
+        result:
+          typeof entry.output === "string"
+            ? entry.output
+            : entry.output != null
+              ? JSON.stringify(entry.output, null, 2)
+              : undefined,
+        phase:
+          entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
+      });
+    }
+
+    // Only persist if there is something to save
+    if (contentBlocks.length === 0 && !stream) {
+      set({ stream: null, runId: null, committedBlocks: [], toolStreamById: new Map(), toolStreamOrder: [] });
+      return;
+    }
+
+    // Derive flat text content for the content field (backward compat)
+    const flatText = contentBlocks
+      .filter((b): b is { type: "text"; text: string } => b.type === "text")
+      .map((b) => b.text)
+      .join("\n");
+
+    const msg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: flatText,
+      ts: Date.now(),
+      runId: runId ?? undefined,
+      contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
+    };
+
+    set((state) => ({
+      messages: [...state.messages, msg],
+      stream: null,
+      runId: null,
+      committedBlocks: [],
+      toolStreamById: new Map(),
+      toolStreamOrder: [],
+    }));
   },
 
   resetStream: () =>
     set({
       stream: null,
-      streamStartedAt: null,
-      streamSegments: [],
       runId: null,
+      committedBlocks: [],
     }),
-
-  commitStreamSegment: () => {
-    const { stream, streamSegments } = get();
-    console.log("[commitStreamSegment] Current stream:", stream?.substring(0, 50) + "...");
-    console.log("[commitStreamSegment] Current segments count:", streamSegments.length);
-    if (stream && stream.trim().length > 0) {
-      const now = Date.now();
-      set({
-        stream: "",
-        streamSegments: [...streamSegments, { text: stream, ts: now }],
-      });
-      console.log(
-        "[commitStreamSegment] ✅ Committed segment, new count:",
-        streamSegments.length + 1,
-      );
-    } else {
-      console.log("[commitStreamSegment] ⚠️ No stream to commit");
-    }
-  },
 
   upsertToolStream: (entry) => {
     set((state) => {
@@ -243,7 +266,27 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   resetToolStream: () => set({ toolStreamById: new Map(), toolStreamOrder: [] }),
 
-  enqueueMessage: (id, text) => set((state) => ({ queue: [...state.queue, { id, text }] })),
+  setPendingHistoryReloadKey: (key) => set({ pendingHistoryReloadKey: key }),
 
-  dequeueMessage: (id) => set((state) => ({ queue: state.queue.filter((m) => m.id !== id) })),
+  setLastError: (msg) => set({ lastError: msg }),
+
+  truncateMessagesAfter: (parentId) => {
+    set((state) => {
+      if (parentId === null) {
+        return { messages: [], stream: null, committedBlocks: [], toolStreamById: new Map(), toolStreamOrder: [] };
+      }
+      const idx = state.messages.findIndex((m) => m.id === parentId);
+      if (idx === -1) {
+        // parentId not found — keep all (safety fallback)
+        return {};
+      }
+      return {
+        messages: state.messages.slice(0, idx + 1),
+        stream: null,
+        committedBlocks: [],
+        toolStreamById: new Map(),
+        toolStreamOrder: [],
+      };
+    });
+  },
 }));

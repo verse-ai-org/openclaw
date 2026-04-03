@@ -15,16 +15,8 @@ import { useSettingsStore } from "@/store/settings.store";
 // ---------------------------------------------------------------------------
 function convertMessage(msg: ChatMessage): ThreadMessageLike {
   // normalizeRole maps "tool", "toolResult", etc. → "assistant".
-  // Cast to satisfy ThreadMessageLike's "user" | "assistant" | "system" constraint;
-  // normalizeRole guarantees "tool" never survives, but TS doesn't know ChatMessageRole
-  // is narrowed here.
   const role = normalizeRole(msg.role) as "user" | "assistant" | "system";
 
-  // Build content parts.
-  // When the message has ordered contentBlocks (from history with interleaved
-  // text + tool-call segments), use them directly so the UI renders:
-  //   text → tool card → text → tool card …
-  // Otherwise fall back to the flat content+toolCalls pair.
   type ContentPart =
     | { type: "text"; text: string }
     | {
@@ -42,7 +34,6 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
       if (block.type === "text") {
         parts.push({ type: "text", text: block.text });
       } else {
-        // tool-call block
         let parsedArgs: Record<string, unknown> = {};
         if (block.argsText) {
           try {
@@ -91,6 +82,11 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
     parts.push({ type: "text", text: "" });
   }
 
+  if (import.meta.env.DEV && parts.filter(p => p.type === "tool-call").length > 1) {
+    console.log(`[convertMessage] msg ${msg.id} has ${parts.length} parts:`,
+      parts.map(p => p.type === "tool-call" ? `tool:${p.toolName}` : `text:${p.text.slice(0,20)}`));
+  }
+
   return {
     id: msg.id,
     role,
@@ -115,6 +111,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   const sending = useChatStore((s) => s.sending);
   const runId = useChatStore((s) => s.runId);
   const sessionKey = useChatStore((s) => s.sessionKey);
+  const committedBlocks = useChatStore((s) => s.committedBlocks);
   const toolStreamById = useChatStore((s) => s.toolStreamById);
   const toolStreamOrder = useChatStore((s) => s.toolStreamOrder);
 
@@ -125,30 +122,31 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   const isRunning = sending || stream !== null;
 
   // Append streaming assistant placeholder to the message list while active.
-  // When sending=true but stream hasn't started yet (waiting for first token),
-  // insert an empty assistant placeholder so assistant-ui renders the loading indicator.
-  // Also inject any in-flight tool calls from toolStreamById into the placeholder.
+  // Builds contentBlocks from:
+  //   1. committedBlocks — text segments frozen before tool calls
+  //   2. current stream text — text being streamed right now
+  //   3. in-flight tool call entries from toolStreamById (in order)
+  // This correctly renders interleaved text → tool → text → tool patterns.
   const messages: ChatMessage[] = useMemo(() => {
     if (!isRunning) {
       return chatMessages;
     }
 
-    // Build contentBlocks by interleaving text and tool calls in order.
-    // This matches the old UI's behavior: text → tool → text → tool ...
-    const contentBlocks: ContentBlock[] = [];
+    const contentBlocks: ContentBlock[] = [
+      // Already-frozen segments (text before previous tool calls)
+      ...committedBlocks,
+    ];
 
-    // Add current stream text if present
+    // Current in-progress stream text
     const streamContent = stream ?? "";
     if (streamContent.trim()) {
       contentBlocks.push({ type: "text", text: streamContent });
     }
 
-    // Add tool calls in order
+    // In-flight tool calls in arrival order
     for (const id of toolStreamOrder) {
       const entry = toolStreamById.get(id);
-      if (!entry) {
-        continue;
-      }
+      if (!entry) continue;
 
       contentBlocks.push({
         type: "tool-call",
@@ -165,7 +163,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       });
     }
 
-    // Build toolCalls array for backward compatibility
+    // Build flat toolCalls array for the backward-compat field
     const liveToolCalls = toolStreamOrder
       .map((id) => toolStreamById.get(id))
       .filter(Boolean)
@@ -180,7 +178,11 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
               ? JSON.stringify(entry!.output, null, 2)
               : undefined,
         error: entry!.error,
-        phase: (entry!.phase === "result" ? "result" : entry!.phase === "error" ? "error" : "call") as "call" | "result" | "error",
+        phase: (entry!.phase === "result"
+          ? "result"
+          : entry!.phase === "error"
+            ? "error"
+            : "call") as "call" | "result" | "error",
       }));
 
     return [
@@ -195,7 +197,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
       },
     ];
-  }, [chatMessages, stream, runId, isRunning, toolStreamById, toolStreamOrder]);
+  }, [chatMessages, stream, runId, isRunning, committedBlocks, toolStreamById, toolStreamOrder]);
 
   // Handler: user sends a new message
   const onNew = useCallback(
@@ -205,6 +207,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       if (!text.trim() && message.content.length === 0) {
         return;
       }
+
+      // Clear any previous error when user sends a new message
+      useChatStore.getState().setLastError(null);
 
       // Optimistically append the user message immediately so it shows in the thread
       const userMsg = {
@@ -258,11 +263,50 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     useChatStore.getState().setSending(false);
   }, [client]);
 
+  // Handler: user edits a past message and resubmits.
+  // parentId is the last message that should REMAIN in the thread.
+  const onEdit = useCallback(
+    async (message: AppendMessage) => {
+      const textPart = message.content.find((p) => p.type === "text");
+      const text = textPart?.type === "text" ? textPart.text : "";
+      if (!text.trim()) return;
+
+      // Truncate local history to the parent message, discarding everything
+      // after it (including the old user message and any assistant replies).
+      useChatStore.getState().truncateMessagesAfter(message.parentId ?? null);
+      useChatStore.getState().setLastError(null);
+
+      // Optimistically append the edited user message
+      const userMsg = {
+        id: crypto.randomUUID(),
+        role: "user" as const,
+        content: text,
+        ts: Date.now(),
+      };
+      useChatStore.getState().setMessages([...useChatStore.getState().messages, userMsg]);
+      useChatStore.getState().setSending(true);
+
+      const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
+      try {
+        await client?.request("chat.send", {
+          message: text,
+          sessionKey: activeSession,
+          idempotencyKey: crypto.randomUUID(),
+        });
+      } catch (err) {
+        console.error("[chat] edit send failed:", err);
+        useChatStore.getState().setSending(false);
+      }
+    },
+    [client, sessionKey, settings.sessionKey],
+  );
+
   const runtime = useExternalStoreRuntime<ChatMessage>({
     isRunning,
     messages,
     convertMessage,
     onNew,
+    onEdit,
     onCancel,
   });
 

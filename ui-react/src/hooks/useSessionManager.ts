@@ -5,12 +5,9 @@ import {
   extractToolCallParts,
   extractContentBlocks,
   mergeToolResults,
+  consolidateToolMessages,
 } from "@/hooks/useChatEventBridge";
-import {
-  useChatStore,
-  registerHistoryReload,
-  unregisterHistoryReload,
-} from "@/store/chat.store";
+import { useChatStore } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 
@@ -46,6 +43,11 @@ export function useSessionManager() {
   const settings = useSettingsStore((s) => s.settings);
   const sessionKey =
     useChatStore((s) => s.sessionKey) ?? settings.sessionKey ?? "main";
+
+  // Watch for pending history reload requests from the event bridge.
+  // Using Zustand state instead of a global mutable function avoids
+  // the single-registration limitation of the old _reloadHistory pattern.
+  const pendingReloadKey = useChatStore((s) => s.pendingHistoryReloadKey);
 
   // Load session list from gateway
   const loadSessions = useCallback(async () => {
@@ -87,6 +89,7 @@ export function useSessionManager() {
           },
         );
         if (Array.isArray(result?.messages)) {
+          // Step 1: merge standalone toolResult messages into preceding assistant messages
           const merged = mergeToolResults(result.messages);
           const normalized = merged.map((m: unknown) => {
             const msg = m as Record<string, unknown>;
@@ -101,7 +104,24 @@ export function useSessionManager() {
               contentBlocks: extractContentBlocks(msg.content),
             };
           });
-          useChatStore.getState().setMessages(normalized);
+          // Step 2: merge consecutive tool-call-only assistant messages so
+          // MessagePrimitive.Parts groups them under a single ToolGroup wrapper
+          const consolidated = consolidateToolMessages(normalized);
+
+          if (import.meta.env.DEV) {
+            console.group("[loadHistory] pipeline");
+            console.log(`raw=${result.messages.length} → merged=${merged.length} → normalized=${normalized.length} → consolidated=${consolidated.length}`);
+            consolidated.slice(0, 20).forEach((m, i) => {
+              const blocks = m.contentBlocks;
+              const preview = blocks
+                ? blocks.map(b => b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0,20)}`).join(", ")
+                : `[no blocks] content=${m.content.slice(0,40)}`;
+              console.log(`  [${i}] role=${m.role} blocks=[${preview}]`);
+            });
+            console.groupEnd();
+          }
+
+          useChatStore.getState().setMessages(consolidated);
           useChatStore.getState().setMessagesLoading(false);
         }
       } catch (err) {
@@ -111,6 +131,13 @@ export function useSessionManager() {
     },
     [client],
   );
+
+  // React to pending history reload requests (set by useChatEventBridge on chat:final)
+  useEffect(() => {
+    if (!pendingReloadKey) return;
+    void loadHistory(pendingReloadKey, true);
+    useChatStore.getState().setPendingHistoryReloadKey(null);
+  }, [pendingReloadKey, loadHistory]);
 
   // Switch to a session
   const switchSession = useCallback(
@@ -124,15 +151,37 @@ export function useSessionManager() {
     [loadHistory],
   );
 
+  // Delete a session by key. Cannot delete the main session.
+  const deleteSession = useCallback(
+    async (key: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!client?.connected) {
+        return { ok: false, error: "Not connected" };
+      }
+      try {
+        await client.request("sessions.delete", { key, deleteTranscript: true });
+        // Remove from local list
+        setSessions((prev) => prev.filter((s) => s.key !== key));
+        // If we just deleted the active session, switch to the agent's main session
+        if (key === useChatStore.getState().sessionKey) {
+          const match = /^agent:([^:]+):/.exec(key);
+          const fallbackKey = match ? `agent:${match[1]}:main` : "main";
+          await switchSession(fallbackKey);
+        }
+        return { ok: true };
+      } catch (err) {
+        console.error("[session] delete failed:", err);
+        return { ok: false, error: String(err) };
+      }
+    },
+    [client, switchSession],
+  );
+
   // Create a new session, optionally scoped to an agentId.
-  // When agentId is provided the session key is formatted as
-  // "agent:<agentId>:<uuid8>" so Gateway routes the session to that agent.
   const newSession = useCallback(
     async (agentId?: string) => {
       if (!client?.connected) {
         return;
       }
-      // Build a local key immediately so the sidebar renders the item right away.
       const localKey = agentId
         ? `agent:${agentId}:${crypto.randomUUID().slice(0, 8)}`
         : crypto.randomUUID().slice(0, 8);
@@ -141,8 +190,6 @@ export function useSessionManager() {
           "chat.session.new",
           {},
         );
-        // Prefer the server-assigned key, but re-scope it to the target agent if
-        // the server returned a generic key (e.g. a short uuid).
         const serverKey = result?.sessionKey;
         const newKey =
           agentId && serverKey && !serverKey.startsWith(`agent:${agentId}:`)
@@ -157,14 +204,6 @@ export function useSessionManager() {
     },
     [client, switchSession],
   );
-
-  // Register reload callback for chat.final events
-  useEffect(() => {
-    registerHistoryReload((key) => void loadHistory(key, true));
-    return () => {
-      unregisterHistoryReload();
-    };
-  }, [loadHistory]);
 
   // Load sessions & history when connected
   useEffect(() => {
@@ -187,5 +226,6 @@ export function useSessionManager() {
     activeLabel,
     switchSession,
     newSession,
+    deleteSession,
   };
 }
