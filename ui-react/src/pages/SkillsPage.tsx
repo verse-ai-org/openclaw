@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { SkillCard } from "@/components/skills/SkillCard";
 import { plainMdComponents } from "@/components/chat/markdown-components";
 import { SkillsToolbar } from "@/components/skills/SkillsToolbar";
+import { SkillCategoryPills } from "@/components/skills/SkillCategoryPills";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,8 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { groupSkills } from "@/lib/skills-grouping";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSkillsStore } from "@/store/skills.store";
 import type { SkillStatusEntry } from "@/types/skills";
@@ -22,6 +21,16 @@ type ParsedSkillMarkdown = {
   frontmatter: string;
   body: string;
 };
+
+type SkillsSourceFilter = "all" | "openclaw-bundled" | "openclaw-managed" | "openclaw-workspace" | "openclaw-extra";
+
+const SOURCE_FILTER_OPTIONS: Array<{ id: SkillsSourceFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "openclaw-bundled", label: "System Built-in" },
+  { id: "openclaw-managed", label: "Installed" },
+  // { id: "openclaw-workspace", label: "Current Project" },
+  { id: "openclaw-extra", label: "Other" },
+];
 
 function parseSkillMarkdown(markdown: string): ParsedSkillMarkdown {
   const content = markdown.trimStart();
@@ -48,6 +57,7 @@ export function SkillsPage() {
   const [detailDraft, setDetailDraft] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailSkill, setDetailSkill] = useState<SkillStatusEntry | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<SkillsSourceFilter>("all");
 
   const status = useGatewayStore((s) => s.status);
 
@@ -124,22 +134,20 @@ export function SkillsPage() {
     }
   };
 
-  // Compute filtered list + groups only when report or filter changes
+  // Compute filtered list when report/filter/source changes
   const filteredSkills = useMemo(() => {
     const skills = report?.skills ?? [];
     const f = filter.trim().toLowerCase();
-    if (!f) {
-      return skills;
-    }
-    return skills.filter((skill) =>
-      [skill.name, skill.description, skill.source].join(" ").toLowerCase().includes(f),
-    );
-  }, [report, filter]);
-
-  const groups = useMemo(() => groupSkills(filteredSkills), [filteredSkills]);
-
-  // Default to first group's id when groups change
-  const defaultTab = groups[0]?.id ?? "installed";
+    return skills.filter((skill) => {
+      if (sourceFilter !== "all" && skill.source !== sourceFilter) {
+        return false;
+      }
+      if (!f) {
+        return true;
+      }
+      return [skill.name, skill.description, skill.source].join(" ").toLowerCase().includes(f);
+    });
+  }, [report, filter, sourceFilter]);
 
   // Load on mount and when connection is established
   useEffect(() => {
@@ -192,55 +200,34 @@ export function SkillsPage() {
           </div>
         )}
 
-        {/* Skills tabs */}
-        {groups.length > 0 && (
-          <Tabs defaultValue={defaultTab} key={defaultTab}>
-            {/* Apple Music style pill tabs */}
-            <TabsList className="inline-flex h-auto gap-1 rounded-2xl bg-[#F6F6F6] p-1">
-              {groups.map((group) => (
-                <TabsTrigger
-                  key={group.id}
-                  value={group.id}
-                  className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all
-                    data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                >
-                  {group.label} ({group.skills.length})
-                </TabsTrigger>
-              ))}
-            </TabsList>
+        {/* Source filter */}
+        <div className="flex items-center gap-3">
+          <SkillCategoryPills categories={SOURCE_FILTER_OPTIONS} active={sourceFilter} onChange={setSourceFilter} />
+        </div>
 
-            {groups.map((group) => (
-              <TabsContent key={group.id} value={group.id} className="mt-6">
-                {group.skills.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No skills found.</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {group.skills.map((skill) => (
-                      <SkillCard
-                        key={skill.skillKey}
-                        skill={skill}
-                        busy={busyKey === skill.skillKey}
-                        apiKeyEdit={edits[skill.skillKey] ?? ""}
-                        message={messages[skill.skillKey] ?? null}
-                        onToggle={() => toggleSkill(skill.skillKey, skill.disabled)}
-                        onEdit={(value) => setEdit(skill.skillKey, value)}
-                        onSaveKey={() => saveApiKey(skill.skillKey)}
-                        onInstall={(installId) => installSkill(skill.skillKey, skill.name, installId)}
-                        onSaveEnvVar={(envKey, value) => saveEnvVar(skill.skillKey, envKey, value)}
-                        onRemove={() => void removeSkill(skill.baseDir, skill.source)}
-                        onViewDetail={() => void openSkillDetail(skill)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
+        {/* Skills list */}
+        {filteredSkills.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredSkills.map((skill) => (
+              <SkillCard
+                key={skill.skillKey}
+                skill={skill}
+                busy={busyKey === skill.skillKey}
+                apiKeyEdit={edits[skill.skillKey] ?? ""}
+                message={messages[skill.skillKey] ?? null}
+                onToggle={() => toggleSkill(skill.skillKey, skill.disabled)}
+                onEdit={(value) => setEdit(skill.skillKey, value)}
+                onSaveKey={() => saveApiKey(skill.skillKey)}
+                onInstall={(installId) => installSkill(skill.skillKey, skill.name, installId)}
+                onSaveEnvVar={(envKey, value) => saveEnvVar(skill.skillKey, envKey, value)}
+                onRemove={() => void removeSkill(skill.baseDir, skill.source)}
+                onViewDetail={() => void openSkillDetail(skill)}
+              />
             ))}
-          </Tabs>
-        )}
-
-        {/* Empty state: connected but no skills at all */}
-        {status === "connected" && !loading && groups.length === 0 && (
-          <p className="text-sm text-muted-foreground">No skills found.</p>
+          </div>
+        ) : (
+          status === "connected" &&
+          !loading && <p className="text-sm text-muted-foreground">No skills found.</p>
         )}
       </div>
 

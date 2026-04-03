@@ -24,6 +24,8 @@ type BuiltinAgentDef = {
   readonly name?: string;
   readonly workspace?: string;
   readonly templateSubdir?: string;
+  /** Default skill allowlist for first-time creation only. */
+  readonly skills?: string[];
 };
 
 export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
@@ -36,6 +38,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     name: "Travel Planner",
     workspace: "~/.openclaw/agents/travel-planner",
     templateSubdir: "agents/travel-planner",
+    skills: ["travel-manager", "amap-lbs-skill", "12306"],
   },
 ] as const;
 
@@ -80,6 +83,7 @@ export async function ensureBuiltinAgents(
       agentId: builtin.id,
       ...(builtin.name ? { name: builtin.name } : {}),
       ...(builtin.workspace ? { workspace: builtin.workspace } : {}),
+      ...(builtin.skills ? { skills: builtin.skills } : {}),
     });
     dirty = true;
 

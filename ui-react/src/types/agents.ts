@@ -7,6 +7,7 @@
 export type GatewayAgentRow = {
   id: string;
   name?: string;
+  skills?: string[];
   identity?: {
     name?: string;
     emoji?: string;

@@ -297,7 +297,7 @@ export const SkillsImportParamsSchema = Type.Object(
 
 export type SkillsImportParams = {
   kind: "url" | "upload";
-  /** Where to install the skill. Defaults to "workspace". */
+  /** Where to install the skill. Defaults to "managed". */
   target?: "workspace" | "managed";
   url?: string;
   data?: string;

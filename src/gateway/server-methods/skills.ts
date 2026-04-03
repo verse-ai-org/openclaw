@@ -389,9 +389,9 @@ export const skillsHandlers: GatewayRequestHandlers = {
       timeoutMs?: number;
     };
     const cfg = loadConfig();
-    // target=workspace (default): <workspaceDir>/skills/  — highest priority, project-scoped
-    // target=managed: ~/.openclaw/skills/ — global, shared across all workspaces
-    const target = p.target ?? "workspace";
+    // target=managed (default): ~/.openclaw/skills/ — global, shared across all workspaces
+    // target=workspace: <workspaceDir>/skills/  — project-scoped, highest priority for same-name skills
+    const target = p.target ?? "managed";
     let skillsBaseDir: string | undefined;
     if (target === "workspace") {
       const workspaceDir = resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg));

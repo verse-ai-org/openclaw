@@ -25,7 +25,7 @@ export function AddSkillDialog({ trigger }: Props) {
 
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<TabMode>("url");
-  const [target, setTarget] = useState<SkillImportTarget>("workspace");
+  const [target, setTarget] = useState<SkillImportTarget>("managed");
 
   // URL mode state
   const [url, setUrl] = useState("");
@@ -51,7 +51,7 @@ export function AddSkillDialog({ trigger }: Props) {
     setUploadSkillName("");
     setResult(null);
     setMode("url");
-    setTarget("workspace");
+    setTarget("managed");
   }
 
   function handleOpenChange(next: boolean) {

@@ -140,6 +140,7 @@ interface AgentsState {
   saveFile: (name: string) => Promise<void>;
   loadAgentSkills: (agentId: string) => Promise<void>;
   setSkillsFilter: (filter: string) => void;
+  setAgentSkills: (agentId: string, skills: string[]) => Promise<void>;
   toggleAgentSkill: (
     agentId: string,
     skillName: string,
@@ -576,6 +577,42 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   },
 
   setSkillsFilter: (filter) => set({ skillsFilter: filter }),
+
+  setAgentSkills: async (agentId, skills) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return;
+    }
+
+    const nextSkills = Array.from(new Set(skills.map((s) => s.trim()).filter(Boolean)));
+
+    try {
+      await client.request("agents.update", {
+        agentId,
+        skills: nextSkills,
+      });
+
+      set((state) => {
+        if (!state.agentsList) {
+          return state;
+        }
+        return {
+          agentsList: {
+            ...state.agentsList,
+            agents: state.agentsList.agents.map((agent) =>
+              agent.id === agentId ? { ...agent, skills: nextSkills } : agent,
+            ),
+          },
+        };
+      });
+
+      if (get().agentSkillsAgentId === agentId) {
+        await get().loadAgentSkills(agentId);
+      }
+    } catch (err) {
+      set({ agentSkillsError: getErrorMessage(err) });
+    }
+  },
 
   toggleAgentSkill: async (agentId, skillName, enabled) => {
     const client = getClient();
