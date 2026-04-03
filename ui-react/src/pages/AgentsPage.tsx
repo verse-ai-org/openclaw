@@ -17,14 +17,6 @@ import { useGatewayStore } from "@/store/gateway.store";
 import { AgentCard } from "../components/agents/card";
 import { AgentDetailDrawer } from "../components/agents/detail-drawer";
 
-// ── Agent Card Component moved to ./agents/card ─────────────────────────────
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-
-// ── Create Agent Dialog ───────────────────────────────────────────────────────
-
-// ── Create Agent Dialog ───────────────────────────────────────────────────────
-
 function CreateAgentDialog({
   open,
   onOpenChange,

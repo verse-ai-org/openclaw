@@ -78,6 +78,7 @@ interface AgentsState {
   agentIdentityError: string | null;
 
   configForm: Record<string, unknown> | null;
+  configBaseHash: string | null;
   configLoading: boolean;
   configSaving: boolean;
   configDirty: boolean;
@@ -177,6 +178,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   agentIdentityLoading: false,
   agentIdentityError: null,
   configForm: null,
+  configBaseHash: null,
   configLoading: false,
   configSaving: false,
   configDirty: false,
@@ -293,11 +295,11 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
     set({ configLoading: true });
     try {
-      const res = await client.request<{ config?: Record<string, unknown> }>(
+      const res = await client.request<{ config?: Record<string, unknown>; hash?: string }>(
         "config.get",
         {},
       );
-      set({ configForm: res?.config ?? null, configDirty: false });
+      set({ configForm: res?.config ?? null, configBaseHash: res?.hash ?? null, configDirty: false });
     } catch {
       // non-fatal
     } finally {
@@ -321,8 +323,15 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
     set({ configSaving: true });
     try {
-      await client.request("config.set", { config: configForm });
+      // config.set requires raw (JSON string) + optional baseHash for conflict detection
+      const raw = JSON.stringify(configForm, null, 2);
+      const configBaseHash = get().configBaseHash;
+      const params: Record<string, unknown> = { raw };
+      if (configBaseHash) { params.baseHash = configBaseHash; }
+      await client.request("config.set", params);
       set({ configDirty: false });
+      // Reload to get updated hash for subsequent saves
+      await get().loadConfig();
       await get().loadAgents();
     } catch (err) {
       set({ error: getErrorMessage(err) });

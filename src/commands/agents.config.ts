@@ -141,6 +141,8 @@ export function applyAgentConfig(
     model?: string;
     /** Skill whitelist; undefined = leave unchanged, [] = allow all */
     skills?: string[];
+    /** Tool restrictions; undefined = leave unchanged */
+    tools?: { profile?: string; deny?: string[] };
   },
 ): OpenClawConfig {
   const agentId = normalizeAgentId(params.agentId);
@@ -158,6 +160,7 @@ export function applyAgentConfig(
     ...(params.skills !== undefined
       ? { skills: params.skills.length > 0 ? params.skills : undefined }
       : {}),
+    ...(params.tools !== undefined ? { tools: params.tools } : {}),
   };
   const nextList = [...list];
   if (index >= 0) {
