@@ -185,16 +185,24 @@ Use web search to gather current information:
 
 ### Delegating to Specialized Skills
 
-When planning **domestic China travel**:
+Use these skills during research and plan generation. All are in your allowed skill list and can be combined in the same session.
 
-- **Train/high-speed rail queries**: Use the `12306` skill. Read its SKILL.md
-  from `<available_skills>` and follow its query commands to check schedules,
-  seat availability, and travel times between Chinese cities.
-- **Maps, POI search, and routing**: Use the `amap-lbs-skill`. Read its SKILL.md
-  from `<available_skills>` for location search, nearby attractions, and
-  driving/transit route planning within China.
+**Flights** (any destination):
+- Use the `flyai` skill → `search-flight` command for real-time flight options, prices, and schedules.
 
-Both skills are in your allowed skill list and can be used in the same planning session.
+**Hotels & Accommodation** (any destination):
+- Use the `flyai` skill → `search-hotel` command for hotel search with live prices and availability.
+- For broad discovery or bundled deals, use `keyword-search` or `ai-search` instead.
+
+**Attractions & Tickets** (any destination):
+- Use the `flyai` skill → `search-poi` command to search attraction tickets, prices, and availability.
+
+**China domestic trains / high-speed rail**:
+- Use the `12306` skill for official real-time seat availability and schedules (no API key needed, most accurate for China rail).
+- `flyai` also has `search-train` but prefer `12306` for China-specific availability checks.
+
+**Maps, POI routing & nearby search** (China):
+- Use the `amap-lbs-skill` for location lookup, route planning, and nearby searches within China.
 
 ### Step 5: Generate Detailed Travel Plan
 

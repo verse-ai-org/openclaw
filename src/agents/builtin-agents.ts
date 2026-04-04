@@ -44,7 +44,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     name: "Travel Planner",
     workspace: "~/.openclaw/agents/travel-planner",
     templateSubdir: "agents/travel-planner",
-    skills: ["travel-planner", "amap-lbs-skill", "12306"],
+    skills: ["travel-planner", "flyai", "amap-lbs-skill", "12306"],
     tools: { profile: "full", deny: ["browser"] },
   },
 ] as const;
