@@ -12,6 +12,7 @@ import {
 } from "../agents/identity-file.js";
 import { listRouteBindings } from "../config/bindings.js";
 import type { OpenClawConfig } from "../config/config.js";
+import type { AgentToolsConfig } from "../config/types.tools.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 
 export type AgentSummary = {
@@ -142,7 +143,7 @@ export function applyAgentConfig(
     /** Skill whitelist; undefined = leave unchanged, [] = allow all */
     skills?: string[];
     /** Tool restrictions; undefined = leave unchanged */
-    tools?: { profile?: string; deny?: string[] };
+    tools?: Pick<AgentToolsConfig, "profile" | "deny">;
   },
 ): OpenClawConfig {
   const agentId = normalizeAgentId(params.agentId);

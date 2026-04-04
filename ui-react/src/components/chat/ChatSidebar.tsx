@@ -87,26 +87,27 @@ export function ChatSidebar() {
       </div>
 
       {/*
-       * Sliding track: two panels side-by-side (each 100% wide).
-       * translateX(0%)   → show Agent list
-       * translateX(-50%) → show Session list
-       * The outer div clips the overflow; the inner div is 200% wide.
+       * Sliding track: two panels side-by-side (each 50% of the track).
+       * The track must stay exactly 200% of the viewport width — if the track
+       * flex-shrinks to the viewport width, both 50% panels sit in one row and
+       * users see agents + sessions at once (especially when session list is empty).
+       * shrink-0 + w-[200%] pins the track; min-w-0 on the viewport fixes flex %
+       * resolution.
        */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <div
-          className="flex h-full transition-transform duration-300 ease-in-out"
-          style={{
-            width: "200%",
-            transform: view === "agents" ? "translateX(0%)" : "translateX(-50%)",
-          }}
+          className={cn(
+            "flex h-full w-[200%] shrink-0 transition-transform duration-300 ease-in-out",
+            view === "agents" ? "translate-x-0" : "-translate-x-1/2",
+          )}
         >
-          {/* Panel 1: Agent list (left, 50% of inner = 100% of outer) */}
-          <div className="flex h-full flex-col overflow-hidden" style={{ width: "50%" }}>
+          {/* Panel 1: Agent list (left, 50% of track = full viewport) */}
+          <div className="flex h-full min-w-0 w-1/2 flex-col overflow-hidden">
             <AgentList onSelectAgent={handleSelectAgent} search={search} />
           </div>
 
-          {/* Panel 2: Session list (right, 50% of inner = 100% of outer) */}
-          <div className="flex h-full flex-col overflow-hidden" style={{ width: "50%" }}>
+          {/* Panel 2: Session list (right, 50% of track = full viewport) */}
+          <div className="flex h-full min-w-0 w-1/2 flex-col overflow-hidden">
             {activeAgent && (
               <AgentSessionList
                 agent={activeAgent}

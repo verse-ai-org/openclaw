@@ -3,6 +3,7 @@ import {
   findAgentEntryIndex,
 } from "../commands/agents.config.js";
 import type { OpenClawConfig } from "../config/config.js";
+import type { ToolProfileId } from "../config/types.tools.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import { listAgentEntries } from "./agent-scope.js";
 import { ensureAgentWorkspace } from "./workspace.js";
@@ -27,7 +28,10 @@ type BuiltinAgentDef = {
   /** Default skill allowlist for first-time creation only. */
   readonly skills?: string[];
   /** Default tool restrictions for first-time creation only. */
-  readonly tools?: { readonly profile?: string; readonly deny?: readonly string[] };
+  readonly tools?: {
+    readonly profile?: ToolProfileId;
+    readonly deny?: readonly string[];
+  };
 };
 
 export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
@@ -40,8 +44,8 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     name: "Travel Planner",
     workspace: "~/.openclaw/agents/travel-planner",
     templateSubdir: "agents/travel-planner",
-    skills: ["travel-manager", "amap-lbs-skill", "12306"],
-    tools: { profile: "full", deny: ["exec", "apply_patch"] },
+    skills: ["travel-planner", "amap-lbs-skill", "12306"],
+    tools: { profile: "full", deny: ["browser"] },
   },
 ] as const;
 
