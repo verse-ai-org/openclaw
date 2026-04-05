@@ -98,7 +98,7 @@ export function CompletionStep(_props: CompletionStepProps) {
 
           {/* Subtitle */}
           <p className="mt-4 text-center text-lg font-normal leading-relaxed text-[rgb(91,64,65)]">
-            Your OpenClaw environment is ready to power your
+            Your Bossim environment is ready to power your
             <br />
             next generation of intelligent workflows.
           </p>
@@ -193,7 +193,7 @@ export function CompletionStep(_props: CompletionStepProps) {
             ].join(" ")}
           >
             <span className="text-xl font-bold tracking-[-0.3px] text-white">
-              {isStarting ? "Starting OpenClaw..." : "Start Chatting"}
+              {isStarting ? "Starting Bossim..." : "Start Chatting"}
             </span>
             {isStarting ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">

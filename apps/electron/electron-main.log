@@ -1,253 +1,49 @@
-2026-04-05T10:02:33.458Z [main] app 就绪前…
-2026-04-05T10:02:33.496Z [main] app.whenReady 完成；platform=win32 isPackaged=false resourcesPath=D:\workspace\heyuan\openclaw\node_modules\electron\dist\resources
-2026-04-05T10:02:33.497Z [main] sessionToken 已生成
-2026-04-05T10:02:33.497Z [main] warmLoginShellEnv 启动
-2026-04-05T10:02:33.497Z [main] warmLoginShellEnv 完成
-2026-04-05T10:02:33.498Z [main] 开始启动 Gateway…
-2026-04-05T10:02:33.499Z [main] patchConfigForElectron: skipped (Error: ENOENT: no such file or directory, open 'C:\Users\dongk\.openclaw\openclaw.json')
-2026-04-05T10:02:33.500Z [gateway][start-gateway] phase="begin"
-2026-04-05T10:02:33.505Z [gateway][audit-extensions] status="ok" count=41 list="acpx(manifest=✓ pkg=✓) bluebubbles(manifest=✓ pkg=✓) copilot-proxy(manifest=✓ pkg=✓) device-pair(manifest=✓ pkg=✗) diagnostics-otel(manifest=✓ pkg=✓) diffs(manifest=✓ pkg=✓) discord(manifest=✓ pkg=✓) feishu(manifest=✓ pkg=✓) google-gemini-cli-auth(manifest=✓ pkg=✓) googlechat(manifest=✓ pkg=✓) imessage(manifest=✓ pkg=✓) irc(manifest=✓ pkg=✓) line(manifest=✓ pkg=✓) llm-task(manifest=✓ pkg=✓) lobster(manifest=✓ pkg=✓) matrix(manifest=✓ pkg=✓) mattermost(manifest=✓ pkg=✓) memory-core(manifest=✓ pkg=✓) memory-lancedb(manifest=✓ pkg=✓) minimax-portal-auth(manifest=✓ pkg=✓) msteams(manifest=✓ pkg=✓) nextcloud-talk(manifest=✓ pkg=✓) nostr(manifest=✓ pkg=✓) open-prose(manifest=✓ pkg=✓) openclaw-weixin(manifest=✓ pkg=✓) phone-control(manifest=✓ pkg=✗) qwen-portal-auth(manifest=✓ pkg=✗) shared(manifest=✗ pkg=✗) signal(manifest=✓ pkg=✓) slack(manifest=✓ pkg=✓) synology-chat(manifest=✓ pkg=✓) talk-voice(manifest=✓ pkg=✗) telegram(manifest=✓ pkg=✓) test-utils(manifest=✗ pkg=✗) thread-ownership(manifest=✓ pkg=✗) tlon(manifest=✓ pkg=✓) twitch(manifest=✓ pkg=✓) voice-call(manifest=✓ pkg=✓) whatsapp(manifest=✓ pkg=✓) zalo(manifest=✓ pkg=✓) zalouser(manifest=✓ pkg=✓)"
-2026-04-05T10:02:33.506Z [gateway][spawn-gateway] port=18789 force=true reason="no-config-token"
-2026-04-05T10:02:33.507Z [gateway] resolveBundledNode (dev): node
-2026-04-05T10:02:33.507Z [gateway] resolveOpenclaw (dev): D:\workspace\heyuan\openclaw\openclaw.mjs exists=true
-2026-04-05T10:02:33.508Z [gateway][spawn] node="node" entry="D:\\workspace\\heyuan\\openclaw\\openclaw.mjs" port=18789 force=true cwd="D:\\workspace\\heyuan\\openclaw"
-2026-04-05T10:02:33.515Z [gateway][wait-ready] port=18789 timeoutMs=15000
-2026-04-05T10:02:37.021Z [gateway:stdout] [90m2026-04-05T18:02:37.019+08:00[39m [36m[gateway][39m [36mforce: no listeners on port 18789[39m
-2026-04-05T10:02:37.556Z [gateway:stdout] [90m2026-04-05T18:02:37.555+08:00[39m [35m[canvas][39m [36mhost mounted at http://127.0.0.1:18789/__openclaw__/canvas/ (root C:\Users\dongk\.openclaw\canvas)[39m
-2026-04-05T10:02:37.876Z [gateway:stdout] [90m2026-04-05T18:02:37.875+08:00[39m [36m[heartbeat][39m [36mstarted[39m
-2026-04-05T10:02:37.879Z [gateway:stdout] [90m2026-04-05T18:02:37.878+08:00[39m [32m[health-monitor][39m [36mstarted (interval: 300s, startup-grace: 60s, channel-connect-grace: 120s)[39m
-2026-04-05T10:02:37.886Z [gateway:stdout] [90m2026-04-05T18:02:37.883+08:00[39m [36m[gateway][39m [36magent model: [97manthropic/claude-opus-4-6[39m[36m[39m
-2026-04-05T10:02:37.887Z [gateway:stdout] [90m2026-04-05T18:02:37.886+08:00[39m [36m[gateway][39m [36mlistening on ws://127.0.0.1:18789, ws://[::1]:18789 (PID 25892)[39m
-2026-04-05T10:02:37.889Z [gateway:stdout] [90m2026-04-05T18:02:37.888+08:00[39m [36m[gateway][39m [36mlog file: C:\Users\dongk\AppData\Local\Temp\openclaw\openclaw-2026-04-05.log[39m
-2026-04-05T10:02:37.910Z [gateway][ready] port=18789
-2026-04-05T10:02:37.911Z [gateway][start-gateway] phase="complete" port=18789
-2026-04-05T10:02:37.911Z [main] Gateway 启动成功
-2026-04-05T10:02:37.912Z [main] activePort=18789 gatewayStarted=true
-2026-04-05T10:02:37.924Z [main] session 已配置
-2026-04-05T10:02:37.948Z [main] 主窗口已创建
-2026-04-05T10:02:37.955Z [main] isFirstLaunch=true
-2026-04-05T10:02:37.956Z [main] 首次启动，加载 Setup Wizard
-2026-04-05T10:02:37.959Z [window] loadRendererPage: page=setup type=url path/url=http://localhost:5174/setup.html
-2026-04-05T10:02:37.959Z [window] loadURL: http://localhost:5174/setup.html?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=1cc4b44cfd4d03905b111bcee18c82c12dfd447d2c97f42820b5fbd83b9add3e
-2026-04-05T10:02:37.967Z [main] main() 完成
-2026-04-05T10:02:37.976Z [gateway:stdout] [90m2026-04-05T18:02:37.952+08:00[39m [36m[browser/server][39m [36mBrowser control listening on http://127.0.0.1:18791/ (auth=token)[39m
-2026-04-05T10:02:39.047Z [renderer][INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold (http://localhost:5174/node_modules/.vite/deps/react-dom_client.js?v=15ae0bac:20103)
-2026-04-05T10:02:39.075Z [window] dom-ready
-2026-04-05T10:02:39.076Z [window] ready-to-show 触发，显示窗口 (page=setup)
-2026-04-05T10:02:39.091Z [window] did-finish-load
-2026-04-05T10:02:39.093Z [renderer][INFO] [ElectronWizardAdapter] constructor: getConfig=function onComplete=function (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:02:39.094Z [renderer] [ElectronWizardAdapter] constructor: getConfig=function onComplete=function
-2026-04-05T10:02:39.607Z [renderer][WARN] GSAP target null not found. https://gsap.com (http://localhost:5174/node_modules/.vite/deps/gsap.js?v=fb901e76:89)
-2026-04-05T10:02:39.612Z [renderer][WARN] GSAP target null not found. https://gsap.com (http://localhost:5174/node_modules/.vite/deps/gsap.js?v=fb901e76:89)
-2026-04-05T10:02:40.114Z [gateway:stderr] [90m2026-04-05T18:02:40.112+08:00[39m [31m[bonjour][39m [33mgateway name conflict resolved; newName="dongkui_MBP (OpenClaw) (2)"[39m
-2026-04-05T10:02:40.117Z [gateway:stderr] [90m2026-04-05T18:02:40.115+08:00[39m [31m[bonjour][39m [33mgateway hostname conflict resolved; newHostname="openclaw-(2)"[39m
-2026-04-05T10:03:12.386Z [renderer][INFO] [ElectronWizardAdapter] validateInviteCode: code=BOSS-AXB... (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:12.387Z [renderer] [ElectronWizardAdapter] validateInviteCode: code=BOSS-AXB...
-2026-04-05T10:03:12.388Z [main] validateInviteCode: code=BOSS-AXB...
-2026-04-05T10:03:12.389Z [validateInviteCode] code=BOSS-AXB... url=https://verse-ai-service-production-22b8.up.railway.app/api/v1/app/member/invite-code/redeem NODE_ENV=production INVITE_CODE_API_BASE_URL=(unset) appId=boss-simulator appSecret=sk_e...09d% isPackaged=false INVITE_CODE_APP_SECRET_env=(unset)
-2026-04-05T10:03:12.390Z [validateInviteCode] sending POST https://verse-ai-service-production-22b8.up.railway.app/api/v1/app/member/invite-code/redeem appId=boss-simulator timestamp=1775383392 nonce=f44c74e56e70
-2026-04-05T10:03:13.718Z [validateInviteCode] HTTP 200 ok=true
-2026-04-05T10:03:13.720Z [validateInviteCode] response body={"domain":"verse-ai-service","code":200,"msg":"success","data":{"llm_model":"minimax-cn/MiniMax-M2.5","llm_api_key":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k"},"errors":null}
-2026-04-05T10:03:13.720Z [main] validateInviteCode result: {"ok":true,"apiKey":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k","model":"minimax-cn/MiniMax-M2.5"}
-2026-04-05T10:03:13.721Z [renderer][INFO] [ElectronWizardAdapter] validateInviteCode: success, model=minimax-cn/MiniMax-M2.5 (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:13.722Z [renderer] [ElectronWizardAdapter] validateInviteCode: success, model=minimax-cn/MiniMax-M2.5
-2026-04-05T10:03:18.018Z [renderer][INFO] [ElectronWizardAdapter] finalizeOnboarding: start (getConfig=function) caller=at ElectronWizardAdapter.complete (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:25:16) (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:18.019Z [renderer] [ElectronWizardAdapter] finalizeOnboarding: start (getConfig=function) caller=at ElectronWizardAdapter.complete (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:25:16)
-2026-04-05T10:03:18.019Z [renderer][INFO] [Setup] getConfig called, state: [object Object] (http://localhost:5174/src/setup.tsx:43)
-2026-04-05T10:03:18.020Z [renderer][INFO] [ElectronWizardAdapter] saveOnboardingConfig: {"authProviderGroup":"minimax-cn","authMethod":"apiKey","resolvedModelId":"minimax-cn/MiniMax-M2.5","secretInputMode":"plaintext","apiKey":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k","workspace":"~/.openclaw/workspace","optionalFeatures":{"messaging":false,"browser":true,"fileAccess":false},"gatewayPort":18789,"gatewayBind":"loopback","gatewayAuth":"token","installDaemon":true,"daemonRuntime":"node","currentStep":0,"isComplete":false,"usedInviteCode":true} (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:18.020Z [renderer] [ElectronWizardAdapter] saveOnboardingConfig: {"authProviderGroup":"minimax-cn","authMethod":"apiKey","resolvedModelId":"minimax-cn/MiniMax-M2.5","secretInputMode":"plaintext","apiKey":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k","workspace":"~/.openclaw/workspace","optionalFeatures":{"messaging":false,"browser":true,"fileAccess":false},"gatewayPort":18789,"gatewayBind":"loopback","gatewayAuth":"token","installDaemon":true,"daemonRuntime":"node","currentStep":0,"isComplete":false,"usedInviteCode":true}
-2026-04-05T10:03:18.020Z [main] saveOnboardingConfig called: {"authProviderGroup":"minimax-cn","authMethod":"apiKey","resolvedModelId":"minimax-cn/MiniMax-M2.5","secretInputMode":"plaintext","apiKey":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3
-2026-04-05T10:03:18.028Z [main] saveOnboardingConfig: success
-2026-04-05T10:03:18.029Z [renderer][INFO] [ElectronWizardAdapter] saveOnboardingConfig: success (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:18.030Z [renderer] [ElectronWizardAdapter] saveOnboardingConfig: success
-2026-04-05T10:03:18.030Z [renderer][INFO] [ElectronWizardAdapter] restartGateway: start (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:18.031Z [renderer] [ElectronWizardAdapter] restartGateway: start
-2026-04-05T10:03:18.037Z [gateway][restart] phase="begin" port=18789
-2026-04-05T10:03:18.037Z [gateway][stop] status="sending-sigterm"
-2026-04-05T10:03:18.045Z [gateway][exit] code=null signal="SIGTERM"
-2026-04-05T10:03:18.849Z [gateway][restart] phase="spawning" port=18789
-2026-04-05T10:03:18.850Z [gateway] resolveBundledNode (dev): node
-2026-04-05T10:03:18.851Z [gateway] resolveOpenclaw (dev): D:\workspace\heyuan\openclaw\openclaw.mjs exists=true
-2026-04-05T10:03:18.851Z [gateway][spawn] node="node" entry="D:\\workspace\\heyuan\\openclaw\\openclaw.mjs" port=18789 force=true cwd="D:\\workspace\\heyuan\\openclaw"
-2026-04-05T10:03:18.855Z [gateway][wait-ready] port=18789 timeoutMs=15000
-2026-04-05T10:03:21.694Z [gateway:stdout] [90m2026-04-05T18:03:21.692+08:00[39m [36m[gateway][39m [36mforce: no listeners on port 18789[39m
-2026-04-05T10:03:21.869Z [gateway:stdout] [90m2026-04-05T18:03:21.867+08:00[39m [35m[canvas][39m [36mhost mounted at http://127.0.0.1:18789/__openclaw__/canvas/ (root C:\Users\dongk\.openclaw\canvas)[39m
-2026-04-05T10:03:22.167Z [gateway:stdout] [90m2026-04-05T18:03:22.165+08:00[39m [36m[heartbeat][39m [36mstarted[39m
-2026-04-05T10:03:22.170Z [gateway:stdout] [90m2026-04-05T18:03:22.168+08:00[39m [32m[health-monitor][39m [36mstarted (interval: 300s, startup-grace: 60s, channel-connect-grace: 120s)[39m
-2026-04-05T10:03:22.177Z [gateway:stdout] [90m2026-04-05T18:03:22.174+08:00[39m [36m[gateway][39m [36magent model: [97mminimax-cn/MiniMax-M2.5[39m[36m[39m
-2026-04-05T10:03:22.179Z [gateway:stdout] [90m2026-04-05T18:03:22.177+08:00[39m [36m[gateway][39m [36mlistening on ws://127.0.0.1:18789, ws://[::1]:18789 (PID 29588)[39m
-2026-04-05T10:03:22.182Z [gateway:stdout] [90m2026-04-05T18:03:22.180+08:00[39m [36m[gateway][39m [36mlog file: C:\Users\dongk\AppData\Local\Temp\openclaw\openclaw-2026-04-05.log[39m
-2026-04-05T10:03:22.196Z [gateway][ready] port=18789
-2026-04-05T10:03:22.196Z [gateway][restart] phase="complete" port=18789
-2026-04-05T10:03:22.197Z [renderer][INFO] [ElectronWizardAdapter] restartGateway: ok (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:22.197Z [renderer] [ElectronWizardAdapter] restartGateway: ok
-2026-04-05T10:03:22.198Z [renderer][INFO] [ElectronWizardAdapter] onComplete callback: calling (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:22.198Z [renderer] [ElectronWizardAdapter] onComplete callback: calling
-2026-04-05T10:03:22.199Z [renderer][INFO] [Setup] onComplete callback (http://localhost:5174/src/setup.tsx:33)
-2026-04-05T10:03:22.199Z [renderer][INFO] [ElectronWizardAdapter] notifyOnboardingComplete: calling (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:22.200Z [renderer] [ElectronWizardAdapter] notifyOnboardingComplete: calling
-2026-04-05T10:03:22.200Z [main] Onboarding 完成，切换到 ui-react 主界面
-2026-04-05T10:03:22.201Z [window] loadRendererPage: page=index type=url path/url=http://localhost:5174/
-2026-04-05T10:03:22.201Z [window] loadURL: http://localhost:5174/?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=88f2927db0d2b5e47c579055c3ea83fa3318b569de32cf838af646baaaaa853a
-2026-04-05T10:03:22.203Z [renderer][INFO] [ElectronWizardAdapter] notifyOnboardingComplete: done (http://localhost:5174/src/adapters/ElectronWizardAdapter.ts:13)
-2026-04-05T10:03:22.203Z [renderer] [ElectronWizardAdapter] notifyOnboardingComplete: done
-2026-04-05T10:03:22.242Z [gateway:stdout] [90m2026-04-05T18:03:22.240+08:00[39m [36m[browser/server][39m [36mBrowser control listening on http://127.0.0.1:18791/ (auth=token)[39m
-2026-04-05T10:03:23.165Z [renderer][INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold (http://localhost:5174/node_modules/.vite/deps/react-dom_client.js?v=15ae0bac:20103)
-2026-04-05T10:03:23.200Z [window] dom-ready
-2026-04-05T10:03:23.201Z [window] ready-to-show 触发，显示窗口 (page=index)
-2026-04-05T10:03:23.205Z [window] did-finish-load
-2026-04-05T10:03:23.323Z [renderer][INFO] [gateway] connect() called | prev client serial= none (http://localhost:5174/src/hooks/useGateway.ts:326)
-2026-04-05T10:03:23.324Z [renderer][INFO] [gateway] connect() using url=ws://127.0.0.1:18789 token=88f2927d... (http://localhost:5174/src/hooks/useGateway.ts:332)
-2026-04-05T10:03:23.325Z [renderer][INFO] [gateway:1] GatewayClient created, url=ws://127.0.0.1:18789 (http://localhost:5174/src/hooks/useGateway.ts:12)
-2026-04-05T10:03:23.326Z [renderer][INFO] [gateway:1] start() (http://localhost:5174/src/hooks/useGateway.ts:24)
-2026-04-05T10:03:23.326Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://localhost:5174/src/hooks/useGateway.ts:55)
-2026-04-05T10:03:23.383Z [renderer][INFO] [gateway:1] ws open (http://localhost:5174/src/hooks/useGateway.ts:58)
-2026-04-05T10:03:23.396Z [renderer][INFO] [gateway:1] sendConnect() token=88f2927d... nonce=52aedf8c-dc6d-4b25-833e-5ded007d1c6c (http://localhost:5174/src/hooks/useGateway.ts:97)
-2026-04-05T10:03:23.471Z [gateway:stdout] [90m2026-04-05T18:03:23.469+08:00[39m [36m[gateway][39m [36mdevice pairing auto-approved device=50e271caf4eb5125f82f3403039687c98baea0e7049ed0963d67a8d5d23c1ea5 role=operator[39m
-2026-04-05T10:03:23.476Z [gateway:stdout] [90m2026-04-05T18:03:23.473+08:00[39m [36m[ws][39m [36mwebchat connected conn=b6004f09-d202-4c20-9e00-e9281f26b521 remote=127.0.0.1 client=openclaw-control-ui webchat vcontrol-ui-react[39m
-2026-04-05T10:03:23.479Z [renderer][INFO] [gateway] hello-ok 2026.4.1 (http://localhost:5174/src/hooks/useGateway.ts:338)
-2026-04-05T10:03:23.524Z [renderer][INFO] [loadHistory] pipeline (http://localhost:5174/src/hooks/useSessionManager.ts:77)
-2026-04-05T10:03:23.526Z [renderer][INFO] raw=0 → merged=0 → normalized=0 → consolidated=0 (http://localhost:5174/src/hooks/useSessionManager.ts:78)
-2026-04-05T10:03:23.527Z [renderer][INFO] console.groupEnd (http://localhost:5174/src/hooks/useSessionManager.ts:84)
-2026-04-05T10:03:25.113Z [gateway:stdout] [90m2026-04-05T18:03:25.111+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1mconfig.get[22m [2m1593ms[22m [2mconn[22m=[90mb6004f09…b521[39m[36m [2mid[22m=[90medb9fdfb…b378[39m[36m[39m
-2026-04-05T10:03:25.896Z [gateway:stderr] [90m2026-04-05T18:03:25.894+08:00[39m [31m[bonjour][39m [33mgateway name conflict resolved; newName="dongkui_MBP (OpenClaw) (2)"[39m
-2026-04-05T10:03:25.898Z [gateway:stderr] [90m2026-04-05T18:03:25.896+08:00[39m [31m[bonjour][39m [33mgateway hostname conflict resolved; newHostname="openclaw-(2)"[39m
-2026-04-05T10:03:28.287Z [renderer][INFO] [loadHistory] pipeline (http://localhost:5174/src/hooks/useSessionManager.ts:77)
-2026-04-05T10:03:28.288Z [renderer][INFO] raw=0 → merged=0 → normalized=0 → consolidated=0 (http://localhost:5174/src/hooks/useSessionManager.ts:78)
-2026-04-05T10:03:28.288Z [renderer][INFO] console.groupEnd (http://localhost:5174/src/hooks/useSessionManager.ts:84)
-2026-04-05T10:03:32.605Z [gateway:stdout] [90m2026-04-05T18:03:32.603+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [91m✗[39m[36m [1magents.identity[22m [2m0ms[22m [2merrorCode[22m=INVALID_REQUEST [2merrorMessage[22m=unknown method: agents.identity [2mconn[22m=[90mb6004f09…b521[39m[36m [2mid[22m=[90mf63a63ce…013b[39m[36m[39m
-2026-04-05T10:03:32.633Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://localhost:5174/node_modules/.vite/deps/chunk-WGRTRFS2.js?v=909a1dd6:1432)
-2026-04-05T10:03:33.151Z [gateway:stdout] [90m2026-04-05T18:03:33.148+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1mskills.status[22m [2m511ms[22m [2mconn[22m=[90mb6004f09…b521[39m[36m [2mid[22m=[90m868ec1e2…7323[39m[36m[39m
-2026-04-05T10:03:33.174Z [gateway:stdout] [90m2026-04-05T18:03:33.172+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1magents.files.get[22m [2m536ms[22m [2mconn[22m=[90mb6004f09…b521[39m[36m [2mid[22m=[90m9ea075f0…a7b5[39m[36m[39m
-2026-04-05T10:03:33.176Z [gateway:stdout] [90m2026-04-05T18:03:33.175+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1magents.files.get[22m [2m542ms[22m [2mconn[22m=[90mb6004f09…b521[39m[36m [2mid[22m=[90md36ec66b…f1f5[39m[36m[39m
-2026-04-05T10:03:33.191Z [gateway:stdout] [90m2026-04-05T18:03:33.189+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1magents.files.list[22m [2m554ms[22m [2mconn[22m=[90mb6004f09…b521[39m[36m [2mid[22m=[90mbd0e5df8…e696[39m[36m[39m
-2026-04-05T10:03:35.633Z [gateway:stdout] [90m2026-04-05T18:03:35.631+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [91m✗[39m[36m [1magents.identity[22m [2m0ms[22m [2merrorCode[22m=INVALID_REQUEST [2merrorMessage[22m=unknown method: agents.identity [2mconn[22m=[90mb6004f09…b521[39m[36m [2mid[22m=[90mbc3071ed…5e9d[39m[36m[39m
-2026-04-05T10:03:36.798Z [renderer][INFO] [loadHistory] pipeline (http://localhost:5174/src/hooks/useSessionManager.ts:77)
-2026-04-05T10:03:36.799Z [renderer][INFO] raw=0 → merged=0 → normalized=0 → consolidated=0 (http://localhost:5174/src/hooks/useSessionManager.ts:78)
-2026-04-05T10:03:36.800Z [renderer][INFO] console.groupEnd (http://localhost:5174/src/hooks/useSessionManager.ts:84)
-2026-04-05T10:03:41.229Z [gateway:stdout] [90m2026-04-05T18:03:41.227+08:00[39m [36m[ws][39m [36mwebchat disconnected code=1001 reason=n/a conn=b6004f09-d202-4c20-9e00-e9281f26b521[39m
-2026-04-05T10:03:41.363Z [renderer][INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold (http://localhost:5174/node_modules/.vite/deps/react-dom_client.js?v=15ae0bac:20103)
-2026-04-05T10:03:41.385Z [window] dom-ready
-2026-04-05T10:03:41.388Z [window] did-finish-load
-2026-04-05T10:03:41.494Z [renderer][INFO] [gateway] connect() called | prev client serial= none (http://localhost:5174/src/hooks/useGateway.ts:326)
-2026-04-05T10:03:41.494Z [renderer][INFO] [gateway] connect() using url=ws://127.0.0.1:18789 token=88f2927d... (http://localhost:5174/src/hooks/useGateway.ts:332)
-2026-04-05T10:03:41.495Z [renderer][INFO] [gateway:1] GatewayClient created, url=ws://127.0.0.1:18789 (http://localhost:5174/src/hooks/useGateway.ts:12)
-2026-04-05T10:03:41.495Z [renderer][INFO] [gateway:1] start() (http://localhost:5174/src/hooks/useGateway.ts:24)
-2026-04-05T10:03:41.496Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://localhost:5174/src/hooks/useGateway.ts:55)
-2026-04-05T10:03:41.537Z [renderer][INFO] [gateway:1] ws open (http://localhost:5174/src/hooks/useGateway.ts:58)
-2026-04-05T10:03:41.550Z [renderer][INFO] [gateway:1] sendConnect() token=88f2927d... nonce=2bb3554b-6155-4962-8dde-033c885f8248 (http://localhost:5174/src/hooks/useGateway.ts:97)
-2026-04-05T10:03:41.569Z [gateway:stdout] [90m2026-04-05T18:03:41.567+08:00[39m [36m[ws][39m [36mwebchat connected conn=c47b0e30-ce39-48bb-9f21-b45b5f8018d2 remote=127.0.0.1 client=openclaw-control-ui webchat vcontrol-ui-react[39m
-2026-04-05T10:03:41.575Z [renderer][INFO] [gateway] hello-ok 2026.4.1 (http://localhost:5174/src/hooks/useGateway.ts:338)
-2026-04-05T10:03:41.608Z [renderer][INFO] [loadHistory] pipeline (http://localhost:5174/src/hooks/useSessionManager.ts:77)
-2026-04-05T10:03:41.609Z [renderer][INFO] raw=0 → merged=0 → normalized=0 → consolidated=0 (http://localhost:5174/src/hooks/useSessionManager.ts:78)
-2026-04-05T10:03:41.609Z [renderer][INFO] console.groupEnd (http://localhost:5174/src/hooks/useSessionManager.ts:84)
-2026-04-05T10:03:48.755Z [gateway:stdout] [90m2026-04-05T18:03:48.753+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [91m✗[39m[36m [1magents.identity[22m [2m0ms[22m [2merrorCode[22m=INVALID_REQUEST [2merrorMessage[22m=unknown method: agents.identity [2mconn[22m=[90mc47b0e30…18d2[39m[36m [2mid[22m=[90mb1068468…4052[39m[36m[39m
-2026-04-05T10:03:48.778Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://localhost:5174/node_modules/.vite/deps/chunk-WGRTRFS2.js?v=909a1dd6:1432)
-2026-04-05T10:03:48.891Z [gateway:stdout] [90m2026-04-05T18:03:48.889+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1mskills.status[22m [2m110ms[22m [2mconn[22m=[90mc47b0e30…18d2[39m[36m [2mid[22m=[90mefc0c849…525a[39m[36m[39m
-2026-04-05T10:03:48.896Z [gateway:stdout] [90m2026-04-05T18:03:48.894+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1magents.files.get[22m [2m115ms[22m [2mconn[22m=[90mc47b0e30…18d2[39m[36m [2mid[22m=[90m26147d4e…8de3[39m[36m[39m
-2026-04-05T10:03:48.898Z [gateway:stdout] [90m2026-04-05T18:03:48.897+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1magents.files.get[22m [2m117ms[22m [2mconn[22m=[90mc47b0e30…18d2[39m[36m [2mid[22m=[90m36eaf683…1ce3[39m[36m[39m
-2026-04-05T10:03:48.912Z [gateway:stdout] [90m2026-04-05T18:03:48.911+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [92m✓[39m[36m [1magents.files.list[22m [2m131ms[22m [2mconn[22m=[90mc47b0e30…18d2[39m[36m [2mid[22m=[90m302f93c2…442d[39m[36m[39m
-2026-04-05T10:03:52.984Z [gateway:stdout] [90m2026-04-05T18:03:52.983+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [91m✗[39m[36m [1magents.identity[22m [2m0ms[22m [2merrorCode[22m=INVALID_REQUEST [2merrorMessage[22m=unknown method: agents.identity [2mconn[22m=[90mc47b0e30…18d2[39m[36m [2mid[22m=[90m0586e5bc…84ff[39m[36m[39m
-2026-04-05T10:03:55.840Z [renderer][INFO] [loadHistory] pipeline (http://localhost:5174/src/hooks/useSessionManager.ts:77)
-2026-04-05T10:03:55.841Z [renderer][INFO] raw=0 → merged=0 → normalized=0 → consolidated=0 (http://localhost:5174/src/hooks/useSessionManager.ts:78)
-2026-04-05T10:03:55.842Z [renderer][INFO] console.groupEnd (http://localhost:5174/src/hooks/useSessionManager.ts:84)
-2026-04-05T10:04:01.717Z [gateway:stdout] [90m2026-04-05T18:04:01.716+08:00[39m [36m[ws][39m [36m[93m⇄[39m[36m [1mres[22m [91m✗[39m[36m [1mchat.session.new[22m [2m1ms[22m [2merrorCode[22m=INVALID_REQUEST [2merrorMessage[22m=unknown method: chat.session.new [2mconn[22m=[90mc47b0e30…18d2[39m[36m [2mid[22m=[90mce76ebbe…16e1[39m[36m[39m
-2026-04-05T10:04:01.733Z [renderer][INFO] [loadHistory] pipeline (http://localhost:5174/src/hooks/useSessionManager.ts:77)
-2026-04-05T10:04:01.734Z [renderer][INFO] raw=0 → merged=0 → normalized=0 → consolidated=0 (http://localhost:5174/src/hooks/useSessionManager.ts:78)
-2026-04-05T10:04:01.734Z [renderer][INFO] console.groupEnd (http://localhost:5174/src/hooks/useSessionManager.ts:84)
-2026-04-05T10:04:03.567Z [gateway][stop] status="sending-sigterm"
-2026-04-05T10:04:03.577Z [gateway][exit] code=null signal="SIGTERM"
-2026-04-05T10:54:33.579Z [main] app 就绪前…
-2026-04-05T10:54:33.637Z [main] app.whenReady 完成；platform=win32 isPackaged=true resourcesPath=D:\bossim\resources
-2026-04-05T10:54:33.638Z [main] sessionToken 已生成
-2026-04-05T10:54:33.638Z [main] warmLoginShellEnv 启动
-2026-04-05T10:54:33.646Z [window] static server listening on http://127.0.0.1:56442
-2026-04-05T10:54:33.647Z [main] 静态 server 已启动，端口: 56442
-2026-04-05T10:54:33.647Z [main] warmLoginShellEnv 完成
-2026-04-05T10:54:33.647Z [main] 开始启动 Gateway…
-2026-04-05T10:54:33.648Z [main] patchConfigForElectron: updated controlUi.allowedOrigins=["http://127.0.0.1:18789","http://localhost:18789","file://","http://127.0.0.1:56442"]
-2026-04-05T10:54:33.649Z [main] patchConfigForElectron: wrote C:\Users\dongk\.openclaw\openclaw.json
-2026-04-05T10:54:33.649Z [gateway][start-gateway] phase="begin"
-2026-04-05T10:54:33.656Z [gateway][audit-extensions] status="ok" count=35 list="acpx(manifest=✓ pkg=✓) bluebubbles(manifest=✓ pkg=✓) copilot-proxy(manifest=✓ pkg=✓) device-pair(manifest=✓ pkg=✗) diagnostics-otel(manifest=✓ pkg=✓) diffs(manifest=✓ pkg=✓) discord(manifest=✓ pkg=✓) feishu(manifest=✓ pkg=✓) google-gemini-cli-auth(manifest=✓ pkg=✓) googlechat(manifest=✓ pkg=✓) imessage(manifest=✓ pkg=✓) irc(manifest=✓ pkg=✓) line(manifest=✓ pkg=✓) llm-task(manifest=✓ pkg=✓) lobster(manifest=✓ pkg=✓) matrix(manifest=✓ pkg=✓) mattermost(manifest=✓ pkg=✓) memory-core(manifest=✓ pkg=✓) memory-lancedb(manifest=✓ pkg=✓) minimax-portal-auth(manifest=✓ pkg=✓) msteams(manifest=✓ pkg=✓) nextcloud-talk(manifest=✓ pkg=✓) open-prose(manifest=✓ pkg=✓) openclaw-weixin(manifest=✓ pkg=✓) phone-control(manifest=✓ pkg=✗) qwen-portal-auth(manifest=✓ pkg=✗) shared(manifest=✗ pkg=✗) signal(manifest=✓ pkg=✓) slack(manifest=✓ pkg=✓) talk-voice(manifest=✓ pkg=✗) telegram(manifest=✓ pkg=✓) test-utils(manifest=✗ pkg=✗) thread-ownership(manifest=✓ pkg=✗) voice-call(manifest=✓ pkg=✓) whatsapp(manifest=✓ pkg=✓)"
-2026-04-05T10:54:33.668Z [gateway][audit-config-plugins] status="no-entries"
-2026-04-05T10:54:33.692Z [gateway][spawn-gateway] port=18789 force=false reason="config-port-no-instance"
-2026-04-05T10:54:33.693Z [gateway] resolveBundledNode (packaged): D:\bossim\resources\node\node.exe exists=true
-2026-04-05T10:54:33.693Z [gateway] resolveOpenclaw (packaged): D:\bossim\resources\openclaw\openclaw.mjs exists=true
-2026-04-05T10:54:33.693Z [gateway][path-check] node="✓" entry="✓"
-2026-04-05T10:54:33.694Z [gateway][resources-dir] count=6 items="app-update.yml,app.asar,control-ui-react,elevate.exe,node,openclaw"
-2026-04-05T10:54:33.694Z [gateway][spawn] node="D:\\bossim\\resources\\node\\node.exe" entry="D:\\bossim\\resources\\openclaw\\openclaw.mjs" port=18789 force=false cwd="D:\\bossim\\resources\\openclaw"
-2026-04-05T10:54:34.137Z [gateway][wait-ready] port=18789 timeoutMs=15000
-2026-04-05T10:54:49.196Z [ERROR] [main] Gateway 启动失败: Error: Gateway 未能在 15000ms 内在端口 18789 上就绪
-2026-04-05T10:54:49.197Z [main] activePort=18789 gatewayStarted=false
-2026-04-05T10:54:49.202Z [main] session 已配置
-2026-04-05T10:54:49.221Z [main] 主窗口已创建
-2026-04-05T10:54:49.221Z [main] isFirstLaunch=false
-2026-04-05T10:54:49.222Z [main] 已配置，加载主界面
-2026-04-05T10:54:49.222Z [window] loadRendererPage: page=index type=url path/url=http://127.0.0.1:56442/
-2026-04-05T10:54:49.223Z [window] loadURL: http://127.0.0.1:56442/?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=88f2927db0d2b5e47c579055c3ea83fa3318b569de32cf838af646baaaaa853a
-2026-04-05T10:54:49.230Z [updater] autoUpdater 已初始化
-2026-04-05T10:54:49.230Z [main] main() 完成
-2026-04-05T10:54:49.663Z [window] dom-ready
-2026-04-05T10:54:49.663Z [window] did-finish-load
-2026-04-05T10:54:49.686Z [renderer][INFO] [gateway] connect() called | prev client serial= none (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:49.687Z [renderer][INFO] [gateway] connect() using url=ws://127.0.0.1:18789 token=88f2927d... (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:49.687Z [renderer][INFO] [gateway:1] GatewayClient created, url=ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:49.687Z [renderer][INFO] [gateway:1] start() (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:49.688Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:49.709Z [window] ready-to-show 触发，显示窗口 (page=index)
-2026-04-05T10:54:50.772Z [gateway:stderr] [openclaw] Failed to start CLI: Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@google/genai' imported from D:\bossim\resources\openclaw\node_modules\@mariozechner\pi-ai\dist\providers\google.js
-2026-04-05T10:54:50.773Z [gateway:stderr]     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
-2026-04-05T10:54:50.774Z [gateway:stderr]     at packageResolve (node:internal/modules/esm/resolve:768:81)
-2026-04-05T10:54:50.774Z [gateway:stderr]     at moduleResolve (node:internal/modules/esm/resolve:859:18)
-2026-04-05T10:54:50.774Z [gateway:stderr]     at defaultResolve (node:internal/modules/esm/resolve:991:11)
-2026-04-05T10:54:50.775Z [gateway:stderr]     at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
-2026-04-05T10:54:50.775Z [gateway:stderr]     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
-2026-04-05T10:54:50.775Z [gateway:stderr]     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:765:52)
-2026-04-05T10:54:50.775Z [gateway:stderr]     at #resolve (node:internal/modules/esm/loader:701:17)
-2026-04-05T10:54:50.776Z [gateway:stderr]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:621:35)
-2026-04-05T10:54:50.776Z [gateway:stderr]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:160:33)
-2026-04-05T10:54:50.801Z [gateway][exit] code=1 signal=null
-2026-04-05T10:54:50.802Z [gateway][crash] code=1 signal=null intentionalStop=false reusingExternal=false
-2026-04-05T10:54:51.716Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:51.716Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:51.717Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:52.530Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:54.577Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:54.578Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:54.579Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:55.947Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:57.965Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:57.965Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:54:57.966Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:00.280Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:02.304Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:02.304Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:02.304Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:05.121Z [window] dom-ready
-2026-04-05T10:55:05.122Z [window] did-finish-load
-2026-04-05T10:55:05.140Z [renderer][INFO] [gateway] connect() called | prev client serial= none (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:05.141Z [renderer][INFO] [gateway] connect() using url=ws://127.0.0.1:18789 token=88f2927d... (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:05.141Z [renderer][INFO] [gateway:1] GatewayClient created, url=ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:05.142Z [renderer][INFO] [gateway:1] start() (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:05.142Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:07.204Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:07.205Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:07.205Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:08.006Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:09.247Z [updater] 检查更新中…
-2026-04-05T10:55:10.062Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:10.063Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:10.063Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:11.989Z [updater] 更新错误: Cannot find channel "beta.yml" update info: HttpError: 404 
-"method: GET url: https://files.aiverser.com/bossim/releases/beta.yml?noCache=1jlekgful\n\nPlease double check that your authentication token is correct. Due to security reasons, actual status maybe not reported, but 404.\n"
+2026-04-05T12:29:13.408Z [main] app 就绪前…
+2026-04-05T12:29:13.469Z [main] app.whenReady 完成；platform=win32 isPackaged=true resourcesPath=D:\bossim\resources
+2026-04-05T12:29:13.470Z [main] sessionToken 已生成
+2026-04-05T12:29:13.470Z [main] warmLoginShellEnv 启动
+2026-04-05T12:29:13.478Z [window] static server listening on http://127.0.0.1:58563
+2026-04-05T12:29:13.478Z [main] 静态 server 已启动，端口: 58563
+2026-04-05T12:29:13.479Z [main] warmLoginShellEnv 完成
+2026-04-05T12:29:13.479Z [main] 开始启动 Gateway…
+2026-04-05T12:29:13.479Z [main] patchConfigForElectron: skipped (Error: ENOENT: no such file or directory, open 'C:\Users\dongk\.openclaw\openclaw.json')
+2026-04-05T12:29:13.487Z [gateway][start-gateway] phase="begin"
+2026-04-05T12:29:13.489Z [gateway][audit-extensions] status="ok" count=35 list="acpx(manifest=✓ pkg=✓) bluebubbles(manifest=✓ pkg=✓) copilot-proxy(manifest=✓ pkg=✓) device-pair(manifest=✓ pkg=✗) diagnostics-otel(manifest=✓ pkg=✓) diffs(manifest=✓ pkg=✓) discord(manifest=✓ pkg=✓) feishu(manifest=✓ pkg=✓) google-gemini-cli-auth(manifest=✓ pkg=✓) googlechat(manifest=✓ pkg=✓) imessage(manifest=✓ pkg=✓) irc(manifest=✓ pkg=✓) line(manifest=✓ pkg=✓) llm-task(manifest=✓ pkg=✓) lobster(manifest=✓ pkg=✓) matrix(manifest=✓ pkg=✓) mattermost(manifest=✓ pkg=✓) memory-core(manifest=✓ pkg=✓) memory-lancedb(manifest=✓ pkg=✓) minimax-portal-auth(manifest=✓ pkg=✓) msteams(manifest=✓ pkg=✓) nextcloud-talk(manifest=✓ pkg=✓) open-prose(manifest=✓ pkg=✓) openclaw-weixin(manifest=✓ pkg=✓) phone-control(manifest=✓ pkg=✗) qwen-portal-auth(manifest=✓ pkg=✗) shared(manifest=✗ pkg=✗) signal(manifest=✓ pkg=✓) slack(manifest=✓ pkg=✓) talk-voice(manifest=✓ pkg=✗) telegram(manifest=✓ pkg=✓) test-utils(manifest=✗ pkg=✗) thread-ownership(manifest=✓ pkg=✗) voice-call(manifest=✓ pkg=✓) whatsapp(manifest=✓ pkg=✓)"
+2026-04-05T12:29:13.490Z [gateway][spawn-gateway] port=18789 force=true reason="no-config-token"
+2026-04-05T12:29:13.491Z [gateway] resolveBundledNode (packaged): D:\bossim\resources\node\node.exe exists=true
+2026-04-05T12:29:13.491Z [gateway] resolveOpenclaw (packaged): D:\bossim\resources\openclaw\openclaw.mjs exists=true
+2026-04-05T12:29:13.492Z [gateway][path-check] node="✓" entry="✓"
+2026-04-05T12:29:13.492Z [gateway][resources-dir] count=6 items="app-update.yml,app.asar,control-ui-react,elevate.exe,node,openclaw"
+2026-04-05T12:29:13.492Z [gateway][spawn] node="D:\\bossim\\resources\\node\\node.exe" entry="D:\\bossim\\resources\\openclaw\\openclaw.mjs" port=18789 force=true cwd="D:\\bossim\\resources\\openclaw"
+2026-04-05T12:29:13.862Z [gateway][wait-ready] port=18789 timeoutMs=15000
+2026-04-05T12:29:28.948Z [ERROR] [main] Gateway 启动失败: Error: Gateway 未能在 15000ms 内在端口 18789 上就绪
+2026-04-05T12:29:28.948Z [main] activePort=18789 gatewayStarted=false
+2026-04-05T12:29:28.953Z [main] session 已配置
+2026-04-05T12:29:28.972Z [main] 主窗口已创建
+2026-04-05T12:29:28.972Z [main] isFirstLaunch=true
+2026-04-05T12:29:28.973Z [main] 首次启动，加载 Setup Wizard
+2026-04-05T12:29:28.975Z [window] loadRendererPage: page=setup type=url path/url=http://127.0.0.1:58563/setup.html
+2026-04-05T12:29:28.975Z [window] loadURL: http://127.0.0.1:58563/setup.html?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=913dc7af5288d1633dd4122c2666d352ada37a19c25110b61bc499be5f269b74
+2026-04-05T12:29:28.986Z [updater] autoUpdater 已初始化
+2026-04-05T12:29:28.987Z [main] main() 完成
+2026-04-05T12:29:29.330Z [window] dom-ready
+2026-04-05T12:29:29.331Z [window] did-finish-load
+2026-04-05T12:29:29.333Z [renderer][INFO] [ElectronWizardAdapter] constructor: getConfig=function onComplete=function (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:29:29.333Z [renderer] [ElectronWizardAdapter] constructor: getConfig=function onComplete=function
+2026-04-05T12:29:29.354Z [window] ready-to-show 触发，显示窗口 (page=setup)
+2026-04-05T12:29:29.392Z [renderer][WARN] GSAP target null not found. https://gsap.com (http://127.0.0.1:58563/setup.js:1)
+2026-04-05T12:29:29.395Z [renderer][WARN] GSAP target null not found. https://gsap.com (http://127.0.0.1:58563/setup.js:1)
+2026-04-05T12:29:48.996Z [updater] 检查更新中…
+2026-04-05T12:29:51.240Z [updater] 更新错误: Cannot find channel "beta.yml" update info: HttpError: 404 
+"method: GET url: https://files.aiverser.com/bossim/releases/beta.yml?noCache=1jleptqih\n\nPlease double check that your authentication token is correct. Due to security reasons, actual status maybe not reported, but 404.\n"
 Headers: {
   "cf-cache-status": "DYNAMIC",
-  "cf-ray": "9e7804e1edea75d9-SEA",
+  "cf-ray": "9e788f8a7deeb9d4-SEA",
   "content-encoding": "zstd",
   "content-type": "text/html",
-  "date": "Sun, 05 Apr 2026 10:55:11 GMT",
+  "date": "Sun, 05 Apr 2026 12:29:51 GMT",
   "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
-  "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=I9ynuFnEfh9YQ84smwHVlsTBy7calL3eoFVQ39%2BlRnlE9%2Fi6pmIo2hM93wvnGAp4lchkEtAcpHLv1M0jVrpp4t3sS0KCxIH88KqTWF4XkwSD0i5qx0U1impSpLVY%2FdaiGyns2%2FGIRavXKIw9wU0ZTck%3D\"}]}",
+  "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=xB%2FTrFy0uP2b0JhB05GoKuMYb5At%2BXQv89HidV2ZTsQCqqPwBAw1brsCz0EMsR8RdOcLDFn8x%2FohOOB%2Fub6cAsc6bU55G0DO8l71RJyPg%2FA7kmTnmqSsYYguS0HqGVxeQE3z1B6x30o3XwRbZngSqJk%3D\"}]}",
   "server": "cloudflare"
 }
     at createHttpError (D:\bossim\resources\app.asar\node_modules\builder-util-runtime\out\httpExecutor.js:21:12)
@@ -256,16 +52,16 @@ Headers: {
     at ClientRequest.emit (node:events:519:28)
     at SimpleURLLoaderWrapper.<anonymous> (node:electron/js2c/browser_init:2:114720)
     at SimpleURLLoaderWrapper.emit (node:events:519:28)
-2026-04-05T10:55:11.989Z [updater] checkForUpdates 异常: Error: Cannot find channel "beta.yml" update info: HttpError: 404 
-"method: GET url: https://files.aiverser.com/bossim/releases/beta.yml?noCache=1jlekgful\n\nPlease double check that your authentication token is correct. Due to security reasons, actual status maybe not reported, but 404.\n"
+2026-04-05T12:29:51.240Z [updater] checkForUpdates 异常: Error: Cannot find channel "beta.yml" update info: HttpError: 404 
+"method: GET url: https://files.aiverser.com/bossim/releases/beta.yml?noCache=1jleptqih\n\nPlease double check that your authentication token is correct. Due to security reasons, actual status maybe not reported, but 404.\n"
 Headers: {
   "cf-cache-status": "DYNAMIC",
-  "cf-ray": "9e7804e1edea75d9-SEA",
+  "cf-ray": "9e788f8a7deeb9d4-SEA",
   "content-encoding": "zstd",
   "content-type": "text/html",
-  "date": "Sun, 05 Apr 2026 10:55:11 GMT",
+  "date": "Sun, 05 Apr 2026 12:29:51 GMT",
   "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
-  "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=I9ynuFnEfh9YQ84smwHVlsTBy7calL3eoFVQ39%2BlRnlE9%2Fi6pmIo2hM93wvnGAp4lchkEtAcpHLv1M0jVrpp4t3sS0KCxIH88KqTWF4XkwSD0i5qx0U1impSpLVY%2FdaiGyns2%2FGIRavXKIw9wU0ZTck%3D\"}]}",
+  "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=xB%2FTrFy0uP2b0JhB05GoKuMYb5At%2BXQv89HidV2ZTsQCqqPwBAw1brsCz0EMsR8RdOcLDFn8x%2FohOOB%2Fub6cAsc6bU55G0DO8l71RJyPg%2FA7kmTnmqSsYYguS0HqGVxeQE3z1B6x30o3XwRbZngSqJk%3D\"}]}",
   "server": "cloudflare"
 }
     at createHttpError (D:\bossim\resources\app.asar\node_modules\builder-util-runtime\out\httpExecutor.js:21:12)
@@ -274,216 +70,122 @@ Headers: {
     at ClientRequest.emit (node:events:519:28)
     at SimpleURLLoaderWrapper.<anonymous> (node:electron/js2c/browser_init:2:114720)
     at SimpleURLLoaderWrapper.emit (node:events:519:28)
-2026-04-05T10:55:12.211Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:14.257Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:14.257Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:14.258Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:17.210Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:19.232Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:19.233Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:19.233Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:23.212Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:25.246Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:25.247Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:25.248Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:32.197Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:34.299Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:34.300Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:34.300Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:46.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:48.288Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:48.289Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:55:48.289Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:04.208Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:06.356Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:06.356Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:06.357Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:22.207Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:24.587Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:24.588Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:24.589Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:40.207Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:42.570Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:42.571Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:42.572Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:56:58.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:00.236Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:00.237Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:00.238Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:16.208Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:18.239Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:18.240Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:18.241Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:34.208Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:36.223Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:36.224Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:36.225Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:52.208Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:54.239Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:54.240Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:57:54.241Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:10.208Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:12.240Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:12.241Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:12.241Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:28.207Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:30.241Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:30.242Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:30.242Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:46.209Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:48.252Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:48.253Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:58:48.254Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:04.207Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:06.250Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:06.251Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:06.252Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:22.202Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:24.237Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:24.238Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:24.239Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:40.203Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:42.234Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:42.235Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:42.236Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T10:59:58.202Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:00.221Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:00.222Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:00.222Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:16.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:18.255Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:18.256Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:18.257Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:34.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:36.238Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:36.239Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:36.239Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:52.204Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:54.254Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:54.255Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:00:54.256Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:10.206Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:12.239Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:12.239Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:12.240Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:28.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:30.236Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:30.237Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:30.238Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:46.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:48.237Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:48.237Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:01:48.238Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:04.207Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:06.228Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:06.229Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:06.229Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:22.207Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:24.253Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:24.254Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:24.255Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:40.206Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:42.249Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:42.250Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:42.251Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:02:58.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:00.236Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:00.237Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:00.238Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:16.204Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:18.235Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:18.237Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:18.238Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:34.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:36.252Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:36.253Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:36.254Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:52.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:54.249Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:54.250Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:03:54.250Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:10.201Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:12.250Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:12.251Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:12.252Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:28.207Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:30.237Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:30.238Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:30.239Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:46.205Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:48.252Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:48.253Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:04:48.254Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:04.206Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:06.220Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:06.221Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:06.221Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:22.203Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:24.233Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:24.233Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:24.234Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:40.203Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:42.219Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:42.220Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:42.220Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:05:58.213Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:00.227Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:00.228Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:00.229Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:16.210Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:18.257Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:18.258Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:18.259Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:34.211Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:36.243Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:36.243Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:36.244Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:52.213Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:54.260Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:54.261Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:06:54.262Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:10.213Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:12.256Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:12.257Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:12.258Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:28.213Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:30.243Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:30.244Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:30.245Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:46.212Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:48.226Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:48.227Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:07:48.228Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:04.206Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:06.237Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:06.238Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:06.238Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:22.210Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:24.239Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:24.241Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:24.242Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:40.213Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:42.244Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:42.245Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:42.246Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:08:58.212Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:00.274Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:00.275Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:00.276Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:16.211Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:18.241Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:18.242Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:18.243Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:34.213Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:36.243Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:36.244Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:36.245Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:52.212Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:54.241Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:54.243Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:09:54.244Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:10:10.217Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:10:12.261Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:10:12.262Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:10:12.263Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:56442/main.js:10)
-2026-04-05T11:10:25.410Z [gateway][stop] status="skipped" reason="no-process"
+2026-04-05T12:30:11.588Z [renderer][INFO] [ElectronWizardAdapter] validateInviteCode: code=BOSS-AXB... (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:11.589Z [renderer] [ElectronWizardAdapter] validateInviteCode: code=BOSS-AXB...
+2026-04-05T12:30:11.590Z [main] validateInviteCode: code=BOSS-AXB...
+2026-04-05T12:30:11.590Z [validateInviteCode] code=BOSS-AXB... url=https://verse-ai-service-production-22b8.up.railway.app/api/v1/app/member/invite-code/redeem NODE_ENV=production INVITE_CODE_API_BASE_URL=(unset) appId=boss-simulator appSecret=sk_e...09d% isPackaged=true INVITE_CODE_APP_SECRET_env=(unset)
+2026-04-05T12:30:11.594Z [validateInviteCode] sending POST https://verse-ai-service-production-22b8.up.railway.app/api/v1/app/member/invite-code/redeem appId=boss-simulator timestamp=1775392211 nonce=c0c52daad220
+2026-04-05T12:30:13.153Z [validateInviteCode] HTTP 200 ok=true
+2026-04-05T12:30:13.155Z [validateInviteCode] response body={"domain":"verse-ai-service","code":200,"msg":"success","data":{"llm_model":"minimax-cn/MiniMax-M2.5","llm_api_key":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k"},"errors":null}
+2026-04-05T12:30:13.155Z [main] validateInviteCode result: {"ok":true,"apiKey":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k","model":"minimax-cn/MiniMax-M2.5"}
+2026-04-05T12:30:13.157Z [renderer][INFO] [ElectronWizardAdapter] validateInviteCode: success, model=minimax-cn/MiniMax-M2.5 (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:13.157Z [renderer] [ElectronWizardAdapter] validateInviteCode: success, model=minimax-cn/MiniMax-M2.5
+2026-04-05T12:30:16.405Z [renderer][INFO] [ElectronWizardAdapter] finalizeOnboarding: start (getConfig=function) caller=at ko.complete (http://127.0.0.1:58563/setup.js:175:9203) (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:16.406Z [renderer] [ElectronWizardAdapter] finalizeOnboarding: start (getConfig=function) caller=at ko.complete (http://127.0.0.1:58563/setup.js:175:9203)
+2026-04-05T12:30:16.407Z [renderer][INFO] [Setup] getConfig called, state: [object Object] (http://127.0.0.1:58563/setup.js:176)
+2026-04-05T12:30:16.407Z [renderer][INFO] [ElectronWizardAdapter] saveOnboardingConfig: {"authProviderGroup":"minimax-cn","authMethod":"apiKey","resolvedModelId":"minimax-cn/MiniMax-M2.5","secretInputMode":"plaintext","apiKey":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k","workspace":"~/.openclaw/workspace","optionalFeatures":{"messaging":false,"browser":true,"fileAccess":false},"gatewayPort":18789,"gatewayBind":"loopback","gatewayAuth":"token","installDaemon":true,"daemonRuntime":"node","currentStep":0,"isComplete":false,"usedInviteCode":true} (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:16.408Z [renderer] [ElectronWizardAdapter] saveOnboardingConfig: {"authProviderGroup":"minimax-cn","authMethod":"apiKey","resolvedModelId":"minimax-cn/MiniMax-M2.5","secretInputMode":"plaintext","apiKey":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3w06QeQUTHUpWQrcAdbWr7mCu8npP4xEC_N3U89vULcMujncxEvxbDPyN3bVk1SU0k","workspace":"~/.openclaw/workspace","optionalFeatures":{"messaging":false,"browser":true,"fileAccess":false},"gatewayPort":18789,"gatewayBind":"loopback","gatewayAuth":"token","installDaemon":true,"daemonRuntime":"node","currentStep":0,"isComplete":false,"usedInviteCode":true}
+2026-04-05T12:30:16.408Z [main] saveOnboardingConfig called: {"authProviderGroup":"minimax-cn","authMethod":"apiKey","resolvedModelId":"minimax-cn/MiniMax-M2.5","secretInputMode":"plaintext","apiKey":"sk-cp-J28Y3mID3Wr9LzpBRV8LMtVG8HDZ7eT4nqyodWhpxSPioVJ3q_YZp3
+2026-04-05T12:30:16.416Z [main] saveOnboardingConfig: success
+2026-04-05T12:30:16.417Z [renderer][INFO] [ElectronWizardAdapter] saveOnboardingConfig: success (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:16.417Z [renderer] [ElectronWizardAdapter] saveOnboardingConfig: success
+2026-04-05T12:30:16.417Z [renderer][INFO] [ElectronWizardAdapter] restartGateway: start (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:16.418Z [renderer] [ElectronWizardAdapter] restartGateway: start
+2026-04-05T12:30:16.424Z [gateway][restart] phase="begin" port=18789
+2026-04-05T12:30:16.424Z [gateway][stop] status="sending-sigterm"
+2026-04-05T12:30:16.430Z [gateway][exit] code=null signal="SIGTERM"
+2026-04-05T12:30:17.235Z [gateway][restart] phase="spawning" port=18789
+2026-04-05T12:30:17.236Z [gateway] resolveBundledNode (packaged): D:\bossim\resources\node\node.exe exists=true
+2026-04-05T12:30:17.236Z [gateway] resolveOpenclaw (packaged): D:\bossim\resources\openclaw\openclaw.mjs exists=true
+2026-04-05T12:30:17.237Z [gateway][path-check] node="✓" entry="✓"
+2026-04-05T12:30:17.237Z [gateway][resources-dir] count=6 items="app-update.yml,app.asar,control-ui-react,elevate.exe,node,openclaw"
+2026-04-05T12:30:17.237Z [gateway][spawn] node="D:\\bossim\\resources\\node\\node.exe" entry="D:\\bossim\\resources\\openclaw\\openclaw.mjs" port=18789 force=true cwd="D:\\bossim\\resources\\openclaw"
+2026-04-05T12:30:17.240Z [gateway][wait-ready] port=18789 timeoutMs=15000
+2026-04-05T12:30:32.340Z [renderer][INFO] [ElectronWizardAdapter] restartGateway: FAILED — Error: Gateway 未能在 15000ms 内在端口 18789 上就绪 (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:32.341Z [renderer] [ElectronWizardAdapter] restartGateway: FAILED — Error: Gateway 未能在 15000ms 内在端口 18789 上就绪
+2026-04-05T12:30:32.341Z [renderer][INFO] [ElectronWizardAdapter] onComplete callback: calling (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:32.342Z [renderer] [ElectronWizardAdapter] onComplete callback: calling
+2026-04-05T12:30:32.342Z [renderer][INFO] [Setup] onComplete callback (http://127.0.0.1:58563/setup.js:176)
+2026-04-05T12:30:32.342Z [renderer][INFO] [ElectronWizardAdapter] notifyOnboardingComplete: calling (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:32.343Z [renderer] [ElectronWizardAdapter] notifyOnboardingComplete: calling
+2026-04-05T12:30:32.343Z [main] Onboarding 完成，切换到 ui-react 主界面
+2026-04-05T12:30:32.343Z [window] loadRendererPage: page=index type=url path/url=http://127.0.0.1:58563/
+2026-04-05T12:30:32.343Z [window] loadURL: http://127.0.0.1:58563/?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=6781273dae69d9fc0b6f6ae15c7a09e2a972fe775798b774d753242159768d7e
+2026-04-05T12:30:32.344Z [renderer][INFO] [ElectronWizardAdapter] notifyOnboardingComplete: done (http://127.0.0.1:58563/setup.js:175)
+2026-04-05T12:30:32.345Z [renderer] [ElectronWizardAdapter] notifyOnboardingComplete: done
+2026-04-05T12:30:32.530Z [window] dom-ready
+2026-04-05T12:30:32.531Z [window] ready-to-show 触发，显示窗口 (page=index)
+2026-04-05T12:30:32.532Z [window] did-finish-load
+2026-04-05T12:30:32.548Z [renderer][INFO] [gateway] connect() called | prev client serial= none (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:32.548Z [renderer][INFO] [gateway] connect() using url=ws://127.0.0.1:18789 token=6781273d... (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:32.549Z [renderer][INFO] [gateway:1] GatewayClient created, url=ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:32.549Z [renderer][INFO] [gateway:1] start() (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:32.550Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:34.568Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:34.568Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:34.569Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:35.371Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:37.398Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:37.399Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:37.400Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:38.764Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:39.915Z [window] dom-ready
+2026-04-05T12:30:39.915Z [window] did-finish-load
+2026-04-05T12:30:39.930Z [renderer][INFO] [gateway] connect() called | prev client serial= none (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:39.930Z [renderer][INFO] [gateway] connect() using url=ws://127.0.0.1:18789 token=6781273d... (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:39.931Z [renderer][INFO] [gateway:1] GatewayClient created, url=ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:39.931Z [renderer][INFO] [gateway:1] start() (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:39.931Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:41.965Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:41.965Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:41.966Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:42.778Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:44.814Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:44.815Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:44.815Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:46.179Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:48.205Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:48.206Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:48.207Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:51.204Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:52.100Z [gateway:stdout] 2026-04-05T20:30:52.100+08:00 [gateway] force: no listeners on port 18789
+2026-04-05T12:30:52.392Z [gateway:stderr] 2026-04-05T20:30:52.387+08:00 Config overwrite: C:\Users\dongk\.openclaw\openclaw.json (sha256 9e44667f2495567253eadb5c639717f6e5ea817c3e63e89c87776f74bbc98abc -> 35dcff1fa59b90a437c5db38c339c9e5d7958e802398418469044ec33722e508, backup=C:\Users\dongk\.openclaw\openclaw.json.bak)
+2026-04-05T12:30:52.393Z [gateway:stderr] 2026-04-05T20:30:52.393+08:00 Config write anomaly: C:\Users\dongk\.openclaw\openclaw.json (missing-meta-before-write)
+2026-04-05T12:30:53.270Z [renderer][INFO] [gateway:1] ws error [object Event] (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:53.270Z [renderer][INFO] [gateway:1] ws close code=1006 reason=(none) wasClean=false (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:53.271Z [renderer][INFO] [gateway] closed code=1006 reason=(none) errorCode=(none) errorMsg=(none) (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:54.117Z [gateway:stderr] 2026-04-05T20:30:54.116+08:00 [gateway] Missing Control UI assets at D:\bossim\resources\openclaw\dist\control-ui\index.html. Build them with `pnpm ui:build` (auto-installs UI deps).
+2026-04-05T12:30:54.126Z [gateway:stdout] 2026-04-05T20:30:54.126+08:00 [canvas] host mounted at http://127.0.0.1:18789/__openclaw__/canvas/ (root C:\Users\dongk\.openclaw\canvas)
+2026-04-05T12:30:55.715Z [gateway:stdout] 2026-04-05T20:30:55.714+08:00 [heartbeat] started
+2026-04-05T12:30:55.718Z [gateway:stdout] 2026-04-05T20:30:55.718+08:00 [health-monitor] started (interval: 300s, startup-grace: 60s, channel-connect-grace: 120s)
+2026-04-05T12:30:55.722Z [gateway:stdout] 2026-04-05T20:30:55.721+08:00 [gateway] agent model: minimax-cn/MiniMax-M2.5
+2026-04-05T12:30:55.724Z [gateway:stdout] 2026-04-05T20:30:55.724+08:00 [gateway] listening on ws://127.0.0.1:18789, ws://[::1]:18789 (PID 30156)
+2026-04-05T12:30:55.726Z [gateway:stdout] 2026-04-05T20:30:55.726+08:00 [gateway] log file: C:\Users\dongk\AppData\Local\Temp\openclaw\openclaw-2026-04-05.log
+2026-04-05T12:30:55.790Z [gateway:stdout] 2026-04-05T20:30:55.790+08:00 [browser/server] Browser control listening on http://127.0.0.1:18791/ (auth=token)
+2026-04-05T12:30:58.209Z [renderer][INFO] [gateway:1] connect() opening WebSocket to ws://127.0.0.1:18789 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:58.228Z [renderer][INFO] [gateway:1] ws open (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:58.229Z [renderer][INFO] [gateway:1] sendConnect() token=6781273d... nonce=ecc3bec4-eeb9-4e92-a640-409e7d4cc6f5 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:58.316Z [gateway:stdout] 2026-04-05T20:30:58.316+08:00 [gateway] device pairing auto-approved device=2332d34ab724612e6818e1c3dd042c25f2d64005311a94edf59d3dab76b80639 role=operator
+2026-04-05T12:30:58.328Z [gateway:stdout] 2026-04-05T20:30:58.328+08:00 [ws] webchat connected conn=f246ac3f-1144-44cf-8458-57446c3a548d remote=127.0.0.1 client=openclaw-control-ui webchat vcontrol-ui-react
+2026-04-05T12:30:58.330Z [renderer][INFO] [gateway] hello-ok 2026.4.1 (http://127.0.0.1:58563/main.js:10)
+2026-04-05T12:30:59.307Z [gateway:stdout] 2026-04-05T20:30:59.307+08:00 [ws] ⇄ res ✓ config.get 954ms conn=f246ac3f…548d id=930d553d…d3b4
+2026-04-05T12:31:14.749Z [gateway:stdout] 2026-04-05T20:31:14.749+08:00 [ws] ⇄ res ✗ chat.session.new 0ms errorCode=INVALID_REQUEST errorMessage=unknown method: chat.session.new conn=f246ac3f…548d id=76e154f1…cb89
+2026-04-05T12:31:45.939Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:31:48.394Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:31:57.288Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:31:59.879Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:32:17.036Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:04.339Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:06.646Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:10.318Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:19.697Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:23.004Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:28.454Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:33.607Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:40.906Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:33:47.153Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:34:41.297Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:34:43.561Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:34:44.879Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:34:57.026Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)
+2026-04-05T12:34:59.412Z [renderer][WARN] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. (http://127.0.0.1:58563/chunks/index.js:53)

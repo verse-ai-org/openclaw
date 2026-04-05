@@ -289,7 +289,6 @@ dmg:
 
 win:
   icon: resources/icon.ico
-  signAndEditExecutable: false
   # URL Scheme for OAuth callbacks (openclaw://oauth/callback?...)
   protocols:
     - name: OpenClaw OAuth

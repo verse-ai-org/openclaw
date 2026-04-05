@@ -59,7 +59,7 @@ export function SecurityStep({ onCanProceedChange }: SecurityStepProps) {
         {/* Header */}
         <div className="flex flex-col gap-3">
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900">
-            Safety airst
+            Safety First
           </h1>
           <p className="text-slate-500 text-base leading-relaxed px-4">
             Our community thrives on mutual respect and physical safety. Please

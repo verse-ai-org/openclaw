@@ -36,6 +36,12 @@ import {
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
 import { initAutoUpdater, checkForUpdates, quitAndInstall } from "./updater.js";
 
+// Windows: taskbar / Start menu grouping use App User Model ID; must match electron-builder.yml `appId`
+// and be set before the app "ready" event (Electron docs).
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.verse.bossim");
+}
+
 // ─── Single-instance lock (required for Windows second-instance protocol) ─────
 // Must be called before app.whenReady().
 const gotLock = app.requestSingleInstanceLock();
