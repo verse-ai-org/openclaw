@@ -1,7 +1,7 @@
 {
   "name": "openclaw-electron",
   "private": true,
-  "version": "2026.4.1",
+  "version": "2026.4.5",
   "description": "OpenClaw Electron desktop client",
   "author": "OpenClaw Team",
   "type": "commonjs",
