@@ -14,6 +14,9 @@ export type GatewayAgentRow = {
     avatar?: string;
     avatarUrl?: string;
     theme?: string;
+    description?: string;
+    bio?: string;
+    summary?: string;
   };
   [key: string]: unknown;
 };

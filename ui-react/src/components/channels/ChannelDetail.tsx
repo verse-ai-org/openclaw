@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { relativeTime } from "@/components/channels/shared/utils";
+import { relativeTime } from "@/lib/relative-time";
 import { useChannelsStore } from "@/store/channels.store";
 import type {
   ChannelsStatusSnapshot,

@@ -24,7 +24,7 @@ export type UiSettings = {
 // Navigation tabs (mirrors ui/src/ui/navigation.ts)
 export type Tab =
   | "agents"
-  | "employee"
+  | "employees"
   | "overview"
   | "channels"
   | "instances"

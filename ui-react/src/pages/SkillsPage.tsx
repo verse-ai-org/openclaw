@@ -202,7 +202,11 @@ export function SkillsPage() {
 
         {/* Source filter */}
         <div className="flex items-center gap-3">
-          <SkillCategoryPills categories={SOURCE_FILTER_OPTIONS} active={sourceFilter} onChange={setSourceFilter} />
+          <SkillCategoryPills
+            categories={SOURCE_FILTER_OPTIONS}
+            active={sourceFilter}
+            onChange={(id) => setSourceFilter(id as SkillsSourceFilter)}
+          />
         </div>
 
         {/* Skills list */}

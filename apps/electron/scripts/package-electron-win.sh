@@ -104,6 +104,7 @@ install_runtime_dependencies() {
   generate_runtime_package_json
 
   (cd "$PROD_DEPLOY_DIR" && pnpm install --prod --no-frozen-lockfile --ignore-workspace)
+  bash "$ELECTRON_DIR/scripts/prune-electron-node-modules.sh" "$PROD_DEPLOY_DIR" "$ARCH" "win"
 }
 
 prune_runtime_dependencies() {

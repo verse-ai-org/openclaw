@@ -104,11 +104,15 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+const electronPnpmOverrides = packagedRuntimeConfig.electronPnpmOverrides ?? {};
 const pkg = {
   name: "openclaw-electron-runtime",
   private: true,
   type: "module",
   dependencies: Object.fromEntries(resolvedEntries),
+  ...(Object.keys(electronPnpmOverrides).length > 0
+    ? { pnpm: { overrides: electronPnpmOverrides } }
+    : {}),
 };
 
 fs.writeFileSync(path.join(outputDir, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`, "utf8");

@@ -37,6 +37,8 @@ extraResources:
       - "**/*"
       - "!**/*.map"        # 生产环境不需要 sourcemap
       - "!**/test*"
+      # Electron 使用 ui-react（Resources/control-ui-react）；旧 Lit control-ui 仅 CLI 需要，不必打进 app
+      - "!control-ui/**"
 
   # 运行时原生依赖（tsdown bundle 已内联大部分 JS 依赖，此处仅含含 .node 绑定的原生模块）
   # 由 package-electron.sh 中的 pnpm deploy --prod + 精简过滤展开到 resources/prod-node_modules/

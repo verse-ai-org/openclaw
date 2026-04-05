@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { SectionLabel } from "./shared";
 
@@ -137,7 +136,7 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
   const emoji = identityMd.emoji ?? ident?.emoji ?? "🤖";
   const avatar = ident?.avatarUrl;
   const creature = identityMd.creature ?? "AI Agent";
-  const vibe = identityMd.vibe ?? (ident?.description as string | undefined) ?? "";
+  const vibe = identityMd.vibe ?? ident?.description ?? "";
   const initials = name.slice(0, 2).toUpperCase();
 
   const startEdit = () => {
@@ -156,14 +155,6 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
     changeFileDraft("IDENTITY.md", nextContent);
     await saveFile("IDENTITY.md");
     setEditOpen(false);
-  };
-
-  const displayValueByKey: Record<keyof ParsedIdentity, string> = {
-    name,
-    creature,
-    vibe,
-    emoji,
-    avatar: avatar ?? "",
   };
 
   const placeholderByKey: Record<keyof ParsedIdentity, string> = {
@@ -200,9 +191,9 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
           <span>{name}</span>
           <Button
             type="button"
-            variant="icon"
-            size="sm"
-            className="h-7 rounded-full px-3 text-[11px] font-semibold"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 rounded-full"
             onClick={startEdit}
           >
             <Pencil className="size-4 text-black" />
@@ -236,7 +227,7 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
                   value={draft[k] ?? ""}
                   onChange={(e) => setDraft((prev) => ({ ...prev, [k]: e.target.value }))}
                   className="h-9 rounded-xl bg-white border border-[#E5E7EB] px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#BA0034]/20"
-                  placeholder={`Enter ${k}`}
+                  placeholder={placeholderByKey[k]}
                 />
               </div>
             ))}
@@ -271,7 +262,7 @@ export function ProfessionalSummarySection({ agentId }: { agentId: string }) {
   const row = agentsList?.agents.find((a) => a.id === agentId);
   const ident = row?.identity;
 
-  const bioOrSummary = (ident?.bio as string | undefined) ?? (ident?.summary as string | undefined);
+  const bioOrSummary = ident?.bio ?? ident?.summary;
   const fallback = identity?.name ?? row?.name
     ? `${identity?.name ?? row?.name ?? agentId} is an AI agent running on the OpenClaw ecosystem. It processes requests, executes tools, and coordinates tasks across connected channels and sessions.`
     : null;

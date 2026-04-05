@@ -1,6 +1,6 @@
 import type { ChannelAccountSnapshot } from "@/types/channels";
 import { cn } from "@/lib/utils";
-import { relativeTime } from "@/components/channels/shared/utils";
+import { relativeTime } from "@/lib/relative-time";
 
 function runningStatus(account: ChannelAccountSnapshot): string {
   if (account.running) return "Yes";

@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import { Loader2Icon, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
-import { SectionCard, SectionLabel } from "./shared";
+import { SectionCard } from "./shared";
 
 export function SoulSection({ agentId }: { agentId: string }) {
   const agentFilesList = useAgentsStore((s) => s.agentFilesList);

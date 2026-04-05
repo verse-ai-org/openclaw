@@ -150,7 +150,7 @@ const ToolCallGroupMulti: FC<PropsWithChildren<{ startIndex: number; endIndex: n
   const messageIsRunning = (message as { status?: { type: string } }).status?.type === "running";
 
   // Extract raw tool parts from message content for header summary
-  const rawContent = (message as { content?: unknown[] }).content ?? [];
+  const rawContent = (message as unknown as { content?: readonly unknown[] }).content ?? [];
   const toolParts = rawContent
     .slice(startIndex, endIndex + 1)
     .filter((p): p is RawToolPart => typeof p === "object" && p !== null && (p as RawToolPart).type === "tool-call");

@@ -1,4 +1,7 @@
 {
+  "electronPnpmOverrides": {
+    "openai": "6.27.0"
+  },
   "neverBundleDependencies": [
     "electron",
     "sharp",
@@ -8,9 +11,7 @@
     "@lydell/node-pty",
     "@napi-rs/canvas",
     "koffi",
-    "@matrix-org/matrix-sdk-crypto-nodejs",
     "@whiskeysockets/baileys",
-    "esbuild",
     "jiti"
   ],
   "coreRuntimeDependencies": [
@@ -57,7 +58,6 @@
     "opusscript",
     "partial-json",
     "mammoth",
-    "date-fns",
     "osc-progress",
     "pdf-parse",
     "pdfjs-dist",
@@ -111,7 +111,6 @@
     "koffi",
     "@matrix-org/matrix-sdk-crypto-nodejs",
     "@lancedb/lancedb",
-    "esbuild",
     "jiti"
   ],
   "preinstalledExtensions": [

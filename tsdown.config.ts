@@ -30,24 +30,6 @@ function buildInputOptions(options: { onLog?: unknown; [key: string]: unknown })
   };
 }
 
-function nodeBuildConfig(config: Record<string, unknown>) {
-  return {
-    ...config,
-    env,
-    fixedExtension: false,
-    platform: "node",
-    inputOptions: buildInputOptions,
-    outputOptions: {
-      entryFileNames: ({ name }: { name?: string }) => {
-        if (name === "index" || name === "entry" || name === "warning-filter") {
-          return "[name].js";
-        }
-        return "[name]-[hash].js";
-      },
-    },
-  };
-}
-
 const pluginSdkEntrypoints = [
   "index",
   "core",
@@ -72,7 +54,6 @@ const pluginSdkEntrypoints = [
   "irc",
   "llm-task",
   "lobster",
-  "matrix",
   "mattermost",
   "memory-core",
   "memory-lancedb",
@@ -86,14 +67,37 @@ const pluginSdkEntrypoints = [
   "talk-voice",
   "test-utils",
   "thread-ownership",
-  "tlon",
   "twitch",
   "voice-call",
-  "zalo",
-  "zalouser",
   "account-id",
   "keyed-async-queue",
 ] as const;
+
+/** Plugin-sdk entry names must stay stable (openclaw/package.json exports + loader resolution). */
+const PLUGIN_SDK_STABLE_ENTRY_NAMES = new Set<string>(pluginSdkEntrypoints as readonly string[]);
+
+function nodeBuildConfig(config: Record<string, unknown>) {
+  return {
+    ...config,
+    env,
+    fixedExtension: false,
+    platform: "node",
+    inputOptions: buildInputOptions,
+    outputOptions: {
+      entryFileNames: ({ name }: { name?: string }) => {
+        if (
+          name === "index" ||
+          name === "entry" ||
+          name === "warning-filter" ||
+          (name && PLUGIN_SDK_STABLE_ENTRY_NAMES.has(name))
+        ) {
+          return "[name].js";
+        }
+        return "[name]-[hash].js";
+      },
+    },
+  };
+}
 
 export default defineConfig([
   nodeBuildConfig({
@@ -124,12 +128,13 @@ export default defineConfig([
       "line/template-messages": "src/line/template-messages.ts",
     },
   }),
-  ...pluginSdkEntrypoints.map((entry) =>
-    nodeBuildConfig({
-      entry: `src/plugin-sdk/${entry}.ts`,
-      outDir: "dist/plugin-sdk",
-    }),
-  ),
+  // Single Rollup build graph so shared chunks dedupe across all plugin-sdk entries (was ~60MB of repeats).
+  nodeBuildConfig({
+    entry: Object.fromEntries(
+      pluginSdkEntrypoints.map((entry) => [entry, `src/plugin-sdk/${entry}.ts`]),
+    ),
+    outDir: "dist/plugin-sdk",
+  }),
   nodeBuildConfig({
     entry: "src/extensionAPI.ts",
   }),

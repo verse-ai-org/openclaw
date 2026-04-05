@@ -74,6 +74,7 @@ const tryImport = async (specifier) => {
   } catch (err) {
     // Only swallow missing-module errors; rethrow real runtime errors.
     if (isModuleNotFoundError(err)) {
+      process.stderr.write(`[tryImport] ${specifier} → ${err.message}\n`);
       return false;
     }
     throw err;

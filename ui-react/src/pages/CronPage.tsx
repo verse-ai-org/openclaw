@@ -7,11 +7,13 @@ import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import type { CronJob } from "@/types/agents";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/lib/relative-time";
 
 function relativeTime(ms?: number | null): string {
-  if (!ms) {return "—"};
-  return formatDistanceToNow(new Date(ms), { addSuffix: true });
+  if (!ms) {
+    return "—";
+  }
+  return formatDistanceToNow(new Date(ms));
 }
 
 function formatSchedule(job: CronJob): string {

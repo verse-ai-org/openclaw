@@ -117,7 +117,11 @@ function AddSkillsDialog({
 
         <div className="px-6 py-3 flex flex-col gap-3 border-b shrink-0">
           <DialogSearchInput value={q} onChange={setQ} placeholder="Search skills…" />
-          <CategoryPills categories={categories} active={cat} onChange={setCat} />
+          <CategoryPills
+            categories={categories}
+            active={cat}
+            onChange={(id) => setCat(id as SkillsSourceFilter)}
+          />
         </div>
 
         <ScrollArea className="flex-1 px-6 py-4 overflow-auto">
