@@ -177,30 +177,17 @@ export function useSessionManager() {
   );
 
   // Create a new session, optionally scoped to an agentId.
+  // Gateway has no chat.session.new; use client-side keys (same as previous catch fallback).
   const newSession = useCallback(
     async (agentId?: string) => {
       if (!client?.connected) {
         return;
       }
-      const localKey = agentId
+      const newKey = agentId
         ? `agent:${agentId}:${crypto.randomUUID().slice(0, 8)}`
         : crypto.randomUUID().slice(0, 8);
-      try {
-        const result = await client.request<{ sessionKey?: string }>(
-          "chat.session.new",
-          {},
-        );
-        const serverKey = result?.sessionKey;
-        const newKey =
-          agentId && serverKey && !serverKey.startsWith(`agent:${agentId}:`)
-            ? localKey
-            : (serverKey ?? localKey);
-        setSessions((prev) => [...prev, { key: newKey }]);
-        await switchSession(newKey);
-      } catch {
-        setSessions((prev) => [...prev, { key: localKey }]);
-        await switchSession(localKey);
-      }
+      setSessions((prev) => [...prev, { key: newKey }]);
+      await switchSession(newKey);
     },
     [client, switchSession],
   );

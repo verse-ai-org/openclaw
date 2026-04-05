@@ -22,6 +22,9 @@ Docs: https://docs.openclaw.ai
 
 ### Fixes
 
+- Electron: open top-level external links in the system browser and allow `https://img.alicdn.com` in the renderer CSP for common chat embeds.
+- Control UI: call `agent.identity.get`, create chat sessions with client-side keys (no `chat.session.new`), and fix Radix dialog description warnings without breaking dialogs that include `DialogDescription`.
+- Gateway: log `control-ui perf` timings for `config.get` and `chat.history` to help diagnose slow first-load RPCs.
 - Agents/text sanitization: strip leaked model control tokens (`<|...|>` and full-width `<｜...｜>` variants) from user-facing assistant text, preventing GLM-5 and DeepSeek internal delimiters from reaching end users. (#42173) Thanks @imwyvern.
 - Resolve web tool SecretRefs atomically at runtime. (#41599) Thanks @joshavant.
 - Feishu/local image auto-convert: pass `mediaLocalRoots` through the `sendText` local-image shim so allowed local image paths upload as Feishu images again instead of falling back to raw path text. (#40623) Thanks @ayanesakura.

@@ -755,6 +755,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       sessionKey: string;
       limit?: number;
     };
+    const perfStarted = Date.now();
     const { cfg, storePath, entry } = loadSessionEntry(sessionKey);
     const sessionId = entry?.sessionId;
     const rawMessages =
@@ -801,6 +802,9 @@ export const chatHandlers: GatewayRequestHandlers = {
       thinkingLevel,
       verboseLevel,
     });
+    context.logGateway.info(
+      `control-ui perf: chat.history totalMs=${Date.now() - perfStarted} messages=${bounded.messages.length} sessionKey=${sessionKey.length > 64 ? `${sessionKey.slice(0, 32)}…` : sessionKey}`,
+    );
   },
   "chat.abort": ({ params, respond, context }) => {
     if (!validateChatAbortParams(params)) {

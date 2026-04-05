@@ -43,6 +43,11 @@
 - [UserMessage.tsx](file://ui-react/src/components/chat/UserMessage.tsx)
 - [AssistantMessage.tsx](file://ui-react/src/components/chat/AssistantMessage.tsx)
 - [AddSkillDialog.tsx](file://ui-react/src/components/skills/AddSkillDialog.tsx)
+- [relative-time.ts](file://ui-react/src/lib/relative-time.ts)
+- [AgentSessionList.tsx](file://ui-react/src/components/chat/AgentSessionList.tsx)
+- [ChannelDetail.tsx](file://ui-react/src/components/channels/ChannelDetail.tsx)
+- [AccountCardList.tsx](file://ui-react/src/components/channels/shared/AccountCardList.tsx)
+- [CronPage.tsx](file://ui-react/src/pages/CronPage.tsx)
 - [session.md](file://docs/concepts/session.md)
 - [session-management-compaction.md](file://docs/reference/session-management-compaction.md)
 - [storage.ts](file://ui/src/ui/storage.ts)
@@ -67,6 +72,8 @@
 - 更新Sidebar组件系统，提供响应式布局和键盘快捷键支持
 - 增强聊天事件桥接功能，支持复杂的工具调用和流式处理
 - 优化技能状态管理，提供更直观的API密钥和环境变量管理
+- 新增相对时间格式化系统，提供本地化的相对时间显示
+- 更新聊天界面组件，增强消息显示和交互体验
 
 ## 目录
 1. [简介](#简介)
@@ -90,6 +97,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **新增Sonner Toast通知系统**：集成主题化通知、自定义图标和Next.js主题系统
 - **增强的Sidebar组件**：支持响应式布局、键盘快捷键和多种变体
 - **优化的聊天事件桥接**：支持复杂的工具调用和流式处理
+- **新增相对时间格式化系统**：提供本地化的相对时间显示，支持多语言环境
 
 该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。现代化的架构显著提升了用户体验和开发效率。
 
@@ -124,30 +132,35 @@ P --> V[chat/ - 聊天组件]
 P --> W[skills/ - 技能组件]
 P --> X[ui/ - shadcn/ui组件库]
 P --> Y[sonner.tsx - Sonner通知系统]
-X --> Z[sidebar.tsx - 响应式Sidebar]
-X --> AA[checkbox.tsx - 复选框]
-X --> BB[sheet.tsx - 弹窗]
-X --> CC[switch.tsx - 开关]
-Y --> DD[Toaster组件]
-Y --> EE[主题集成]
-Y --> FF[自定义图标]
-T --> GG[use-mobile.ts - 移动端检测]
-T --> HH[useSessionManager.ts - 会话管理]
-T --> II[useChatEventBridge.ts - 聊天事件桥接]
-Q --> JJ[chat.store.ts - 聊天状态]
-Q --> KK[skills.store.ts - 技能状态]
-Q --> LL[gateway.store.ts - 网关连接]
-Q --> MM[settings.store.ts - 设置管理]
-O --> NN[ChatPage.tsx - 聊天页面]
-O --> OO[SkillsPage.tsx - 技能页面]
-O --> PP[AppShell.tsx - 应用外壳]
-V --> QQ[ThreadView.tsx - 聊天线程]
-V --> RR[Composer.tsx - 消息Composer]
-V --> SS[UserMessage.tsx - 用户消息]
-V --> TT[AssistantMessage.tsx - 助手消息]
-W --> UU[SkillCard.tsx - 技能卡片]
-W --> VV[SkillsToolbar.tsx - 技能工具栏]
-W --> WW[AddSkillDialog.tsx - 技能导入对话框]
+P --> Z[relative-time.ts - 相对时间格式化]
+X --> AA[sidebar.tsx - 响应式Sidebar]
+X --> BB[checkbox.tsx - 复选框]
+X --> CC[sheet.tsx - 弹窗]
+X --> DD[switch.tsx - 开关]
+Y --> EE[Toaster组件]
+Y --> FF[主题集成]
+Y --> GG[自定义图标]
+T --> HH[use-mobile.ts - 移动端检测]
+T --> II[useSessionManager.ts - 会话管理]
+T --> JJ[useChatEventBridge.ts - 聊天事件桥接]
+Q --> KK[chat.store.ts - 聊天状态]
+Q --> LL[skills.store.ts - 技能状态]
+Q --> MM[gateway.store.ts - 网关连接]
+Q --> NN[settings.store.ts - 设置管理]
+O --> OO[ChatPage.tsx - 聊天页面]
+O --> PP[SkillsPage.tsx - 技能页面]
+O --> QQ[CronPage.tsx - 定时任务页面]
+O --> RR[AppShell.tsx - 应用外壳]
+V --> SS[ThreadView.tsx - 聊天线程]
+V --> TT[Composer.tsx - 消息Composer]
+V --> UU[UserMessage.tsx - 用户消息]
+V --> VV[AssistantMessage.tsx - 助手消息]
+V --> WW[AgentSessionList.tsx - 代理会话列表]
+W --> XX[SkillCard.tsx - 技能卡片]
+W --> YY[SkillsToolbar.tsx - 技能工具栏]
+W --> ZZ[AddSkillDialog.tsx - 技能导入对话框]
+Z --> AAA[formatDistanceToNow - 相对时间格式化]
+Z --> BBB[relativeTime - 时间显示函数]
 ```
 
 **图表来源**
@@ -156,6 +169,7 @@ W --> WW[AddSkillDialog.tsx - 技能导入对话框]
 - [router.tsx:1-42](file://ui-react/src/router.tsx#L1-L42)
 - [sidebar.tsx:1-694](file://ui-react/src/components/ui/sidebar.tsx#L1-L694)
 - [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
+- [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 - [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
 - [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
@@ -168,6 +182,10 @@ W --> WW[AddSkillDialog.tsx - 技能导入对话框]
 - [Composer.tsx:1-90](file://ui-react/src/components/chat/Composer.tsx#L1-L90)
 - [SkillCard.tsx:1-320](file://ui-react/src/components/skills/SkillCard.tsx#L1-L320)
 - [AddSkillDialog.tsx:1-305](file://ui-react/src/components/skills/AddSkillDialog.tsx#L1-L305)
+- [AgentSessionList.tsx:1-244](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L244)
+- [ChannelDetail.tsx:1-170](file://ui-react/src/components/channels/ChannelDetail.tsx#L1-L170)
+- [AccountCardList.tsx:1-84](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L1-L84)
+- [CronPage.tsx:1-184](file://ui-react/src/pages/CronPage.tsx#L1-L184)
 
 **章节来源**
 - [README.md:185-212](file://README.md#L185-L212)
@@ -625,6 +643,86 @@ E --> S[--border-radius变量]
 - [package.json:48](file://ui-react/package.json#L48)
 - [index.css:25-31](file://ui-react/src/index.css#L25-L31)
 
+### 现代化的相对时间格式化系统
+
+**新增** 完整的相对时间格式化系统，提供本地化的相对时间显示：
+
+```mermaid
+classDiagram
+class RelativeTimeFormatter {
++formatDistanceToNow(date : Date) string
++relativeTime(ms : number) string
++MS : TimeConstants
+}
+class TimeConstants {
++minute : number
++hour : number
++day : number
++week : number
++approxMonth : number
++approxYear : number
+}
+class IntlRelativeTimeFormat {
++format(value : number, unit : string) string
+}
+class FormatFunctions {
++formatRelative(ts : number) string
++relativeTime(ms : number) string
+}
+RelativeTimeFormatter --> TimeConstants : 使用
+RelativeTimeFormatter --> IntlRelativeTimeFormat : 使用
+FormatFunctions --> RelativeTimeFormatter : 调用
+```
+
+**图表来源**
+- [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
+- [AgentSessionList.tsx:23-33](file://ui-react/src/components/chat/AgentSessionList.tsx#L23-L33)
+- [ChannelDetail.tsx:3-3](file://ui-react/src/components/channels/ChannelDetail.tsx#L3-L3)
+- [AccountCardList.tsx:3-3](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L3-L3)
+- [CronPage.tsx:12-17](file://ui-react/src/pages/CronPage.tsx#L12-L17)
+
+#### 相对时间格式化特性
+
+```mermaid
+flowchart TD
+A[相对时间格式化系统] --> B[Intl.RelativeTimeFormat]
+A --> C[本地化支持]
+A --> D[多语言环境]
+A --> E[精确时间计算]
+B --> F[秒级精度]
+B --> G[分钟级精度]
+B --> H[小时级精度]
+B --> I[天级精度]
+B --> J[周级精度]
+B --> K[月级精度]
+B --> L[年级精度]
+C --> M[自动语言检测]
+C --> N[自定义格式选项]
+D --> O[浏览器本地化]
+D --> P[时区处理]
+E --> Q[毫秒精度]
+E --> R[时间差计算]
+F --> S["3 minutes ago"]
+G --> T["15 minutes ago"]
+H --> U["2 hours ago"]
+I --> V["Yesterday"]
+J --> W["3 weeks ago"]
+K --> X["2 months ago"]
+L --> Y["1 year ago"]
+```
+
+**图表来源**
+- [relative-time.ts:13-38](file://ui-react/src/lib/relative-time.ts#L13-L38)
+- [relative-time.ts:40-45](file://ui-react/src/lib/relative-time.ts#L40-L45)
+- [AgentSessionList.tsx:24-33](file://ui-react/src/components/chat/AgentSessionList.tsx#L24-L33)
+
+**章节来源**
+- [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
+- [AgentSessionList.tsx:23-33](file://ui-react/src/components/chat/AgentSessionList.tsx#L23-L33)
+- [ChannelDetail.tsx:3-3](file://ui-react/src/components/channels/ChannelDetail.tsx#L3-L3)
+- [AccountCardList.tsx:3-3](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L3-L3)
+- [CronPage.tsx:12-17](file://ui-react/src/pages/CronPage.tsx#L12-L17)
+
 ## 架构概览
 
 UI组件系统采用现代化的分层架构设计，实现了清晰的关注点分离：
@@ -653,59 +751,21 @@ T --> X[Markdown渲染]
 Y[Sonner通知系统] --> Z[主题化通知]
 Y --> AA[自定义图标]
 Y --> BB[Next.js主题集成]
-end
-subgraph "现代化状态管理层"
-CC[Zustand Store] --> DD[聊天状态管理]
-CC --> EE[技能状态管理]
-CC --> FF[网关连接状态]
-CC --> GG[用户设置状态]
-HH[聊天事件桥接] --> II[事件转换]
-HH --> JJ[状态更新]
-HH --> KK[错误处理]
-LL[会话管理器] --> MM[会话列表获取]
-LL --> NN[历史记录加载]
-LL --> OO[会话切换处理]
-end
-subgraph "现代化组件层"
-PP[shadcn/ui组件库] --> QQ[基础UI组件]
-PP --> RR[布局组件]
-PP --> SS[表单组件]
-QQ --> TT[Checkbox]
-QQ --> UU[Sheet]
-QQ --> VV[Switch]
-RR --> WW[Sidebar]
-RR --> XX[AppShell]
-SS --> YY[Button]
-SS --> ZZ[Input]
-SS --> AAA[Dialog]
-BBB[Sonner组件] --> CCC[Toaster组件]
-BBB --> DDD[主题集成]
-BBB --> EEE[图标系统]
-end
-subgraph "现代化数据传输层"
-FFF[WebSocket客户端] --> GG[实时事件]
-FFF --> HH[流式响应]
-FFF --> II[批量更新]
-JJJ[HTTP API] --> KK[配置读取]
-JJJ --> LL[日志获取]
-JJJ --> MM[会话列表]
-JJJ --> NN[技能状态查询]
-OOO[聊天事件桥接] --> PPP[事件转换]
-OOO --> QQ[状态同步]
-RRR[会话事件桥接] --> SS[历史重载回调]
-SS --> TT[聊天状态同步]
-end
-subgraph "现代化外部集成"
-UUU[Gateway协议] --> FFF
-VVV[assistant-ui/react] --> WWW[聊天框架]
-XXX[Radix UI] --> YYY[基础组件]
-ZZZ[Lucide React] --> AAAA[图标库]
-AAAA[use-mobile钩子] --> BBBB[移动端检测]
-BBBB --> CCCC[响应式设计]
-DDDD[useChatEventBridge] --> EEEE[事件桥接]
-EEEE --> FFFF[状态管理]
-GGGG[Next.js主题] --> HHHH[Sonner主题集成]
-HHHH --> IIII[CSS变量映射]
+CC[相对时间格式化] --> DD[Intl.RelativeTimeFormat]
+CC --> EE[本地化支持]
+CC --> FF[多语言环境]
+GG[AgentSessionList] --> HH[会话时间显示]
+GG --> II[修改时间格式化]
+JJ[ChannelDetail] --> KK[最后连接时间]
+JJ --> LL[账户活动时间]
+MM[AccountCardList] --> NN[最后收件时间]
+MM --> OO[运行状态显示]
+PP[CronPage] --> QQ[下次运行时间]
+PP --> RR[最后运行时间]
+QQ --> SS[定时任务状态]
+RR --> SS
+NN --> TT[通道活动监控]
+KK --> TT
 ```
 
 **图表来源**
@@ -714,10 +774,11 @@ HHHH --> IIII[CSS变量映射]
 - [SkillsPage.tsx:42-331](file://ui-react/src/pages/SkillsPage.tsx#L42-L331)
 - [sidebar.tsx:1-694](file://ui-react/src/components/ui/sidebar.tsx#L1-L694)
 - [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
-- [chat.store.ts:1-250](file://ui-react/src/store/chat.store.ts#L1-L250)
-- [skills.store.ts:1-312](file://ui-react/src/store/skills.store.ts#L1-L312)
-- [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
-- [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
+- [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
+- [AgentSessionList.tsx:1-244](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L244)
+- [ChannelDetail.tsx:1-170](file://ui-react/src/components/channels/ChannelDetail.tsx#L1-L170)
+- [AccountCardList.tsx:1-84](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L1-L84)
+- [CronPage.tsx:1-184](file://ui-react/src/pages/CronPage.tsx#L1-L184)
 
 ## 详细组件分析
 
@@ -1241,6 +1302,7 @@ O --> S
 P --> S
 Q --> S
 R --> S
+S --> T[样式应用]
 ```
 
 **图表来源**
@@ -1252,6 +1314,85 @@ R --> S
 - [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
 - [package.json:48](file://ui-react/package.json#L48)
 - [index.css:25-31](file://ui-react/src/index.css#L25-L31)
+
+### 现代化的相对时间格式化系统
+
+#### 相对时间格式化实现
+
+相对时间格式化系统提供了本地化的相对时间显示功能：
+
+```mermaid
+classDiagram
+class RelativeTimeFormatter {
++formatDistanceToNow(date : Date) string
++relativeTime(ms : number) string
++MS : TimeConstants
+}
+class TimeConstants {
++minute : 60000
++hour : 3600000
++day : 86400000
++week : 604800000
++approxMonth : 2592000000
++approxYear : 31536000000
+}
+class IntlRelativeTimeFormat {
++format(value : number, unit : string) string
+}
+class FormatFunctions {
++formatRelative(ts : number) string
++relativeTime(ms : number) string
+}
+RelativeTimeFormatter --> TimeConstants : 使用
+RelativeTimeFormatter --> IntlRelativeTimeFormat : 使用
+FormatFunctions --> RelativeTimeFormatter : 调用
+```
+
+**图表来源**
+- [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
+- [AgentSessionList.tsx:23-33](file://ui-react/src/components/chat/AgentSessionList.tsx#L23-L33)
+- [ChannelDetail.tsx:3-3](file://ui-react/src/components/channels/ChannelDetail.tsx#L3-L3)
+- [AccountCardList.tsx:3-3](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L3-L3)
+- [CronPage.tsx:12-17](file://ui-react/src/pages/CronPage.tsx#L12-L17)
+
+#### 相对时间格式化特性
+
+```mermaid
+flowchart TD
+A[相对时间格式化] --> B[Intl.RelativeTimeFormat]
+A --> C[本地化支持]
+A --> D[精确时间计算]
+B --> E[秒级精度]
+B --> F[分钟级精度]
+B --> G[小时级精度]
+B --> H[天级精度]
+B --> I[周级精度]
+B --> J[月级精度]
+B --> K[年级精度]
+C --> L[自动语言检测]
+C --> M[自定义格式选项]
+D --> N[毫秒精度]
+D --> O[时间差计算]
+E --> P["3 minutes ago"]
+F --> Q["15 minutes ago"]
+G --> R["2 hours ago"]
+H --> S["Yesterday"]
+I --> T["3 weeks ago"]
+J --> U["2 months ago"]
+K --> V["1 year ago"]
+```
+
+**图表来源**
+- [relative-time.ts:13-38](file://ui-react/src/lib/relative-time.ts#L13-L38)
+- [relative-time.ts:40-45](file://ui-react/src/lib/relative-time.ts#L40-L45)
+- [AgentSessionList.tsx:24-33](file://ui-react/src/components/chat/AgentSessionList.tsx#L24-L33)
+
+**章节来源**
+- [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
+- [AgentSessionList.tsx:23-33](file://ui-react/src/components/chat/AgentSessionList.tsx#L23-L33)
+- [ChannelDetail.tsx:3-3](file://ui-react/src/components/channels/ChannelDetail.tsx#L3-L3)
+- [AccountCardList.tsx:3-3](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L3-L3)
+- [CronPage.tsx:12-17](file://ui-react/src/pages/CronPage.tsx#L12-L17)
 
 ## 依赖关系分析
 
@@ -1285,42 +1426,17 @@ II[CSS自定义属性] --> JJ[--normal-bg变量]
 II --> KK[--normal-text变量]
 II --> LL[--normal-border变量]
 II --> MM[--border-radius变量]
-end
-subgraph "传统Lit依赖"
-NN[lit] --> OO[Web Components]
-PP[@lit-labs/signals] --> QQ[响应式信号]
-RR[marked] --> SS[Markdown渲染]
-TT[dompurify] --> UU[HTML清理]
-VV[ui/src/ui/views/profile.ts] --> WW[Profile界面组件]
-VV --> XX[模板系统]
-VV --> YY[文件上传]
-VV --> ZZ[Markdown编辑]
-AAA[ui/src/ui/navigation.ts] --> BBB[Profile导航标签]
-CCC[ui/src/ui/i18n/locales/en.ts] --> DDD[Profile翻译]
-CCC --> EEE[标签翻译]
-CCC --> FFF[字幕翻译]
-end
-subgraph "开发工具"
-GGG[vite] --> HHH[构建工具]
-III[typescript] --> JJJ[类型检查]
-KKK[vitest] --> LLL[测试框架]
-end
-subgraph "外部集成"
-MMM[Gateway协议] --> NNN[WebSocket客户端]
-OOO[assistant-ui/react] --> PPP[聊天框架]
-QQQ[Radix UI] --> RRR[基础组件]
-SSS[Lucide React] --> TTT[图标库]
-UUU[use-mobile钩子] --> VVV[移动端检测]
-WWW[use-chat-event-bridge] --> XXX[事件桥接]
-YYY[Profile集成] --> ZZZ[导航标签]
-YYY --> AAAA[界面组件]
-YYY --> BBBB[国际化支持]
-CCCC[邀请码集成] --> DDDD[InviteCodeClient]
-CCCC --> EEEE[verifyInviteCode函数]
-CCCC --> FFFF[handleInviteCodeVerify函数]
-GGGG[Sonner集成] --> HHHH[Toaster组件]
-GGGG --> IIII[主题集成]
-GGGG --> JJJJ[图标系统]
+NN[relative-time.ts] --> OO[Intl.RelativeTimeFormat]
+NN --> PP[本地化支持]
+NN --> QQ[多语言环境]
+RR[AgentSessionList] --> SS[会话时间格式化]
+RR --> TT[修改时间显示]
+UU[ChannelDetail] --> VV[最后连接时间]
+UU --> WW[账户活动时间]
+XX[AccountCardList] --> YY[最后收件时间]
+XX --> ZZ[运行状态显示]
+AAA[CronPage] --> BBB[下次运行时间]
+AAA --> CCC[最后运行时间]
 ```
 
 **图表来源**
@@ -1336,6 +1452,11 @@ GGGG --> JJJJ[图标系统]
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
 - [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
 - [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
+- [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
+- [AgentSessionList.tsx:1-244](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L244)
+- [ChannelDetail.tsx:1-170](file://ui-react/src/components/channels/ChannelDetail.tsx#L1-L170)
+- [AccountCardList.tsx:1-84](file://ui-react/src/components/channels/shared/AccountCardList.tsx#L1-L84)
+- [CronPage.tsx:1-184](file://ui-react/src/pages/CronPage.tsx#L1-L184)
 
 ### 现代化版本兼容性
 
@@ -1356,7 +1477,8 @@ GGGG --> JJJJ[图标系统]
 | Profile界面 | ✅ **全新实现** | ❌ 不支持 | ✅ 独立实现 | ✅ **完全现代化** |
 | 国际化增强 | ✅ **基础支持** | ✅ **增强支持** | ✅ 功能完善 | ✅ **部分现代化** |
 | 邀请码验证 | ✅ **全新实现** | ❌ 不支持 | ✅ 独立实现 | ✅ **完全现代化** |
-| **通知系统** | ❌ 不支持 | ✅ **全新实现** | ✅ **通知系统** | ✅ **完全现代化** |
+| 通知系统 | ❌ 不支持 | ✅ **全新实现** | ✅ **通知系统** | ✅ **完全现代化** |
+| **相对时间格式化** | ❌ 不支持 | ✅ **全新实现** | ✅ **本地化时间显示** | ✅ **完全现代化** |
 
 **章节来源**
 - [package.json:11-26](file://ui/package.json#L11-L26)
@@ -1372,6 +1494,7 @@ GGGG --> JJJJ[图标系统]
 - [app-invite-code.ts:1-186](file://ui/src/ui/app-invite-code.ts#L1-L186)
 - [invite-code-client.ts:1-230](file://ui/src/ui/invite-code-client.ts#L1-L230)
 - [sonner.tsx:1-39](file://ui-react/src/components/ui/sonner.tsx#L1-L39)
+- [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
 
 ## 性能考虑
 
@@ -1390,6 +1513,8 @@ GGGG --> JJJJ[图标系统]
 11. **状态管理优化**：Zustand提供比Redux更轻量的状态管理方案
 12. **UI组件优化**：shadcn/ui组件库经过优化，提供更好的性能表现
 13. **Sonner通知优化**：主题化通知系统使用CSS变量，避免不必要的重渲染
+14. **相对时间格式化优化**：Intl.RelativeTimeFormat提供高性能的时间格式化
+15. **组件懒加载**：相对时间格式化函数按需加载，减少初始包体积
 
 ### 现代化内存管理
 
@@ -1423,6 +1548,11 @@ CC --> |高| DD[清理通知缓存]
 CC --> |正常| EE[保持通知队列]
 DD --> FF[重置通知状态]
 EE --> GG[继续渲染]
+HH[相对时间格式化] --> II{内存占用}
+II --> |高| JJ[清理格式化缓存]
+II --> |正常| KK[保持格式化实例]
+JJ --> LL[重置Intl实例]
+KK --> MM[继续渲染]
 ```
 
 ### 现代化网络优化
@@ -1440,6 +1570,8 @@ EE --> GG[继续渲染]
 - **Profile模板缓存**：模板数据进行本地缓存，避免重复加载
 - **邀请码验证缓存**：邀请码验证结果进行本地缓存，避免重复验证
 - **Sonner主题缓存**：主题状态进行缓存，避免重复的主题切换计算
+- **相对时间格式化缓存**：Intl.RelativeTimeFormat实例进行缓存，提升性能
+- **Hook系统优化**：useChatEventBridge和useSessionManager进行性能优化
 
 ## 故障排除指南
 
@@ -1532,6 +1664,13 @@ EE --> GG[继续渲染]
     - **验证CSS变量映射是否正确**
     - **确认通知样式是否符合设计规范**
 
+15. **相对时间格式化问题**
+    - **检查Intl.RelativeTimeFormat是否可用**
+    - **验证本地化支持是否正确**
+    - **确认时间格式化函数是否正常工作**
+    - **检查多语言环境下的显示效果**
+    - **验证时间差计算的准确性**
+
 ### 现代化调试工具
 
 ```mermaid
@@ -1583,6 +1722,14 @@ VV --> ZZ[通知显示检查]
 WW --> AA[主题切换检查]
 XX --> BB[图标渲染检查]
 YY --> CC[样式应用检查]
+DD[相对时间格式化调试] --> EE[Intl.RelativeTimeFormat检查]
+DD[相对时间格式化调试] --> FF[本地化支持检查]
+DD[相对时间格式化调试] --> GG[时间格式化函数检查]
+DD[相对时间格式化调试] --> HH[多语言环境检查]
+EE --> II[时间差计算检查]
+FF --> JJ[语言检测检查]
+GG --> KK[格式化准确性检查]
+HH --> LL[显示效果检查]
 ```
 
 **章节来源**
@@ -1595,6 +1742,8 @@ YY --> CC[样式应用检查]
 - [sonner.tsx:12](file://ui-react/src/components/ui/sonner.tsx#L12)
 - [sonner.tsx:18-24](file://ui-react/src/components/ui/sonner.tsx#L18-L24)
 - [sonner.tsx:25-32](file://ui-react/src/components/ui/sonner.tsx#L25-L32)
+- [relative-time.ts:13-38](file://ui-react/src/lib/relative-time.ts#L13-L38)
+- [AgentSessionList.tsx:24-33](file://ui-react/src/components/chat/AgentSessionList.tsx#L24-L33)
 
 ## 结论
 
@@ -1608,6 +1757,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 4. **响应式Sidebar系统**：提供多种变体和键盘快捷键支持
 5. **优化的事件桥接**：支持复杂的工具调用和流式处理
 6. **新增Sonner Toast通知系统**：集成主题化通知、自定义图标和Next.js主题系统
+7. **新增相对时间格式化系统**：提供本地化的相对时间显示，支持多语言环境
 
 ### 技术创新亮点
 
@@ -1617,6 +1767,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 4. **性能优化**：虚拟滚动、懒加载、状态分片等优化策略
 5. **开发体验提升**：TypeScript支持、组件记忆化、事件桥接优化
 6. **通知系统现代化**：集成Sonner提供主题化通知体验
+7. **国际化增强**：相对时间格式化系统提供本地化时间显示
 
 ### 功能完整性
 
@@ -1627,6 +1778,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **增强的技能管理**：API密钥和环境变量的直观管理
 - **优化的Profile界面**：模板选择和表单编辑功能
 - **现代化通知系统**：基于Sonner的主题化通知
+- **相对时间格式化系统**：提供本地化的相对时间显示
 
 **架构优势**：
 - **技术多样性**：同时支持Lit和React两种主流框架
@@ -1635,6 +1787,7 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **性能优化**：采用多种优化策略确保流畅体验
 - **响应式设计**：新增use-mobile钩子和新的Sidebar组件
 - **可维护性**：清晰的架构设计便于长期维护
+- **国际化支持**：相对时间格式化系统提供多语言环境支持
 - **通知体验**：现代化的Sonner通知系统提供更好的用户体验
 
 ### 未来发展展望
@@ -1643,6 +1796,8 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 
 **现代化的UI组件系统**为用户提供了更加现代化和一致的用户体验，显著提升了平台的技术能力和实用性。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。现代化的架构引入为用户提供了更加灵活和安全的API密钥管理方式，这些功能的集成不仅提升了平台的技术能力，也为未来的功能扩展和用户增长奠定了坚实基础。
 
+**新增的相对时间格式化系统**为用户提供了现代化的时间显示体验，基于Intl.RelativeTimeFormat提供了本地化的相对时间显示，支持多语言环境和精确的时间计算。这一系统与现有的聊天界面、会话管理和设备监控等功能完美集成，进一步提升了整体的用户体验。
+
 **新增的Sonner Toast通知系统**为用户提供了现代化的通知体验，集成了主题化支持、自定义图标和Next.js主题系统，进一步提升了整体的用户体验。这一集成展示了现代前端开发中组件系统、状态管理和通知系统的最佳实践，为用户提供了更加一致和专业的界面体验。
 
-这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统、状态管理系统和通知系统共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。
+这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统、状态管理系统、通知系统和相对时间格式化系统共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。

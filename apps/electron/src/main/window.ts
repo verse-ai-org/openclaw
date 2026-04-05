@@ -88,6 +88,34 @@ function wlogError(msg: string, detail?: unknown): void {
   mainLogSync(`[ERROR] ${msg}${d}`);
 }
 
+const DEFAULT_GATEWAY_PORT = 18789;
+
+/**
+ * Top-level navigations that leave the renderer origin (e.g. plain <a href="https://…">)
+ * would load inside the Electron window and often break (CSP / blank page). Only
+ * `loadGatewayUI` used to register this handler; the app actually loads via `loadRendererPage`,
+ * so we install the same policy whenever the UI URL is known.
+ */
+function installExternalLinkNavigationHandlers(
+  win: BrowserWindow,
+  allowedPrefixes: string[],
+): void {
+  win.webContents.removeAllListeners("will-navigate");
+  win.webContents.on("will-navigate", (event, url) => {
+    if (allowedPrefixes.some((p) => url.startsWith(p))) {
+      return;
+    }
+    event.preventDefault();
+    if (
+      url.startsWith("http://") ||
+      url.startsWith("https://") ||
+      url.startsWith("mailto:")
+    ) {
+      void shell.openExternal(url);
+    }
+  });
+}
+
 /**
  * 解析渲染页面的加载目标。
  * 所有页面（setup + index）均从 ui-react 工程加载：
@@ -135,6 +163,34 @@ function resolveRendererUrl(
   };
 }
 
+function buildRendererNavigationAllowList(
+  target: ReturnType<typeof resolveRendererUrl>,
+  gatewayPort: number,
+): string[] {
+  const list: string[] = [];
+  if (target.type === "url") {
+    try {
+      list.push(new URL(target.url).origin);
+    } catch {
+      // ignore malformed dev URL
+    }
+  } else {
+    list.push("file:");
+  }
+  list.push(
+    `http://127.0.0.1:${gatewayPort}`,
+    `http://localhost:${gatewayPort}`,
+  );
+  if (VITE_UI_REACT_URL) {
+    try {
+      list.push(new URL(VITE_UI_REACT_URL).origin);
+    } catch {
+      // ignore
+    }
+  }
+  return Array.from(new Set(list));
+}
+
 /**
  * 配置 session 的 CSP。
  * 统一对所有响应追加宽松策略，允许 Gateway HTTP/WS 资源和 Vite dev server。
@@ -166,7 +222,8 @@ export function configureSession(port: number): void {
             `default-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `script-src 'self' 'unsafe-inline' 'unsafe-eval' file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `style-src 'self' 'unsafe-inline' file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
-            `img-src 'self' data: blob: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            // Allow common HTTPS image CDNs for chat/markdown (e.g. travel product cards).
+            `img-src 'self' data: blob: file: http://127.0.0.1:${port} https://img.alicdn.com${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `font-src 'self' data: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `connect-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port} wss://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin} ws://localhost:5174` : ""}`,
           ].join("; "),
@@ -191,6 +248,7 @@ export function createWindow(): BrowserWindow {
     backgroundColor: "#1a1a1a",
     autoHideMenuBar: true,
     show: false,
+    icon: path.join(__dirname, '../../resources/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
@@ -250,6 +308,11 @@ export function loadRendererPage(
   opts?: { port: number; token: string },
 ): void {
   const target = resolveRendererUrl(page);
+  const gatewayPort = opts?.port ?? DEFAULT_GATEWAY_PORT;
+  installExternalLinkNavigationHandlers(
+    win,
+    buildRendererNavigationAllowList(target, gatewayPort),
+  );
   wlog(
     `[window] loadRendererPage: page=${page} type=${target.type} path/url=${"path" in target ? target.path : target.url}`,
   );
@@ -313,15 +376,8 @@ export function loadGatewayUI(
 
   void win.loadURL(loadUrl);
 
-  // 切换到 Control UI 后，拦截页面内导航，只允许在 Gateway origin 内跳转
-  win.webContents.removeAllListeners("will-navigate");
-  win.webContents.on("will-navigate", (event, url) => {
-    const gatewayBase = `http://127.0.0.1:${opts.port}`;
-    if (!url.startsWith(gatewayBase)) {
-      event.preventDefault();
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        void shell.openExternal(url);
-      }
-    }
-  });
+  installExternalLinkNavigationHandlers(win, [
+    `http://127.0.0.1:${opts.port}`,
+    `http://localhost:${opts.port}`,
+  ]);
 }

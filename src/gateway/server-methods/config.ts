@@ -260,13 +260,20 @@ function loadSchemaWithPlugins(): ConfigSchemaResponse {
 }
 
 export const configHandlers: GatewayRequestHandlers = {
-  "config.get": async ({ params, respond }) => {
+  "config.get": async ({ params, respond, context }) => {
     if (!assertValidParams(params, validateConfigGetParams, "config.get", respond)) {
       return;
     }
+    const t0 = Date.now();
     const snapshot = await readConfigFileSnapshot();
+    const readMs = Date.now() - t0;
+    const t1 = Date.now();
     const schema = loadSchemaWithPlugins();
+    const schemaMs = Date.now() - t1;
     respond(true, redactConfigSnapshot(snapshot, schema.uiHints), undefined);
+    context.logGateway.info(
+      `control-ui perf: config.get totalMs=${Date.now() - t0} readSnapshotMs=${readMs} schemaMs=${schemaMs}`,
+    );
   },
   "config.schema": ({ params, respond }) => {
     if (!assertValidParams(params, validateConfigSchemaParams, "config.schema", respond)) {
