@@ -248,6 +248,7 @@ export function createWindow(): BrowserWindow {
     backgroundColor: "#1a1a1a",
     autoHideMenuBar: true,
     show: false,
+    icon: path.join(__dirname, '../../resources/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
