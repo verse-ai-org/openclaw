@@ -55,6 +55,7 @@
     "markdown-it",
     "node-edge-tts",
     "opusscript",
+    "partial-json",
     "mammoth",
     "date-fns",
     "osc-progress",
@@ -72,6 +73,7 @@
     "zod",
     "@napi-rs/canvas",
     "qrcode",
+    "@anthropic-ai/sdk",
 
     "@opentelemetry/api",
     "@opentelemetry/api-logs",

@@ -174,6 +174,10 @@ async function resolveLoginShellEnv(): Promise<Record<string, string>> {
   if (_loginShellEnv !== null) {
     return _loginShellEnv;
   }
+  if (process.platform === "win32") {
+    _loginShellEnv = {};
+    return _loginShellEnv;
+  }
   return new Promise((resolve) => {
     // Use login shell so ~/.zshrc / ~/.bash_profile / ~/.profile are sourced.
     const shell = process.env.SHELL ?? "/bin/bash";
@@ -258,7 +262,8 @@ export interface GatewayStartOptions {
  */
 function resolveBundledNode(): string {
   if (app.isPackaged) {
-    const p = path.join(process.resourcesPath, "node", "node");
+    const nodeName = process.platform === "win32" ? "node.exe" : "node";
+    const p = path.join(process.resourcesPath, "node", nodeName);
     const exists = fs.existsSync(p);
     log(`[gateway] resolveBundledNode (packaged): ${p} exists=${exists}`);
     return p;

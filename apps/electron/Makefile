@@ -10,8 +10,9 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 # ── 路径 ──────────────────────────────────────────────
-ELECTRON_DIR := $(shell pwd)
-ROOT_DIR     := $(shell cd ../.. && pwd)
+# Windows Git Bash 下 pwd 返回 /d/... 格式，需要转换为 Windows 路径
+ELECTRON_DIR := $(shell pwd -W 2>/dev/null || pwd)
+ROOT_DIR     := $(shell cd ../.. && pwd -W 2>/dev/null || pwd)
 SCRIPTS_DIR  := $(ELECTRON_DIR)/scripts
 
 # ── 自动加载 .env（若存在）────────────────────────────
@@ -164,8 +165,12 @@ bump-version: ## 自动更新版本号（用法：make bump-version [VERSION=202
 	fi
 
 .PHONY: release-with-version
-release-with-version: bump-version ## 一键发布（先改版本再执行 release，用法: make release-with-version VERSION=2026.3.31）
+release-with-version: bump-version ## 一键发布 macOS（先改版本再执行 release，用法: make release-with-version VERSION=2026.3.31）
 	$(MAKE) release
+
+.PHONY: release-win-with-version
+release-win-with-version: bump-version ## 一键发布 Windows（先改版本再执行 release-win，用法: make release-win-with-version VERSION=2026.3.31）
+	$(MAKE) release-win
 
 # R2 配置可放在 .env 中，或直接导出环境变量：
 #   R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET_NAME
@@ -174,13 +179,22 @@ RELEASE_DIR := $(ELECTRON_DIR)/release
 
 .PHONY: r2-check
 r2-check: ## 检查 rclone 是否已安装并已配置 r2
-	@command -v rclone >/dev/null 2>&1 || { echo "❌ rclone 未安装，请运行: brew install rclone"; exit 1; }
+	@command -v rclone >/dev/null 2>&1 || { echo "❌ rclone 未安装，请运行: winget install Rclone.Rclone (Windows) 或 brew install rclone (macOS)"; exit 1; }
 	@rclone listremotes | grep -q '^r2:' || { echo "❌ rclone 未配置 r2 remote，请运行: make r2-setup"; exit 1; }
 	@echo "✅ rclone r2 remote 已就绪"
 
 .PHONY: r2-setup
 r2-setup: ## 交互式配置 rclone r2 remote（首次使用时运行）
-	@command -v rclone >/dev/null 2>&1 || { echo "📥 安装 rclone..."; brew install rclone; }
+	@command -v rclone >/dev/null 2>&1 || { \
+		echo "📥 安装 rclone..."; \
+		if command -v winget >/dev/null 2>&1; then \
+			winget install Rclone.Rclone; \
+		elif command -v brew >/dev/null 2>&1; then \
+			brew install rclone; \
+		else \
+			echo "❌ 请手动安装 rclone: https://rclone.org/downloads/"; exit 1; \
+		fi; \
+	}
 	@echo "🔧 配置 rclone r2 remote（需要 R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT）"
 	@if [ -z "$(R2_ACCESS_KEY_ID)" ] || [ -z "$(R2_SECRET_ACCESS_KEY)" ] || [ -z "$(R2_ENDPOINT)" ]; then \
 		echo "❌ 请先在 .env 或环境变量中设置 R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT"; exit 1; \
@@ -219,20 +233,60 @@ upload-r2: r2-check ## 上传 release/ 产物到 R2（先传包，最后传 yml�
 	@echo "✅ 上传完成"
 	@echo "🔗 更新地址: https://files.aiverser.com/bossim/releases/"
 
+.PHONY: upload-r2-win
+upload-r2-win: r2-check ## 上传 Windows 产物到 R2（exe + zip + yml）
+	@if [ -z "$(R2_BUCKET_NAME)" ]; then \
+		echo "❌ R2_BUCKET_NAME 未设置，请在 .env 或环境变量中配置"; exit 1; \
+	fi
+	@if [ -z "$$(ls $(RELEASE_DIR)/*.exe 2>/dev/null)" ] && [ -z "$$(ls $(RELEASE_DIR)/*.zip 2>/dev/null)" ]; then \
+		echo "❌ release/ 下未找到 EXE/ZIP，请先运行 make package-win"; exit 1; \
+	fi
+	@echo "📤 上传 Windows 安装包到 $(R2_DEST)..."
+	rclone copy $(RELEASE_DIR) $(R2_DEST) \
+		--include "*.exe" \
+		--include "*.zip" \
+		--include "*.blockmap" \
+		--s3-no-check-bucket \
+		--no-update-modtime \
+		-v
+	@echo "📤 上传 Windows 更新描述文件 (latest.yml)..."
+	rclone copy $(RELEASE_DIR) $(R2_DEST) \
+		--include "latest.yml" \
+		--max-depth 1 \
+		--s3-no-check-bucket \
+		--no-update-modtime \
+		-v
+	@echo "✅ Windows 上传完成"
+	@echo "🔗 更新地址: https://files.aiverser.com/bossim/releases/"
+
 .PHONY: upload-r2-verify
-upload-r2-verify: ## 验证 latest-mac.yml 是否可公开访问
+upload-r2-verify: ## 验证 macOS latest-mac.yml 是否可公开访问
 	@echo "🔍 验证 latest-mac.yml 可访问性..."
 	curl -fsSL "https://files.aiverser.com/bossim/releases/latest-mac.yml" | head -10
 	@echo "✅ latest-mac.yml 可正常访问"
 
+.PHONY: upload-r2-verify-win
+upload-r2-verify-win: ## 验证 Windows latest.yml 是否可公开访问
+	@echo "🔍 验证 latest.yml 可访问性..."
+	curl -fsSL "https://files.aiverser.com/bossim/releases/latest.yml" | head -10
+	@echo "✅ latest.yml 可正常访问"
+
 .PHONY: release
-release: ## 一键完整发布：双架构打包 + 上传 R2 + 验证
+release: ## 一键完整发布：macOS 双架构打包 + 上传 R2 + 验证
 	@echo "🚀 开始完整发布流程..."
 	$(MAKE) package-arm64
 	# $(MAKE) package-x64
 	$(MAKE) upload-r2
 	$(MAKE) upload-r2-verify
 	@echo "🎉 发布完成！"
+
+.PHONY: release-win
+release-win: ## 一键完整发布 Windows：打包 + 上传 R2 + 验证
+	@echo "🚀 开始 Windows 发布流程..."
+	$(MAKE) package-win
+	$(MAKE) upload-r2-win
+	$(MAKE) upload-r2-verify-win
+	@echo "🎉 Windows 发布完成！"
 
 # ─────────────────────────────────────────────────────
 ##@ 工具

@@ -5,12 +5,20 @@
 ```bash
 cd apps/electron
 
+# macOS
 make dev          # 本地开发
 make package-fast # 本地打包测试（无签名）
 make package      # 正式打包（签名 + 公证）
-make release      # 一键完整发布：双架构打包 + 上传 R2 + 验证
+make release      # 一键完整发布 macOS：双架构打包 + 上传 R2 + 验证
+
+# Windows
+make package-win      # 打包 Windows
+make release-win      # 一键完整发布 Windows：打包 + 上传 R2 + 验证
+
+# 版本管理
 make bump-version VERSION=2026.3.31
 make release-with-version VERSION=2026.3.31
+make release-win-with-version VERSION=2026.3.31
 ```
 
 ## 所有命令
@@ -37,10 +45,14 @@ make release-with-version VERSION=2026.3.31
 发布（上传到 Cloudflare R2）
   bump-version     自动递增版本号（支持 TYPE=major|beta|patch）
   r2-setup         首次配置 rclone r2 remote
-  upload-r2        上传 release/ 产物到 R2（先传包，最后传 yml）
-  upload-r2-verify 验证 latest-mac.yml 是否可公开访问
-  release          一键完整发布：双架构打包 + 上传 R2 + 验证
+  upload-r2        上传 macOS release/ 产物到 R2
+  upload-r2-verify 验证 macOS latest-mac.yml 是否可公开访问
+  upload-r2-win    上传 Windows 产物到 R2（exe + zip + yml）
+  upload-r2-verify-win 验证 Windows latest.yml 是否可公开访问
+  release          一键完整发布 macOS：双架构打包 + 上传 R2 + 验证
+  release-win      一键完整发布 Windows：打包 + 上传 R2 + 验证
   release-with-version 先更新 version 再执行完整发布（需传 VERSION=...）
+  release-win-with-version 先更新 version 再执行 Windows 发布（需传 VERSION=...）
 
 工具
   setup            初次设置：复制 .env 模板
@@ -156,7 +168,11 @@ make bump-version TYPE=patch         # 创建/递增 patch 版本
 make bump-version VERSION=2026.3.31
 
 # 3. 更新版本并执行完整发布
+# macOS：更新版本并执行完整发布
 make release-with-version VERSION=2026.3.31
+
+# Windows：更新版本并执行完整发布
+make release-win-with-version VERSION=2026.3.31
 ```
 
 **自动递增规则示例：**
@@ -172,6 +188,7 @@ make release-with-version VERSION=2026.3.31
 > **注意：** 
 > - `make release` 本身不会自动改版本，需要先用 `bump-version` 更新
 > - 默认行为会自动检测当天版本并递增（优先 patch → beta → major）
+> `make release` / `make release-win` 本身不会自动改版本；如果不走 `*-with-version`，请先手动改 version。
 
 ---
 
@@ -240,6 +257,27 @@ make upload-r2-verify
 make release
 # 等价于：package-arm64 → package-x64 → upload-r2 → upload-r2-verify
 ```
+
+### Windows 发布
+
+Windows 使用 `electron-updater` 自动更新机制，从 R2 的 `latest.yml` 检查更新。
+
+```bash
+# 打包 Windows
+make package-win
+
+# 上传到 R2
+make upload-r2-win
+
+# 验证
+make upload-r2-verify-win
+
+# 或一键完成
+make release-win
+# 等价于：package-win → upload-r2-win → upload-r2-verify-win
+```
+
+> 注意：Windows 发布使用 `release-win` 而不是 `release`，后者是 macOS 专用的。
 
 ---
 
