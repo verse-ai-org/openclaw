@@ -25,7 +25,7 @@ export function GatewayRestartingOverlay() {
       <DialogContent
         showCloseButton={false}
         className="flex flex-col items-center gap-4 py-10 sm:max-w-xs"
-        overlayClassName="backdrop-blur-sm bg-background"
+        overlayClassName="backdrop-blur-sm bg-background/80"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
