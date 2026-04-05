@@ -274,7 +274,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
     set({ agentIdentityLoading: true, agentIdentityError: null });
     try {
-      const res = await client.request<AgentIdentityResult>("agents.identity", {
+      const res = await client.request<AgentIdentityResult>("agent.identity.get", {
         agentId,
       });
       if (res)

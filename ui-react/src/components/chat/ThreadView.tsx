@@ -64,7 +64,7 @@ export const ThreadView: FC = () => {
 const ThreadWelcome: FC = () => (
   <div className="mx-auto my-auto flex w-full max-w-(--thread-max-width) grow flex-col items-center justify-center gap-3 py-8">
     <div className="flex flex-col items-center gap-2 text-center">
-      <h1 className="text-2xl font-semibold">OpenClaw</h1>
+      <h1 className="text-2xl font-semibold">Bossim</h1>
       <p className="text-muted-foreground text-sm">Send a message to start the conversation.</p>
     </div>
   </div>

@@ -104,7 +104,7 @@ export function AccessStep({onNextManual, onVerificationChange }: AccessStepProp
           {/* Title */}
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900">
             <span className="text-[rgba(26,28,29,1)]">Unlock </span>
-            <span className="text-[rgba(186,0,52,1)]">OpenClaw</span>
+            <span className="text-[rgba(186,0,52,1)]">Bossim</span>
           </h1>
           {/* Subtitle */}
           <p className="text-slate-500 text-base leading-relaxed px-4">

@@ -9,7 +9,24 @@
 - [src/memory/index.ts](file://src/memory/index.ts)
 - [src/memory/manager.ts](file://src/memory/manager.ts)
 - [src/context-engine/index.ts](file://src/context-engine/index.ts)
+- [skills/travel-planner/index.js](file://skills/travel-planner/index.js)
+- [skills/travel-planner/SKILL.md](file://skills/travel-planner/SKILL.md)
+- [skills/travel-planner/scripts/plan_generator.py](file://skills/travel-planner/scripts/plan_generator.py)
+- [skills/travel-planner/scripts/travel_db.py](file://skills/travel-planner/scripts/travel_db.py)
+- [skills/flyai/SKILL.md](file://skills/flyai/SKILL.md)
+- [ui/src/ui/controllers/skills.ts](file://ui/src/ui/controllers/skills.ts)
+- [ui-react/src/store/skills.store.ts](file://ui-react/src/store/skills.store.ts)
+- [ui-react/src/components/skills/SkillCard.tsx](file://ui-react/src/components/skills/SkillCard.tsx)
+- [ui-react/src/lib/skills-grouping.ts](file://ui-react/src/lib/skills-grouping.ts)
+- [apps/shared/OpenClawKit/Tools/CanvasA2UI/bootstrap.js](file://apps/shared/OpenClawKit/Tools/CanvasA2UI/bootstrap.js)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 新增旅行规划技能模块，包括完整的Python脚本实现和数据库管理
+- 集成FlyAI旅行搜索技能，支持航班、酒店、景点等综合搜索
+- 更新UI组件以支持新的技能安装和管理功能
+- 增强工具执行机制以支持新的旅行相关工具
 
 ## 目录
 1. [简介](#简介)
@@ -17,17 +34,19 @@
 3. [核心组件](#核心组件)
 4. [架构总览](#架构总览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考量](#性能考量)
-8. [故障排查指南](#故障排查指南)
-9. [结论](#结论)
-10. [附录](#附录)
+6. [新增功能模块](#新增功能模块)
+7. [UI组件更新](#ui组件更新)
+8. [依赖关系分析](#依赖关系分析)
+9. [性能考量](#性能考量)
+10. [故障排查指南](#故障排查指南)
+11. [结论](#结论)
+12. [附录](#附录)
 
 ## 简介
-本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。同时提供工具开发指南、内存查询接口与会话路由策略，以及代理配置示例、性能调优与扩展方法，最后涵盖多代理协作、会话隔离与安全控制机制。
+本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成新的旅行规划和FlyAI技能，以及更新的UI组件，提供更丰富的旅行相关服务和更好的用户体验。
 
 ## 项目结构
-OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Telegram、Discord等），并通过网关（Gateway）作为统一控制平面，协调会话、工具与事件。系统采用“本地优先”的设计，强调在用户设备上运行，确保低延迟与隐私保护。
+OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Telegram、Discord等），并通过网关（Gateway）作为统一控制平面，协调会话、工具与事件。系统采用"本地优先"的设计，强调在用户设备上运行，确保低延迟与隐私保护。
 
 - 关键子系统
   - 网关（Gateway）：WebSocket控制平面，承载会话、通道、工具与事件。
@@ -35,6 +54,8 @@ OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Te
   - 记忆（Memory）：内置SQLite向量/关键词混合检索，支持增量同步与缓存。
   - 上下文引擎（Context Engine）：负责系统提示词组装、压缩与注入。
   - 工具（Tools）：浏览器控制、画布、节点、定时任务、会话间通信等。
+  - **新增** 旅行规划技能：完整的旅行计划生成和偏好管理。
+  - **新增** FlyAI技能：综合旅行搜索和预订服务。
 
 ```mermaid
 graph TB
@@ -52,6 +73,7 @@ end
 subgraph "外部服务"
 Channels["多渠道适配器<br/>Telegram/WhatsApp/..."]
 Providers["模型提供商<br/>OpenAI/Anthropic/..."]
+TravelServices["旅行服务<br/>Fliggy/Marriott/..."]
 end
 UI --> WS
 Nodes --> WS
@@ -60,14 +82,15 @@ AgentLoop --> Tools
 AgentLoop --> Memory
 AgentLoop --> CE
 AgentLoop --> Providers
+AgentLoop --> TravelServices
 Channels --> WS
 ```
 
-图示来源
+**图示来源**
 - [README.md:185-239](file://README.md#L185-L239)
 - [docs/concepts/agent-loop.md:18-49](file://docs/concepts/agent-loop.md#L18-L49)
 
-章节来源
+**章节来源**
 - [README.md:185-239](file://README.md#L185-L239)
 - [docs/concepts/agent-loop.md:18-49](file://docs/concepts/agent-loop.md#L18-L49)
 
@@ -81,8 +104,12 @@ Channels --> WS
   - 注册与解析上下文引擎工厂，支持传统引擎与初始化流程。
 - 代理循环
   - 定义从入口到生命周期事件、流式输出、工具执行与持久化的完整链路；支持队列化与并发控制。
+- **新增** 旅行规划技能
+  - Python脚本驱动的旅行计划生成，支持偏好管理和预算跟踪。
+- **新增** FlyAI技能
+  - 综合旅行搜索和预订能力，支持多种旅行场景。
 
-章节来源
+**章节来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
 - [src/agents/agent-scope.ts:118-145](file://src/agents/agent-scope.ts#L118-L145)
 - [src/memory/manager.ts:61-187](file://src/memory/manager.ts#L61-L187)
@@ -90,7 +117,7 @@ Channels --> WS
 - [docs/concepts/agent-loop.md:23-49](file://docs/concepts/agent-loop.md#L23-L49)
 
 ## 架构总览
-OpenClaw的代理循环以“单会话串行、全局可选队列”为核心，确保会话一致性与避免工具/会话竞态。代理运行时通过嵌入式Pi代理内核，订阅事件并桥接至OpenClaw的流式输出。工具执行与消息发送由工具执行器完成，记忆检索由内存索引管理器提供，上下文引擎负责系统提示词组装与压缩。
+OpenClaw的代理循环以"单会话串行、全局可选队列"为核心，确保会话一致性与避免工具/会话竞态。代理运行时通过嵌入式Pi代理内核，订阅事件并桥接至OpenClaw的流式输出。工具执行与消息发送由工具执行器完成，记忆检索由内存索引管理器提供，上下文引擎负责系统提示词组装与压缩。
 
 ```mermaid
 sequenceDiagram
@@ -101,23 +128,26 @@ participant Pi as "嵌入式Pi代理内核"
 participant Tools as "工具执行器"
 participant Mem as "内存索引管理器"
 participant CE as "上下文引擎"
+participant Travel as "旅行规划技能"
 Client->>Gateway : "agent/agent.wait 调用"
 Gateway->>Agent : "参数校验与会话解析"
 Agent->>Pi : "构建会话并订阅事件"
 Pi->>CE : "组装系统提示词"
 Pi->>Mem : "检索上下文/记忆"
 Pi->>Tools : "调用工具(含消息发送)"
+Tools->>Travel : "旅行规划/搜索请求"
+Travel-->>Tools : "旅行数据/搜索结果"
 Tools-->>Pi : "工具结果/事件"
 Pi-->>Agent : "生命周期/助手/工具流事件"
 Agent-->>Gateway : "流式输出/最终回复"
 Gateway-->>Client : "响应/等待完成"
 ```
 
-图示来源
+**图示来源**
 - [docs/concepts/agent-loop.md:25-44](file://docs/concepts/agent-loop.md#L25-L44)
 - [docs/concepts/agent-loop.md:127-132](file://docs/concepts/agent-loop.md#L127-L132)
 
-章节来源
+**章节来源**
 - [docs/concepts/agent-loop.md:23-49](file://docs/concepts/agent-loop.md#L23-L49)
 
 ## 详细组件分析
@@ -146,13 +176,13 @@ ResolveWS --> ModelFB["解析模型主备/回退"]
 ModelFB --> Done(["结束"])
 ```
 
-图示来源
+**图示来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
 - [src/agents/agent-scope.ts:118-145](file://src/agents/agent-scope.ts#L118-L145)
 - [src/agents/agent-scope.ts:256-272](file://src/agents/agent-scope.ts#L256-L272)
 - [src/agents/agent-scope.ts:273-339](file://src/agents/agent-scope.ts#L273-L339)
 
-章节来源
+**章节来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
 - [src/agents/agent-scope.ts:118-145](file://src/agents/agent-scope.ts#L118-L145)
 - [src/agents/agent-scope.ts:256-272](file://src/agents/agent-scope.ts#L256-L272)
@@ -185,12 +215,12 @@ FTS --> Filter
 Filter --> Out["返回结果"]
 ```
 
-图示来源
+**图示来源**
 - [src/memory/manager.ts:256-364](file://src/memory/manager.ts#L256-L364)
 - [src/memory/manager.ts:451-551](file://src/memory/manager.ts#L451-L551)
 - [src/memory/manager.ts:553-624](file://src/memory/manager.ts#L553-L624)
 
-章节来源
+**章节来源**
 - [src/memory/manager.ts:61-187](file://src/memory/manager.ts#L61-L187)
 - [src/memory/manager.ts:256-364](file://src/memory/manager.ts#L256-L364)
 - [src/memory/manager.ts:451-551](file://src/memory/manager.ts#L451-L551)
@@ -202,7 +232,7 @@ Filter --> Out["返回结果"]
 - 应用
   - 在代理循环中用于系统提示词构建、上下文组装与压缩，确保模型输入质量与长度控制。
 
-章节来源
+**章节来源**
 - [src/context-engine/index.ts:1-20](file://src/context-engine/index.ts#L1-L20)
 
 ### 组件D：代理循环（Agent Loop）
@@ -232,21 +262,153 @@ RPC->>Wait : "agent.wait"
 Wait-->>RPC : "状态/时间戳"
 ```
 
-图示来源
+**图示来源**
 - [docs/concepts/agent-loop.md:25-44](file://docs/concepts/agent-loop.md#L25-L44)
 - [docs/concepts/agent-loop.md:127-132](file://docs/concepts/agent-loop.md#L127-L132)
 
-章节来源
+**章节来源**
 - [docs/concepts/agent-loop.md:18-49](file://docs/concepts/agent-loop.md#L18-L49)
 - [docs/concepts/agent-loop.md:127-132](file://docs/concepts/agent-loop.md#L127-L132)
+
+## 新增功能模块
+
+### 旅行规划技能（Travel Planner）
+旅行规划技能提供了完整的旅行计划生成和偏好管理功能，包括Python脚本驱动的智能规划和本地数据库存储。
+
+- 核心功能
+  - 旅行偏好管理：支持预算水平、旅行风格、兴趣爱好、饮食限制等全方位偏好收集。
+  - 计划生成：根据用户偏好和目的地信息生成详细的日程安排、预算分解和打包清单。
+  - 数据库管理：本地JSON文件存储旅行偏好、历史行程和预算跟踪。
+  - 预算跟踪：实时跟踪旅行支出，提供分类统计和剩余预算提醒。
+
+```mermaid
+flowchart TD
+Start(["旅行规划请求"]) --> CheckPrefs["检查偏好设置"]
+CheckPrefs --> HasPrefs{"偏好已设置?"}
+HasPrefs --> |否| CollectPrefs["收集旅行偏好"]
+HasPrefs --> |是| GenPlan["生成旅行计划"]
+CollectPrefs --> SavePrefs["保存偏好设置"]
+SavePrefs --> GenPlan
+GenPlan --> Itinerary["生成日程安排"]
+GenPlan --> Budget["计算预算分解"]
+GenPlan --> Checklist["生成打包清单"]
+Itinerary --> Output["返回完整计划"]
+Budget --> Output
+Checklist --> Output
+```
+
+**图示来源**
+- [skills/travel-planner/scripts/plan_generator.py:317-361](file://skills/travel-planner/scripts/plan_generator.py#L317-L361)
+- [skills/travel-planner/scripts/travel_db.py:72-98](file://skills/travel-planner/scripts/travel_db.py#L72-L98)
+
+- 技能特性
+  - Python3运行时要求，支持复杂的旅行规划算法。
+  - 本地数据库存储，确保用户隐私和数据安全。
+  - 智能预算分配，根据不同住宿标准自动调整各项支出比例。
+  - 动态打包清单生成，根据目的地气候和活动类型定制。
+
+**章节来源**
+- [skills/travel-planner/index.js:1-9](file://skills/travel-planner/index.js#L1-L9)
+- [skills/travel-planner/SKILL.md:1-83](file://skills/travel-planner/SKILL.md#L1-L83)
+- [skills/travel-planner/scripts/plan_generator.py:1-391](file://skills/travel-planner/scripts/plan_generator.py#L1-L391)
+- [skills/travel-planner/scripts/travel_db.py:1-432](file://skills/travel-planner/scripts/travel_db.py#L1-L432)
+
+### FlyAI旅行搜索技能
+FlyAI技能集成了Fliggy MCP服务，提供全面的旅行搜索和预订能力，支持多种旅行场景和需求。
+
+- 核心能力
+  - 综合搜索：支持酒店、航班、景点、演出等多种旅行元素的自然语言搜索。
+  - 实时预订：连接Fliggy MCP服务，提供真实的旅行产品预订能力。
+  - 多语言支持：支持中英文双语界面和查询。
+  - 场景覆盖：支持个人旅行、团体旅行、商务出行、家庭度假等多种场景。
+
+```mermaid
+flowchart TD
+Query["自然语言查询"] --> Intent["意图识别"]
+Intent --> Category{"搜索类别?"}
+Category --> |酒店| HotelSearch["酒店搜索"]
+Category --> |航班| FlightSearch["航班搜索"]
+Category --> |景点| POISearch["景点搜索"]
+Category --> |综合| KeywordSearch["关键词搜索"]
+HotelSearch --> MCP["Fliggy MCP服务"]
+FlightSearch --> MCP
+POISearch --> MCP
+KeywordSearch --> MCP
+MCP --> Results["返回搜索结果"]
+Results --> Format["格式化输出"]
+Format --> Display["富文本展示"]
+```
+
+**图示来源**
+- [skills/flyai/SKILL.md:70-101](file://skills/flyai/SKILL.md#L70-L101)
+
+- 技术实现
+  - Node.js运行时，支持异步API调用。
+  - 单行JSON输出格式，便于管道处理和Python解析。
+  - 图片和预订链接的自动识别和展示。
+  - 严格的品牌曝光和营销规范。
+
+**章节来源**
+- [skills/flyai/SKILL.md:1-144](file://skills/flyai/SKILL.md#L1-L144)
+
+## UI组件更新
+
+### 技能管理系统
+新的UI组件提供了完整的技能安装、管理和监控功能，支持旅行规划和FlyAI等新技能的集成。
+
+- 技能卡片组件
+  - 显示技能基本信息、状态和可用操作。
+  - 支持安装、启用、禁用、删除等操作。
+  - 实时显示安装进度和错误信息。
+
+```mermaid
+flowchart TD
+SkillCard["技能卡片"] --> Header["头部区域"]
+Header --> Icon["技能图标"]
+Header --> Info["名称/描述/来源"]
+Header --> Action["操作按钮"]
+SkillCard --> APIKey["API密钥输入"]
+SkillCard --> EnvVars["环境变量管理"]
+SkillCard --> Footer["底部操作栏"]
+Footer --> Feedback["反馈消息"]
+Footer --> Actions["图标操作"]
+```
+
+**图示来源**
+- [ui-react/src/components/skills/SkillCard.tsx:94-318](file://ui-react/src/components/skills/SkillCard.tsx#L94-L318)
+
+- 技能安装流程
+  - 支持从URL或文件上传安装新技能。
+  - 自动检测缺失的二进制依赖和环境变量。
+  - 提供详细的安装进度反馈和错误处理。
+
+**章节来源**
+- [ui/src/ui/controllers/skills.ts:125-157](file://ui/src/ui/controllers/skills.ts#L125-L157)
+- [ui-react/src/store/skills.store.ts:208-253](file://ui-react/src/store/skills.store.ts#L208-L253)
+- [ui-react/src/components/skills/SkillCard.tsx:1-320](file://ui-react/src/components/skills/SkillCard.tsx#L1-L320)
+- [ui-react/src/lib/skills-grouping.ts:1-67](file://ui-react/src/lib/skills-grouping.ts#L1-L67)
+
+### Canvas A2UI集成
+Canvas A2UI组件提供了增强的用户界面交互能力，支持复杂的用户动作处理和状态管理。
+
+- 用户动作处理
+  - 支持复杂的组件上下文解析和数据绑定。
+  - 提供结构化对象和字符串消息的双向兼容。
+  - 实现完整的动作生命周期管理。
+
+**章节来源**
+- [apps/shared/OpenClawKit/Tools/CanvasA2UI/bootstrap.js:393-496](file://apps/shared/OpenClawKit/Tools/CanvasA2UI/bootstrap.js#L393-L496)
 
 ## 依赖关系分析
 - 组件耦合
   - 代理循环依赖上下文引擎进行提示词组装、依赖内存索引管理器进行上下文检索、依赖工具执行器进行动作执行。
   - 代理作用域为上述组件提供会话键解析与代理配置，决定工作区、模型与沙箱策略。
+  - **新增** 旅行规划技能通过Python脚本与系统集成，提供本地数据持久化。
+  - **新增** FlyAI技能通过Node.js与外部旅行服务API集成。
 - 外部依赖
   - 模型提供商（OpenAI/Anthropic等）通过嵌入式Pi代理内核访问。
   - 多渠道适配器通过网关WebSocket接入，形成统一的消息入口。
+  - **新增** Fliggy MCP服务提供实时旅行产品数据。
 
 ```mermaid
 graph LR
@@ -255,14 +417,18 @@ AgentLoop --> CE["上下文引擎"]
 AgentLoop --> Memory["内存索引管理器"]
 AgentLoop --> Tools["工具执行器"]
 AgentLoop --> Providers["模型提供商"]
+AgentLoop --> TravelSkills["旅行规划技能"]
+AgentLoop --> FlyAISkills["FlyAI技能"]
 Channels["多渠道适配器"] --> AgentLoop
+TravelSkills --> PythonRuntime["Python3运行时"]
+FlyAISkills --> NodeRuntime["Node.js运行时"]
 ```
 
-图示来源
+**图示来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
 - [docs/concepts/agent-loop.md:25-44](file://docs/concepts/agent-loop.md#L25-L44)
 
-章节来源
+**章节来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
 - [docs/concepts/agent-loop.md:25-44](file://docs/concepts/agent-loop.md#L25-L44)
 
@@ -275,6 +441,12 @@ Channels["多渠道适配器"] --> AgentLoop
   - 批量嵌入与缓存统计减少重复计算；只读数据库自动恢复保障稳定性。
 - 上下文组装
   - 合理的系统提示词长度与压缩策略可降低token消耗，提高响应速度。
+- **新增** 旅行规划技能
+  - Python脚本的I/O操作可能成为性能瓶颈，建议合理设置缓存策略。
+  - 数据库文件操作需要适当的锁机制，避免并发冲突。
+- **新增** FlyAI技能
+  - 外部API调用存在网络延迟，需要实现超时控制和重试机制。
+  - JSON格式的数据处理需要高效的解析和序列化。
 
 ## 故障排查指南
 - 代理循环
@@ -284,14 +456,22 @@ Channels["多渠道适配器"] --> AgentLoop
   - 检查向量维度、FTS可用性与提供者状态；必要时切换到FTS-only模式或调整混合检索参数。
 - 上下文引擎
   - 确认系统提示词构建阶段的钩子未引入过长内容；必要时启用压缩钩子或调整提示词长度限制。
+- **新增** 旅行规划技能
+  - Python3运行时检查：确认系统已安装Python3且版本满足要求。
+  - 数据库文件权限：确保用户对~/.openclaw/agents/travel-planner目录有读写权限。
+  - 脚本依赖：检查所需的Python模块是否正确安装。
+- **新增** FlyAI技能
+  - Node.js运行时：确认Node.js版本兼容性和运行时环境。
+  - API密钥配置：检查FLYAI_API_KEY等环境变量是否正确设置。
+  - 网络连接：验证对外部旅行服务API的网络访问权限。
 
-章节来源
+**章节来源**
 - [docs/concepts/agent-loop.md:138-149](file://docs/concepts/agent-loop.md#L138-L149)
 - [src/memory/manager.ts:468-551](file://src/memory/manager.ts#L468-L551)
 - [src/memory/manager.ts:626-738](file://src/memory/manager.ts#L626-L738)
 
 ## 结论
-OpenClaw通过“网关+代理循环+工具+记忆+上下文引擎”的分层架构，实现了从消息到动作再到回复的完整闭环。代理作用域与会话路由确保多代理协作与会话隔离；内存检索提供高效的知识检索能力；代理循环与钩子体系支撑灵活的推理与决策流程。结合队列化与并发控制、只读数据库恢复与缓存策略，系统在性能与稳定性之间取得良好平衡。
+OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构，实现了从消息到动作再到回复的完整闭环。系统现已成功集成了旅行规划和FlyAI技能，提供了更丰富的旅行相关服务。新增的UI组件进一步提升了用户体验，支持技能的安装、管理和监控。代理作用域与会话路由确保多代理协作与会话隔离；内存检索提供高效的知识检索能力；代理循环与钩子体系支撑灵活的推理与决策流程。结合队列化与并发控制、只读数据库恢复与缓存策略，以及新的旅行规划和搜索能力，系统在性能与稳定性之间取得良好平衡。
 
 ## 附录
 
@@ -300,10 +480,14 @@ OpenClaw通过“网关+代理循环+工具+记忆+上下文引擎”的分层�
   - 在before_model_resolve、before_prompt_build、before_tool_call、after_tool_call、tool_result_persist等钩子中注入自定义逻辑。
 - 工具调用
   - 工具事件通过tool流输出，结果在持久化前可被tool_result_persist转换。
-- 参考
-  - [docs/concepts/agent-loop.md:80-95](file://docs/concepts/agent-loop.md#L80-L95)
+- **新增** 旅行规划技能开发
+  - 使用Python3编写技能逻辑，利用本地数据库存储用户偏好。
+  - 实现完整的错误处理和数据验证机制。
+- **新增** FlyAI技能开发
+  - 使用Node.js开发，遵循单行JSON输出规范。
+  - 实现严格的图片和链接格式化规则。
 
-章节来源
+**章节来源**
 - [docs/concepts/agent-loop.md:80-95](file://docs/concepts/agent-loop.md#L80-L95)
 
 ### 内存查询接口
@@ -314,7 +498,7 @@ OpenClaw通过“网关+代理循环+工具+记忆+上下文引擎”的分层�
 - 文件读取
   - 限定在工作区与额外允许路径范围内，支持按行切片读取。
 
-章节来源
+**章节来源**
 - [src/memory/index.ts:1-12](file://src/memory/index.ts#L1-L12)
 - [src/memory/manager.ts:256-364](file://src/memory/manager.ts#L256-L364)
 - [src/memory/manager.ts:626-738](file://src/memory/manager.ts#L626-L738)
@@ -326,7 +510,7 @@ OpenClaw通过“网关+代理循环+工具+记忆+上下文引擎”的分层�
 - 代理配置
   - 通过代理作用域解析工作区、模型主备、技能过滤、沙箱与工具白名单等。
 
-章节来源
+**章节来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
 - [src/agents/agent-scope.ts:118-145](file://src/agents/agent-scope.ts#L118-L145)
 
@@ -337,8 +521,11 @@ OpenClaw通过“网关+代理循环+工具+记忆+上下文引擎”的分层�
   - 主会话默认允许工具执行；非主会话建议启用沙箱并限制工具白名单。
 - 思考与冗长度
   - 使用/think与/verbose命令调节思考深度与冗长度，结合/streaming行为优化体验。
+- **新增** 旅行规划技能配置
+  - 确保Python3运行时可用，检查脚本依赖完整性。
+  - 配置旅行偏好数据库目录权限，确保数据持久化正常。
 
-章节来源
+**章节来源**
 - [README.md:318-338](file://README.md#L318-L338)
 - [README.md:270-282](file://README.md#L270-L282)
 
@@ -348,7 +535,7 @@ OpenClaw通过“网关+代理循环+工具+记忆+上下文引擎”的分层�
 - 会话隔离
   - 每个会话键对应独立的串行执行通道，避免跨会话竞态。
 
-章节来源
+**章节来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
 - [docs/concepts/agent-loop.md:45-49](file://docs/concepts/agent-loop.md#L45-L49)
 
@@ -357,7 +544,26 @@ OpenClaw通过“网关+代理循环+工具+记忆+上下文引擎”的分层�
   - 主会话默认允许工具执行；群组/频道安全建议启用沙箱并限制工具白名单。
 - 权限与节点
   - macOS节点权限需遵循TCC；执行本地动作需通过node.invoke并注意权限状态。
+- **新增** 旅行规划技能安全
+  - Python脚本执行需要适当的沙箱隔离，防止恶意代码执行。
+  - 数据库文件访问需要权限控制，避免敏感信息泄露。
+- **新增** FlyAI技能安全
+  - 外部API调用需要HTTPS加密传输，保护用户隐私数据。
+  - API密钥管理需要安全存储，避免硬编码在源码中。
 
-章节来源
+**章节来源**
 - [README.md:332-338](file://README.md#L332-L338)
 - [README.md:240-253](file://README.md#L240-L253)
+
+### 技能安装与管理
+- 技能安装流程
+  - 通过UI界面或命令行安装新技能，自动检测依赖要求。
+  - 支持从URL或本地文件导入技能包。
+- 技能状态监控
+  - 实时显示技能安装进度、运行状态和错误信息。
+  - 提供技能启用/禁用和删除操作。
+
+**章节来源**
+- [ui/src/ui/controllers/skills.ts:125-157](file://ui/src/ui/controllers/skills.ts#L125-L157)
+- [ui-react/src/store/skills.store.ts:208-253](file://ui-react/src/store/skills.store.ts#L208-L253)
+- [ui-react/src/components/skills/SkillCard.tsx:1-320](file://ui-react/src/components/skills/SkillCard.tsx#L1-L320)
