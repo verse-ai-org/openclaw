@@ -131,6 +131,7 @@ install_runtime_dependencies() {
   mkdir -p "$PROD_DEPLOY_DIR"
 
   generate_runtime_package_json
+  cp "$ELECTRON_DIR/scripts/electron-prod.npmrc" "$PROD_DEPLOY_DIR/.npmrc"
 
   (cd "$PROD_DEPLOY_DIR" && pnpm install --prod --no-frozen-lockfile --ignore-workspace)
   bash "$ELECTRON_DIR/scripts/prune-electron-node-modules.sh" "$PROD_DEPLOY_DIR" "$ARCH" "darwin"

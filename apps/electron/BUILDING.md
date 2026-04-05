@@ -149,6 +149,8 @@ make package-win-fast # 跳过构建步骤，复用现有产物
 
 产物：`apps/electron/release/` 下的 `.exe` 安装包和 `.zip`。
 
+内嵌 Gateway 的运行时 `node_modules` 在 `pnpm install` 前会写入 `node-linker=hoisted`（见 `scripts/electron-prod.npmrc`），避免 electron-builder 把 pnpm 的 symlink 布局拷贝成实体目录后，传递依赖无法从 `@mariozechner/pi-ai` 等包内解析。
+
 ### 版本号管理（发布前）
 
 Electron 安装包版本来自 `apps/electron/package.json` 的 `version` 字段。
