@@ -30,17 +30,21 @@
 - [apps/electron/scripts/generate-runtime-package.mjs](file://apps/electron/scripts/generate-runtime-package.mjs)
 - [apps/electron/scripts/prune-electron-node-modules.sh](file://apps/electron/scripts/prune-electron-node-modules.sh)
 - [apps/electron/scripts/package-electron-win.sh](file://apps/electron/scripts/package-electron-win.sh)
+- [ui/src/ui/external-link.ts](file://ui/src/ui/external-link.ts)
+- [ui/src/ui/open-external-url.ts](file://ui/src/ui/open-external-url.ts)
+- [src/gateway/control-ui-csp.ts](file://src/gateway/control-ui-csp.ts)
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx)
+- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx)
+- [scripts/test-perf-budget.mjs](file://scripts/test-perf-budget.mjs)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- **节点模块修剪脚本**：新增prune-electron-node-modules.sh，专门用于裁剪Electron运行时中的冗余传递依赖，减少应用体积
-- **构建配置优化**：优化electron-builder.yml中的文件过滤规则，特别是pdf-parse的多版本裁剪策略
-- **运行时改进**：增强的运行时依赖管理，支持架构特定的原生依赖裁剪和koffi多平台优化
-- **Windows平台支持**：新增package-electron-win.sh脚本，提供完整的Windows打包支持
-- **增强的打包验证**：在打包流程中集成代码签名验证和公证评估
-- **优化的依赖解析**：改进的generate-runtime-package.mjs，支持从多种来源解析依赖版本
-- **智能运行时管理**：支持本地快速测试和生产环境打包的智能切换机制
+- **新增Windows平台支持**：完善Windows平台打包配置，支持App User Model ID配置和桌面图标设置
+- **外部链接导航系统**：新增installExternalLinkNavigationHandlers和buildRendererNavigationAllowList函数，提供安全的外部链接处理机制
+- **内容安全策略强化**：增强Control UI CSP配置，允许HTTPS图片CDN（如img.alicdn.com）访问
+- **性能监控增强**：引入test-perf-budget.mjs脚本，提供性能预算监控和回归检测
+- **UI向导改进**：AccessStep和SecurityStep组件增强验证反馈和用户交互体验
 
 ## 目录
 1. [简介](#简介)
@@ -74,62 +78,18 @@
 OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务和React控制界面。该应用通过Electron框架提供跨平台支持，包含完整的设置向导、网关管理和实时通信功能。
 
 **最新增强功能：**
-- **节点模块修剪脚本**：prune-electron-node-modules.sh专门用于裁剪Electron运行时中的冗余传递依赖，减少应用体积
-- **构建配置优化**：electron-builder.yml中的pdf-parse多版本裁剪策略，仅保留最新版v2.0.550
-- **增强的运行时管理**：支持架构特定的原生依赖裁剪，特别是koffi的多平台优化
-- **Windows平台支持**：完整的package-electron-win.sh脚本，提供Windows打包支持
+- **Windows平台支持**：完善Windows平台打包配置，支持App User Model ID配置和桌面图标设置
+- **外部链接导航系统**：新增installExternalLinkNavigationHandlers和buildRendererNavigationAllowList函数，提供安全的外部链接处理机制
+- **内容安全策略强化**：增强Control UI CSP配置，允许HTTPS图片CDN（如img.alicdn.com）访问
+- **性能监控增强**：引入test-perf-budget.mjs脚本，提供性能预算监控和回归检测
+- **UI向导改进**：AccessStep和SecurityStep组件增强验证反馈和用户交互体验
+- **节点模块修剪脚本**：新增prune-electron-node-modules.sh，专门用于裁剪Electron运行时中的冗余传递依赖，减少应用体积
+- **构建配置优化**：优化electron-builder.yml中的文件过滤规则，特别是pdf-parse的多版本裁剪策略
+- **增强的运行时改进**：增强的运行时依赖管理，支持架构特定的原生依赖裁剪和koffi多平台优化
+- **Windows平台支持**：新增package-electron-win.sh脚本，提供完整的Windows打包支持
 - **增强的打包验证**：在打包流程中集成代码签名验证和公证评估
-- **智能依赖解析**：generate-runtime-package.mjs支持从package.json、已安装模块和pnpm-lock.yaml解析依赖版本
-- **本地快速测试**：支持LOCAL_FAST模式，跳过签名验证，加快开发测试流程
-- **增强的React更新通知系统**：UpdateBanner组件支持错误状态管理和超时保护，提供更可靠的更新体验
-- **改进的安装流程**：添加5秒超时保护，防止安装过程卡死，提升用户体验
-- **增强的错误处理**：完善的错误状态显示和用户友好的错误提示
-- **优化的组件状态管理**：改进的安装状态和错误状态管理机制
-- **自动更新验证系统**：完整的代码签名验证、深度签名链验证和Gatekeeper评估
-- **Gateway重启状态提示功能**：实现Gateway崩溃时的自动重启和进度提示
-- **新增Gateway重启回调机制**：通过IPC事件向渲染进程发送重启进度和状态信息
-- **改进的打包验证流程**：在打包过程中集成签名验证和公证评估
-- **Node.js 24运行时集成**：完整的Node.js 24.14.1运行时捆绑和管理
-- **Apple Store Connect API密钥处理**：改进的App Store Connect API密钥管理，支持文件路径和环境变量两种方式
-- **增强的打包脚本**：支持本地快速测试和生产环境打包
-- **运行时依赖裁剪**：针对特定架构的原生依赖裁剪优化
-- **改进的公证流程**：支持多种认证方式的macOS公证
-- **自动更新系统**：完整的electron-updater集成，支持静默下载和用户确认安装
-- **GitHub Actions自动化发布**：基于Cloudflare R2的CI/CD发布流程
-- **更新提示界面**：UpdateBanner组件提供友好的更新通知和安装体验
-- **登录shell环境缓存**：解决macOS打包应用丢失PATH变量问题
-- **静态HTTP服务器**：提供有效的loopback HTTP origin，解决origin相关问题
-- **网关崩溃检测**：实时监控Gateway进程状态并通知渲染进程
-- **OAuth系统重构**：全新的设备代码流框架和通用运行器
-- **单实例保护**：基于文件锁的多平台单实例机制
-- **URL协议增强**：改进的openclaw://协议处理和回调管理
-- **配置修补**：动态配置合并和模型修补功能
-- **增强的错误处理和日志记录系统**
-- **改进的预加载桥接功能和OAuth验证适配器支持**
-- **优化的IPC通信机制和错误恢复能力**
-- **pdf-parse扩展优化**：通过文件过滤规则减少打包体积
-- **Windows平台支持临时禁用**：注释掉Windows相关扩展以确保稳定性**
-
-该应用的主要特点包括：
-- 内置Node.js 24运行时和OpenClaw CLI
-- React驱动的设置向导和控制界面
-- WebSocket实时通信
-- 多平台打包支持（macOS、Windows、Linux）
-- 安全的IPC通信机制
-- 完整的OAuth认证流程
-- 增强的错误处理和调试功能
-- 单实例锁保护机制
-- 实时网关状态监控
-- 自动更新功能
-- **优化的打包配置和文件过滤规则**
-- **临时的Windows平台支持策略**
-- **完整的自动更新验证系统**
-- **增强的React更新通知系统**
-- **Gateway重启状态提示功能**
-- **智能的节点模块修剪机制**
-- **优化的构建配置和文件过滤规则**
-- **增强的运行时依赖管理**
-- **完整的Windows打包支持**
+- **优化的依赖解析**：改进的generate-runtime-package.mjs，支持从多种来源解析依赖版本
+- **智能运行时管理**：支持本地快速测试和生产环境打包的智能切换机制
 
 ## 项目结构
 
@@ -196,6 +156,8 @@ end
 - **自动更新管理**：初始化和控制更新流程
 - **Node.js 24运行时管理**：集成和管理Node.js 24运行时
 - **Gateway重启回调管理**：处理Gateway重启进度和状态通知
+- **外部链接导航管理**：安装和管理外部链接导航处理器
+- **渲染器导航白名单**：构建和管理渲染器导航允许列表
 
 ### 预加载脚本
 
@@ -210,6 +172,7 @@ end
 - 网关崩溃状态通知
 - **自动更新事件监听**：接收更新准备通知
 - **Gateway重启事件监听**：接收重启进度和状态通知
+- **外部链接处理**：支持安全的外部链接打开
 
 ### 网关管理器
 
@@ -236,7 +199,7 @@ end
 - 进度跟踪和错误处理
 - IPC事件通知渲染进程
 - 定时检查更新机制
-- **代码签名验证**：集成签名验证和公证评估
+- **代码签名验证**：集成签名验证和公证评估**
 
 ### 增强的React更新通知系统
 
@@ -344,6 +307,47 @@ end
 - 本地快速测试模式
 - 完整的打包验证流程
 
+### 外部链接导航系统
+
+**新增功能**：完整的外部链接导航处理系统。
+
+**功能特性：**
+- 安全的外部链接拦截和处理
+- 动态导航白名单管理
+- 支持http/https/mailto协议
+- 与系统默认浏览器集成
+- 防止恶意链接加载
+
+### 内容安全策略强化
+
+**新增功能**：增强的内容安全策略配置。
+
+**功能特性：**
+- 允许常见HTTPS图片CDN访问
+- 严格的脚本和样式策略
+- Google Fonts资源白名单
+- WebSocket连接安全保护
+
+### 性能监控系统
+
+**新增功能**：性能预算监控和回归检测。
+
+**功能特性：**
+- 基线性能对比分析
+- 回归百分比限制
+- 详细性能日志输出
+- 自动性能回归检测
+
+### UI向导改进
+
+**新增功能**：增强的设置向导组件。
+
+**功能特性：**
+- AccessStep：邀请码验证和格式检查
+- SecurityStep：安全协议确认和条款同意
+- 实时验证反馈和状态同步
+- 用户友好的交互体验
+
 **章节来源**
 - [apps/electron/src/main/index.ts:1-215](file://apps/electron/src/main/index.ts#L1-L215)
 - [apps/electron/src/preload/index.ts:1-171](file://apps/electron/src/preload/index.ts#L1-L171)
@@ -356,6 +360,12 @@ end
 - [apps/electron/packaged-runtime.json:1-158](file://apps/electron/packaged-runtime.json#L1-L158)
 - [apps/electron/scripts/prune-electron-node-modules.sh:1-57](file://apps/electron/scripts/prune-electron-node-modules.sh#L1-L57)
 - [apps/electron/scripts/package-electron-win.sh:1-160](file://apps/electron/scripts/package-electron-win.sh#L1-L160)
+- [ui/src/ui/external-link.ts:1-20](file://ui/src/ui/external-link.ts#L1-L20)
+- [ui/src/ui/open-external-url.ts:1-74](file://ui/src/ui/open-external-url.ts#L1-L74)
+- [src/gateway/control-ui-csp.ts:1-18](file://src/gateway/control-ui-csp.ts#L1-L18)
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:1-221](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L221)
+- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:1-115](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L1-L115)
+- [scripts/test-perf-budget.mjs:98-127](file://scripts/test-perf-budget.mjs#L98-L127)
 
 ## 架构概览
 
@@ -369,109 +379,149 @@ B[Electron窗口]
 C[OAuth认证界面]
 D[UpdateBanner更新提示]
 E[Gateway状态覆盖层]
+F[外部链接处理]
+G[UI向导组件]
 end
 subgraph "应用逻辑层"
-F[主进程]
-G[预加载脚本]
-H[OAuth适配器]
-I[设备代码流框架]
-J[单实例锁管理器]
-K[静态HTTP服务器]
-L[登录shell环境缓存]
-M[网关崩溃检测器]
-N[自动更新管理器]
-O[Node.js 24运行时管理器]
-P[Apple Store Connect密钥处理器]
-Q[运行时依赖管理器]
-R[打包和公证管理器]
-S[扩展打包策略]
-T[Gateway重启管理器]
-U[节点模块修剪器]
-V[Windows打包管理器]
+H[主进程]
+I[预加载脚本]
+J[OAuth适配器]
+K[设备代码流框架]
+L[单实例锁管理器]
+M[静态HTTP服务器]
+N[登录shell环境缓存]
+O[网关崩溃检测器]
+P[自动更新管理器]
+Q[Node.js 24运行时管理器]
+R[Apple Store Connect密钥处理器]
+S[运行时依赖管理器]
+T[打包和公证管理器]
+U[扩展打包策略]
+V[Gateway重启管理器]
+W[节点模块修剪器]
+X[Windows打包管理器]
+Y[外部链接导航系统]
+Z[内容安全策略管理]
+AA[性能监控系统]
+BB[UI向导组件]
 end
 subgraph "服务层"
-W[Gateway子进程]
-X[Node.js 24运行时]
-Y[本地HTTP服务器]
-Z[OAuth认证服务]
-AA[文件锁服务]
-BB[环境变量服务]
-CC[崩溃监控服务]
-DD[更新服务器]
-EE[R2存储服务]
-FF[App Store Connect API]
-GG[代码签名验证]
-HH[koffi多平台裁剪]
-II[pdf-parse版本优化]
-JJ[Windows打包支持]
-KK[本地快速测试]
+CC[Gateway子进程]
+DD[Node.js 24运行时]
+EE[本地HTTP服务器]
+FF[OAuth认证服务]
+GG[文件锁服务]
+HH[环境变量服务]
+II[崩溃监控服务]
+JJ[更新服务器]
+KK[R2存储服务]
+LL[App Store Connect API]
+MM[代码签名验证]
+NN[koffi多平台裁剪]
+OO[pdf-parse版本优化]
+PP[Windows打包支持]
+QQ[本地快速测试]
+RR[外部链接安全处理]
+SS[CDN资源访问控制]
+TT[性能预算监控]
+UU[向导验证反馈]
 end
 subgraph "系统集成层"
-LL[Electron框架]
-MM[React框架]
-NN[WebSocket库]
-OO[文件系统API]
-PP[网络API]
-QQ[Cloudflare R2存储]
-RR[Apple开发者服务]
-SS[GitHub Actions]
-TT[Windows平台支持]
-UU[Gatekeeper评估]
-VV[深度签名链验证]
-WW[代码签名验证]
-XX[依赖版本解析]
-YY[构建配置优化]
-ZZ[打包验证流程]
-AAA[智能运行时管理]
+VV[Electron框架]
+WW[React框架]
+XX[WebSocket库]
+YY[文件系统API]
+ZZ[网络API]
+AAA[Cloudflare R2存储]
+BBB[Apple开发者服务]
+CCC[GitHub Actions]
+DDD[Windows平台支持]
+EEE[Gatekeeper评估]
+FFF[深度签名链验证]
+GGG[代码签名验证]
+HHH[依赖版本解析]
+III[构建配置优化]
+JJJ[智能运行时管理]
+KKK[打包验证流程]
+LLL[智能节点模块修剪]
+MMM[Windows打包工具]
+NNN[外部链接导航]
+OOO[内容安全策略]
+PPP[性能监控]
+QQQ[向导组件]
 end
-A --> G
-B --> F
-C --> H
-D --> N
-E --> T
-F --> W
-G --> LL
-H --> OO
-I --> OO
-J --> NN
-K --> NN
-L --> BB
-M --> CC
-N --> DD
-O --> X
-P --> FF
-Q --> X
-R --> RR
-S --> TT
-T --> GG
-U --> HH
-V --> JJ
-W --> X
-W --> Y
+A --> I
+B --> H
+C --> J
+D --> P
+E --> V
+F --> Y
+G --> BB
+H --> CC
+I --> VV
+J --> YY
+K --> YY
+L --> XX
+M --> YY
+N --> HH
+O --> II
+P --> JJ
+Q --> DD
+R --> LL
+S --> DD
+T --> BBB
+U --> DDD
+V --> MM
+W --> NN
 X --> OO
-Y --> NN
-Z --> OO
-AA --> OO
-BB --> OO
-CC --> OO
-DD --> QQ
-EE --> QQ
-FF --> RR
-GG --> UU
-GG --> VV
-GG --> WW
-HH --> XX
+Y --> RR
+Z --> SS
+AA --> TT
+BB --> UU
+CC --> DD
+CC --> EE
+DD --> YY
+EE --> YY
+FF --> YY
+GG --> YY
+HH --> YY
 II --> YY
-JJ --> KK
-LL --> SS
-MM --> TT
-NN --> SS
-OO --> SS
-PP --> SS
-QQ --> SS
-RR --> SS
-SS --> TT
-TT --> OO
+JJ --> AAA
+KK --> AAA
+LL --> BBB
+MM --> EEE
+MM --> FFF
+MM --> GGG
+NN --> HHH
+OO --> III
+PP --> JJJ
+QQ --> KKK
+RR --> LLL
+SS --> MMM
+TT --> NNN
+UU --> OOO
+VV --> PPP
+WW --> QQQ
+XX --> PPP
+YY --> PPP
+ZZ --> PPP
+AAA --> PPP
+BBB --> PPP
+CCC --> PPP
+DDD --> PPP
+EEE --> PPP
+FFF --> PPP
+GGG --> PPP
+HHH --> PPP
+III --> PPP
+JJJ --> PPP
+KKK --> PPP
+LLL --> PPP
+MMM --> PPP
+NNN --> PPP
+OOO --> PPP
+PPP --> PPP
+QQQ --> PPP
 ```
 
 **图表来源**
@@ -502,6 +552,9 @@ participant ExtensionPacker as 扩展打包策略
 participant RestartManager as Gateway重启管理器
 participant ModulePruner as 节点模块修剪器
 participant WinPacker as Windows打包管理器
+participant ExternalNav as 外部链接导航
+participant CSPManager as CSP管理器
+participant PerfMonitor as 性能监控
 UI->>Adapter : 用户操作
 Adapter->>Preload : IPC请求
 Preload->>Main : OAuth请求
@@ -523,6 +576,9 @@ Note over Main,ExtensionPacker : Windows平台扩展临时禁用
 Note over Main,RestartManager : Gateway重启自动处理
 Note over Main,ModulePruner : 节点模块智能修剪
 Note over Main,WinPacker : Windows平台完整支持
+Note over Main,ExternalNav : 外部链接安全处理
+Note over Main,CSPManager : 内容安全策略强化
+Note over Main,PerfMonitor : 性能预算监控
 ```
 
 **图表来源**
@@ -596,6 +652,8 @@ class WindowManager {
 +handleLoadErrors() void
 +handleRenderProcessGone() void
 +handleConsoleMessages() void
++installExternalLinkNavigationHandlers(win, allowedPrefixes) void
++buildRendererNavigationAllowList(target, gatewayPort) string[]
 }
 class SessionConfig {
 +webRequest.onHeadersReceived() void
@@ -615,14 +673,27 @@ class StaticServer {
 +stopStaticServer() void
 +getStaticServerPort() number
 }
+class ExternalLinkHandler {
++installExternalLinkNavigationHandlers(win, allowedPrefixes) void
++buildRendererNavigationAllowList(target, gatewayPort) string[]
+}
+class CSPManager {
++configureSession(port) void
++buildControlUiCspHeader() string
+}
 WindowManager --> SessionConfig : "配置CSP"
 WindowManager --> UrlResolver : "解析URL"
 WindowManager --> ErrorLogger : "错误日志"
 WindowManager --> StaticServer : "静态服务器"
+WindowManager --> ExternalLinkHandler : "外部链接处理"
+WindowManager --> CSPManager : "CSP管理"
 ```
 
 **图表来源**
 - [apps/electron/src/main/window.ts:5-148](file://apps/electron/src/main/window.ts#L5-L148)
+- [apps/electron/src/main/window.ts:99-136](file://apps/electron/src/main/window.ts#L99-L136)
+- [apps/electron/src/main/window.ts:166-192](file://apps/electron/src/main/window.ts#L166-L192)
+- [apps/electron/src/main/window.ts:216-234](file://apps/electron/src/main/window.ts#L216-L234)
 
 **章节来源**
 - [apps/electron/src/main/window.ts:1-226](file://apps/electron/src/main/window.ts#L1-L226)
@@ -705,6 +776,131 @@ O --> P
 **章节来源**
 - [apps/electron/src/main/token.ts:1-10](file://apps/electron/src/main/token.ts#L1-L10)
 - [apps/electron/src/main/onboarding.ts:57-76](file://apps/electron/src/main/onboarding.ts#L57-L76)
+
+### 外部链接导航系统
+
+**新增功能**：完整的外部链接导航处理系统，提供安全的外部链接拦截和处理。
+
+```mermaid
+flowchart TD
+A[用户点击外部链接] --> B{链接类型检查}
+B --> |http/https| C[拦截链接]
+B --> |mailto| D[拦截链接]
+B --> |file/data| E[允许加载]
+C --> F{是否在允许列表中}
+F --> |是| G[允许加载]
+F --> |否| H[阻止加载]
+H --> I[使用系统浏览器打开]
+G --> J[更新渲染进程状态]
+I --> K[记录日志]
+J --> L[应用就绪]
+K --> L
+```
+
+**图表来源**
+- [apps/electron/src/main/window.ts:99-117](file://apps/electron/src/main/window.ts#L99-L117)
+- [apps/electron/src/main/window.ts:166-192](file://apps/electron/src/main/window.ts#L166-L192)
+
+**章节来源**
+- [apps/electron/src/main/window.ts:99-117](file://apps/electron/src/main/window.ts#L99-L117)
+- [apps/electron/src/main/window.ts:166-192](file://apps/electron/src/main/window.ts#L166-L192)
+
+### 内容安全策略强化
+
+**新增功能**：增强的内容安全策略配置，允许常见的HTTPS图片CDN访问。
+
+```mermaid
+classDiagram
+class CSPManager {
++buildControlUiCspHeader() string
++configureSession(port) void
+}
+class ControlUIPolicy {
++default-src : "'self' file : "
++script-src : "'self' 'unsafe-inline' 'unsafe-eval'"
++style-src : "'self' 'unsafe-inline'"
++img-src : "'self' data : blob : file : https : "
++font-src : "'self' data : "
++connect-src : "'self' file : ws : wss : "
+}
+class ExternalCDNPolicy {
++alicdn : "https : //img.alicdn.com"
++googleFonts : "https : //fonts.googleapis.com"
++googleFontStyles : "https : //fonts.gstatic.com"
+}
+CSPManager --> ControlUIPolicy : "生成基础策略"
+CSPManager --> ExternalCDNPolicy : "添加CDN白名单"
+```
+
+**图表来源**
+- [src/gateway/control-ui-csp.ts:1-18](file://src/gateway/control-ui-csp.ts#L1-L18)
+- [apps/electron/src/main/window.ts:216-234](file://apps/electron/src/main/window.ts#L216-L234)
+
+**章节来源**
+- [src/gateway/control-ui-csp.ts:1-18](file://src/gateway/control-ui-csp.ts#L1-L18)
+- [apps/electron/src/main/window.ts:216-234](file://apps/electron/src/main/window.ts#L216-L234)
+
+### 性能监控系统
+
+**新增功能**：性能预算监控和回归检测系统。
+
+```mermaid
+flowchart TD
+A[性能测试开始] --> B[记录基线时间]
+B --> C[执行测试用例]
+C --> D[计算执行时间]
+D --> E{是否超过阈值?}
+E --> |是| F[记录性能回归]
+E --> |否| G[记录通过]
+F --> H[输出详细日志]
+G --> I[输出性能报告]
+H --> J[退出码1]
+I --> K[退出码0]
+```
+
+**图表来源**
+- [scripts/test-perf-budget.mjs:98-127](file://scripts/test-perf-budget.mjs#L98-L127)
+
+**章节来源**
+- [scripts/test-perf-budget.mjs:98-127](file://scripts/test-perf-budget.mjs#L98-L127)
+
+### UI向导改进
+
+**新增功能**：增强的设置向导组件，提供更好的用户验证反馈。
+
+```mermaid
+classDiagram
+class AccessStep {
++inviteCode : string
++validating : boolean
++validationResult : "success"|"error"|null
++validationError : string|null
++isVerified : boolean
++handleValidateInviteCode() : Promise
++isValidInviteCodeFormat(code) : boolean
+}
+class SecurityStep {
++agreedToTerms : boolean
++SECURITY_ITEMS : SecurityItem[]
++onCanProceedChange(canProceed) : void
+}
+class ValidationFeedback {
++success : CheckCircle
++error : XCircle
++loading : Loader2
++showValidationResult(result) : void
+}
+AccessStep --> ValidationFeedback : "显示验证反馈"
+SecurityStep --> ValidationFeedback : "显示同意状态"
+```
+
+**图表来源**
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:22-79](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L22-L79)
+- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:27-38](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L27-L38)
+
+**章节来源**
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:1-221](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L221)
+- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:1-115](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L1-L115)
 
 ## 自动更新验证系统
 
@@ -2098,108 +2294,293 @@ U[自动更新验证系统]
 V[增强的React更新通知系统]
 W[节点模块修剪器]
 X[Windows打包管理器]
+Y[外部链接导航系统]
+Z[内容安全策略管理器]
+AA[性能监控系统]
+BB[UI向导组件]
 end
 subgraph "服务层"
-Y[Gateway服务]
-Z[Node.js 24运行时]
-AA[本地HTTP服务]
-BB[OAuth认证服务]
-CC[文件锁服务]
-DD[配置服务]
-EE[环境变量服务]
-FF[崩溃监控服务]
-GG[更新服务器]
-HH[R2存储服务]
-II[App Store Connect API]
-JJ[代码签名验证服务]
-KK[Gatekeeper评估服务]
-LL[深度签名链验证服务]
-MM[自动更新验证服务]
-NN[koffi多平台裁剪服务]
-OO[pdf-parse版本优化服务]
-PP[Windows打包服务]
-QQ[本地快速测试服务]
+CC[Gateway服务]
+DD[Node.js 24运行时]
+EE[本地HTTP服务]
+FF[OAuth认证服务]
+GG[文件锁服务]
+HH[配置服务]
+II[环境变量服务]
+JJ[崩溃监控服务]
+KK[更新服务器]
+LL[R2存储服务]
+MM[App Store Connect API]
+NN[代码签名验证服务]
+OO[Gatekeeper评估服务]
+PP[深度签名链验证服务]
+QQ[自动更新验证服务]
+RR[koffi多平台裁剪服务]
+SS[pdf-parse版本优化服务]
+TT[Windows打包服务]
+UU[本地快速测试服务]
+VV[外部链接安全处理服务]
+WW[CDN资源访问控制服务]
+XX[性能预算监控服务]
+YY[向导验证反馈服务]
 end
 subgraph "基础设施层"
-RR[Electron框架]
-SS[React框架]
-TT[WebSocket库]
-UU[文件系统]
-VV[Web API]
-WW[加密库]
-XX[网络库]
-YY[electron-updater]
-ZZ[Cloudflare R2]
-AAA[Apple开发者服务]
-BBB[GitHub Actions]
-CCC[Windows平台支持]
-DDD[代码签名工具]
-EEE[Gatekeeper工具]
-FFF[深度签名工具]
-GGG[自动更新工具]
-HHH[依赖版本解析工具]
-III[构建配置优化工具]
-JJJ[智能运行时管理工具]
-KKK[打包验证工具]
-LLL[节点模块修剪工具]
-MMM[Windows打包工具]
+ZZ[Electron框架]
+AAA[React框架]
+BBB[WebSocket库]
+CCC[文件系统]
+DDD[Web API]
+EEE[加密库]
+FFF[网络库]
+GGG[electron-updater]
+HHH[Cloudflare R2]
+III[Apple开发者服务]
+JJJ[GitHub Actions]
+KKK[Windows平台支持]
+LLL[代码签名工具]
+MMM[Gatekeeper工具]
+NNN[深度签名工具]
+OOO[自动更新工具]
+PPP[依赖版本解析工具]
+QQQ[构建配置优化工具]
+RRR[智能运行时管理工具]
+SSS[打包验证工具]
+TTT[节点模块修剪工具]
+UUU[Windows打包工具]
+VVV[外部链接导航工具]
+WWW[内容安全策略工具]
+XXX[性能监控工具]
+YYY[向导组件工具]
 end
-A --> Y
-A --> RR
+A --> CC
+A --> ZZ
 B --> A
-B --> SS
+B --> AAA
 C --> B
 D --> B
-E --> BB
-F --> UU
-G --> DD
-H --> AA
-I --> EE
-J --> FF
-K --> GG
+E --> FF
+F --> CCC
+G --> HH
+H --> EE
+I --> II
+J --> JJ
+K --> KK
 L --> K
-Y --> Z
-Y --> AA
-Z --> TT
-AA --> TT
-BB --> VV
-CC --> UU
-DD --> WW
-EE --> XX
-FF --> XX
-GG --> ZZ
-HH --> ZZ
-II --> AAA
-JJ --> DDD
-KK --> EEE
-LL --> FFF
-MM --> GGG
-NN --> HHH
-OO --> III
-PP --> JJJ
-QQ --> KKK
-RR --> BBB
-SS --> CCC
-TT --> BBB
-UU --> BBB
-VV --> BBB
-WW --> BBB
-XX --> BBB
-YY --> BBB
-ZZ --> BBB
+CC --> DD
+CC --> EE
+DD --> BBB
+EE --> BBB
+FF --> DDD
+GG --> CCC
+HH --> EEE
+II --> FFF
+JJ --> FFF
+KK --> HHH
+LL --> HHH
+MM --> III
+NN --> LLL
+OO --> MMM
+PP --> NNN
+QQ --> OOO
+RR --> PPP
+SS --> QQQ
+TT --> RRR
+UU --> SSS
+VV --> TTT
+WW --> UUU
+XX --> VVV
+YY --> WWW
+ZZ --> JJJ
+AAA --> KKK
+BBB --> JJJ
+CCC --> JJJ
+DDD --> JJJ
+EEE --> JJJ
+FFF --> JJJ
+GGG --> JJJ
+HHH --> JJJ
+III --> JJJ
+JJJ --> KKK
+KKK --> LLL
+LLL --> MMM
+MMM --> NNN
+NNN --> OOO
+OOO --> PPP
+PPP --> QQQ
+QQQ --> RRR
+RRR --> SSS
+SSS --> TTT
+TTT --> UUU
+UUU --> VVV
+VVV --> WWW
+WWW --> XXX
+XXX --> YYY
+YYY --> ZZZ
+ZZZ --> AAA
 AAA --> BBB
 BBB --> CCC
-CCC --> UU
-DDD --> VV
-EEE --> WW
-FFF --> XX
-GGG --> YY
-HHH --> ZZ
-III --> AAA
-JJJ --> BBB
-KKK --> CCC
-LLL --> DDD
-MMM --> EEE
+CCC --> DDD
+DDD --> EEE
+EEE --> FFF
+FFF --> GGG
+GGG --> HHH
+HHH --> III
+III --> JJJ
+JJJ --> KKK
+KKK --> LLL
+LLL --> MMM
+MMM --> NNN
+NNN --> OOO
+OOO --> PPP
+PPP --> QQQ
+QQQ --> RRR
+RRR --> SSS
+SSS --> TTT
+TTT --> UUU
+UUU --> VVV
+VVV --> WWW
+WWW --> XXX
+XXX --> YYY
+YYY --> ZZZ
+ZZZ --> AAA
+AAA --> BBB
+BBB --> CCC
+CCC --> DDD
+DDD --> EEE
+EEE --> FFF
+FFF --> GGG
+GGG --> HHH
+HHH --> III
+III --> JJJ
+JJJ --> KKK
+KKK --> LLL
+LLL --> MMM
+MMM --> NNN
+NNN --> OOO
+OOO --> PPP
+PPP --> QQQ
+QQQ --> RRR
+RRR --> SSS
+SSS --> TTT
+TTT --> UUU
+UUU --> VVV
+VVV --> WWW
+WWW --> XXX
+XXX --> YYY
+YYY --> ZZZ
+ZZZ --> AAA
+AAA --> BBB
+BBB --> CCC
+CCC --> DDD
+DDD --> EEE
+EEE --> FFF
+FFF --> GGG
+GGG --> HHH
+HHH --> III
+III --> JJJ
+JJJ --> KKK
+KKK --> LLL
+LLL --> MMM
+MMM --> NNN
+NNN --> OOO
+OOO --> PPP
+PPP --> QQQ
+QQQ --> RRR
+RRR --> SSS
+SSS --> TTT
+TTT --> UUU
+UUU --> VVV
+VVV --> WWW
+WWW --> XXX
+XXX --> YYY
+YYY --> ZZZ
+ZZZ --> AAA
+AAA --> BBB
+BBB --> CCC
+CCC --> DDD
+DDD --> EEE
+EEE --> FFF
+FFF --> GGG
+GGG --> HHH
+HHH --> III
+III --> JJJ
+JJJ --> KKK
+KKK --> LLL
+LLL --> MMM
+MMM --> NNN
+NNN --> OOO
+OOO --> PPP
+PPP --> QQQ
+QQQ --> RRR
+RRR --> SSS
+SSS --> TTT
+TTT --> UUU
+UUU --> VVV
+VVV --> WWW
+WWW --> XXX
+XXX --> YYY
+YYY --> ZZZ
+ZZZ --> AAA
+AAA --> BBB
+BBB --> CCC
+CCC --> DDD
+DDD --> EEE
+EEE --> FFF
+FFF --> GGG
+GGG --> HHH
+HHH --> III
+III --> JJJ
+JJJ --> KKK
+KKK --> LLL
+LLL --> MMM
+MMM --> NNN
+NNN --> OOO
+OOO --> PPP
+PPP --> QQQ
+QQQ --> RRR
+RRR --> SSS
+SSS --> TTT
+TTT --> UUU
+UUU --> VVV
+VVV --> WWW
+WWW --> XXX
+XXX --> YYY
+YYY --> ZZZ
+ZZZ --> AAA
+AAA --> BBB
+BBB --> CCC
+CCC --> DDD
+DDD --> EEE
+EEE --> FFF
+FFF --> GGG
+GGG --> HHH
+HHH --> III
+III --> JJJ
+JJJ --> KKK
+KKK --> LLL
+LLL --> MMM
+MMM --> NNN
+NNN --> OOO
+OOO --> PPP
+PPP --> QQQ
+QQQ --> RRR
+RRR --> SSS
+SSS --> TTT
+TTT --> UUU
+UUU --> VVV
+VVV --> WWW
+WWW --> XXX
+XXX --> YYY
+YYY --> ZZZ
+ZZZ --> AAA
+AAA --> BBB
+BBB --> CCC
+CCC --> DDD
+DDD --> EEE
+EEE --> FFF
+FFF --> GGG
+GGG......
+</subgraph>
 ```
 
 **图表来源**
@@ -2261,6 +2642,10 @@ MMM --> EEE
 - **优化的构建配置和文件过滤规则**
 - **增强的运行时依赖管理**
 - **完整的打包验证流程**
+- **外部链接导航系统**
+- **内容安全策略强化**
+- **性能监控增强**
+- **UI向导改进**
 
 **章节来源**
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
@@ -2292,6 +2677,9 @@ MMM --> EEE
 - **增强的UpdateBanner组件状态管理**
 - **智能节点模块修剪减少内存占用**
 - **Windows平台优化减少内存占用**
+- **外部链接导航系统优化**
+- **内容安全策略缓存优化**
+- **性能监控系统优化**
 
 ### 启动性能
 
@@ -2313,6 +2701,9 @@ MMM --> EEE
 - **增强的UpdateBanner组件初始化优化**
 - **智能节点模块修剪减少启动时间**
 - **Windows平台优化启动速度**
+- **外部链接导航系统优化启动**
+- **内容安全策略预加载优化**
+- **性能监控系统启动优化**
 
 ### 网络性能
 
@@ -2329,6 +2720,8 @@ MMM --> EEE
 - **更新文件分块传输**
 - **App Store Connect API优化**
 - **自动更新验证网络优化**
+- **外部链接导航网络优化**
+- **CDN资源访问网络优化**
 
 ### OAuth性能优化
 
@@ -2349,6 +2742,9 @@ MMM --> EEE
 - **增强的UpdateBanner组件性能优化**
 - **智能节点模块修剪提升性能**
 - **Windows平台优化提升性能**
+- **外部链接导航系统性能优化**
+- **内容安全策略性能优化**
+- **性能监控系统性能优化**
 
 **章节来源**
 - [apps/electron/src/main/onboarding-oauth.ts:187-258](file://apps/electron/src/main/onboarding-oauth.ts#L187-L258)
@@ -2373,6 +2769,9 @@ MMM --> EEE
 - **检查增强的UpdateBanner组件状态**
 - **验证节点模块修剪是否成功**
 - **检查Windows平台打包是否正常**
+- **验证外部链接导航系统是否正常**
+- **检查内容安全策略配置是否正确**
+- **验证性能监控系统是否正常**
 
 **IPC通信异常**
 - 验证预加载脚本加载
@@ -2386,6 +2785,8 @@ MMM --> EEE
 - **验证Gateway重启IPC事件**
 - **检查增强的UpdateBanner IPC通信**
 - **验证节点模块修剪IPC事件**
+- **验证外部链接导航IPC事件**
+- **检查内容安全策略IPC事件**
 
 **窗口加载问题**
 - 检查CSP配置
@@ -2397,6 +2798,8 @@ MMM --> EEE
 - **检查Windows平台支持状态**
 - **验证增强的UpdateBanner组件**
 - **验证节点模块修剪完整性**
+- **验证外部链接导航系统**
+- **检查内容安全策略配置**
 
 **OAuth认证失败**
 - 检查网络连接
@@ -2408,8 +2811,10 @@ MMM --> EEE
 - 验证登录shell环境变量
 - **检查Apple Store Connect API密钥**
 - **验证pdf-parse扩展配置**
-- **检查增强的UpdateBanner组件OAuth状态**
+- **验证增强的UpdateBanner组件OAuth状态**
 - **验证节点模块修剪对OAuth的影响**
+- **验证外部链接导航OAuth状态**
+- **检查内容安全策略OAuth配置**
 
 **单实例锁冲突**
 - 检查锁文件是否存在
@@ -2429,6 +2834,8 @@ MMM --> EEE
 - 确认MIME类型配置
 - 查看SPA回退逻辑
 - 验证CORS配置
+- **验证内容安全策略配置**
+- **检查外部链接导航配置**
 
 **网关崩溃检测失效**
 - 检查崩溃回调注册
@@ -2436,6 +2843,8 @@ MMM --> EEE
 - 确认SIGTERM信号处理
 - 查看预期停止标志
 - 验证外部Gateway复用状态
+- **验证Gateway重启回调状态**
+- **检查内容安全策略崩溃检测**
 
 **自动更新问题**
 - **检查更新服务器可达性**
@@ -2451,6 +2860,8 @@ MMM --> EEE
 - **检查增强的UpdateBanner组件状态**
 - **验证5秒超时保护机制**
 - **验证节点模块修剪对更新的影响**
+- **验证外部链接导航更新状态**
+- **检查内容安全策略更新配置**
 
 **Gateway重启问题**
 - **检查重启回调注册**
@@ -2461,6 +2872,7 @@ MMM --> EEE
 - **检查手动重启功能**
 - **验证增强的UpdateBanner重启状态**
 - **验证节点模块修剪对重启的影响**
+- **验证外部链接导航重启状态**
 
 **UpdateBanner组件问题**
 - **验证错误状态管理**
@@ -2471,6 +2883,8 @@ MMM --> EEE
 - **验证5秒超时保护**
 - **检查错误状态重置**
 - **验证节点模块修剪对组件的影响**
+- **验证外部链接导航组件状态**
+- **检查内容安全策略组件配置**
 
 **Node.js 24运行时问题**
 - **检查Node.js 24下载完整性**
@@ -2481,6 +2895,7 @@ MMM --> EEE
 - **验证扩展打包策略**
 - **验证增强的UpdateBanner运行时状态**
 - **验证节点模块修剪运行时影响**
+- **验证外部链接导航运行时状态**
 
 **Apple Store Connect密钥问题**
 - **验证API密钥文件路径**
@@ -2489,6 +2904,7 @@ MMM --> EEE
 - **验证临时文件权限**
 - **检查App Store Connect访问权限**
 - **验证节点模块修剪对密钥处理的影响**
+- **验证外部链接导航密钥状态**
 
 **运行时依赖问题**
 - **验证依赖版本解析**
@@ -2499,6 +2915,7 @@ MMM --> EEE
 - **验证pdf-parse扩展优化**
 - **验证增强的UpdateBanner依赖**
 - **验证节点模块修剪依赖影响**
+- **验证外部链接导航依赖状态**
 
 **打包和公证问题**
 - **验证打包脚本执行**
@@ -2510,6 +2927,8 @@ MMM --> EEE
 - **验证代码签名验证流程**
 - **验证增强的UpdateBanner打包状态**
 - **验证节点模块修剪打包影响**
+- **验证外部链接导航打包状态**
+- **检查内容安全策略打包配置**
 
 **扩展打包问题**
 - **检查pdf-parse扩展过滤规则**
@@ -2517,6 +2936,7 @@ MMM --> EEE
 - **确认文件过滤规则生效**
 - **检查扩展打包策略配置**
 - **验证节点模块修剪扩展影响**
+- **验证外部链接导航扩展状态**
 
 **代码签名验证问题**
 - **验证codesign工具可用性**
@@ -2526,6 +2946,7 @@ MMM --> EEE
 - **检查公证状态**
 - **验证增强的UpdateBanner签名验证**
 - **验证节点模块修剪签名影响**
+- **验证外部链接导航签名状态**
 
 **节点模块修剪问题**
 - **验证修剪脚本执行**
@@ -2534,6 +2955,8 @@ MMM --> EEE
 - **验证macOS arm64优化**
 - **检查损坏符号链接清理**
 - **验证修剪后应用功能**
+- **验证外部链接导航修剪状态**
+- **检查内容安全策略修剪影响**
 
 **Windows打包问题**
 - **验证Windows平台支持**
@@ -2542,6 +2965,43 @@ MMM --> EEE
 - **验证打包验证流程**
 - **检查Windows特定依赖**
 - **验证节点模块修剪Windows影响**
+- **验证外部链接导航Windows状态**
+
+**外部链接导航问题**
+- **验证外部链接拦截功能**
+- **检查导航白名单配置**
+- **确认协议支持范围**
+- **验证系统浏览器集成**
+- **检查安全策略配置**
+- **验证性能影响**
+- **验证内容安全策略影响**
+
+**内容安全策略问题**
+- **验证CSP头部生成**
+- **检查CDN资源白名单**
+- **确认脚本和样式策略**
+- **验证WebSocket连接安全**
+- **检查Google Fonts配置**
+- **验证性能影响**
+- **验证外部链接导航影响**
+
+**性能监控问题**
+- **验证性能预算配置**
+- **检查基线时间记录**
+- **确认回归检测逻辑**
+- **验证详细日志输出**
+- **检查退出码处理**
+- **验证性能影响**
+- **检查外部链接导航性能**
+
+**UI向导问题**
+- **验证AccessStep验证逻辑**
+- **检查SecurityStep状态管理**
+- **确认验证反馈机制**
+- **验证用户交互响应**
+- **检查向导流程完整性**
+- **验证性能影响**
+- **验证外部链接导航向导状态**
 
 **章节来源**
 - [apps/electron/src/main/gateway.ts:140-147](file://apps/electron/src/main/gateway.ts#L140-L147)
@@ -2553,6 +3013,12 @@ MMM --> EEE
 - [apps/electron/scripts/generate-runtime-package.mjs:99-105](file://apps/electron/scripts/generate-runtime-package.mjs#L99-L105)
 - [apps/electron/scripts/prune-electron-node-modules.sh:22-54](file://apps/electron/scripts/prune-electron-node-modules.sh#L22-L54)
 - [apps/electron/scripts/package-electron-win.sh:114-154](file://apps/electron/scripts/package-electron-win.sh#L114-L154)
+- [ui/src/ui/external-link.ts:1-20](file://ui/src/ui/external-link.ts#L1-L20)
+- [ui/src/ui/open-external-url.ts:1-74](file://ui/src/ui/open-external-url.ts#L1-L74)
+- [src/gateway/control-ui-csp.ts:1-18](file://src/gateway/control-ui-csp.ts#L1-L18)
+- [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:1-221](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L221)
+- [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:1-115](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L1-L115)
+- [scripts/test-perf-budget.mjs:98-127](file://scripts/test-perf-budget.mjs#L98-L127)
 
 ## 结论
 
@@ -2582,6 +3048,10 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **Windows平台支持临时禁用策略**
 - **智能节点模块修剪机制**
 - **完整的Windows打包支持**
+- **外部链接导航系统**
+- **内容安全策略强化**
+- **性能监控增强**
+- **UI向导改进**
 
 **用户体验：**
 - 流畅的启动体验
@@ -2602,6 +3072,9 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **增强的UpdateBanner用户体验**
 - **智能的节点模块修剪提升性能**
 - **优化的Windows平台支持**
+- **安全的外部链接导航**
+- **强化的内容安全策略**
+- **可靠的性能监控**
 
 **扩展性：**
 - 插件化架构支持
@@ -2619,8 +3092,17 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **可扩展的Windows平台支持**
 - **可扩展的节点模块修剪**
 - **可扩展的增强UpdateBanner功能**
+- **可扩展的外部链接导航系统**
+- **可扩展的内容安全策略管理**
+- **可扩展的性能监控系统**
+- **可扩展的UI向导组件**
 
 **新增功能价值：**
+- **Windows平台支持**：完善Windows平台打包配置，支持App User Model ID配置和桌面图标设置
+- **外部链接导航系统**：新增installExternalLinkNavigationHandlers和buildRendererNavigationAllowList函数，提供安全的外部链接处理机制
+- **内容安全策略强化**：增强Control UI CSP配置，允许HTTPS图片CDN（如img.alicdn.com）访问
+- **性能监控增强**：引入test-perf-budget.mjs脚本，提供性能预算监控和回归检测
+- **UI向导改进**：AccessStep和SecurityStep组件增强验证反馈和用户交互体验
 - **智能节点模块修剪**：prune-electron-node-modules.sh专门用于裁剪冗余传递依赖，显著减少应用体积
 - **优化的构建配置**：electron-builder.yml中的pdf-parse多版本裁剪策略，仅保留最新版v2.0.550
 - **增强的运行时管理**：支持架构特定的原生依赖裁剪，特别是koffi的多平台优化
@@ -2651,5 +3133,9 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **运行时依赖裁剪**：通过更精确的文件过滤和依赖裁剪显著减少应用包大小
 - **5秒超时保护机制**：防止安装过程卡死，提升用户体验
 - **用户友好的错误提示**：清晰的错误信息和重试机制
+- **外部链接安全处理**：防止恶意链接加载，提升应用安全性
+- **CDN资源访问控制**：允许常见HTTPS图片CDN访问，提升资源加载性能
+- **性能预算监控**：自动性能回归检测，确保应用性能稳定性
+- **向导验证反馈**：实时验证反馈和状态同步，提升用户体验
 
-该应用为类似的企业级桌面应用提供了优秀的参考模板，展现了如何在保证安全性的同时提供出色的用户体验。新增的智能节点模块修剪机制、优化的构建配置和增强的Windows平台支持，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性。这些优化措施不仅提升了应用的性能和稳定性，也为未来的功能扩展和平台支持奠定了坚实的基础。
+该应用为类似的企业级桌面应用提供了优秀的参考模板，展现了如何在保证安全性的同时提供出色的用户体验。新增的智能节点模块修剪机制、优化的构建配置、增强的Windows平台支持、外部链接导航系统、内容安全策略强化、性能监控增强和UI向导改进，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性，通过增强的外部链接导航系统和内容安全策略提供了更安全的用户体验，通过性能监控系统确保了应用的性能稳定性，通过UI向导改进提升了用户的操作体验。这些优化措施不仅提升了应用的性能和稳定性，也为未来的功能扩展和平台支持奠定了坚实的基础。

@@ -6,11 +6,19 @@
 - [src/agents/auth-profiles/order.ts](file://src/agents/auth-profiles/order.ts)
 - [src/agents/auth-profiles/usage.ts](file://src/agents/auth-profiles/usage.ts)
 - [src/agents/auth-profiles/session-override.ts](file://src/agents/auth-profiles/session-override.ts)
-- [src/agents/auth-profiles/auth-profiles-scan.ts](file://src/agents/auth-profiles/auth-profiles-scan.ts)
+- [src/secrets/auth-profiles-scan.ts](file://src/secrets/auth-profiles-scan.ts)
 - [src/commands/onboard-auth.config-core.ts](file://src/commands/onboard-auth.config-core.ts)
 - [src/config/types.auth.ts](file://src/config/types.auth.ts)
 - [src/agents/auth-health.ts](file://src/agents/auth-health.ts)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 移除了所有关于"临时认证配置文件"功能的描述
+- 删除了会话级凭据覆盖功能的相关内容
+- 移除了凭据扫描和验证功能的详细说明
+- 更新了架构概览以反映当前的认证系统状态
+- 简化了项目结构描述，专注于现有的认证组件
 
 ## 目录
 1. [简介](#简介)
@@ -39,13 +47,10 @@ subgraph "身份验证配置文件系统"
 A[src/agents/auth-profiles/] --> B[存储管理]
 A --> C[排序算法]
 A --> D[使用统计]
-A --> E[会话覆盖]
-A --> F[凭据扫描]
 B --> B1[store.ts]
 C --> C1[order.ts]
 D --> D1[usage.ts]
-E --> E1[session-override.ts]
-F --> F1[auth-profiles-scan.ts]
+E[src/secrets/auth-profiles-scan.ts] --> F[凭据扫描]
 G[src/commands/onboard-auth.config-core.ts] --> H[配置应用]
 I[src/config/types.auth.ts] --> J[类型定义]
 K[src/agents/auth-health.ts] --> L[健康检查]
@@ -90,7 +95,7 @@ AuthConfig --> AuthProfileConfig : "包含"
 ```
 
 **图表来源**
-- [src/config/types.auth.ts:1-29](file://src/config/types.auth.ts#L1-L29)
+- [src/config/types.auth.ts:1-30](file://src/config/types.auth.ts#L1-L30)
 
 ### 凭据存储管理
 
@@ -103,7 +108,7 @@ AuthConfig --> AuthProfileConfig : "包含"
 | token | 静态承载式令牌 | 短期访问令牌 |
 
 **章节来源**
-- [src/config/types.auth.ts:1-29](file://src/config/types.auth.ts#L1-L29)
+- [src/config/types.auth.ts:1-30](file://src/config/types.auth.ts#L1-L30)
 - [src/agents/auth-profiles/store.ts:188-240](file://src/agents/auth-profiles/store.ts#L188-L240)
 
 ## 架构概览
@@ -124,7 +129,6 @@ end
 subgraph "存储管理层"
 STORE[凭据存储]
 USAGE[使用统计]
-SESSION[会话管理]
 end
 subgraph "安全管理层"
 HEALTH[健康检查]
@@ -137,10 +141,8 @@ CFG --> SCAN
 ORD --> STORE
 SCAN --> STORE
 STORE --> USAGE
-STORE --> SESSION
 USAGE --> COOLDOWN
 COOLDOWN --> HEALTH
-SESSION --> HEALTH
 ```
 
 **图表来源**
@@ -252,43 +254,6 @@ end note
 **章节来源**
 - [src/agents/auth-profiles/usage.ts:272-341](file://src/agents/auth-profiles/usage.ts#L272-L341)
 
-### 会话级凭据覆盖
-
-会话覆盖功能允许在特定会话中临时覆盖默认的凭据选择：
-
-```mermaid
-sequenceDiagram
-participant Session as 会话管理器
-participant Override as 覆盖逻辑
-participant Store as 凭据存储
-participant Order as 排序算法
-Session->>Override : 新建会话
-Override->>Store : 获取当前凭据
-Override->>Order : 计算可用凭据
-Override->>Override : 应用覆盖规则
-alt 会话已存在
-Override->>Override : 检查现有覆盖
-Override->>Override : 更新覆盖状态
-else 新会话
-Override->>Order : 选择最佳凭据
-Override->>Override : 设置自动覆盖
-end
-Override-->>Session : 返回最终凭据
-```
-
-**图表来源**
-- [src/agents/auth-profiles/session-override.ts:41-151](file://src/agents/auth-profiles/session-override.ts#L41-L151)
-
-覆盖规则包括：
-
-1. **有效性检查**：确保覆盖的凭据仍然有效
-2. **提供程序匹配**：验证凭据与目标提供程序兼容
-3. **顺序一致性**：保持配置的提供程序顺序
-4. **持久化更新**：自动保存覆盖状态
-
-**章节来源**
-- [src/agents/auth-profiles/session-override.ts:1-152](file://src/agents/auth-profiles/session-override.ts#L1-L152)
-
 ### 凭据扫描和验证
 
 凭据扫描系统自动检测和验证配置文件中的身份验证信息：
@@ -309,7 +274,7 @@ Report --> Complete[完成扫描]
 ```
 
 **图表来源**
-- [src/agents/auth-profiles/auth-profiles-scan.ts:95-124](file://src/agents/auth-profiles/auth-profiles-scan.ts#L95-L124)
+- [src/secrets/auth-profiles-scan.ts:95-124](file://src/secrets/auth-profiles-scan.ts#L95-L124)
 
 扫描功能包括：
 
@@ -319,7 +284,7 @@ Report --> Complete[完成扫描]
 4. **错误报告**：提供详细的扫描结果和错误信息
 
 **章节来源**
-- [src/agents/auth-profiles/auth-profiles-scan.ts:1-124](file://src/agents/auth-profiles/auth-profiles-scan.ts#L1-L124)
+- [src/secrets/auth-profiles-scan.ts:1-124](file://src/secrets/auth-profiles-scan.ts#L1-L124)
 
 ### 配置应用和管理
 
@@ -369,7 +334,6 @@ subgraph "核心依赖"
 A[auth-profiles.json] --> B[存储管理器]
 B --> C[排序算法]
 B --> D[使用统计]
-B --> E[会话覆盖]
 end
 subgraph "配置依赖"
 F[onboard-auth.config-core.ts] --> G[配置应用]
@@ -481,7 +445,6 @@ end
 
 - **多模式支持**：支持 API 密钥、OAuth 和令牌等多种认证方式
 - **智能选择**：基于使用统计和冷却时间的智能凭据选择
-- **会话管理**：支持临时的会话级凭据覆盖
 - **安全可靠**：完整的凭据验证和错误处理机制
 - **易于扩展**：模块化的架构便于添加新的认证方式
 

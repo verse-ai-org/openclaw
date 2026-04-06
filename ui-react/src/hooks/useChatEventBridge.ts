@@ -1,5 +1,12 @@
 import { useEffect } from "react";
-import { useChatStore, type ToolStreamEntry, type ChatMessage, type ChatMessageRole, type ToolCallPart, type ContentBlock } from "@/store/chat.store";
+import {
+  useChatStore,
+  type ToolStreamEntry,
+  type ChatMessage,
+  type ChatMessageRole,
+  type ToolCallPart,
+  type ContentBlock,
+} from "@/store/chat.store";
 import { registerChatDispatch, unregisterChatDispatch } from "@/store/gateway.store";
 
 // ---------------------------------------------------------------------------
@@ -90,10 +97,7 @@ export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] 
     }
 
     const blocks = msg.contentBlocks;
-    const isToolOnly =
-      blocks &&
-      blocks.length > 0 &&
-      blocks.every((b) => b.type === "tool-call");
+    const isToolOnly = blocks && blocks.length > 0 && blocks.every((b) => b.type === "tool-call");
 
     if (!isToolOnly) {
       result.push(msg);
@@ -106,9 +110,13 @@ export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] 
     let j = i + 1;
     while (j < messages.length) {
       const next = messages[j];
-      if (next.role !== "assistant") break;
+      if (next.role !== "assistant") {
+        break;
+      }
       const nb = next.contentBlocks;
-      if (!nb || nb.length === 0 || !nb.every((b) => b.type === "tool-call")) break;
+      if (!nb || nb.length === 0 || !nb.every((b) => b.type === "tool-call")) {
+        break;
+      }
       groupBlocks.push(...nb);
       j++;
     }
@@ -423,7 +431,10 @@ export function useChatEventBridge() {
                 runId: chatPayload?.runId,
               };
               useChatStore.getState().setMessages([...useChatStore.getState().messages, finalMsg]);
-            } else if (useChatStore.getState().stream !== null || useChatStore.getState().committedBlocks.length > 0) {
+            } else if (
+              useChatStore.getState().stream !== null ||
+              useChatStore.getState().committedBlocks.length > 0
+            ) {
               // We accumulated stream chunks — finalize them (preserves tool calls)
               useChatStore.getState().finalizeStream();
             } else {
@@ -444,7 +455,11 @@ export function useChatEventBridge() {
             useChatStore.getState().setRunId(null);
             if (state === "error") {
               const errMsg = chatPayload?.errorMessage ?? "Generation failed. Please try again.";
-              useChatStore.getState().setLastError(typeof errMsg === "string" ? errMsg : "Generation failed. Please try again.");
+              useChatStore
+                .getState()
+                .setLastError(
+                  typeof errMsg === "string" ? errMsg : "Generation failed. Please try again.",
+                );
             }
           }
           break;
@@ -510,10 +525,15 @@ export function useChatEventBridge() {
             console.group("[chat.history] raw messages");
             console.log(`total: ${msgs.length}`);
             msgs.slice(0, 20).forEach((m, i) => {
-              const role = (m.role ?? "?");
+              const role = m.role ?? "?";
               const content = m.content;
               const preview = Array.isArray(content)
-                ? (content as Array<Record<string,unknown>>).map(b => `${b.type}${b.name ? `:${b.name}` : b.toolCallId ? `:${String(b.toolCallId).slice(0,8)}` : ""}`).join(", ")
+                ? (content as Array<Record<string, unknown>>)
+                    .map(
+                      (b) =>
+                        `${b.type}${b.name ? `:${b.name}` : b.toolCallId ? `:${String(b.toolCallId).slice(0, 8)}` : ""}`,
+                    )
+                    .join(", ")
                 : String(content ?? "").slice(0, 60);
               console.log(`  [${i}] role=${role} content=[${preview}]`);
             });
@@ -528,10 +548,15 @@ export function useChatEventBridge() {
             console.group("[chat.history] after mergeToolResults");
             console.log(`total: ${mergedMsgs.length}`);
             mergedMsgs.slice(0, 20).forEach((m, i) => {
-              const role = (m.role ?? "?");
+              const role = m.role ?? "?";
               const content = m.content;
               const preview = Array.isArray(content)
-                ? (content as Array<Record<string,unknown>>).map(b => `${b.type}${b.name ? `:${b.name}` : b.toolCallId ? `:${String(b.toolCallId).slice(0,8)}` : ""}`).join(", ")
+                ? (content as Array<Record<string, unknown>>)
+                    .map(
+                      (b) =>
+                        `${b.type}${b.name ? `:${b.name}` : b.toolCallId ? `:${String(b.toolCallId).slice(0, 8)}` : ""}`,
+                    )
+                    .join(", ")
                 : String(content ?? "").slice(0, 60);
               console.log(`  [${i}] role=${role} content=[${preview}]`);
             });
@@ -555,8 +580,12 @@ export function useChatEventBridge() {
             normalized.slice(0, 20).forEach((m, i) => {
               const blocks = m.contentBlocks;
               const preview = blocks
-                ? blocks.map(b => b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0,20)}`).join(", ")
-                : `[no blocks] content=${m.content.slice(0,40)}`;
+                ? blocks
+                    .map((b) =>
+                      b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0, 20)}`,
+                    )
+                    .join(", ")
+                : `[no blocks] content=${m.content.slice(0, 40)}`;
               console.log(`  [${i}] role=${m.role} blocks=[${preview}]`);
             });
             console.groupEnd();
@@ -572,8 +601,12 @@ export function useChatEventBridge() {
             consolidated.slice(0, 20).forEach((m, i) => {
               const blocks = m.contentBlocks;
               const preview = blocks
-                ? blocks.map(b => b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0,20)}`).join(", ")
-                : `[no blocks] content=${m.content.slice(0,40)}`;
+                ? blocks
+                    .map((b) =>
+                      b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0, 20)}`,
+                    )
+                    .join(", ")
+                : `[no blocks] content=${m.content.slice(0, 40)}`;
               console.log(`  [${i}] role=${m.role} blocks=[${preview}]`);
             });
             console.groupEnd();
@@ -590,7 +623,6 @@ export function useChatEventBridge() {
         case "chat.stream.start": {
           const runId = typeof p?.runId === "string" ? p.runId : null;
           useChatStore.getState().resetStream();
-          useChatStore.getState().resetToolStream();
           useChatStore.getState().setRunId(runId);
           useChatStore.getState().setLastError(null);
 

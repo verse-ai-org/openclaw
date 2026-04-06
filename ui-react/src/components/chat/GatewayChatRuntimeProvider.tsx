@@ -25,6 +25,7 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
         toolName: string;
         args: Record<string, unknown>;
         result?: string;
+        isError?: boolean;
       };
   const parts: ContentPart[] = [];
 
@@ -48,6 +49,7 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
           toolName: block.toolName,
           args: parsedArgs,
           result: block.result,
+          isError: block.phase === "error",
         });
       }
     }
@@ -72,6 +74,7 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
           toolName: tc.toolName,
           args: parsedArgs,
           result: tc.result,
+          isError: tc.phase === "error",
         });
       }
     }
@@ -82,9 +85,13 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
     parts.push({ type: "text", text: "" });
   }
 
-  if (import.meta.env.DEV && parts.filter(p => p.type === "tool-call").length > 1) {
-    console.log(`[convertMessage] msg ${msg.id} has ${parts.length} parts:`,
-      parts.map(p => p.type === "tool-call" ? `tool:${p.toolName}` : `text:${p.text.slice(0,20)}`));
+  if (import.meta.env.DEV && parts.filter((p) => p.type === "tool-call").length > 1) {
+    console.log(
+      `[convertMessage] msg ${msg.id} has ${parts.length} parts:`,
+      parts.map((p) =>
+        p.type === "tool-call" ? `tool:${p.toolName}` : `text:${p.text.slice(0, 20)}`,
+      ),
+    );
   }
 
   return {
@@ -146,7 +153,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     // In-flight tool calls in arrival order
     for (const id of toolStreamOrder) {
       const entry = toolStreamById.get(id);
-      if (!entry) continue;
+      if (!entry) {
+        continue;
+      }
 
       contentBlocks.push({
         type: "tool-call",
@@ -210,6 +219,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
 
       // Clear any previous error when user sends a new message
       useChatStore.getState().setLastError(null);
+      // Drop leftover stream + tool state from the prior turn so the placeholder row
+      // cannot reuse previous tool cards.
+      useChatStore.getState().resetStream();
 
       // Optimistically append the user message immediately so it shows in the thread
       const userMsg = {
@@ -269,12 +281,15 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     async (message: AppendMessage) => {
       const textPart = message.content.find((p) => p.type === "text");
       const text = textPart?.type === "text" ? textPart.text : "";
-      if (!text.trim()) return;
+      if (!text.trim()) {
+        return;
+      }
 
       // Truncate local history to the parent message, discarding everything
       // after it (including the old user message and any assistant replies).
       useChatStore.getState().truncateMessagesAfter(message.parentId ?? null);
       useChatStore.getState().setLastError(null);
+      useChatStore.getState().resetStream();
 
       // Optimistically append the edited user message
       const userMsg = {

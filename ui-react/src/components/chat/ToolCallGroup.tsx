@@ -42,11 +42,26 @@ function deriveGroupStatus(
   parts: RawToolPart[],
   messageIsRunning: boolean,
 ): { status: GroupStatus; failCount: number } {
-  const failCount = parts.filter((p) => isPartError(p)).length;
-  if (failCount > 0) return { status: "failed", failCount };
+  const explicitFailCount = parts.filter((p) => isPartError(p)).length;
+  if (explicitFailCount > 0) {
+    return { status: "failed", failCount: explicitFailCount };
+  }
 
   const anyIncomplete = parts.some((p) => !isPartComplete(p) && !isPartError(p));
-  if (anyIncomplete && messageIsRunning) return { status: "running", failCount: 0 };
+
+  // While the assistant message is still running, keep the group in Running — including
+  // after all tools returned but before the final assistant text (whole turn not done).
+  if (messageIsRunning) {
+    return { status: "running", failCount: 0 };
+  }
+
+  if (anyIncomplete) {
+    // Persisted / odd states: missing results without an active run
+    return {
+      status: "failed",
+      failCount: parts.filter((p) => !isPartComplete(p) && !isPartError(p)).length,
+    };
+  }
 
   return { status: "done", failCount: 0 };
 }
@@ -115,8 +130,7 @@ const GroupStatusBadge: FC<{ status: GroupStatus; failCount: number }> = ({
 // assistant-ui calls this component to wrap each consecutive run of tool-call
 // parts, providing `startIndex`, `endIndex`, and pre-rendered `children`.
 //
-// Single tool call (startIndex === endIndex): render children as-is.
-// Multiple tool calls: wrap in a collapsible container with a summary header.
+// One or more tool calls: collapsible container with summary header + children.
 // ---------------------------------------------------------------------------
 
 export type ToolCallGroupProps = PropsWithChildren<{
@@ -128,24 +142,21 @@ export const ToolCallGroup: FC<ToolCallGroupProps> = ({ startIndex, endIndex, ch
   const toolCount = endIndex - startIndex + 1;
 
   if (import.meta.env.DEV) {
-    console.log(`[ToolCallGroup] startIndex=${startIndex} endIndex=${endIndex} toolCount=${toolCount}`);
+    console.log(
+      `[ToolCallGroup] startIndex=${startIndex} endIndex=${endIndex} toolCount=${toolCount}`,
+    );
   }
 
-  // Single tool → no wrapper, preserve existing single-card UX
-  if (toolCount <= 1) {
-    return <>{children}</>;
-  }
-
-  return <ToolCallGroupMulti startIndex={startIndex} endIndex={endIndex} toolCount={toolCount}>{children}</ToolCallGroupMulti>;
+  return (
+    <ToolCallGroupInner startIndex={startIndex} endIndex={endIndex} toolCount={toolCount}>
+      {children}
+    </ToolCallGroupInner>
+  );
 };
 
-// Inner component that can safely call hooks (only rendered for multiple tools)
-const ToolCallGroupMulti: FC<PropsWithChildren<{ startIndex: number; endIndex: number; toolCount: number }>> = ({
-  startIndex,
-  endIndex,
-  toolCount,
-  children,
-}) => {
+const ToolCallGroupInner: FC<
+  PropsWithChildren<{ startIndex: number; endIndex: number; toolCount: number }>
+> = ({ startIndex, endIndex, toolCount, children }) => {
   const message = useMessage();
   const messageIsRunning = (message as { status?: { type: string } }).status?.type === "running";
 
@@ -153,14 +164,20 @@ const ToolCallGroupMulti: FC<PropsWithChildren<{ startIndex: number; endIndex: n
   const rawContent = (message as unknown as { content?: readonly unknown[] }).content ?? [];
   const toolParts = rawContent
     .slice(startIndex, endIndex + 1)
-    .filter((p): p is RawToolPart => typeof p === "object" && p !== null && (p as RawToolPart).type === "tool-call");
+    .filter(
+      (p): p is RawToolPart =>
+        typeof p === "object" && p !== null && (p as RawToolPart).type === "tool-call",
+    );
 
   const toolNames = toolParts.map((p) => p.toolName ?? "");
-  const { status: groupStatus, failCount } = deriveGroupStatus(toolParts, messageIsRunning ?? false);
+  const { status: groupStatus, failCount } = deriveGroupStatus(
+    toolParts,
+    messageIsRunning ?? false,
+  );
   const { configs: iconConfigs, overflow } = buildIconStrip(toolNames);
 
-  // Expand during streaming; auto-collapse when stream ends (unless user toggled)
-  const [isExpanded, setIsExpanded] = useState(messageIsRunning ?? false);
+  // Default collapsed; auto-collapse when the assistant message finishes streaming (unless user toggled).
+  const [isExpanded, setIsExpanded] = useState(false);
   const userToggledRef = useRef(false);
   const prevRunningRef = useRef(messageIsRunning);
 
@@ -168,10 +185,6 @@ const ToolCallGroupMulti: FC<PropsWithChildren<{ startIndex: number; endIndex: n
     const wasRunning = prevRunningRef.current;
     prevRunningRef.current = messageIsRunning;
 
-    if (messageIsRunning && !wasRunning && !userToggledRef.current) {
-      setIsExpanded(true);
-      return;
-    }
     if (!messageIsRunning && wasRunning && !userToggledRef.current) {
       setIsExpanded(false);
     }
@@ -185,8 +198,8 @@ const ToolCallGroupMulti: FC<PropsWithChildren<{ startIndex: number; endIndex: n
   return (
     <div
       className={cn(
-        "my-2 rounded-xl border bg-card text-sm transition-colors",
-        groupStatus === "failed" ? "border-destructive/30" : "border-border",
+        "my-2 rounded-lg border bg-secondary text-sm transition-colors",
+        groupStatus === "failed" ? "border-destructive/30" : "border-secondary",
       )}
     >
       {/* ── Header (always visible) ── */}
@@ -196,7 +209,7 @@ const ToolCallGroupMulti: FC<PropsWithChildren<{ startIndex: number; endIndex: n
         className={cn(
           "flex w-full items-center gap-2.5 px-3 py-2.5 text-left",
           "transition-colors hover:bg-muted/50",
-          isExpanded ? "rounded-t-xl" : "rounded-xl",
+          isExpanded ? "rounded-t-lg" : "rounded-lg",
         )}
         aria-expanded={isExpanded}
       >

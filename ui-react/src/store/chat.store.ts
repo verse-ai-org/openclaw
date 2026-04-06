@@ -113,6 +113,11 @@ interface ChatState {
   setStream: (text: string) => void;
   setRunId: (id: string | null) => void;
   /**
+   * Clear streaming text buffer, run id, committed blocks, and in-flight tool stream.
+   * Use when a turn ends or before starting a new outbound message.
+   */
+  resetStream: () => void;
+  /**
    * Freeze the current stream text as a committed text block.
    * Called when a tool call starts so the preceding text stays rendered.
    */
@@ -122,7 +127,6 @@ interface ChatState {
    * committed blocks and in-flight tool calls.
    */
   finalizeStream: () => void;
-  resetStream: () => void;
   upsertToolStream: (entry: ToolStreamEntry) => void;
   resetToolStream: () => void;
   setPendingHistoryReloadKey: (key: string | null) => void;
@@ -198,7 +202,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
     for (const id of toolStreamOrder) {
       const entry = toolStreamById.get(id);
-      if (!entry) continue;
+      if (!entry) {
+        continue;
+      }
       contentBlocks.push({
         type: "tool-call",
         toolCallId: entry.id,
@@ -210,14 +216,19 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             : entry.output != null
               ? JSON.stringify(entry.output, null, 2)
               : undefined,
-        phase:
-          entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
+        phase: entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
       });
     }
 
     // Only persist if there is something to save
     if (contentBlocks.length === 0 && !stream) {
-      set({ stream: null, runId: null, committedBlocks: [], toolStreamById: new Map(), toolStreamOrder: [] });
+      set({
+        stream: null,
+        runId: null,
+        committedBlocks: [],
+        toolStreamById: new Map(),
+        toolStreamOrder: [],
+      });
       return;
     }
 
@@ -246,11 +257,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }));
   },
 
+  // Clears streaming buffers and in-flight tool stream state (same turn).
   resetStream: () =>
     set({
       stream: null,
       runId: null,
       committedBlocks: [],
+      toolStreamById: new Map(),
+      toolStreamOrder: [],
     }),
 
   upsertToolStream: (entry) => {
@@ -273,7 +287,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   truncateMessagesAfter: (parentId) => {
     set((state) => {
       if (parentId === null) {
-        return { messages: [], stream: null, committedBlocks: [], toolStreamById: new Map(), toolStreamOrder: [] };
+        return {
+          messages: [],
+          stream: null,
+          committedBlocks: [],
+          toolStreamById: new Map(),
+          toolStreamOrder: [],
+        };
       }
       const idx = state.messages.findIndex((m) => m.id === parentId);
       if (idx === -1) {

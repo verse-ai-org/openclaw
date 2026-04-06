@@ -387,12 +387,12 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
       {/* Card — matches ToolCallGroup's rounded-xl border style */}
       <div
         className={cn(
-          "my-1 overflow-hidden rounded-xl border bg-card text-sm transition-colors",
+          "my-1 overflow-hidden rounded-lg border bg-white hover:bg-white/50 text-sm transition-colors",
           // Thin left accent for category colour, overridden to destructive on error
           statusType === "incomplete"
             ? "border-destructive/60 bg-destructive/5"
             : `${cfg.borderAccent}`,
-          canViewDetail && "cursor-pointer hover:bg-muted/50",
+          canViewDetail && "cursor-pointer hover:bg-white/80",
         )}
         role={canViewDetail ? "button" : undefined}
         tabIndex={canViewDetail ? 0 : undefined}
