@@ -128,6 +128,27 @@ export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] 
   return result;
 }
 
+function extractTextFromToolResultBlock(block: Record<string, unknown>): string | undefined {
+  if (typeof block.text === "string") {
+    return block.text;
+  }
+  if (typeof block.content === "string") {
+    return block.content;
+  }
+  if (Array.isArray(block.content)) {
+    return (block.content as Array<Record<string, unknown>>)
+      .filter((b) => (b.type as string) === "text" && typeof b.text === "string")
+      .map((b) => b.text as string)
+      .join("");
+  }
+  return undefined;
+}
+
+/** Error UI follows server/toolResult `isError` only — no client-side inference. */
+function resolveToolResultPhase(block: Record<string, unknown>): "result" | "error" {
+  return block.isError === true ? "error" : "result";
+}
+
 /**
  * Pre-process a raw Gateway history message array:
  * merge standalone toolResult messages into the preceding assistant message's
@@ -182,6 +203,9 @@ export function mergeToolResults(rawMessages: unknown[]): unknown[] {
           text: resultText,
           ...(toolCallId ? { toolCallId } : {}),
         };
+        if (typeof msg.isError === "boolean") {
+          resultBlock.isError = msg.isError;
+        }
 
         out[i] = { ...prev, content: [...prevContent, resultBlock] };
         break;
@@ -268,17 +292,13 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
     const toolCallId =
       (typeof block.toolCallId === "string" ? block.toolCallId : undefined) ??
       (typeof block.id === "string" ? block.id : undefined);
-    const resultText =
-      typeof block.text === "string"
-        ? block.text
-        : typeof block.content === "string"
-          ? block.content
-          : undefined;
+    const resultText = extractTextFromToolResultBlock(block);
+    const resPhase = resolveToolResultPhase(block);
 
     const existing = toolCallId ? parts.find((p) => p.toolCallId === toolCallId) : null;
     if (existing) {
       existing.result = resultText;
-      existing.phase = "result";
+      existing.phase = resPhase;
     } else {
       // Standalone result (no matching call in this message)
       const toolName =
@@ -289,7 +309,7 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
         toolCallId: toolCallId ?? crypto.randomUUID(),
         toolName,
         result: resultText,
-        phase: "result",
+        phase: resPhase,
       });
     }
   }
@@ -329,13 +349,9 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
     if (!id) {
       continue;
     }
-    const resultText =
-      typeof block.text === "string"
-        ? block.text
-        : typeof block.content === "string"
-          ? block.content
-          : undefined;
-    resultMap.set(id, { result: resultText, phase: "result" });
+    const resultText = extractTextFromToolResultBlock(block);
+    const phase = resolveToolResultPhase(block);
+    resultMap.set(id, { result: resultText, phase });
   }
 
   const out: ContentBlock[] = [];
@@ -493,13 +509,24 @@ export function useChatEventBridge() {
             } else if (phase === "result") {
               const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
               if (existing) {
-                useChatStore.getState().upsertToolStream({
-                  ...existing,
-                  phase: "result",
-                  // Use meta if available; undefined means the drawer shows no result
-                  // until history reloads with the real output
-                  output: data.meta ?? undefined,
-                });
+                const isError = Boolean(data.isError);
+                if (isError) {
+                  // Pi emits phase "result" with isError:true on tool failure (not a separate "error" phase).
+                  useChatStore.getState().upsertToolStream({
+                    ...existing,
+                    phase: "error",
+                    error: typeof data.error === "string" ? data.error : undefined,
+                    output: data.meta ?? data.result ?? undefined,
+                  });
+                } else {
+                  useChatStore.getState().upsertToolStream({
+                    ...existing,
+                    phase: "result",
+                    // Use meta if available; undefined means the drawer shows no result
+                    // until history reloads with the real output
+                    output: data.meta ?? undefined,
+                  });
+                }
               }
             } else if (phase === "error") {
               const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");

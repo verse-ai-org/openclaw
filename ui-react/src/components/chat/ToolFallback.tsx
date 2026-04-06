@@ -359,6 +359,8 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
 
   const toolLabel = formatToolLabel(toolName);
 
+  console.log("[ToolFallback]", toolName, { argsText, result, status });
+
   // Result string for display
   const resultStr =
     typeof result === "string"

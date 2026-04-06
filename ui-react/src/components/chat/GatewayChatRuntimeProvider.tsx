@@ -6,7 +6,12 @@ import {
 } from "@assistant-ui/react";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { normalizeRole } from "@/hooks/useChatEventBridge";
-import { useChatStore, type ChatMessage, type ContentBlock } from "@/store/chat.store";
+import {
+  useChatStore,
+  toolStreamEntryToResultText,
+  type ChatMessage,
+  type ContentBlock,
+} from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 
@@ -162,12 +167,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         toolCallId: entry.id,
         toolName: entry.toolName ?? "tool",
         argsText: entry.input != null ? JSON.stringify(entry.input, null, 2) : undefined,
-        result:
-          typeof entry.output === "string"
-            ? entry.output
-            : entry.output != null
-              ? JSON.stringify(entry.output, null, 2)
-              : undefined,
+        result: toolStreamEntryToResultText(entry),
         phase: entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
       });
     }
@@ -180,12 +180,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         toolCallId: entry!.id,
         toolName: entry!.toolName ?? "tool",
         argsText: entry!.input != null ? JSON.stringify(entry!.input, null, 2) : undefined,
-        result:
-          typeof entry!.output === "string"
-            ? entry!.output
-            : entry!.output != null
-              ? JSON.stringify(entry!.output, null, 2)
-              : undefined,
+        result: toolStreamEntryToResultText(entry!),
         error: entry!.error,
         phase: (entry!.phase === "result"
           ? "result"

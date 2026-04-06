@@ -35,6 +35,24 @@ export interface ToolStreamEntry {
   error?: string;
 }
 
+/** Text shown on tool-call cards (streaming finalize + live row). */
+export function toolStreamEntryToResultText(entry: ToolStreamEntry): string | undefined {
+  if (typeof entry.output === "string") {
+    return entry.output;
+  }
+  if (entry.output != null) {
+    try {
+      return JSON.stringify(entry.output, null, 2);
+    } catch {
+      return String(entry.output);
+    }
+  }
+  if (entry.phase === "error" && typeof entry.error === "string" && entry.error.trim()) {
+    return entry.error;
+  }
+  return undefined;
+}
+
 /**
  * A typed content block within an assistant message.
  * Preserves the original ordering of text and tool-call segments so that the
@@ -210,12 +228,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         toolCallId: entry.id,
         toolName: entry.toolName ?? "tool",
         argsText: entry.input != null ? JSON.stringify(entry.input, null, 2) : undefined,
-        result:
-          typeof entry.output === "string"
-            ? entry.output
-            : entry.output != null
-              ? JSON.stringify(entry.output, null, 2)
-              : undefined,
+        result: toolStreamEntryToResultText(entry),
         phase: entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
       });
     }

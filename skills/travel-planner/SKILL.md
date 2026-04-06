@@ -6,567 +6,578 @@ metadata:
     emoji: ✈️
     requires:
       bins:
-        - python3
+        - node
 ---
 
 # Travel Planner
 
 ## Overview
 
-This skill transforms Claude into a comprehensive travel planning assistant that maintains your travel preferences and generates detailed, personalized trip plans including itineraries, budget breakdowns, packing lists, and cultural guidelines for any destination.
+This skill should act like a travel decision assistant first and a long-form itinerary writer second.
+Its job is not to dump a giant travel guide immediately. Its job is to:
+
+1. understand the traveler,
+2. choose the right route or trip shape,
+3. validate the big decisions with live data,
+4. produce an execution-ready plan,
+5. support the traveler before and during the trip.
 
 ## When to Use This Skill
 
 Invoke this skill for travel-related tasks:
 
 - Planning trips and creating itineraries
+- Destination comparisons and route selection
 - Budget planning and expense tracking
-- Destination research and recommendations
+- Hotel and transport strategy
 - Packing checklists
-- Cultural etiquette and do's/don'ts
+- Cultural etiquette and do's and don'ts
 - Pre-trip preparation timelines
+- During-trip course correction and daily briefs
 - Travel preference management
+
+## Core Principles
+
+- Route choice matters more than adding one more attraction.
+- Do not ask a giant questionnaire up front. Ask the fewest questions that meaningfully change the recommendation.
+- Put transport and hotel strategy in the main answer once the user is moving toward booking.
+- Arrival day and departure day should be intentionally lighter.
+- Prefer one anchor activity plus one nearby secondary option over overloaded schedules.
+- Treat weather, transfer friction, and energy as real constraints.
 
 ## Workflow
 
-### Step 1: Check for Existing Preferences
+### Step 1: Load Preferences
 
-Check if travel preferences exist:
+Check whether travel preferences already exist:
 
 ```bash
-python3 {baseDir}/scripts/travel_db.py is_initialized
+node {baseDir}/scripts/travel_db.mjs is_initialized
 ```
 
-If "false", proceed to Step 2 (Setup). If "true", proceed to Step 3 (Trip Planning).
+If `false`, do a lightweight preference setup. If `true`, read the existing profile and only fill gaps relevant to the current trip.
 
-### Step 2: Initial Preference Collection
+### Step 2: Lightweight Preference Setup
 
-When no preferences exist, collect comprehensive travel information:
-
-**Travel Style & Budget:**
+When no preferences exist, do **not** ask every possible question. Start with high-impact preferences:
 
 - Budget level: budget, mid-range, luxury
 - Travel pace: relaxed, moderate, packed
-- Accommodation preferences: hostel, hotel, Airbnb, resort
 - Travel companions: solo, couple, family, group
+- Accommodation style: hostel, hotel, Airbnb, resort
+- Main interests: food, culture, scenery, photography, adventure, beach, shopping, nightlife
+- Departure city
+- Transport preferences: self-drive, private driver, public transport, short flights okay
+- Walking tolerance / mobility constraints
 
-**Interests & Activities:**
+Save only what the user actually provides:
 
-- Sightseeing & landmarks
-- Food & culinary experiences
-- Adventure & outdoor activities
-- Culture & history
-- Beach & relaxation
-- Nightlife & entertainment
-- Shopping
-- Nature & wildlife
-- Photography
-- Wellness & spa
+```javascript
+import { savePreferences } from "{baseDir}/scripts/travel_db.mjs";
 
-**Dietary & Health:**
-
-- Dietary restrictions (vegetarian, vegan, allergies)
-- Accessibility needs
-- Health considerations
-- Fitness level
-
-**Languages & Skills:**
-
-- Languages spoken
-- Travel experience level
-- Comfort with adventure
-
-**Previous Travel:**
-
-- Countries/cities visited
-- Favorite destinations
-- Bucket list destinations
-
-**Saving Preferences:**
-
-```python
-import sys
-sys.path.insert(0, '{baseDir}/scripts')
-from travel_db import save_preferences
-
-preferences = {
-    "travel_style": "adventurous",
-    "budget_level": "mid-range",
-    "accommodation_preference": ["boutique hotels", "Airbnb"],
-    "interests": ["culture", "food", "hiking", "photography"],
-    "dietary_restrictions": ["vegetarian"],
-    "pace_preference": "moderate",
-    "travel_companions": "couple",
-    "language_skills": ["English", "Spanish"],
-    "previous_destinations": ["Paris", "Tokyo", "Barcelona"],
-    "bucket_list": [
-        {"destination": "New Zealand", "notes": "Lord of the Rings locations"},
-        {"destination": "Peru", "notes": "Machu Picchu"}
-    ]
-}
-
-save_preferences(preferences)
+savePreferences({
+  budget_level: "mid-range",
+  pace_preference: "moderate",
+  travel_companions: "couple",
+  accommodation_preference: ["boutique hotel"],
+  interests: ["nature", "food", "photography"],
+  departure_city: "Shanghai",
+  transport_preferences: ["private driver", "short flight okay"],
+  walking_tolerance: "moderate",
+});
 ```
 
+From the shell (single JSON argument):
 
-### Step 3: Create New Trip
-
-When user wants to plan a trip, gather:
-
-**Essential Information:**
-
-1. **Destination**: City/country
-2. **Dates**: Departure and return dates (or flexible date range)
-3. **Duration**: Number of days
-4. **Budget**: Total budget or daily budget
-5. **Purpose**: Vacation, business, special occasion
-6. **Must-see/do**: Specific attractions or activities
-
-**Creating Trip:**
-
-```python
-from travel_db import add_trip
-
-trip = {
-    "destination": {
-        "city": "Barcelona",
-        "country": "Spain",
-        "region": "Catalonia"
-    },
-    "departure_date": "2025-06-15",
-    "return_date": "2025-06-22",
-    "duration_days": 7,
-    "budget": {
-        "total": 2500,
-        "currency": "USD"
-    },
-    "purpose": "vacation",
-    "travelers": 2,
-    "climate": "warm Mediterranean",
-    "activities": ["sightseeing", "food tours", "beach", "architecture"],
-    "accommodation": {
-        "type": "boutique hotel",
-        "location": "Gothic Quarter"
-    }
-}
-
-trip_id = add_trip(trip, status="current")
+```bash
+node {baseDir}/scripts/travel_db.mjs save_preferences '{"departure_city":"Shanghai","budget_level":"mid-range"}'
 ```
 
-### Step 4: Research Destination
+### Step 3: Create a Trip Record Early
 
-Use web search to gather current information:
+As soon as the user is planning a concrete trip, create a structured trip record even if some fields are still unknown.
 
-**Essential Research:**
+Capture:
 
-1. **Entry Requirements** - Visa, passport, vaccinations
-2. **Best Time to Visit** - Weather, seasons, festivals
-3. **Safety Information** - Travel advisories, safe areas, common scams
-4. **Cultural Norms** - Do's and don'ts (use `references/cultural_etiquette.md` as guide)
-5. **Local Transportation** - Metro, buses, taxis, apps
-6. **Top Attractions** - Must-see places with hours and prices
-7. **Food Recommendations** - Local specialties, popular restaurants
-8. **Neighborhoods** - Where to stay, where to explore
-9. **Day Trip Options** - Nearby attractions
-10. **Practical Info** - Currency, tipping, power outlets, language
+1. Destination text or region
+2. Dates or date flexibility
+3. Duration
+4. Budget
+5. Travelers
+6. Main interests
+7. Constraints
+8. Must-do items
 
-**Search Topics to Cover:**
+```javascript
+import { addTrip } from "{baseDir}/scripts/travel_db.mjs";
 
-- "[Destination] visa requirements for [nationality]"
-- "[Destination] best time to visit weather"
-- "[Destination] cultural do's and don'ts"
-- "[Destination] top attractions and activities"
-- "[Destination] local transportation guide"
-- "[Destination] where to stay neighborhoods"
-- "[Destination] food and restaurants"
-- "[Destination] scams to avoid"
-- "[Destination] budget guide"
-- "[Destination] 7-day itinerary"
+const trip = {
+  destination_text: "Xinjiang",
+  destination: {
+    region: "Xinjiang",
+    country: "China",
+  },
+  departure_date: "",
+  return_date: "",
+  date_flexibility: "mid-July",
+  travel_month_text: "July",
+  duration_days: 7,
+  budget: {
+    total: 14000,
+    currency: "CNY",
+  },
+  travelers: 2,
+  activities: ["nature", "photography"],
+  must_do: [],
+  constraints: ["does not want to self-drive"],
+  transport_preferences: ["private driver", "short domestic flight okay"],
+  stage: "intake",
+};
+
+const tripId = addTrip(trip, "current");
+```
+
+Shell:
+
+```bash
+node {baseDir}/scripts/travel_db.mjs add_trip '{"destination_text":"Xinjiang","destination":{"region":"Xinjiang","country":"China"},"duration_days":7,"stage":"intake"}' current
+```
+
+### Step 4: Route Framing Before Full Research
+
+For complex destinations, do **route framing** before a full day-by-day itinerary. This is a separate stage from deep destination research.
+
+Use route framing when the destination is broad or multi-region, such as:
+
+- Xinjiang
+- Yunnan
+- Japan
+- Italy
+- Turkey
+- Multi-country Europe trips
+
+In this stage, answer:
+
+- Which route family fits best?
+- What should the transport style be?
+- How many hotel bases should there be?
+- Which popular route should be avoided for this traveler?
+
+Use the route selector helper:
+
+```bash
+node {baseDir}/scripts/route_selector.mjs --input '<trip_request_json>'
+```
+
+Or via Node import (same helpers `index.js` uses):
+
+```javascript
+import { selectRouteCandidates } from "{baseDir}/scripts/route_selector.mjs";
+
+const result = selectRouteCandidates(trip);
+const recommended = result.recommended_route;
+const alternatives = result.alternatives;
+```
+
+#### Route Framing Output Rules
+
+At this stage, reply with:
+
+- 1 recommended route
+- 1 backup option
+- why the recommendation fits this traveler
+- why a common alternative is less suitable
+- a short lodging strategy
+- a short transport strategy
+
+Do **not** write a full 7-day itinerary yet unless the user asks to continue after seeing the route choice.
+
+### Step 5: Light Research and Validation
+
+After route framing, do light validation before expanding the plan.
+
+**Order (do not skip step 1):**
+
+1. Run `live_validation.mjs` once with the current trip JSON, the **selected route** object from Step 4, and preferences (from `get_preferences` or `{}`). This produces the `tool_plan` you must follow.
+2. Run the checks it lists (`flyai`, `12306`, `amap-lbs-skill`, etc.). Do **not** jump straight to ad hoc `flyai` calls before step 1, except quick web research (weather, closures).
+3. When you have raw tool outputs, pass them through `booking_ready.mjs` (or `index.js` `booking_ready` / `auto_validate` mode) before presenting a booking-ready answer.
+
+Validate:
+
+1. Season and weather fit
+2. Big transport feasibility
+3. Hotel zone strategy
+4. Whether budget and pace are realistic
+5. Any major safety or closure issues
+6. Whether the route can be promoted into a booking-ready plan
+
+Use `live_validation.mjs` to generate the actual validation package:
+
+```bash
+node {baseDir}/scripts/live_validation.mjs --trip '<trip_json>' --route '<route_json>' --preferences '<prefs_json>'
+```
+
+This script does not execute live tools. It tells you:
+
+- which `flyai search-flight` calls to run,
+- which `flyai search-hotel` calls to run,
+- which `flyai search-poi` checks to run,
+- when to involve `12306` or `amap-lbs-skill`,
+- which decision gates must be satisfied before you present booking-ready output.
+
+If your runtime can execute tool checks directly, you can use the `travel-planner` runtime entrypoint in `auto_validate` mode to:
+
+- generate the live validation plan,
+- execute supported `flyai` checks automatically,
+- merge the live results,
+- synthesize `booking_ready`,
+- optionally persist the results back to the trip record.
+
+Use web research plus live tools as needed:
+
+- `flyai` for flights, hotels, and POI/tickets
+- `12306` for China train validation
+- `amap-lbs-skill` for China routing, hotel area checks, and nearby search
 
 ### Delegating to Specialized Skills
 
-Use these skills during research and plan generation. All are in your allowed skill list and can be combined in the same session.
+Use these skills during validation and full planning. They are not optional add-ons once the user is close to booking.
 
 **Flights** (any destination):
-- Use the `flyai` skill → `search-flight` command for real-time flight options, prices, and schedules.
+- Use the `flyai` skill → `search-flight` for real-time flight options, prices, and schedules.
 
 **Hotels & Accommodation** (any destination):
-- Use the `flyai` skill → `search-hotel` command for hotel search with live prices and availability.
-- For broad discovery or bundled deals, use `keyword-search` or `ai-search` instead.
+- Use the `flyai` skill → `search-hotel` for real-time hotel options and availability.
+- Use `keyword-search` or `ai-search` for broader idea generation.
 
 **Attractions & Tickets** (any destination):
-- Use the `flyai` skill → `search-poi` command to search attraction tickets, prices, and availability.
+- Use the `flyai` skill → `search-poi` for attraction tickets, prices, and availability.
+- `search-poi --category` must be one of the **enumerated Chinese categories** the `flyai` CLI accepts (for example `自然风光`, `人文古迹`). Do **not** pass generic labels like `景点` — the command exits with an error.
 
 **China domestic trains / high-speed rail**:
-- Use the `12306` skill for official real-time seat availability and schedules (no API key needed, most accurate for China rail).
-- `flyai` also has `search-train` but prefer `12306` for China-specific availability checks.
+- Use the `12306` skill for official real-time seat availability and schedules.
+- `flyai` can also search trains, but `12306` is preferred inside China.
 
-**Maps, POI routing & nearby search** (China):
-- Use the `amap-lbs-skill` for location lookup, route planning, and nearby searches within China.
+**China maps, POI routing & nearby search**:
+- Use the `amap-lbs-skill` for routing, hotel-area checks, and nearby POI discovery.
 
-### Step 5: Generate Detailed Travel Plan
+### Step 6: Run a Validation Pass Before Booking-Ready Output
 
-Create comprehensive plan with all components:
+Before the detailed plan becomes booking-ready, validate the big decisions in this order:
 
-**A. Day-by-Day Itinerary**
+1. **Flight / rail entry-exit pattern**
+2. **Hotel base strategy**
+3. **Anchor POI strength**
+4. **Route transfer realism**
 
-Structure each day based on user's pace preference and research:
+At this stage, your reply should explicitly say what was validated and what still needs verification.
 
-```
-Day 1: Arrival & Gothic Quarter
-- Morning (9:00 AM): Arrive Barcelona, hotel check-in
-- Late Morning (11:00 AM): Walking tour of Gothic Quarter
-  - Barcelona Cathedral
-  - Plaça Reial
-  - Las Ramblas (brief walk)
-- Afternoon (2:00 PM): Lunch at Cal Pep (tapas)
-- Afternoon (4:00 PM): Picasso Museum
-- Evening (7:00 PM): Dinner in El Born neighborhood
-- Evening (9:00 PM): Stroll along waterfront
+For example:
 
-Transportation: Metro from airport (30 min, €5)
-Estimated Cost: €120/person (meals, museum, transport)
-Notes: Book Picasso Museum tickets online in advance
-```
+- "Validated: Urumqi in / Yining out looks better than round-trip pricing."
+- "Validated: Yining has enough hotel supply under the target nightly budget."
+- "Still need to verify: whether Nalati-area transfer times are too long for Day 4."
 
-Repeat for each day, ensuring:
+### Step 7: Show a Plan Skeleton Before the Full Plan
 
-- Logical geographic grouping
-- Realistic timing with buffers
-- Mix of activity types
-- Meal suggestions
-- Transportation details
-- Estimated costs
-- Booking notes
+Before writing a long itinerary, show a short skeleton the user can approve.
 
-**B. Budget Breakdown**
+The skeleton should include:
 
-Use `plan_generator.py` or create manually:
+- recommended route title
+- transport strategy
+- hotel-base strategy
+- budget snapshot
+- 2-3 key tradeoffs
+- what you want the user to confirm
+- whether the trip is still in `route framing` or has advanced into `booking-ready`
 
-```python
-from plan_generator import calculate_budget_breakdown
+Use `plan_generator.mjs` as the structured source of truth for this:
 
-budget = calculate_budget_breakdown(
-    total_budget=2500,
-    num_days=7,
-    accommodation_level="mid-range"
-)
+```bash
+node {baseDir}/scripts/plan_generator.mjs --trip-id <id>
 ```
 
-Present as:
+Use these sections before presenting the detailed itinerary:
 
-```
-Total Budget: $2,500 (7 days)
-Daily Average: $357
+- `route_framing`
+- `live_validation`
+- `plan_skeleton`
+- `booking_strategy`
 
-Breakdown:
-- Accommodation: $875 (35%) - $125/night
-  * Boutique hotel in Gothic Quarter
-  * Includes breakfast
+### Step 8: Generate the Detailed Plan
 
-- Food: $625 (25%) - $89/day
-  * Breakfast: Included
-  * Lunch: $25-30/person
-  * Dinner: $40-50/person
-  * Snacks/drinks: $15/day
+Only after route framing is accepted **and the main validation gates are cleared** should you generate the detailed plan.
 
-- Activities: $625 (25%) - $89/day
-  * Sagrada Familia: $35
-  * Park Güell: $13
-  * Picasso Museum: $15
-  * Food tour: $95
-  * Day trip to Montserrat: $50
-  * Other attractions: ~$100
+For a single structured JSON object (itinerary, budget, packing, etc.), prefer `plan_generator.mjs --trip-json ...` or the skill runtime `index.js` with `mode: "trip_plan"` once `trip` includes `selected_route` and any `live_results` you have.
 
-- Transportation: $250 (10%) - $36/day
-  * Airport transfers: $35 each way
-  * Metro pass (7-day): $40
-  * Taxis: ~$100 total
+If you already have live tool results for flights, hotels, or attractions, synthesize them into a booking-ready package before presenting the final recommendation:
 
-- Miscellaneous: $125 (5%)
-  * Tips, emergencies, souvenirs
+```bash
+node {baseDir}/scripts/booking_ready.mjs --trip '<trip_json>' --route '<route_json>' --validation '<live_validation_json>' --results '<live_results_json>'
 ```
 
-**C. Packing Checklist**
+`live_results_json` is expected to contain raw tool outputs, for example:
 
-Generate using `plan_generator.py` or based on destination climate/activities:
+- `flights`: result of `flyai search-flight`
+- `hotels`: result of `flyai search-hotel`
+- `pois`: result of `flyai search-poi`
 
-```python
-from plan_generator import generate_packing_checklist
+Use the resulting `booking_ready` section to choose:
 
-checklist = generate_packing_checklist(
-    destination_climate="warm Mediterranean",
-    duration_days=7,
-    trip_activities=["sightseeing", "beach", "dining"]
-)
+- preferred transport option,
+- preferred hotel base and top hotel candidates,
+- anchor attractions worth keeping in the final plan.
+
+The answer order should be:
+
+1. Recommendation summary
+2. Live transport and hotel validation summary
+3. Transport and hotel strategy
+4. Day-by-day execution cards
+5. Budget breakdown
+6. Packing checklist
+7. Cultural and safety notes
+8. Pre-trip actions
+
+#### Booking-Ready Output Rules
+
+When the user is close to booking, the answer should no longer say only "I can also help check hotels/flights."
+Instead, it should contain:
+
+- a preferred transport pattern,
+- 2-3 hotel candidates or hotel zones,
+- the key live constraints that shaped the route,
+- any must-book-now items,
+- remaining uncertainties if not fully validated.
+
+#### Day-by-Day Rules
+
+Each day should be an execution card, not just a list of attractions.
+
+Every day should include:
+
+- primary goal
+- secondary goal
+- time anchors
+- transit strategy
+- meal strategy
+- energy load
+- booking watchouts
+- weather backup
+
+Use the generated itinerary structure from `plan_generator.mjs` and fill in real POIs after validating transport and hotel choices.
+
+### Step 9: Move Into Pre-Trip Service
+
+Once the user likes the plan or starts booking, move the trip from exploration into execution support.
+
+At this stage:
+
+- lock in the route
+- store selected route / route framing
+- track bookings
+- persist live results and booking-ready picks
+- generate pre-trip checklists
+- generate pre-trip briefs on demand
+- prepare for future reminder delivery
+
+You can persist the execution state with `travel_db.mjs`, for example:
+
+```bash
+node {baseDir}/scripts/travel_db.mjs save_live_results <trip_id> '<live_results_json>'
+node {baseDir}/scripts/travel_db.mjs save_booking_ready <trip_id> '<booking_ready_json>'
+node {baseDir}/scripts/travel_db.mjs patch_trip <trip_id> '<partial_json>'
+# `update_trip` is an alias of `patch_trip` (merge fields such as stage, selected_route).
+node {baseDir}/scripts/travel_db.mjs confirm_booking <trip_id> hotel '<selected_hotel_json>'
 ```
 
-Customize and present:
+Suggested stage values:
 
-```
-ESSENTIALS:
-- [ ] Passport (check 6-month validity)
-- [ ] Visa (if required)
-- [ ] Travel insurance documents
-- [ ] Hotel confirmations
-- [ ] Flight tickets
-- [ ] Credit cards (notify bank)
-- [ ] Euros cash (€200-300)
-- [ ] Phone & charger
-- [ ] European plug adapter
-- [ ] Medications
+- `intake`
+- `route_framing`
+- `plan_ready`
+- `ready_to_book`
+- `in_trip`
+- `completed`
 
-CLOTHING (June weather: 70-80°F, sunny):
-- [ ] 3 pairs shorts
-- [ ] 2 pairs long pants
-- [ ] 5-7 t-shirts/tops
-- [ ] 1-2 dresses/nice shirts for dinner
-- [ ] Light jacket for evenings
-- [ ] Swimsuit
-- [ ] Comfortable walking shoes
-- [ ] Sandals
-- [ ] Sun hat
-- [ ] Sunglasses
+### Step 10: During-Trip Support
 
-ACTIVITIES:
-- [ ] Day backpack
-- [ ] Reusable water bottle
-- [ ] Camera
-- [ ] Beach towel (compact)
-- [ ] Sunscreen SPF 50
-- [ ] Walking tour comfortable shoes
+During the trip, help with:
+
+- weather-based adjustments
+- missed transport
+- nearby fallback ideas
+- daily spending tracking
+- quick daily briefs
+
+Generate lightweight briefs on demand with:
+
+```bash
+node {baseDir}/scripts/briefing.mjs --mode pre_trip --trip '<trip_json>' --plan '<plan_json>'
+node {baseDir}/scripts/briefing.mjs --mode daily --trip '<trip_json>' --plan '<plan_json>' --day 2
 ```
 
-**D. Cultural Do's and Don'ts**
+If the user has already departed, mark the trip as active first:
 
-Research and present country-specific guidelines (use `references/cultural_etiquette.md` as template):
-
-```
-SPAIN / BARCELONA - Cultural Etiquette
-
-DO'S:
-✓ Greet with "Hola" and a kiss on each cheek (friends)
-✓ Learn basic Spanish/Catalan phrases
-✓ Eat dinner late (9-10 PM is normal)
-✓ Take your time with meals
-✓ Dress stylishly (locals dress well)
-✓ Respect siesta time (2-5 PM, some shops close)
-✓ Say "Bon profit" before meals
-✓ Tip 5-10% for good service
-
-DON'TS:
-✗ Don't expect early dinner (restaurants open at 8 PM)
-✗ Don't wear beach clothes in city center
-✗ Don't assume everyone speaks English
-✗ Don't call it Spain - it's Catalunya to locals
-✗ Don't rush through meals
-✗ Don't yell or be loud in public
-✗ Don't take photos in churches during mass
-
-DINING ETIQUETTE:
-- Lunch: 2-4 PM
-- Dinner: 9-11 PM
-- Service charge sometimes included (check bill)
-- Say "La cuenta, por favor" for bill
-- It's okay to share tapas
-- Bread is not free at all restaurants
-
-SAFETY TIPS:
-- Watch for pickpockets on Las Ramblas and metro
-- Keep bag in front in crowded areas
-- Don't leave valuables on beach
-- Be cautious accepting help from strangers
-- Use official taxis or Uber/Cabify
+```bash
+node {baseDir}/scripts/travel_db.mjs start_trip <trip_id>
 ```
 
-**E. Pre-Trip Preparation Timeline**
+For now, brief generation may be manual or invoked by other workflow layers. A cron scheduler can be added later without changing the briefing format.
 
-Use `plan_generator.py` or create based on departure date:
+Track expenses:
 
-```python
-from plan_generator import generate_pre_trip_checklist
+```javascript
+import { addExpense } from "{baseDir}/scripts/travel_db.mjs";
 
-prep_checklist = generate_pre_trip_checklist(
-    destination_country="Spain",
-    departure_date="2025-06-15"
-)
+const expense = {
+  category: "food",
+  amount: 45.0,
+  description: "Dinner near the old town",
+  date: "2026-06-16",
+};
+
+addExpense(tripId, expense);
 ```
 
-Present as timeline:
+Check the budget summary:
 
-```
-PRE-TRIP CHECKLIST
+```javascript
+import { getBudgetSummary } from "{baseDir}/scripts/travel_db.mjs";
 
-2 MONTHS BEFORE (April 15):
-- [ ] Book flights
-- [ ] Book hotel
-- [ ] Purchase travel insurance
-- [ ] Check passport expiration
-- [ ] Research visa requirements
-- [ ] Start researching activities
-
-1 MONTH BEFORE (May 15):
-- [ ] Book Sagrada Familia tickets (sell out!)
-- [ ] Book food tour
-- [ ] Book any other popular activities
-- [ ] Notify bank of travel dates
-- [ ] Set up international phone plan
-- [ ] Download offline maps (Google Maps, Citymapper)
-- [ ] Make dinner reservations (popular restaurants)
-
-2 WEEKS BEFORE (June 1):
-- [ ] Confirm all reservations
-- [ ] Print/save all confirmations offline
-- [ ] Exchange some currency (~€200)
-- [ ] Check weather forecast
-- [ ] Create packing list
-- [ ] Arrange pet/plant care
-- [ ] Hold mail delivery
-
-1 WEEK BEFORE (June 8):
-- [ ] Check in for flights (24 hours before)
-- [ ] Pack luggage
-- [ ] Charge all electronics
-- [ ] Download language apps (Google Translate, Duolingo)
-- [ ] Save emergency numbers
-- [ ] Make copies of passport
-- [ ] Clean out fridge
-
-DAY BEFORE (June 14):
-- [ ] Re-check flight time
-- [ ] Prepare carry-on
-- [ ] Take out trash
-- [ ] Adjust thermostat
-- [ ] Unplug electronics
-- [ ] Set multiple alarms for departure
+const summary = getBudgetSummary(tripId);
 ```
 
-### Step 6: Track Trip and Budget
+### Step 11: Post-Trip Updates
 
-During the trip, track expenses:
+After the trip:
 
-```python
-from travel_db import add_expense
+```javascript
+import { moveTripToPast, addPreviousDestination } from "{baseDir}/scripts/travel_db.mjs";
 
-expense = {
-    "category": "food",
-    "amount": 45.00,
-    "description": "Dinner at Cervecería Catalana",
-    "date": "2025-06-16"
-}
-
-add_expense(trip_id, expense)
+moveTripToPast(tripId);
+addPreviousDestination("Barcelona, Spain");
 ```
 
-View budget status:
+Also update preferences if you learned anything durable:
 
-```python
-from travel_db import get_budget_summary
+- preferred hotel style
+- realistic pace
+- dislike of hotel switching
+- stronger interest in food / museums / hiking / photography
 
-summary = get_budget_summary(trip_id)
-# Shows: total_budget, spent, remaining, percentage_used, by_category
-```
+## Destination Research Checklist
 
-### Step 7: Post-Trip Updates
+Use deep destination research after route framing or when the user asks for booking-ready detail.
 
-After trip, move to past trips and update:
+Research:
 
-```python
-from travel_db import move_trip_to_past, add_previous_destination
+1. Entry requirements
+2. Best time to visit
+3. Safety information
+4. Cultural norms
+5. Local transportation
+6. Top attractions and booking friction
+7. Food and restaurant patterns
+8. Best neighborhoods to stay in
+9. Day trip options
+10. Practical travel information
 
-move_trip_to_past(trip_id)
-add_previous_destination("Barcelona, Spain")
-```
+Suggested search topics:
+
+- "[Destination] visa requirements for [nationality]"
+- "[Destination] weather in [month]"
+- "[Destination] scams to avoid"
+- "[Destination] where to stay neighborhoods"
+- "[Destination] transportation guide"
+- "[Destination] top attractions booking"
+- "[Destination] 7-day route"
 
 ## Best Practices
 
-1. **Research Thoroughly** - Use web search for current, accurate information
-2. **Be Realistic** - Don't over-schedule; allow for rest and spontaneity
-3. **Book Ahead** - Popular attractions sell out, especially in peak season
-4. **Budget Buffer** - Add 10-20% extra for unexpected costs
-5. **Cultural Respect** - Research and follow local customs
-6. **Safety First** - Check travel advisories, register with embassy
-7. **Stay Flexible** - Weather and circumstances change
-8. **Document Everything** - Save confirmations, important info offline
+1. **Do route framing first for complex destinations**.
+2. **Use the fewest questions possible** to unlock a meaningful recommendation.
+3. **Front-load the big decisions**: route, transport, hotel zone.
+4. **Treat arrival and departure days as lighter by default**.
+5. **Build 20-30% slack into each day**.
+6. **Use real transport and hotel data before sounding definitive**.
+7. **Give one recommended route and one backup**, not five equal options.
+8. **Prefer execution-ready day cards over attraction dumping**.
 
 ## Example Interaction
 
 ```
-User: "I want to plan a 7-day trip to Barcelona in June"
+User: "Help me plan a 7-day trip to Xinjiang"
 
-Claude: [Checks preferences - finds initialized]
+Assistant: [Checks preferences, creates lightweight trip record]
 
-Great! I'll create a detailed travel plan for Barcelona. Based on your preferences,
-I know you enjoy culture, food, and moderate-paced travel with a mid-range budget.
+Before I map daily stops, I want to frame the right version of Xinjiang for you.
+Just a few things that change the route a lot:
+1. Roughly which month are you going?
+2. Which city are you flying from?
+3. Budget per person or total?
+4. More interested in scenery, photography, culture, or food?
+5. Are you okay with self-driving, or would you rather avoid it?
 
-First, a few questions:
-1. What are your exact travel dates?
-2. What's your total budget?
-3. Any specific must-see attractions?
-4. Traveling solo or with someone?
+User: "Mid-July, flying from Shanghai, two people, around 7,000 RMB each, mostly scenery, don't want to self-drive."
 
-User: "June 15-22, $2500 budget, want to see Gaudí architecture, traveling with partner"
+Assistant: [Runs route framing, then light validation]
 
-Claude: [Creates trip in database, performs web research]
+Best fit: North Xinjiang Yili soft route.
+Why: it gives you stronger scenery density within 7 days, avoids forcing both Yili and Kanas, and is more comfortable without self-driving.
 
-Perfect! I've created your Barcelona trip plan. Let me present the complete itinerary:
+Backup option: Kanas scenic line.
+Why not first: more transfer-heavy and more tiring for a first Xinjiang trip at this pace.
 
-[Generates detailed 7-day itinerary with Sagrada Familia, Park Güell, Casa Batlló, etc.]
-[Creates budget breakdown: $2500 over 7 days]
-[Generates packing checklist for June Mediterranean weather]
-[Provides Spanish cultural do's and don'ts]
-[Creates timeline of pre-trip tasks]
+Suggested transport:
+- Fly into Urumqi
+- Use a local driver / small-group route for the core days
+- Keep hotel changes to 3 bases max
 
-Key highlights:
-✓ Day 2: Sagrada Familia (book tickets NOW - they sell out)
-✓ Day 4: Food tour in El Born (€95/person, worth it!)
-✓ Day 6: Day trip to Montserrat
-✓ Budget: $357/day average (€325)
-✓ Accommodation: €125/night in Gothic Quarter
-
-Important notes:
-- Book Sagrada Familia tickets immediately
-- Dinner reservations needed for Tickets Bar, Cervecería Catalana
-- Pickpocket awareness on Las Ramblas
-- Bring European plug adapter (Type C/F)
-
-Would you like me to adjust anything in the itinerary?
+If this direction feels right, I'll turn it into a booking-ready 7-day plan with hotel strategy, transport chain, and daily execution cards.
 ```
 
-## Technical Notes
+## Notes
 
-**Data Storage:**
-
-- Preferences: `~/.openclaw/travel-planner/preferences.json`
-- Trips: `~/.openclaw/travel-planner/trips.json`
-
-**CLI Commands:**
+- Preferences and trips JSON: `~/.openclaw/agents/travel-planner/preferences.json`, `~/.openclaw/agents/travel-planner/trips.json`
+- CLI: `node {baseDir}/scripts/<script>.mjs`
 
 ```bash
-# Check initialization
-python3 {baseDir}/scripts/travel_db.py is_initialized
-
-# View data
-python3 {baseDir}/scripts/travel_db.py get_preferences
-python3 {baseDir}/scripts/travel_db.py get_trips current
-python3 {baseDir}/scripts/travel_db.py stats
-
-# Generate plan
-python3 {baseDir}/scripts/plan_generator.py --trip-id <id> --output plan.json
-
-# Export backup
-python3 {baseDir}/scripts/travel_db.py export > backup.json
+node {baseDir}/scripts/travel_db.mjs is_initialized
+node {baseDir}/scripts/travel_db.mjs add_trip '<json>' current
+node {baseDir}/scripts/travel_db.mjs get_preferences
+node {baseDir}/scripts/travel_db.mjs get_trips current
+node {baseDir}/scripts/travel_db.mjs stats
+node {baseDir}/scripts/plan_generator.mjs --trip-id <id> --output plan.json
+node {baseDir}/scripts/travel_db.mjs export > backup.json
 ```
 
 ## Resources
 
-### scripts/travel_db.py
+### scripts/travel_db.mjs
 
 Database management for preferences, trips, budget tracking, itineraries, and travel statistics.
 
-### scripts/plan_generator.py
+### scripts/plan_generator.mjs
 
-Generates itineraries, budget breakdowns, packing checklists, and preparation timelines.
+Generates route framing, live-validation-aware plan skeletons, itineraries, budget breakdowns, packing checklists, and preparation timelines.
+
+### scripts/live_validation.mjs
+
+Builds the booking-oriented validation package that tells the agent what live tool calls to run before producing a booking-ready answer.
+
+### scripts/route_selector.mjs
+
+Scores route candidates for complex destinations before the detailed itinerary is written.
+
+### scripts/booking_ready.mjs
+
+Turns attached live search outputs into a booking-ready decision package with transport options, hotel candidates, anchor POIs, and booking watchouts.
+
+### scripts/briefing.mjs
+
+Generates manual pre-trip and in-trip brief payloads that can later be wired into cron or other reminder delivery systems.
 
 ### references/travel_guidelines.md
 

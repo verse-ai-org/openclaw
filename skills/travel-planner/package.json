@@ -1,11 +1,12 @@
 {
   "name": "travel-planner",
   "version": "1.0.0",
+  "type": "module",
   "description": "Travel Planner Skill",
   "main": "index.js",
   "files": [
     "."
   ],
   "license": "MIT",
-  "author": "AI Labs"
+  "author": "Bossim"
 }
