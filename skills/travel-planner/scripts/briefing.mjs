@@ -4,7 +4,13 @@
 
 import { fileURLToPath } from "node:url";
 
-import { isCliHelp } from "./cli-help.mjs";
+import {
+  assertOnlyFlags,
+  isCliHelp,
+  parseCliArgs,
+  readJsonFromCliValue,
+  requireFlag,
+} from "./cli_args.mjs";
 
 function parseDate(value) {
   if (!value) return null;
@@ -131,36 +137,44 @@ export function buildDailyBrief(tripData, plan, dayIndex = 1) {
 function printBriefingHelp() {
   console.log(`briefing.mjs — pre-trip or daily brief JSON
 
+All flags use --key=value. JSON may be inline or @path.
+
 Usage:
-  node briefing.mjs --mode pre_trip|daily --trip '<json>' --plan '<json>' [--day N]
+  node briefing.mjs --mode=pre_trip|daily --trip=<json|@file> --plan=<json|@file> [--day=<N>]
 
 Options:
   --mode   Required. pre_trip or daily.
-  --trip   Required. Trip object JSON.
-  --plan   Required. Plan object JSON.
-  --day    For daily mode only; 1-based day index (default 1).
+  --trip   Required. Trip object.
+  --plan   Required. Plan object.
+  --day    For daily mode; 1-based day index (default 1).
 `);
 }
 
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
+function main() {
   const argv = process.argv.slice(2);
   if (isCliHelp(argv)) {
     printBriefingHelp();
     process.exit(0);
   }
-  const modeIdx = argv.indexOf("--mode");
-  const tripIdx = argv.indexOf("--trip");
-  const planIdx = argv.indexOf("--plan");
-  const dayIdx = argv.indexOf("--day");
-  if (modeIdx < 0 || tripIdx < 0 || planIdx < 0) {
-    console.error("Error: --mode, --trip, and --plan are required (use --help for usage)");
+  const args = parseCliArgs(argv);
+  assertOnlyFlags(args, ["mode", "trip", "plan", "day"]);
+  requireFlag(args, "mode");
+  requireFlag(args, "trip");
+  requireFlag(args, "plan");
+  const mode = args.mode;
+  const trip = readJsonFromCliValue("trip", args.trip, undefined);
+  const plan = readJsonFromCliValue("plan", args.plan, undefined);
+  const dayRaw = args.day !== undefined && args.day !== "" ? args.day : "1";
+  const day = Number.parseInt(dayRaw, 10);
+  if (!Number.isFinite(day)) {
+    console.error("Error: --day must be a number");
     process.exit(1);
   }
-  const mode = argv[modeIdx + 1];
-  const trip = JSON.parse(argv[tripIdx + 1]);
-  const plan = JSON.parse(argv[planIdx + 1]);
-  const day = dayIdx >= 0 ? Number.parseInt(argv[dayIdx + 1] || "1", 10) : 1;
   const result = mode === "pre_trip" ? buildPreTripBrief(trip, plan) : buildDailyBrief(trip, plan, day);
   console.log(JSON.stringify(result, null, 2));
+}
+
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  main();
 }

@@ -3,9 +3,16 @@
  */
 
 import fs from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isCliHelp } from "./cli-help.mjs";
+import {
+  assertOnlyFlags,
+  isCliHelp,
+  parseCliArgs,
+  readJsonFromCliValue,
+  requireFlag,
+} from "./cli_args.mjs";
 
 import { buildBookingReadyPackage } from "./booking_ready.mjs";
 import { buildDailyBrief, buildPreTripBrief } from "./briefing.mjs";
@@ -56,6 +63,8 @@ export function generateRouteFraming(tripData, preferences) {
       tripData.transport_preferences?.length ? tripData.transport_preferences : preferences.transport_preferences || [],
   };
 
+  // Route selection logic is intentionally centralized in route_selector.mjs.
+  // plan_generator only consumes framing output and composes the final plan document.
   const framing = selectRouteCandidates(request);
   const recommended = framing.recommended_route || {};
 
@@ -64,8 +73,17 @@ export function generateRouteFraming(tripData, preferences) {
     recommended_route: recommended,
     alternatives: framing.alternatives || [],
     rejected_routes: framing.rejected_routes || [],
+    recommendation_source: framing.recommendation_source || "",
+    source_reason: framing.source_reason || "",
+    source_confidence: framing.source_confidence || "low",
+    evidence_summary: framing.evidence_summary || "",
+    evidence_links: framing.evidence_links || [],
+    requires_xhs_evidence: Boolean(framing.requires_xhs_evidence),
+    next_action: framing.next_action || "",
     decision_summary: {
-      headline: recommended.title || "Confirm the route before building the itinerary.",
+      headline:
+        recommended.title ||
+        "No precomputed route—use flyai, amap-lbs-skill (China), 12306 when relevant, and research to pick one primary and one backup.",
       why_now: "A better route choice usually matters more than squeezing in more attractions.",
       planning_note: framing.planning_note || "",
     },
@@ -492,11 +510,21 @@ export function generateTripPlan(tripData) {
   const accommodationLevel = preferences.budget_level || "mid-range";
 
   const routeFraming = generateRouteFraming(tripData, preferences);
-  const selectedRoute = tripData.selected_route || routeFraming.recommended_route || {};
-  const skeleton = generatePlanSkeleton({ ...tripData, selected_route: selectedRoute }, preferences);
+  const routeChoiceConfirmed = tripData.route_choice_confirmed === true;
+  const selectedRoute = routeChoiceConfirmed
+    ? tripData.selected_route || {}
+    : {};
+  const skeleton = generatePlanSkeleton(
+    {
+      ...tripData,
+      selected_route: selectedRoute,
+    },
+    preferences,
+  );
   const liveValidation = buildLiveValidation(tripData, selectedRoute, preferences);
   const liveResults = tripData.live_results || {};
   const bookingReady = buildBookingReadyPackage(tripData, selectedRoute, liveValidation, liveResults);
+  const itineraryReady = routeChoiceConfirmed && bookingReady.status === "ready";
 
   const bookingStrategy = {
     status:
@@ -506,6 +534,7 @@ export function generateTripPlan(tripData) {
           ? "needs_live_validation"
           : "route_only",
     next_actions: [
+      ...(routeChoiceConfirmed ? [] : ["Choose one route option before validation and daily planning."]),
       "Validate transport options with live flight or rail search.",
       "Validate hotel bases before assigning exact daily anchors.",
       "Promote to booking-ready response after the decision gates are met.",
@@ -514,18 +543,18 @@ export function generateTripPlan(tripData) {
     decision_gates: liveValidation.decision_gates,
   };
 
-  const baseItinerary = generateDailyItinerary(
-    destination,
-    { ...tripData, selected_route: selectedRoute },
-    interests,
-    pace,
-  );
-  const confirmedBookings = tripData.confirmed_bookings || {};
-  const hydratedItinerary = hydrateItineraryWithBookingReady(
-    baseItinerary,
-    bookingReady,
-    confirmedBookings,
-  );
+  const hydratedItinerary = itineraryReady
+    ? hydrateItineraryWithBookingReady(
+        generateDailyItinerary(
+          destination,
+          { ...tripData, selected_route: selectedRoute },
+          interests,
+          pace,
+        ),
+        bookingReady,
+        tripData.confirmed_bookings || {},
+      )
+    : [];
 
   const serviceState = {
     stage: tripData.during_trip
@@ -557,6 +586,7 @@ export function generateTripPlan(tripData) {
       planning_focus:
         "Confirm the route, validate transport and lodging, then synthesize the booking-ready decision package.",
       response_order: [
+        ...(routeChoiceConfirmed ? [] : ["route_options_and_user_choice"]),
         "recommendation",
         "live_transport_and_hotel_validation",
         "booking_ready_transport_and_hotel_options",
@@ -585,48 +615,64 @@ export function generateTripPlan(tripData) {
 function printPlanGeneratorHelp() {
   console.log(`plan_generator.mjs — full structured trip plan JSON
 
+All flags use --key=value. JSON may be inline or @path.
+
 Usage:
-  node plan_generator.mjs --trip-json '<trip_json>' [--output <file>]
-  node plan_generator.mjs --trip-id <id> [--output <file>]
+  node plan_generator.mjs --trip-json=<trip_json_or_@file> [--output=<file>]
+  node plan_generator.mjs --trip-id=<id> [--output=<file>]
 
 Options:
-  --trip-json   Inline trip object (live_results / selected_route optional).
+  --trip-json   Trip object (live_results / selected_route optional).
   --trip-id     Load trip from travel_db by id.
-  --output      Write JSON to file instead of stdout.
+  --output      Write JSON to file instead of stdout (creates parent dirs if missing).
 `);
 }
 
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
+function main() {
   const argv = process.argv.slice(2);
   if (isCliHelp(argv)) {
     printPlanGeneratorHelp();
     process.exit(0);
   }
 
-  const tripJsonIdx = argv.indexOf("--trip-json");
-  const tripIdIdx = argv.indexOf("--trip-id");
-  const outIdx = argv.indexOf("--output");
+  const args = parseCliArgs(argv);
+  assertOnlyFlags(args, ["trip-json", "trip-id", "output"]);
 
-  let trip;
-  if (tripJsonIdx >= 0 && argv[tripJsonIdx + 1]) {
-    trip = JSON.parse(argv[tripJsonIdx + 1]);
-  } else if (tripIdIdx >= 0 && argv[tripIdIdx + 1]) {
-    trip = getTripById(argv[tripIdIdx + 1]);
-    if (!trip) {
-      console.error(`Error: Trip ${argv[tripIdIdx + 1]} not found`);
-      process.exit(1);
-    }
-  } else {
-    console.error("Error: --trip-id or --trip-json required (use --help for usage)");
+  const hasJson = args["trip-json"] !== undefined && args["trip-json"] !== "";
+  const hasId = args["trip-id"] !== undefined && args["trip-id"] !== "";
+  if (hasJson && hasId) {
+    console.error("Error: use only one of --trip-json=... or --trip-id=...");
+    process.exit(1);
+  }
+  if (!hasJson && !hasId) {
+    console.error("Error: --trip-json=... or --trip-id=... required (use --help for usage)");
     process.exit(1);
   }
 
+  let trip;
+  if (hasJson) {
+    trip = readJsonFromCliValue("trip-json", args["trip-json"], undefined);
+  } else {
+    const id = requireFlag(args, "trip-id");
+    trip = getTripById(id);
+    if (!trip) {
+      console.error(`Error: Trip ${id} not found`);
+      process.exit(1);
+    }
+  }
+
   const plan = generateTripPlan(trip);
-  if (outIdx >= 0 && argv[outIdx + 1]) {
-    fs.writeFileSync(argv[outIdx + 1], JSON.stringify(plan, null, 2), "utf8");
-    console.log(`✓ Travel plan generated: ${argv[outIdx + 1]}`);
+  if (args.output !== undefined && args.output !== "") {
+    const outPath = path.resolve(args.output);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, JSON.stringify(plan, null, 2), "utf8");
+    console.log(`✓ Travel plan generated: ${outPath}`);
   } else {
     console.log(JSON.stringify(plan, null, 2));
   }
+}
+
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  main();
 }

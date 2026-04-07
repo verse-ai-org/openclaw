@@ -5,7 +5,13 @@
 
 import { fileURLToPath } from "node:url";
 
-import { isCliHelp } from "./cli-help.mjs";
+import {
+  assertOnlyFlags,
+  isCliHelp,
+  parseCliArgs,
+  readJsonFromCliValue,
+  requireFlag,
+} from "./cli_args.mjs";
 
 function firstList(payload) {
   const data = (payload || {}).data || {};
@@ -168,35 +174,38 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
 function printBookingReadyHelp() {
   console.log(`booking_ready.mjs — synthesize booking-ready package from live tool outputs
 
+All flags use --key=value. JSON may be inline or @path.
+
 Usage:
-  node booking_ready.mjs --trip '<json>' --route '<json>' --validation '<json>' [--results '<json>']
+  node booking_ready.mjs --trip=<json|@file> --route=<json|@file> --validation=<json|@file> [--results=<json|@file>]
 
 Options:
-  --trip         Required. Trip object JSON.
-  --route        Required. Route object JSON.
-  --validation   Required. Live validation object JSON.
-  --results      Optional. Aggregated flyai / transport results JSON (default {}).
+  --trip         Required. Trip object.
+  --route        Required. Route object.
+  --validation   Required. Live validation object.
+  --results      Optional (default {}).
 `);
 }
 
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
+function main() {
   const argv = process.argv.slice(2);
   if (isCliHelp(argv)) {
     printBookingReadyHelp();
     process.exit(0);
   }
-  const tIdx = argv.indexOf("--trip");
-  const rIdx = argv.indexOf("--route");
-  const vIdx = argv.indexOf("--validation");
-  const resIdx = argv.indexOf("--results");
-  if (tIdx < 0 || rIdx < 0 || vIdx < 0) {
-    console.error("Error: --trip, --route, and --validation are required (use --help for usage)");
-    process.exit(1);
-  }
-  const trip = JSON.parse(argv[tIdx + 1]);
-  const route = JSON.parse(argv[rIdx + 1]);
-  const validation = JSON.parse(argv[vIdx + 1]);
-  const results = resIdx >= 0 && argv[resIdx + 1] ? JSON.parse(argv[resIdx + 1]) : {};
+  const args = parseCliArgs(argv);
+  assertOnlyFlags(args, ["trip", "route", "validation", "results"]);
+  requireFlag(args, "trip");
+  requireFlag(args, "route");
+  requireFlag(args, "validation");
+  const trip = readJsonFromCliValue("trip", args.trip, undefined);
+  const route = readJsonFromCliValue("route", args.route, undefined);
+  const validation = readJsonFromCliValue("validation", args.validation, undefined);
+  const results = readJsonFromCliValue("results", args.results, {});
   console.log(JSON.stringify(buildBookingReadyPackage(trip, route, validation, results), null, 2));
+}
+
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  main();
 }

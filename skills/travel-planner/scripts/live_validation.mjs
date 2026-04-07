@@ -4,7 +4,13 @@
 
 import { fileURLToPath } from "node:url";
 
-import { isCliHelp } from "./cli-help.mjs";
+import {
+  assertOnlyFlags,
+  isCliHelp,
+  parseCliArgs,
+  readJsonFromCliValue,
+  requireFlag,
+} from "./cli_args.mjs";
 
 function safeDate(value, fallbackDays) {
   if (value) return value;
@@ -303,34 +309,35 @@ export function buildLiveValidation(tripData, selectedRoute, preferences) {
 function printLiveValidationHelp() {
   console.log(`live_validation.mjs — build validation package (does not call external APIs)
 
+All flags use --key=value. JSON may be inline or @path.
+
 Usage:
-  node live_validation.mjs --trip '<trip_json>' --route '<route_json>' [--preferences '<json>']
+  node live_validation.mjs --trip=<trip_json|@file> --route=<route_json|@file> [--preferences=<json|@file>]
 
 Options:
-  --trip          Required. Trip object JSON.
-  --route         Required. Selected route object JSON.
-  --preferences   Optional. Preferences JSON (default {}).
+  --trip          Required. Trip object.
+  --route         Required. Selected route object.
+  --preferences   Optional (default {}).
 `);
 }
 
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
+function main() {
   const argv = process.argv.slice(2);
   if (isCliHelp(argv)) {
     printLiveValidationHelp();
     process.exit(0);
   }
-  const tripIdx = argv.indexOf("--trip");
-  const routeIdx = argv.indexOf("--route");
-  const prefIdx = argv.indexOf("--preferences");
-  const tripJson = tripIdx >= 0 ? argv[tripIdx + 1] : "";
-  const routeJson = routeIdx >= 0 ? argv[routeIdx + 1] : "";
-  if (!tripJson || !routeJson) {
-    console.error("Error: --trip and --route are required (use --help for usage)");
-    process.exit(1);
-  }
-  const trip = JSON.parse(tripJson);
-  const route = JSON.parse(routeJson);
-  const preferences = prefIdx >= 0 && argv[prefIdx + 1] ? JSON.parse(argv[prefIdx + 1]) : {};
+  const args = parseCliArgs(argv);
+  assertOnlyFlags(args, ["trip", "route", "preferences"]);
+  requireFlag(args, "trip");
+  requireFlag(args, "route");
+  const trip = readJsonFromCliValue("trip", args.trip, undefined);
+  const route = readJsonFromCliValue("route", args.route, undefined);
+  const preferences = readJsonFromCliValue("preferences", args.preferences, {});
   console.log(JSON.stringify(buildLiveValidation(trip, route, preferences), null, 2));
+}
+
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  main();
 }

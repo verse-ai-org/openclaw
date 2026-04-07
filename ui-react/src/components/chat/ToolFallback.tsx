@@ -216,6 +216,64 @@ function parseMarkdown(markdown: string): { frontmatter: string; body: string } 
   };
 }
 
+function truncateMiddle(text: string, max = 96): string {
+  if (text.length <= max) return text;
+  const side = Math.floor((max - 1) / 2);
+  return `${text.slice(0, side)}…${text.slice(text.length - side)}`;
+}
+
+function buildArgsPreview(toolName: string, argsText: string | null | undefined): string {
+  if (!argsText) return "";
+
+  const fallback = truncateMiddle(argsText.replace(/\s+/g, " ").trim(), 96);
+
+  try {
+    const parsed: unknown = JSON.parse(argsText);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return fallback;
+    }
+
+    const obj = parsed as Record<string, unknown>;
+    const readString = (key: string) =>
+      typeof obj[key] === "string" && obj[key].trim().length > 0 ? obj[key].trim() : undefined;
+
+    const category = classifyTool(toolName);
+
+    if (category === "exec") {
+      const command = readString("command") ?? readString("cmd");
+      if (command) return truncateMiddle(command, 110);
+    }
+
+    if (category === "read" || category === "write" || category === "file") {
+      const path = readString("path") ?? readString("file") ?? readString("target");
+      if (path) return truncateMiddle(path, 110);
+    }
+
+    if (category === "search") {
+      const query = readString("query") ?? readString("pattern") ?? readString("keyword");
+      if (query) return truncateMiddle(query, 110);
+    }
+
+    const action = readString("action");
+    const sessionId = readString("sessionId") ?? readString("session");
+    if (action && sessionId) return `${action} (${sessionId})`;
+    if (action) return action;
+
+    const url = readString("url");
+    if (url) return truncateMiddle(url, 110);
+
+    const compact = Object.entries(obj)
+      .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
+      .slice(0, 2)
+      .map(([key, value]) => `${key}=${String(value)}`)
+      .join(", ");
+
+    return compact ? truncateMiddle(compact, 110) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // ToolDetailDrawer
 interface ToolDetailDrawerProps {
@@ -358,6 +416,7 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
   const Icon = cfg.Icon;
 
   const toolLabel = formatToolLabel(toolName);
+  const argsPreview = buildArgsPreview(toolName, argsText);
 
   console.log("[ToolFallback]", toolName, { argsText, result, status });
 
@@ -417,19 +476,27 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
             <Icon className={cn("size-3.5", cfg.iconColor)} />
           </span>
 
-          {/* Action label prefix + tool name, single line */}
+          {/* Action + tool label + compact args preview */}
           <span className="flex flex-1 items-baseline gap-1.5 min-w-0">
-            <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              {cfg.actionLabel}
+            <span className="shrink-0 text-sm text-muted-foreground">
+              {cfg.actionLabel ?? toolLabel}
             </span>
-            <span
+            {/* <span
               className={cn(
-                "truncate text-[12px] font-semibold text-foreground",
-                isCancelled && "line-through text-muted-foreground",
+                "truncate text-sm font-semibold text-muted-foreground",
+                isCancelled && "line-through text-destructive",
               )}
             >
               {toolLabel}
-            </span>
+            </span> */}
+            {!!argsPreview && (
+              <span className="truncate text-xs text-muted-foreground">- {argsPreview}</span>
+            )}
+            {!argsPreview && !!argsText && (
+              <span className="truncate text-xs text-muted-foreground">
+                - {truncateMiddle(argsText.replace(/\s+/g, " ").trim(), 96)}
+              </span>
+            )}
           </span>
 
           {/* Status badge */}

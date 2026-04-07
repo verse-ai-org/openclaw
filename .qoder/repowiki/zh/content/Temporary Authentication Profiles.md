@@ -5,11 +5,13 @@
 - [src/agents/auth-profiles/store.ts](file://src/agents/auth-profiles/store.ts)
 - [src/agents/auth-profiles/order.ts](file://src/agents/auth-profiles/order.ts)
 - [src/agents/auth-profiles/usage.ts](file://src/agents/auth-profiles/usage.ts)
-- [src/agents/auth-profiles/session-override.ts](file://src/agents/auth-profiles/session-override.ts)
-- [src/secrets/auth-profiles-scan.ts](file://src/secrets/auth-profiles-scan.ts)
-- [src/commands/onboard-auth.config-core.ts](file://src/commands/onboard-auth.config-core.ts)
-- [src/config/types.auth.ts](file://src/config/types.auth.ts)
+- [src/agents/auth-profiles/types.ts](file://src/agents/auth-profiles/types.ts)
+- [src/agents/auth-profiles/credential-state.ts](file://src/agents/auth-profiles/credential-state.ts)
+- [src/agents/auth-profiles/state-observation.ts](file://src/agents/auth-profiles/state-observation.ts)
 - [src/agents/auth-health.ts](file://src/agents/auth-health.ts)
+- [src/commands/onboard-auth.config-core.ts](file://src/commands/onboard-auth.config-core.ts)
+- [src/commands/doctor-auth.ts](file://src/commands/doctor-auth.ts)
+- [src/config/types.auth.ts](file://src/config/types.auth.ts)
 </cite>
 
 ## 更新摘要
@@ -50,10 +52,11 @@ A --> D[使用统计]
 B --> B1[store.ts]
 C --> C1[order.ts]
 D --> D1[usage.ts]
-E[src/secrets/auth-profiles-scan.ts] --> F[凭据扫描]
+E[src/agents/auth-health.ts] --> F[健康检查]
 G[src/commands/onboard-auth.config-core.ts] --> H[配置应用]
 I[src/config/types.auth.ts] --> J[类型定义]
-K[src/agents/auth-health.ts] --> L[健康检查]
+K[src/agents/auth-profiles/credential-state.ts] --> L[凭据状态评估]
+M[src/agents/auth-profiles/state-observation.ts] --> N[状态观察]
 end
 ```
 
@@ -125,15 +128,15 @@ subgraph "配置管理层"
 CFG[配置应用]
 ORD[排序算法]
 SCAN[凭据扫描]
-end
+END
 subgraph "存储管理层"
 STORE[凭据存储]
 USAGE[使用统计]
-end
+END
 subgraph "安全管理层"
 HEALTH[健康检查]
 COOLDOWN[冷却时间管理]
-end
+END
 UI --> CFG
 CLI --> CFG
 CFG --> ORD
@@ -274,7 +277,7 @@ Report --> Complete[完成扫描]
 ```
 
 **图表来源**
-- [src/secrets/auth-profiles-scan.ts:95-124](file://src/secrets/auth-profiles-scan.ts#L95-L124)
+- [src/commands/doctor-auth.ts:113-201](file://src/commands/doctor-auth.ts#L113-L201)
 
 扫描功能包括：
 
@@ -284,7 +287,7 @@ Report --> Complete[完成扫描]
 4. **错误报告**：提供详细的扫描结果和错误信息
 
 **章节来源**
-- [src/secrets/auth-profiles-scan.ts:1-124](file://src/secrets/auth-profiles-scan.ts#L1-L124)
+- [src/commands/doctor-auth.ts:113-201](file://src/commands/doctor-auth.ts#L113-L201)
 
 ### 配置应用和管理
 
@@ -350,7 +353,7 @@ J[auth-health.ts] --> D
 D --> K[健康状态报告]
 end
 subgraph "扫描工具"
-L[auth-profiles-scan.ts] --> B
+L[doctor-auth.ts] --> B
 B --> M[凭据验证]
 end
 ```

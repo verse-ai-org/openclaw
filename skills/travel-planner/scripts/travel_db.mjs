@@ -8,7 +8,14 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isCliHelp } from "./cli-help.mjs";
+import {
+  assertOnlyFlags,
+  isCliHelp,
+  parseCliArgs,
+  readJsonFromCliValue,
+  requireCmd,
+  requireFlag,
+} from "./cli_args.mjs";
 
 /** @type {string | null} */
 let dbDirOverride = null;
@@ -145,7 +152,23 @@ export function normalizeTripRecord(trip) {
   trip.must_do ??= [];
   trip.nice_to_have ??= [];
   trip.selected_route ??= {};
+  trip.recommendation_source_policy ??= "xhs_first";
+  trip.recommendation_source_runtime ??= "";
+  trip.source_reason ??= "";
+  trip.xhs_evidence ??= {
+    query: {},
+    evidence_quality: "low",
+    generated_at: "",
+    sources: [],
+    route_hints: {},
+    risk_hints: [],
+    stay_hints: {},
+    summary: "",
+  };
   trip.route_candidates ??= [];
+  trip.route_options ??= [];
+  trip.route_choice_confirmed ??= false;
+  trip.chosen_route_id ??= "";
   trip.route_framing ??= emptyRouteFraming();
   trip.live_validation ??= emptyLiveValidation();
   trip.live_results ??= emptyLiveResults();
@@ -270,10 +293,17 @@ export function setTripStage(tripId, stage) {
 }
 
 export function saveRouteFraming(tripId, recommendedRoute, alternatives, rejectedRoutes, decisionSummary) {
+  const routeOptions =
+    recommendedRoute && Object.keys(recommendedRoute).length
+      ? [recommendedRoute, ...(alternatives || [])]
+      : alternatives || [];
   const updates = {
     stage: "route_framing",
     selected_route: recommendedRoute || {},
-    route_candidates: recommendedRoute ? [recommendedRoute, ...(alternatives || [])] : alternatives || [],
+    route_candidates: routeOptions,
+    route_options: routeOptions,
+    route_choice_confirmed: false,
+    chosen_route_id: "",
     route_framing: {
       recommended_route: recommendedRoute,
       alternatives: alternatives || [],
@@ -282,6 +312,39 @@ export function saveRouteFraming(tripId, recommendedRoute, alternatives, rejecte
     },
   };
   return updateTrip(tripId, updates);
+}
+
+export function confirmRouteChoice(tripId, routeId) {
+  const trip = getTripById(tripId);
+  if (!trip) return false;
+  const options = trip.route_options || trip.route_candidates || [];
+  const chosen = options.find((option) => option?.route_id === routeId);
+  if (!chosen) return false;
+  return updateTrip(tripId, {
+    selected_route: chosen,
+    route_choice_confirmed: true,
+    chosen_route_id: routeId,
+    stage: "plan_ready",
+  });
+}
+
+export function saveXhsEvidence(tripId, xhsEvidence) {
+  return updateTrip(tripId, {
+    xhs_evidence: xhsEvidence || {},
+  });
+}
+
+export function saveRouteFramingMetadata(
+  tripId,
+  recommendationSourceRuntime,
+  sourceReason,
+  recommendationSourcePolicy,
+) {
+  return updateTrip(tripId, {
+    recommendation_source_runtime: recommendationSourceRuntime || "",
+    source_reason: sourceReason || "",
+    ...(recommendationSourcePolicy ? { recommendation_source_policy: recommendationSourcePolicy } : {}),
+  });
 }
 
 export function saveLiveResults(tripId, liveResults) {
@@ -469,119 +532,90 @@ export function resetAll() {
 function printTravelDbHelp() {
   console.log(`Travel Planner Database Manager — local JSON store under ~/.openclaw/agents/travel-planner/
 
+All flags use --key=value. JSON may be inline or @path (e.g. --payload=@trip.json).
+
 Usage:
-  node travel_db.mjs <command> [args...]
+  node travel_db.mjs --cmd=<name> [--flag=...]
 
 Commands:
-  is_initialized
+  --cmd=is_initialized
     Print true or false.
-  get_preferences
+  --cmd=get_preferences
     Print preferences JSON.
-  save_preferences '<json>'
+  --cmd=save_preferences --payload=<json|@file>
     Merge-save preferences (sets initialized).
-  get_trips [current|past|ideas|all]
-    Default: all.
-  get_trip <trip_id>
-  add_trip '<json>' [current|past|idea]
+  --cmd=get_trips [--status=current|past|ideas|all]
+    Default status: all.
+  --cmd=get_trip --trip-id=<id>
+  --cmd=add_trip --payload=<json|@file> [--list=current|past|idea]
     Create a trip; prints { ok, trip_id }. Default list: current.
-  patch_trip <trip_id> '<json>'
-  update_trip <trip_id> '<json>'
-    Alias of patch_trip. Merge JSON fields into an existing trip (stage, selected_route, etc.).
-  save_live_results <trip_id> '<json>'
-  save_booking_ready <trip_id> '<json>'
-  confirm_booking <trip_id> <category> '<json>'
-  start_trip <trip_id>
-  stats
-  export
+  --cmd=patch_trip --trip-id=<id> --payload=<json|@file>
+  --cmd=update_trip --trip-id=<id> --payload=<json|@file>
+    Alias of patch_trip.
+  --cmd=save_live_results --trip-id=<id> [--payload=<json|@file>]
+    Default payload: {}.
+  --cmd=save_booking_ready --trip-id=<id> [--payload=<json|@file>]
+  --cmd=confirm_booking --trip-id=<id> --category=<name> [--payload=<json|@file>]
+  --cmd=start_trip --trip-id=<id>
+  --cmd=stats
+  --cmd=export
     Full dump (preferences + trips + stats).
-  reset
+  --cmd=reset
     Not supported non-interactively; delete JSON files or use API.
 
 Examples:
-  node travel_db.mjs is_initialized
-  node travel_db.mjs save_preferences '{"departure_city":"成都","budget_level":"mid-range"}'
+  node travel_db.mjs --cmd=is_initialized
+  node travel_db.mjs --cmd=save_preferences --payload='{"departure_city":"成都","budget_level":"mid-range"}'
 `);
 }
 
-/** Parse JSON from a CLI arg; exit with a hint for common nested-brace mistakes. */
-function parseJsonCliArg(label, raw, fallback) {
-  if (raw === undefined || raw === "") {
-    return fallback;
-  }
-  try {
-    return JSON.parse(raw);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    let hint = "";
-    if (msg.includes("Unexpected non-whitespace character after JSON")) {
-      hint =
-        "\nHint: JSON ended before the string did — usually an extra `}` after a nested object (e.g. after `hotels`) so the next key (`pois`, etc.) sits outside the root object. Count braces.";
-    } else if (msg.includes("Unexpected token") && msg.includes("JSON")) {
-      hint = "\nHint: check for trailing commas, unescaped quotes, or broken string quoting in the shell.";
-    }
-    console.error(`Error: invalid JSON for ${label} (${msg})${hint}`);
-    process.exit(1);
-  }
-}
-
-function runCli(argv) {
+function main() {
+  const argv = process.argv.slice(2);
   if (isCliHelp(argv)) {
     printTravelDbHelp();
     process.exit(0);
   }
 
-  const command = argv[0];
+  const args = parseCliArgs(argv);
+  const command = requireCmd(args);
 
   if (command === "is_initialized") {
+    assertOnlyFlags(args, ["cmd"]);
     console.log(isInitialized() ? "true" : "false");
   } else if (command === "save_preferences") {
-    const raw = argv[1];
-    if (!raw) {
-      console.error("Error: save_preferences requires a JSON object argument.");
-      process.exit(1);
-    }
-    try {
-      const payload = JSON.parse(raw);
-      savePreferences(payload);
-      console.log(JSON.stringify({ ok: true }, null, 2));
-    } catch (e) {
-      console.error(`Error: invalid JSON (${e instanceof Error ? e.message : String(e)})`);
-      process.exit(1);
-    }
+    assertOnlyFlags(args, ["cmd", "payload"]);
+    const payload = readJsonFromCliValue("save_preferences", args.payload, undefined);
+    savePreferences(payload);
+    console.log(JSON.stringify({ ok: true }, null, 2));
   } else if (command === "get_preferences") {
+    assertOnlyFlags(args, ["cmd"]);
     console.log(JSON.stringify(getPreferences(), null, 2));
   } else if (command === "get_trips") {
-    const status = argv[1] || "all";
+    assertOnlyFlags(args, ["cmd", "status"]);
+    const status = args.status && args.status !== "" ? args.status : "all";
     console.log(JSON.stringify(getTrips(status), null, 2));
   } else if (command === "get_trip") {
-    const tripId = argv[1] || "";
+    assertOnlyFlags(args, ["cmd", "trip-id"]);
+    const tripId = requireFlag(args, "trip-id");
     console.log(JSON.stringify(getTripById(tripId) || {}, null, 2));
   } else if (command === "add_trip") {
-    const raw = argv[1];
-    if (!raw) {
-      console.error("Error: add_trip requires a JSON object argument.");
-      process.exit(1);
-    }
-    const statusArg = argv[2];
+    assertOnlyFlags(args, ["cmd", "payload", "list"]);
+    const payload = readJsonFromCliValue("add_trip", args.payload, undefined);
+    const listRaw = args.list && args.list !== "" ? args.list : "current";
     const status =
-      statusArg === "past" ? "past" : statusArg === "idea" ? "idea" : "current";
+      listRaw === "past" ? "past" : listRaw === "idea" ? "idea" : "current";
     try {
-      const payload = JSON.parse(raw);
       const tripId = addTrip(payload, status);
       console.log(JSON.stringify({ ok: true, trip_id: tripId }, null, 2));
     } catch (e) {
-      console.error(`Error: invalid JSON or add_trip failed (${e instanceof Error ? e.message : String(e)})`);
+      console.error(`Error: add_trip failed (${e instanceof Error ? e.message : String(e)})`);
       process.exit(1);
     }
   } else if (command === "patch_trip" || command === "update_trip") {
-    const tripId = argv[1] || "";
-    const raw = argv[2];
-    if (!tripId || !raw) {
-      console.error(`Error: ${command} requires <trip_id> and a JSON object argument.`);
-      process.exit(1);
-    }
+    assertOnlyFlags(args, ["cmd", "trip-id", "payload"]);
+    const tripId = requireFlag(args, "trip-id");
+    const payload = readJsonFromCliValue(command, args.payload, undefined);
     try {
-      const payload = JSON.parse(raw);
       const ok = updateTrip(tripId, payload);
       console.log(JSON.stringify({ ok }, null, 2));
       if (!ok) {
@@ -589,39 +623,46 @@ function runCli(argv) {
         process.exit(1);
       }
     } catch (e) {
-      console.error(`Error: invalid JSON (${e instanceof Error ? e.message : String(e)})`);
+      console.error(`Error: ${e instanceof Error ? e.message : String(e)}`);
       process.exit(1);
     }
   } else if (command === "save_live_results") {
-    const tripId = argv[1] || "";
-    const payload = parseJsonCliArg("save_live_results", argv[2], {});
+    assertOnlyFlags(args, ["cmd", "trip-id", "payload"]);
+    const tripId = requireFlag(args, "trip-id");
+    const payload = readJsonFromCliValue("save_live_results", args.payload, {});
     console.log(JSON.stringify({ ok: saveLiveResults(tripId, payload) }, null, 2));
   } else if (command === "save_booking_ready") {
-    const tripId = argv[1] || "";
-    const payload = parseJsonCliArg("save_booking_ready", argv[2], {});
+    assertOnlyFlags(args, ["cmd", "trip-id", "payload"]);
+    const tripId = requireFlag(args, "trip-id");
+    const payload = readJsonFromCliValue("save_booking_ready", args.payload, {});
     console.log(JSON.stringify({ ok: saveBookingReadyPackage(tripId, payload) }, null, 2));
   } else if (command === "confirm_booking") {
-    const tripId = argv[1] || "";
-    const category = argv[2] || "";
-    const payload = parseJsonCliArg("confirm_booking", argv[3], {});
+    assertOnlyFlags(args, ["cmd", "trip-id", "category", "payload"]);
+    const tripId = requireFlag(args, "trip-id");
+    const category = requireFlag(args, "category");
+    const payload = readJsonFromCliValue("confirm_booking", args.payload, {});
     console.log(JSON.stringify({ ok: confirmBookingChoice(tripId, category, payload) }, null, 2));
   } else if (command === "start_trip") {
-    const tripId = argv[1] || "";
+    assertOnlyFlags(args, ["cmd", "trip-id"]);
+    const tripId = requireFlag(args, "trip-id");
     console.log(JSON.stringify({ ok: startTrip(tripId) }, null, 2));
   } else if (command === "stats") {
+    assertOnlyFlags(args, ["cmd"]);
     console.log(JSON.stringify(getTravelStats(), null, 2));
   } else if (command === "export") {
+    assertOnlyFlags(args, ["cmd"]);
     console.log(JSON.stringify(exportAll(), null, 2));
   } else if (command === "reset") {
+    assertOnlyFlags(args, ["cmd"]);
     console.error("Interactive reset not supported from CLI in Node port; use API or delete files manually.");
     process.exit(1);
   } else {
-    console.error(`Unknown command: ${command}`);
+    console.error(`Unknown --cmd value: ${command}`);
     process.exit(1);
   }
 }
 
 const __filename = fileURLToPath(import.meta.url);
 if (process.argv[1] === __filename) {
-  runCli(process.argv.slice(2));
+  main();
 }

@@ -43,16 +43,16 @@ function deriveGroupStatus(
   messageIsRunning: boolean,
 ): { status: GroupStatus; failCount: number } {
   const explicitFailCount = parts.filter((p) => isPartError(p)).length;
-  if (explicitFailCount > 0) {
-    return { status: "failed", failCount: explicitFailCount };
-  }
-
   const anyIncomplete = parts.some((p) => !isPartComplete(p) && !isPartError(p));
 
-  // While the assistant message is still running, keep the group in Running — including
-  // after all tools returned but before the final assistant text (whole turn not done).
+  // While the assistant message is still running, keep group status as Running even if
+  // some tools already failed. We still surface failCount in the running badge.
   if (messageIsRunning) {
-    return { status: "running", failCount: 0 };
+    return { status: "running", failCount: explicitFailCount };
+  }
+
+  if (explicitFailCount > 0) {
+    return { status: "failed", failCount: explicitFailCount };
   }
 
   if (anyIncomplete) {
@@ -104,6 +104,12 @@ const GroupStatusBadge: FC<{ status: GroupStatus; failCount: number }> = ({
       <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
         <LoaderIcon className="size-3 animate-spin" />
         Running
+        {failCount > 0 && (
+          <span className="text-destructive" aria-label={`${failCount} failed`}>
+            {" "}
+            · {failCount} failed
+          </span>
+        )}
       </span>
     );
   }
