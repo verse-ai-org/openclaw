@@ -73,12 +73,13 @@ export function generateRouteFraming(tripData, preferences) {
     recommended_route: recommended,
     alternatives: framing.alternatives || [],
     rejected_routes: framing.rejected_routes || [],
-    recommendation_source: framing.recommendation_source || "",
+    used_platform: framing.used_platform || "",
+    fallback_count: Number(framing.fallback_count || 0),
+    fallback_reason: framing.fallback_reason || "",
     source_reason: framing.source_reason || "",
     source_confidence: framing.source_confidence || "low",
     evidence_summary: framing.evidence_summary || "",
     evidence_links: framing.evidence_links || [],
-    requires_xhs_evidence: Boolean(framing.requires_xhs_evidence),
     next_action: framing.next_action || "",
     decision_summary: {
       headline:

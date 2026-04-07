@@ -1,314 +1,158 @@
-# Travel Planning Guidelines
+# 旅行规划指南
 
-## Destination Research Checklist
+## 使用定位
 
-### Essential Information to Gather
+本指南用于中国境内行程的结构化规划，服务于 travel-planner 主流程中的：
 
-**1. Entry Requirements**
-- Visa requirements and processing time
-- Passport validity requirements (usually 6 months)
-- Vaccination requirements
-- Travel restrictions or advisories
-- Customs regulations
+- 路线框定前的需求核对
+- 预算与节奏评估
+- 行前准备和打包
+- 安全与应急提醒
 
-**2. Best Time to Visit**
-- Peak season vs off-season
-- Weather patterns by month
-- Local festivals and events
-- School holiday periods
-- Monsoon/hurricane seasons
+## 目的地研究清单（国内）
 
-**3. Safety & Health**
-- Current travel advisories
-- Common scams targeting tourists
-- Safe neighborhoods vs areas to avoid
-- Tap water safety
-- Required/recommended vaccinations
-- Travel insurance recommendations
+### 1. 出行窗口与客流
 
-**4. Cultural Norms**
-- Dress codes (especially for religious sites)
-- Tipping customs
-- Greetings and basic etiquette
-- Photography restrictions
-- Religious and cultural sensitivities
-- Dining etiquette
+- 目标日期是否处于节假日/周末高峰（五一、暑期、国庆、春节）
+- 目的地旺季与淡季差异（价格、排队、路况、天气）
+- 景区是否需要提前预约（实名制、分时段）
+- 高峰日是否建议错峰到达/错峰返程
 
-**5. Practical Information**
-- Currency and exchange rates
-- ATM availability and fees
-- Credit card acceptance
-- Power outlets and voltage
-- Internet and SIM card options
-- Emergency numbers
+### 2. 天气与自然条件
 
-## Budget Planning Framework
+- 行程日期对应天气区间（温差、降水、紫外线）
+- 高海拔/高寒地区风险（高反、路面结冰、封路）
+- 雨季山区风险（滑坡、临时交通管制）
+- 极端天气预案（替代景点和室内方案）
 
-### Budget Categories
+### 3. 交通可达性
 
-**Accommodation (30-45% of budget)**
-- Budget: Hostels, guesthouses ($20-50/night)
-- Mid-range: 3-star hotels, Airbnb ($50-150/night)
-- Luxury: 4-5 star hotels, resorts ($150+/night)
+- 大交通：航班、高铁、夜间到达可行性
+- 城市内交通：地铁/公交/打车可用性
+- 城际转场：单段时长、换乘复杂度、备选方案
+- 对“不自驾”用户，优先校验包车/拼车/公共交通衔接
 
-**Food (20-30% of budget)**
-- Budget: Street food, local eateries ($10-20/day)
-- Mid-range: Mix of local and tourist restaurants ($30-60/day)
-- Luxury: Fine dining experiences ($100+/day)
+### 4. 住宿落位策略
 
-**Activities & Attractions (15-25% of budget)**
-- Entry fees to attractions
-- Tours and experiences
-- Adventure activities
-- Cultural performances
-- Shopping budget
+- 核心景点分布与酒店片区匹配
+- 到店/离店交通成本（早晚高峰、机场/车站距离）
+- 连住与换酒店的体力成本
+- 亲子/长辈场景下是否需电梯、低楼层、安静区
 
-**Transportation (10-20% of budget)**
-- International flights
-- Local transportation (taxi, metro, bus)
-- Inter-city travel
-- Car rentals
-- Airport transfers
+### 5. 供给与预订风险
 
-**Miscellaneous (5-10% of budget)**
-- Travel insurance
-- Visa fees
-- Tips and gratuities
-- Emergency fund
-- Souvenirs
+- 热门景区门票余量与预约规则
+- 演出/活动是否有固定开演日
+- 节假日酒店涨价幅度
+- 必抢项目的最晚下单窗口
 
-### Money-Saving Tips
+## 预算框架（人民币）
 
-1. **Book in Advance**: Flights, accommodation, major attractions
-2. **Travel Off-Season**: Lower prices, fewer crowds
-3. **Use Public Transport**: Cheaper than taxis
-4. **Eat Local**: Street food and local restaurants
-5. **Free Activities**: Walking tours, parks, beaches, markets
-6. **Stay Flexible**: Use flight comparison tools, be open to dates
-7. **Pack Light**: Avoid baggage fees
-8. **Get City Passes**: If visiting multiple attractions
+### 建议分配比例
 
-## Itinerary Planning Principles
+- 住宿：30% - 45%
+- 餐饮：20% - 30%
+- 交通：15% - 30%（取决于跨城频次）
+- 景点与活动：10% - 20%
+- 机动与应急：5% - 10%
 
-### Pacing Your Trip
+### 预算校验问题
 
-**Relaxed Pace (2-3 activities/day)**
-- Best for: First-time travelers, families, longer trips
-- Morning: One major attraction/activity
-- Afternoon: Leisurely exploration or rest
-- Evening: Dinner and light activity
-- Pros: Less stressful, more flexible, time to rest
-- Cons: See fewer things
+- 总预算是否覆盖高峰期价格上浮
+- 是否包含行李、接送机、保险、异地打车等隐形成本
+- 预算与节奏是否冲突（紧凑行程通常交通成本更高）
+- 用户是否接受“住得远一点换预算空间”
 
-**Moderate Pace (3-4 activities/day)**
-- Best for: Most travelers, 1-2 week trips
-- Morning: Major attraction
-- Afternoon: Secondary attraction or activity
-- Evening: Dining and entertainment
-- Pros: Balanced, achievable, satisfying
-- Cons: Requires some planning
+## 节奏设计原则
 
-**Fast Pace (4-5 activities/day)**
-- Best for: Experienced travelers, short trips, high energy
-- Morning: Early start, major attraction
-- Midday: Quick lunch, second attraction
-- Afternoon: Third attraction or activity
-- Evening: Dinner and nightlife
-- Pros: Maximum experiences, efficient
-- Cons: Exhausting, less spontaneous
+### 轻松节奏（2-3 个活动/天）
 
-### Daily Planning Tips
+- 适合：亲子、长辈、首次到访、重休息人群
+- 优点：容错高、体验稳定
+- 风险：覆盖点位较少
 
-1. **Group by Location**: Plan activities in same area together
-2. **Consider Opening Hours**: Especially on weekends/holidays
-3. **Book Ahead**: Popular attractions and restaurants
-4. **Build in Buffer Time**: For travel between locations
-5. **Mix Activity Types**: Balance museums, outdoors, food, culture
-6. **Plan for Weather**: Have indoor backup options
-7. **Leave Room for Spontaneity**: Don't over-schedule
-8. **Rest Days**: For longer trips, schedule lighter days
+### 适中节奏（3-4 个活动/天）
 
-## Pre-Departure Checklist Timeline
+- 适合：大多数用户
+- 优点：体验与效率平衡
+- 风险：对转场时间估算要求更高
 
-### 3 Months Before
-- [ ] Research destination thoroughly
-- [ ] Check passport expiration
-- [ ] Research visa requirements
-- [ ] Set travel budget
-- [ ] Start monitoring flight prices
-- [ ] List must-see attractions
+### 紧凑节奏（4-5 个活动/天）
 
-### 2 Months Before
-- [ ] Book flights
-- [ ] Book accommodation
-- [ ] Apply for visa if needed
-- [ ] Purchase travel insurance
-- [ ] Check vaccination requirements
-- [ ] Make list of activities to book
-- [ ] Research local customs
+- 适合：短假期、高体力、强目标导向
+- 优点：覆盖高
+- 风险：疲劳和误点连锁概率高
 
-### 1 Month Before
-- [ ] Book popular activities/tours
-- [ ] Make restaurant reservations
-- [ ] Notify bank of travel plans
-- [ ] Check phone international plan
-- [ ] Start gathering packing items
-- [ ] Check weather forecasts
-- [ ] Download helpful apps
-- [ ] Register with embassy if advised
+### 每日排布建议
 
-### 2 Weeks Before
-- [ ] Confirm all reservations
-- [ ] Print/save confirmation documents
-- [ ] Exchange some currency
-- [ ] Refill any prescriptions
-- [ ] Arrange pet/plant care
-- [ ] Hold mail delivery
-- [ ] Pay bills due during trip
-- [ ] Download offline maps
+1. 同片区点位尽量打包，减少跨城/跨区跳转  
+2. 到达日、返程日默认降载  
+3. 每天保留 1 个可替换备选点（天气/排队兜底）  
+4. 夜间交通与晚到店风险要单独标注  
 
-### 1 Week Before
-- [ ] Check in for flights
-- [ ] Pack luggage
-- [ ] Charge all electronics
-- [ ] Make copies of important documents
-- [ ] Clean out refrigerator
-- [ ] Test camera/equipment
-- [ ] Prepare emergency contact list
-- [ ] Set home security
+## 行前清单（国内 4 周节奏）
 
-### Day Before
-- [ ] Re-check flight time
-- [ ] Prepare carry-on essentials
-- [ ] Take out trash
-- [ ] Adjust thermostat
-- [ ] Unplug non-essential electronics
-- [ ] Get good rest
-- [ ] Set multiple alarms
+### 出发前 4 周
 
-## Packing Strategies
+- [ ] 确定路线版本与总天数
+- [ ] 锁定往返大交通窗口
+- [ ] 预估总预算和日均预算
+- [ ] 确认必去点位与可放弃点位
 
-### The Rule of Three
-Pack items you can wear multiple times:
-- 3 bottoms (pants, shorts, skirts)
-- 6-7 tops (mix and match)
-- 1-2 outfits for special occasions
-- Layers for temperature changes
+### 出发前 2 周
 
-### Universal Packing List Categories
+- [ ] 下单核心交通（机票/高铁）
+- [ ] 预订首站与热门片区酒店
+- [ ] 预约实名制景区/活动
+- [ ] 准备证件和电子备份
 
-**Documents & Money**
-- Passport (check validity)
-- Visa (if required)
-- Travel insurance papers
-- Flight confirmations
-- Hotel reservations
-- Driver's license/ID
-- Credit/debit cards (notify banks)
-- Cash in local currency
-- Emergency contact list
+### 出发前 1 周
 
-**Electronics**
-- Phone and charger
-- Power bank
-- Universal adapter
-- Camera (optional)
-- E-reader (optional)
-- Headphones
-- Charging cables
+- [ ] 核对全部订单（时间、姓名、退改）
+- [ ] 下载离线地图和车票二维码
+- [ ] 确认当地天气并调整衣物
+- [ ] 形成“误点应急方案”一页纸
 
-**Health & Hygiene**
-- Prescription medications
-- Basic first aid kit
-- Pain relievers
-- Anti-diarrheal medication
-- Hand sanitizer
-- Sunscreen
-- Insect repellent
-- Any personal care items
+### 出发前 1 天
 
-**Clothing (adjust for climate)**
-- Underwear and socks (7 days worth)
-- Comfortable walking shoes
-- Sandals/flip-flops
-- Weather-appropriate outfits
-- One nice outfit
-- Sleepwear
-- Swimsuit (if applicable)
-- Light jacket or sweater
+- [ ] 再次确认出发时间与进站/登机要求
+- [ ] 打包药品与常用充电设备
+- [ ] 准备次日关键地址和联系人
 
-**Accessories**
-- Day backpack
-- Reusable water bottle
-- Sunglasses
-- Hat
-- Travel towel (if hosteling)
-- Packing cubes
-- Laundry bag
-- Ziplock bags
+## 打包建议（国内通用）
 
-### Packing Tips
-1. **Roll, Don't Fold**: Saves space, reduces wrinkles
-2. **Wear Bulkiest Items**: On the plane
-3. **Pack Multipurpose Items**: Scarf can be blanket, pillow, cover-up
-4. **Use Packing Cubes**: Organize by category or outfit
-5. **Pack a Change of Clothes**: In carry-on
-6. **Leave Space**: For souvenirs
+### 核心分类
 
-## Safety Tips
+- 证件与支付：身份证、银行卡、移动支付、订单备份
+- 电子设备：手机、充电器、充电宝、数据线
+- 健康用品：常备药、晕车药、创可贴、口罩
+- 衣物层次：基础层 + 保暖/防晒层 + 防雨层
+- 轻便工具：折叠袋、水杯、纸巾、一次性雨披
 
-### General Safety
-- Keep copies of documents separately from originals
-- Share itinerary with someone at home
-- Register with your embassy
-- Stay aware of surroundings
-- Trust your instincts
-- Keep valuables secured and out of sight
-- Use hotel safe for passport/extra cash
-- Avoid displaying expensive items
-- Be cautious with new "friends" offering help
-- Research common scams in the area
+### 三条实操原则
 
-### Money Safety
-- Use ATMs inside banks during business hours
-- Carry only what you need for the day
-- Split money between different locations
-- Use RFID-blocking wallet
-- Keep emergency cash hidden
-- Avoid exchanging money on the street
+1. 优先“可重复穿搭”的衣物组合  
+2. 重物上身、轻物进箱，减少行李体积  
+3. 随身包放 1 套应急衣物与关键药品  
 
-### Health Safety
-- Wash hands frequently
-- Use hand sanitizer
-- Drink bottled water if tap water unsafe
-- Be careful with street food hygiene
-- Avoid ice in drinks in questionable areas
-- Use insect repellent in tropical areas
-- Stay hydrated
-- Get travel insurance
+## 安全与应急
 
-## Common Travel Mistakes to Avoid
+### 通用安全
 
-1. **Overpacking**: Pack light, you can buy things there
-2. **No Travel Insurance**: Small cost for big protection
-3. **Not Telling Bank**: Card may be blocked
-4. **Over-Planning**: Leave room for spontaneity
-5. **Ignoring Local Customs**: Research cultural norms
-6. **Not Learning Basic Phrases**: Hello, thank you, please
-7. **Booking Non-Refundable Everything**: Plans change
-8. **Forgetting Adapters**: Check plug types
-9. **Not Backing Up Photos**: Use cloud storage
-10. **Exchanging Money at Airport**: Worst rates
+- 证件原件与复印件分开放
+- 每日只携带必要现金
+- 晚间尽量走主干道与人流区
+- 不轻信“低价代订/拼车”临时拉客
 
-## Sustainable Travel Practices
+### 交通应急
 
-1. **Choose Eco-Friendly Accommodation**: Look for green certifications
-2. **Use Public Transportation**: Reduce carbon footprint
-3. **Support Local Businesses**: Eat local, shop local
-4. **Reduce Plastic Use**: Reusable water bottle and bags
-5. **Respect Wildlife**: No riding elephants, touching coral
-6. **Stay on Marked Trails**: Protect natural environments
-7. **Learn and Respect Local Culture**: Be a respectful guest
-8. **Offset Carbon Emissions**: Consider carbon offset programs
-9. **Conserve Resources**: Water and electricity in hotels
-10. **Leave No Trace**: Take only photos, leave only footprints
+- 误车后优先处理“下一段衔接”而不是原票纠结
+- 城际晚点时优先确保当晚住宿可达
+- 遇封路/停运时及时切换同城备选点
+
+### 健康应急
+
+- 高原/山区行程控制首日强度
+- 连续高强度徒步后安排恢复时段
+- 身体异常优先就医，不硬撑景点打卡
+

@@ -39,6 +39,10 @@ const DEFAULT_TRIP_STAGE = "intake";
 
 function emptyRouteFraming() {
   return {
+    used_platform: "",
+    fallback_count: 0,
+    fallback_reason: "",
+    fallback_chain: [],
     recommended_route: null,
     alternatives: [],
     rejected_routes: [],
@@ -152,19 +156,10 @@ export function normalizeTripRecord(trip) {
   trip.must_do ??= [];
   trip.nice_to_have ??= [];
   trip.selected_route ??= {};
-  trip.recommendation_source_policy ??= "xhs_first";
-  trip.recommendation_source_runtime ??= "";
+  trip.route_source_preference ??= "xhs";
+  trip.route_source_used ??= "";
+  trip.route_source_fallbacks ??= [];
   trip.source_reason ??= "";
-  trip.xhs_evidence ??= {
-    query: {},
-    evidence_quality: "low",
-    generated_at: "",
-    sources: [],
-    route_hints: {},
-    risk_hints: [],
-    stay_hints: {},
-    summary: "",
-  };
   trip.route_candidates ??= [];
   trip.route_options ??= [];
   trip.route_choice_confirmed ??= false;
@@ -314,6 +309,45 @@ export function saveRouteFraming(tripId, recommendedRoute, alternatives, rejecte
   return updateTrip(tripId, updates);
 }
 
+export function saveRouteFramingWithSource(
+  tripId,
+  recommendedRoute,
+  alternatives,
+  rejectedRoutes,
+  decisionSummary,
+  usedPlatform = "",
+  fallbackCount = 0,
+  fallbackReason = "",
+  fallbackChain = [],
+) {
+  const routeOptions =
+    recommendedRoute && Object.keys(recommendedRoute).length
+      ? [recommendedRoute, ...(alternatives || [])]
+      : alternatives || [];
+  const normalizedFallbacks = Array.isArray(fallbackChain) ? fallbackChain : [];
+  const updates = {
+    stage: "route_framing",
+    selected_route: recommendedRoute || {},
+    route_candidates: routeOptions,
+    route_options: routeOptions,
+    route_choice_confirmed: false,
+    chosen_route_id: "",
+    route_source_used: usedPlatform || "",
+    route_source_fallbacks: normalizedFallbacks,
+    route_framing: {
+      used_platform: usedPlatform || "",
+      fallback_count: Number.isFinite(Number(fallbackCount)) ? Number(fallbackCount) : 0,
+      fallback_reason: fallbackReason || "",
+      fallback_chain: normalizedFallbacks,
+      recommended_route: recommendedRoute,
+      alternatives: alternatives || [],
+      rejected_routes: rejectedRoutes || [],
+      decision_summary: decisionSummary || {},
+    },
+  };
+  return updateTrip(tripId, updates);
+}
+
 export function confirmRouteChoice(tripId, routeId) {
   const trip = getTripById(tripId);
   if (!trip) return false;
@@ -330,20 +364,22 @@ export function confirmRouteChoice(tripId, routeId) {
 
 export function saveXhsEvidence(tripId, xhsEvidence) {
   return updateTrip(tripId, {
-    xhs_evidence: xhsEvidence || {},
+    source_reason: xhsEvidence?.summary || "",
   });
 }
 
 export function saveRouteFramingMetadata(
   tripId,
-  recommendationSourceRuntime,
+  routeSourceUsed,
   sourceReason,
-  recommendationSourcePolicy,
+  routeSourcePreference,
+  routeSourceFallbacks = [],
 ) {
   return updateTrip(tripId, {
-    recommendation_source_runtime: recommendationSourceRuntime || "",
+    route_source_used: routeSourceUsed || "",
     source_reason: sourceReason || "",
-    ...(recommendationSourcePolicy ? { recommendation_source_policy: recommendationSourcePolicy } : {}),
+    ...(routeSourcePreference ? { route_source_preference: routeSourcePreference } : {}),
+    route_source_fallbacks: Array.isArray(routeSourceFallbacks) ? routeSourceFallbacks : [],
   });
 }
 

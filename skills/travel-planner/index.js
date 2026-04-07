@@ -33,6 +33,7 @@ import {
   saveLiveResults,
   savePreferences,
   saveRouteFraming,
+  saveRouteFramingWithSource,
   saveRouteFramingMetadata,
   saveXhsEvidence,
   setTravelPlannerDbDirForTests,
@@ -76,6 +77,7 @@ export {
   saveLiveResults,
   savePreferences,
   saveRouteFraming,
+  saveRouteFramingWithSource,
   saveRouteFramingMetadata,
   saveXhsEvidence,
   selectRouteCandidates,
@@ -88,7 +90,7 @@ export {
 
 const __filename = fileURLToPath(import.meta.url);
 /**
- * @param {"save_live_results"|"save_booking_ready"|"confirm_booking"|"start_trip"|"save_xhs_evidence"|"save_route_framing"|"confirm_route_choice"} action
+ * @param {"save_live_results"|"save_booking_ready"|"confirm_booking"|"start_trip"|"save_xhs_evidence"|"save_route_framing"|"confirm_route_choice"|"set_route_source_preference"} action
  * @param {...unknown} args For save_* : `(tripId, data)`. For confirm_booking : `(tripId, category, choice)`.
  * For start_trip : `(tripId)`.
  */
@@ -122,26 +124,42 @@ function runDbAction(action, ...args) {
       decisionSummary = {},
       recommendationSourceRuntime = "",
       sourceReason = "",
-      recommendationSourcePolicy = "",
+      routeSourcePreference = "",
+      fallbackChain = [],
     ] = args;
-    const okRoute = saveRouteFraming(
+    const fallbackCount = Array.isArray(fallbackChain) ? fallbackChain.length : 0;
+    const fallbackReason = fallbackCount > 0 ? String(fallbackChain[0]?.reason || "") : "";
+    const okRoute = saveRouteFramingWithSource(
       tripId,
       recommendedRoute,
       alternatives,
       rejectedRoutes,
       decisionSummary,
+      recommendationSourceRuntime,
+      fallbackCount,
+      fallbackReason,
+      fallbackChain,
     );
     const okMeta = saveRouteFramingMetadata(
       tripId,
       recommendationSourceRuntime,
       sourceReason,
-      recommendationSourcePolicy,
+      routeSourcePreference,
+      fallbackChain,
     );
     return { ok: okRoute && okMeta };
   }
   if (action === "confirm_route_choice") {
     const [tripId, routeId] = args;
     return { ok: confirmRouteChoice(tripId, routeId) };
+  }
+  if (action === "set_route_source_preference") {
+    const [tripId, routeSourcePreference = "xhs"] = args;
+    return {
+      ok: updateTrip(tripId, {
+        route_source_preference: String(routeSourcePreference || "xhs"),
+      }),
+    };
   }
   throw new Error(`Unknown DB action: ${action}`);
 }
@@ -154,7 +172,7 @@ function runDbAction(action, ...args) {
  * @param {string} [input.mode="trip_plan"]
  *   `"route_framing"` | `"live_validation"` | `"booking_ready"` | `"auto_validate"` | `"briefing"` | `"trip_plan"` |
  *   `"persist_live_results"` | `"persist_booking_ready"` | `"confirm_booking"` | `"start_trip"` |
- *   `"persist_xhs_evidence"` | `"persist_route_framing"` | `"confirm_route_choice"` | `"build_xhs_evidence"`
+ *   `"persist_xhs_evidence"` | `"persist_route_framing"` | `"confirm_route_choice"` | `"build_xhs_evidence"` | `"set_route_source_preference"`
  * @param {object} [input.trip] Trip record (aliases: `tripData`).
  * @param {object} [input.route] Selected route (else `trip.selected_route`).
  * @param {object} [input.preferences] Traveler prefs for validation/briefs.
@@ -169,6 +187,9 @@ function runDbAction(action, ...args) {
  * @param {object} [input.bookingReady] Payload for `persist_booking_ready`.
  * @param {string} [input.category] For `confirm_booking`.
  * @param {object} [input.choice] For `confirm_booking`.
+ * @param {"xhs"|"amap"|"web"|"auto"} [input.routeSourcePreference]
+ * @param {string} [input.routeSourceUsed]
+ * @param {Array<{platform:string,reason:string}>} [input.routeSourceFallbacks]
  * @returns {unknown} Depends on `mode` (objects from `scripts/*.mjs` or `{ ok }` for DB modes).
  */
 function travel_planner(input = {}) {
@@ -208,16 +229,21 @@ function travel_planner(input = {}) {
       validation_errors: [],
       execution_mode: "plan_only",
       requires_user_choice: true,
+      must_confirm_before_next_step: true,
+      confirmation_question:
+        computedValidation?.feasibility?.confirmation_question ||
+        "轻验证已完成，是否确认进入下一步细化？",
+      feasibility_status: computedValidation?.feasibility?.status || "pending_confirmation",
       next_step_options: [
         {
-          id: "detailed_plan_now",
-          label: "制定详细计划（快速）",
-          description: "Skip live checks and produce a draft-style detailed plan now.",
+          id: "confirm_and_continue",
+          label: "确认并继续下一步",
+          description: "Confirm this light validation result and proceed to detailed planning.",
         },
         {
-          id: "validate_first",
-          label: "先验证交通酒店和景点（推荐）",
-          description: "Run live transport/hotel/POI checks, then promote to booking-ready output.",
+          id: "revise_route_or_dates",
+          label: "先调整路线或日期",
+          description: "Revise route/date first, then rerun light validation.",
         },
       ],
     };
@@ -289,9 +315,10 @@ function travel_planner(input = {}) {
       computedFraming.alternatives || [],
       computedFraming.rejected_routes || [],
       computedFraming.decision_summary || {},
-      computedFraming.recommendation_source || "",
+      input.routeSourceUsed || computedFraming.used_platform || "",
       computedFraming.source_reason || "",
-      trip.recommendation_source_policy || "",
+      input.routeSourcePreference || trip.route_source_preference || "xhs",
+      input.routeSourceFallbacks || computedFraming.fallback_chain || [],
     );
   }
 
@@ -300,6 +327,17 @@ function travel_planner(input = {}) {
       throw new Error("confirm_route_choice requires tripId and routeId");
     }
     return runDbAction("confirm_route_choice", input.tripId, input.routeId);
+  }
+
+  if (mode === "set_route_source_preference") {
+    if (!input.tripId) {
+      throw new Error("set_route_source_preference requires tripId");
+    }
+    return runDbAction(
+      "set_route_source_preference",
+      input.tripId,
+      input.routeSourcePreference || "xhs",
+    );
   }
 
   throw new Error(`Unsupported travel-planner mode: ${mode}`);
@@ -317,7 +355,8 @@ function printCliHint() {
 Modes:
   route_framing, live_validation, booking_ready, auto_validate, briefing, trip_plan,
   persist_live_results, persist_booking_ready, confirm_booking, start_trip,
-  persist_xhs_evidence, persist_route_framing, confirm_route_choice, build_xhs_evidence
+  persist_xhs_evidence, persist_route_framing, confirm_route_choice, build_xhs_evidence,
+  set_route_source_preference
 
 Also import named helpers, e.g. generateTripPlan, selectRouteCandidates, buildLiveValidation.
 

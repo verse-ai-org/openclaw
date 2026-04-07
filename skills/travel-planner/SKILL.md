@@ -1,11 +1,11 @@
 ---
 name: travel-planner
-description: 'Plans multi-day trips with route framing, live flight/hotel checks, and booking-ready output. Use when users ask for itineraries, routing, hotel and flight strategy, budgets, packing, pre-trip briefs, or in-trip changes. Typical prompts: plan a trip, 7-day itinerary, route framing for broad regions, booking-ready logistics, destination comparison. Do not use for weather-only single facts, generic coding, or creative writing without logistics. Near booking: coordinate flyai (flights, hotels, POI), 12306 (China rail), amap-lbs-skill (China maps/routing).'
+description: "中文旅行规划技能。用于行程规划、路线框定、交通酒店策略、预算打包、行前/在途调整。路线框定支持小红书/高德地图/搜索引擎三选一，默认小红书并按失败自动降级。"
 license: MIT
 compatibility: Node.js for bundled CLI scripts; network for live checks. Optional skills flyai, 12306, amap-lbs-skill for booking-stage validation. Default DB paths ~/.openclaw/agents/travel-planner/.
 metadata:
   openclaw:
-    emoji: ✈️
+    emoji: "✈️"
     requires:
       bins:
         - node
@@ -13,474 +13,332 @@ metadata:
 
 # Travel Planner
 
-## `{baseDir}` (skill root)
+## `{baseDir}`（技能根目录）
 
-In instructions below, `{baseDir}` is the absolute path to this skill folder (the directory that contains `SKILL.md` and `scripts/`). Your host replaces it when running commands; humans should substitute the real path. All runnable examples use `node {baseDir}/scripts/....mjs` with `--key=value` flags.
+下文中的 `{baseDir}` 指当前技能目录绝对路径（含 `SKILL.md` 与 `scripts/`）。运行命令时由宿主替换。示例命令统一使用 `node {baseDir}/scripts/xxx.mjs --key=value`。
 
-**Programmatic use:** When the OpenClaw runtime loads `skills/travel-planner/index.js`, use normal imports from that package root (for example `import { savePreferences } from "./skills/travel-planner/scripts/travel_db.mjs"` from repo code). Do not paste `{baseDir}` inside real import paths.
+**程序调用说明：** 在 OpenClaw runtime 中加载 `skills/travel-planner/index.js` 时，按正常相对路径导入模块，不要把 `{baseDir}` 填进真实 import 路径。
 
-## When to use
+## 适用范围
 
-- Multi-day planning, route choice, booking-oriented logistics
-- Budget, packing, etiquette pointers tied to a real trip
-- Pre-trip / in-trip briefs and course correction
+- 行程规划、路线对比、交通酒店组合策略（从轻量建议到近预订方案）
+- 与真实行程绑定的预算、打包、礼仪、安全、行前清单
+- 行中改线、错过交通后的重排与当天应急建议
 
-## When not to use
+## 不适用范围
 
-- One-off weather or trivia with no itinerary or logistics
-- Non-travel technical work
-- Pure fiction or creative writing with no travel decisions
+- 仅单点天气/冷知识问答（无行程决策）
+- 非旅行类技术任务
+- 纯创作型内容（无出行决策/执行）
 
-## If partner skills or live checks fail
+## 产品定位
 
-`live_validation.mjs` only **plans** tool calls; it does not fix outages.
+- 路线框定支持平台选择：`小红书`、`高德地图`、`搜索引擎`。
+- 默认平台为 `小红书`，失败自动降级：`小红书 -> 高德地图 -> 搜索引擎`。
+- 近预订阶段联动 `flyai`、`12306`、`amap-lbs-skill` 做验证。
 
-1. State clearly which checks could not run (flyai, 12306, amap-lbs-skill, or web).
-2. Keep route framing and skeleton advice; label pricing, availability, and timings as **unverified**.
-3. Do not claim booking-ready validation if `booking_ready` inputs are missing or partial; list what the user must verify manually.
-4. Prefer CLI persistence (`travel_db.mjs`) when you still have partial JSON to save for later.
+## 兜底原则（伙伴技能或实时检查失败时）
 
-## Overview
+`live_validation.mjs` 只生成检查计划，不会自动修复外部依赖故障。若调用失败：
 
-This skill should act like a travel decision assistant first and a long-form itinerary writer second.
-Its job is not to dump a giant travel guide immediately. Its job is to:
+1. 明确说明哪一项失败（`flyai`/`12306`/`amap-lbs-skill`/web）。
+2. 仍可给路线框定与骨架方案，但价格/余票/时刻必须标注为**未验证**。
+3. `booking_ready` 输入不完整时，不得宣称“可直接下单”。
+4. 若已有阶段性结果，优先写入 `travel_db.mjs` 便于续跑。
 
-1. understand the traveler,
-2. choose the right route or trip shape,
-3. validate the big decisions with live data,
-4. produce an execution-ready plan,
-5. support the traveler before and during the trip.
+## 核心原则
 
-Deep research checklists, budget frameworks, and pacing tables live in **`references/travel_guidelines.md`**. Country-level etiquette templates are in **`references/cultural_etiquette.md`**—open them when building booking-ready or safety-heavy answers.
+- 路线正确性优先于景点堆叠。
+- 先问最少但高影响的问题，不做超长问卷。
+- 到达日与返程日默认轻负荷。
+- 每天最多“1 个主锚点 + 1 个附近备选”。
+- 把体力、天气、换乘摩擦作为硬约束。
+- 大区域目的地先“路线框定”，再展开逐日计划。
 
-## Core Principles
+## 工作流
 
-- Route choice matters more than adding one more attraction.
-- Do not ask a giant questionnaire up front. Ask the fewest questions that meaningfully change the recommendation.
-- Put transport and hotel strategy in the main answer once the user is moving toward booking.
-- Arrival day and departure day should be intentionally lighter.
-- Prefer one anchor activity plus one nearby secondary option over overloaded schedules.
-- Treat weather, transfer friction, and energy as real constraints.
-- For complex regions, **do route framing first**, then validate; see workflow Step 4–5.
-
-## Workflow
-
-### Step 1: Load Preferences
-
-Check whether travel preferences already exist:
+### Step 1：读取偏好
 
 ```bash
 node {baseDir}/scripts/travel_db.mjs --cmd=is_initialized
 ```
 
-If `false`, do a lightweight preference setup. If `true`, read the existing profile and only fill gaps relevant to the current trip.
+- 若返回 `false`：进入轻量偏好采集。
+- 若返回 `true`：读取已有偏好，仅补本次行程缺口。
 
-### Step 2: Lightweight Preference Setup
+### Step 2：轻量偏好采集（只问高影响项）
 
-When no preferences exist, do **not** ask every possible question. Start with high-impact preferences:
+建议优先采集：
 
-- Budget level: budget, mid-range, luxury
-- Travel pace: relaxed, moderate, packed
-- Travel companions: solo, couple, family, group
-- Accommodation style: hostel, hotel, Airbnb, resort
-- Main interests: food, culture, scenery, photography, adventure, beach, shopping, nightlife
-- Departure city
-- Transport preferences: self-drive, private driver, public transport, short flights okay
-- Walking tolerance / mobility constraints
+- 预算档位（经济/中档/高端）
+- 节奏（轻松/适中/紧凑）
+- 同行结构（独行/情侣/家庭/多人）
+- 出发城市
+- 核心兴趣（风景/美食/人文/摄影/亲子等）
+- 交通偏好（自驾/包车/公共交通/短途航班可接受）
+- 步行耐受与行动限制
 
-Save only what the user actually provides (flags use `--key=value`; JSON may be `@file`):
-
-```bash
-node {baseDir}/scripts/travel_db.mjs --cmd=save_preferences --payload='{"departure_city":"Shanghai","budget_level":"mid-range","pace_preference":"moderate","travel_companions":"couple","interests":["nature","food","photography"],"transport_preferences":["private driver","short flight okay"],"walking_tolerance":"moderate"}'
-```
-
-### Step 3: Create a Trip Record Early
-
-As soon as the user is planning a concrete trip, create a structured trip record even if some fields are still unknown.
-
-Capture: destination text or region; dates or flexibility; duration; budget; travelers; interests; constraints; must-do items.
+保存时仅写入用户已明确提供的字段：
 
 ```bash
-node {baseDir}/scripts/travel_db.mjs --cmd=add_trip --payload='{"destination_text":"Xinjiang","destination":{"region":"Xinjiang","country":"China"},"duration_days":7,"budget":{"total":14000,"currency":"CNY"},"travelers":2,"activities":["nature","photography"],"must_do":[],"constraints":["does not want to self-drive"],"transport_preferences":["private driver","short domestic flight okay"],"stage":"intake"}' --list=current
+node {baseDir}/scripts/travel_db.mjs --cmd=save_preferences --payload='{"departure_city":"上海","budget_level":"mid-range","pace_preference":"moderate","travel_companions":"couple","interests":["nature","food","photography"],"transport_preferences":["private driver","short flight okay"],"walking_tolerance":"moderate"}'
 ```
 
-The command prints `trip_id`; use it in later `--trip-id=` calls.
+### Step 3：尽早创建 trip 记录
 
-### Step 4: Route Framing Before Full Research (Xiaohongshu-first)
-
-**Who produces the route?** The **agent** (you). For domestic planning defaults, use **Xiaohongshu-first**:
-
-1. Build route evidence by calling the independent `xiaohongshu` skill (`search-feeds` + optional `get-feed-detail`).
-2. Normalize results into `trip.xhs_evidence` (popular loops, popular stops, risk hints, recommended bases, evidence links).
-3. Use that evidence to generate 1 primary route + 1 backup route.
-4. If Xiaohongshu is unavailable or low-signal, downgrade to model fallback and set `source_reason`.
-
-The script `route_selector.mjs` returns a structured route-framing package (not day-by-day cards), including:
-
-- `recommended_route` (with `route_id`)
-- `alternatives`
-- `route_options` (2-3 options for user choice)
-- `comparison` (tradeoffs for each option)
-- `recommendation_source` / `source_reason`
-- `requires_xhs_evidence` / `next_action`
-
-For complex destinations, do **route framing** before a full day-by-day itinerary. This is a separate stage from deep destination research.
-
-Use route framing when the destination is broad or multi-region (e.g. large provinces, multi-city countries, multi-country trips).
-
-In this stage, **you** answer from live-capable tools and reasoning:
-
-- Which route family fits best?
-- What should the transport style be?
-- How many hotel bases should there be?
-- Which popular alternative is weaker for this traveler?
-
-Run route framing helper after evidence is ready:
+用户进入具体目的地后，尽快建档（允许字段不完整）：
 
 ```bash
-node {baseDir}/scripts/route_selector.mjs --input='<trip_request_json_with_xhs_evidence>'
+node {baseDir}/scripts/travel_db.mjs --cmd=add_trip --payload='{"destination_text":"新疆","destination":{"region":"Xinjiang","country":"China"},"duration_days":7,"budget":{"total":14000,"currency":"CNY"},"travelers":2,"activities":["nature","photography"],"constraints":["不自驾"],"transport_preferences":["private driver","short domestic flight okay"],"stage":"intake"}' --list=current
 ```
 
-Recommended Xiaohongshu search optimization for route framing:
+记录返回的 `trip_id`，后续都用 `--trip-id=<id>`。
 
-- Prefer query pattern: `J人<destination><days>天行程安排` (example: `J人川西5天行程安排`)
-- Force filters: `--note-type 图文 --sort-by 最多点赞`
-- Exclude video notes from evidence candidates
-- Keep only top 2-3 high-like posts as route evidence
+### Step 4：先做路线框定
 
-You can normalize with:
+#### 目标
+
+- 在用户进入大区域目的地后，先确定可执行路线，再进入逐日细化。
+- 始终输出 2-3 条带 `route_id` 的候选路线，并要求用户确认选择。
+
+#### 平台选择
+
+先问用户：
+
+`你想用哪个平台来框定路线：小红书 / 高德地图 / 搜索引擎？`
+
+- 未指定时默认 `小红书`。
+- 自动降级链固定为：`小红书 -> 高德地图 -> 搜索引擎`。
+- 硬守卫：在用户未完成平台选择前，不得直接执行任意平台检索。
+- 仅当用户明确表示“默认就行/你决定/按默认”时，才可直接使用默认 `小红书`。
+
+#### 实现边界（强约束）
+
+- `travel-planner` 内部不直接调用其他 skill 的脚本。
+- `route_selector.mjs` 仅消费上游输入（`xhs_evidence`、`route_candidates`、`route_options`）并输出结构化候选。
+- 当平台为 `xhs` 时，必须先走 `@skills/xiaohongshu` 检索链路；不允许用 browser 打开网页替代。
+
+路线框定脚本：
 
 ```bash
-node {baseDir}/scripts/xhs_evidence_builder.mjs --input='<{"destination_text":"川西","duration_days":5,"search_results":[...]}>'
+node {baseDir}/scripts/route_selector.mjs --input='<trip_request_json_with_route_platform_metadata>'
 ```
 
-Or programmatically:
+#### 必须顺序（不可跳步）
 
-```javascript
-travel_planner({ mode: "build_xhs_evidence", destination_text: "川西", duration_days: 5, search_results });
-```
+1. 读取或设置 `route_source_preference`（`xhs`/`amap`/`web`/`auto`）。
+2. 按当前平台拉取上游证据：
+   - `xhs`：调用 `@skills/xiaohongshu` 的 `search-feeds`（必要时补 `get-feed-detail`）。
+     - `xhs` 检索优化（路线框定专用）：
+       - 查询词优先使用：`J人<目的地><days>天行程安排`（例如：`J人川西5天行程安排`）。
+       - 强制过滤：`--note-type 图文 --sort-by 最多点赞`。
+       - 禁止使用：`--sort-by 最新`（路线框定场景一律不用“最新”排序）。
+       - 证据候选中排除视频笔记，只保留图文笔记。
+       - 路线证据最多保留前 2-3 条高点赞帖子。
+   - `amap`：调用 `@skills/amap-lbs-skill` 获取路线/POI/转场信息。
+   - `web`：调用可用搜索工具获取路线证据。
 
-**Programmatic:** `selectRouteCandidates(trip)` returns route-framing output with:
-
-- `recommended_route`
-- `alternatives`
-- `route_options`
-- `comparison`
-- `recommendation_source` (`xhs_first` / `model_fallback` / `model_only`)
-- `requires_xhs_evidence`
-- `next_action`
-
-If `recommendation_source_policy` is `xhs_first` and evidence is insufficient, the helper returns fallback metadata plus `requires_xhs_evidence=true`.
-
-### Mandatory sequencing (do not skip)
-
-1. Collect Xiaohongshu evidence first.
-2. Persist evidence:
-
-```javascript
-travel_planner({ mode: "persist_xhs_evidence", tripId, xhsEvidence });
-```
-
-3. Run route framing from the trip that now includes `xhs_evidence`.
-4. Persist route framing:
+3. 归一化输入：
+   - `xhs` 写入 `xhs_evidence`；
+   - `amap/web` 写入 `route_candidates` 或 `route_options`。
+4. 调用 `route_selector.mjs` 输出候选路线。
+5. 若失败（不可用/无结果/候选不足），记录失败原因并按降级链切到下一个平台，回到第 2 步。
+6. 一旦成功，持久化路线框定（含平台与降级信息）：
 
 ```javascript
 travel_planner({ mode: "persist_route_framing", tripId, trip });
 ```
 
-5. Present `route_options` and ask user to pick one `route_id` (do not auto-lock silently).
-6. Persist user choice:
+7. 展示 `route_options` 并要求用户明确选择 `route_id`。
+8. 持久化用户选择：
 
 ```javascript
 travel_planner({ mode: "confirm_route_choice", tripId, routeId });
 ```
 
-Do **not** present a final route recommendation before step 1 unless the user explicitly opts into `model_only`.
+#### 硬性守卫（必须执行）
 
-### Hard guardrail (must enforce)
+当 `route_source_preference = auto` 时：
 
-When `recommendation_source_policy` is `xhs_first`:
+- 必须按 `小红书 -> 高德地图 -> 搜索引擎` 依次尝试。
+- 不允许并行混合多个平台结果。
+- 每次降级必须记录并输出失败原因。
+- 三个平台都失败时，不得给“最终路线”。
+- 仅可返回：
+  1) 已尝试平台与失败原因；
+  2) 用户需要的动作（如登录小红书、提供更具体目的地）；
+  3) 用户同意后给临时草案路线（明确标注未验证）。
 
-- You MUST run Xiaohongshu retrieval first (`xiaohongshu` skill flow or equivalent script call) and persist `xhs_evidence`.
-- If Xiaohongshu retrieval cannot run (tool unavailable / login required / runtime error), you MUST NOT present a finalized route recommendation.
-- In that case, return only:
-  1. what failed,
-  2. what user action is needed (e.g. login / enable skill),
-  3. optional temporary `model_fallback` route **only if user explicitly accepts fallback**.
+当用户显式选择某个平台时：
 
-Never silently skip Xiaohongshu and output a final route as if XHS-first had succeeded.
+- 必须先完成该平台上游检索链路，再调用 `route_selector.mjs`。
+- 不得跳过检索链路直接生成“已验证平台结果”。
 
-#### Route Framing Output Rules
+#### 路线框定回复格式
 
-At this stage, reply with:
+- 必须先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
+- 若 `used_platform = 小红书` 且有证据，先给“原文参考”区块，再给路线选项
+- 小红书“原文参考”区块每条都要展示：标题、链接、点赞数、收藏数
+- 给出 2-3 条 `route_id` 路线选项
+- 每条 1 行权衡（时间成本/换乘压力/景观收益）
+- 指出推荐项与推荐理由
+- 解释一个常见备选为何更弱
+- 给简短住宿策略 + 交通策略
+- 最后必须发起确认问题（让用户选 `route_id`）
 
-- 2-3 route options with explicit `route_id`
-- a one-line tradeoff per option (time cost / logistics pressure / scenery payoff)
-- your recommended option
-- why the recommendation fits this traveler
-- why a common alternative is less suitable
-- a short lodging strategy
-- a short transport strategy
-- 3-5 clickable Xiaohongshu evidence links (when available)
-- a direct confirmation question that asks the user to choose one `route_id`
+小红书链接段落示例：
 
-### Xiaohongshu links in final response
+`小红书原文参考（优先展示）`
 
-When route framing uses Xiaohongshu evidence, always include a section like:
+- `[帖子标题A](https://www.xiaohongshu.com/...)`（点赞 1280，收藏 940）
+- `[帖子标题B](https://www.xiaohongshu.com/...)`（点赞 860，收藏 610）
 
-`参考小红书攻略（可点击查看）`
+若无有效链接，明确写：
+`本次未拿到可分享的小红书链接，请先登录或重试检索。`
 
-- `[帖子标题A](https://www.xiaohongshu.com/...)`
-- `[帖子标题B](https://www.xiaohongshu.com/...)`
-- `[帖子标题C](https://www.xiaohongshu.com/...)`
+### Step 5：轻验证（确认路线后）
 
-Rules:
+#### 必须顺序（不可跳步）
 
-- Prefer links from `route_framing.evidence_links` and `xhs_evidence.sources`.
-- Keep only accessible note links (no placeholders).
-- If no valid links exist, explicitly state: `本次未拿到可分享的小红书链接，请先登录或重试检索。`
-
-Persist route framing and source metadata before Step 5:
-
-- `selected_route`
-- `route_framing.alternatives`
-- `recommendation_source_policy` (`xhs_first` default, `model_only` opt-out)
-- `recommendation_source_runtime` (`xhs_first` / `model_fallback` / `model_only`)
-- `source_reason` (`xhs_login_required` / `xhs_low_signal` / `xhs_runtime_error` / `model_only`)
-- `xhs_evidence`
-- `route_options`
-- `route_choice_confirmed` (must remain `false` before user picks)
-- `chosen_route_id` (must be empty before user picks)
-
-`live_validation.mjs` needs the structured route object (`hotel_bases`, `poi_cities`, `regions`, etc.).
-
-Do **not** write a full 7-day itinerary yet unless the user explicitly confirms one route option.
-
-### Step 5: Light Research and Validation
-
-After route framing, do light validation before expanding the plan.
-
-**Order (do not skip step 1):**
-
-1. Ensure route choice is confirmed first (`route_choice_confirmed=true` and `chosen_route_id` exists).
-2. Run `live_validation.mjs` once with the current trip JSON, the **selected route** object from Step 4, and preferences (from `get_preferences` or `{}`). This produces the `tool_plan` you must follow.
-3. Run the checks it lists (`flyai`, `12306`, `amap-lbs-skill`, etc.). Do **not** jump straight to ad hoc `flyai` calls before step 2, except quick web research (weather, closures).
-4. When you have raw tool outputs, pass them through `booking_ready.mjs` (or `index.js` `booking_ready` / `auto_validate` mode) before presenting a booking-ready answer.
-
-Validate:
-
-1. Season and weather fit
-2. Big transport feasibility
-3. Hotel zone strategy
-4. Whether budget and pace are realistic
-5. Any major safety or closure issues
-6. Whether the route can be promoted into a booking-ready plan
-
-Use `live_validation.mjs` to generate the actual validation package:
+1. 确认 `route_choice_confirmed=true` 且存在 `chosen_route_id`。
+2. 使用当前 `trip + selected_route + preferences` 运行一次 `live_validation.mjs` 获取 `tool_plan`（仅生成 `skill_action + skill_input` 计划，不执行外部技能）。
+3. 本步只做两类可行性核验：
+   - 交通可达性（仅在“需要跨城长途交通”时执行）；
+   - 天气窗口风险（始终执行）。
+4. 酒店检索不在本步执行；仅允许给风险提醒（如旺季建议尽早锁房）。
+5. 按 `tool_plan` 调用相关技能（`@skills/flyai`、`@skills/12306`、`@skills/amap-lbs-skill`、`@skills/weather`），不要跳过规划阶段直接乱调。
+6. 将原始结果交给 `booking_ready.mjs`（或 `index.js` 的 `booking_ready/auto_validate`）输出轻结论：`go / caution / block`。
+7. **必须向用户发起确认**（是否继续下一步）；未确认不得进入后续步骤。
 
 ```bash
+# 仅构建验证计划（tool_plan），不直接执行外部 skill
 node {baseDir}/scripts/live_validation.mjs --trip='<trip_json>' --route='<route_json>' --preferences='<prefs_json>'
 ```
 
-This script does not execute live tools. It tells you:
+`auto_validate` 默认是计划模式（`execute=false`），只返回：
 
-- which `flyai search-flight` calls to run,
-- which `flyai search-hotel` calls to run,
-- which `flyai search-poi` checks to run,
-- when to involve `12306` or `amap-lbs-skill`,
-- which decision gates must be satisfied before you present booking-ready output.
+- 验证计划
+- booking 草案
+- 用户下一步二选一（确认并继续 / 先调整路线或日期）
 
-Use the `travel-planner` runtime entrypoint in `auto_validate` mode to:
+### Step 6：先给计划骨架，再给逐日细案
 
-- generate the live validation plan,
-- synthesize a booking draft from currently available results,
-- surface explicit next-step choices to the user.
+在长行程前先给可确认骨架，并二次确认：
 
-Important default behavior:
+- 选中的路线是否最终确认
+- 交通 + 酒店策略是否确认
+- 是否进入逐日执行卡片生成
 
-- `auto_validate` now defaults to plan-only mode (`execute=false`).
-- In default mode it returns validation plan + booking draft and asks for user choice:
-  1. `制定详细计划（快速）`
-  2. `先验证交通酒店和景点（推荐）`
-- `auto_validate` should not run external checks from inside runtime; agent should call related skills explicitly.
-
-Use web research plus live tools as needed:
-
-- `flyai` for flights, hotels, and POI/tickets
-- `12306` for China train validation
-- `amap-lbs-skill` for China routing, hotel area checks, and nearby search
-
-### Delegating to Specialized Skills
-
-Use these skills during validation and full planning. They are not optional add-ons once the user is close to booking.
-
-**Flights** (any destination):
-
-- Use the `flyai` skill → `search-flight` for real-time flight options, prices, and schedules.
-
-**Hotels & Accommodation** (any destination):
-
-- Use the `flyai` skill → `search-hotel` for real-time hotel options and availability.
-- Use `keyword-search` or `ai-search` for broader idea generation.
-
-**Attractions & Tickets** (any destination):
-
-- Use the `flyai` skill → `search-poi` for attraction tickets, prices, and availability.
-- `search-poi --category` must be one of the **enumerated Chinese categories** the `flyai` CLI accepts (for example `自然风光`, `人文古迹`). Do **not** pass generic labels like `景点` — the command exits with an error.
-
-**China domestic trains / high-speed rail**:
-
-- Use the `12306` skill for official real-time seat availability and schedules.
-- `flyai` can also search trains, but `12306` is preferred inside China.
-
-**China maps, POI routing & nearby search**:
-
-- Use the `amap-lbs-skill` for routing, hotel-area checks, and nearby POI discovery.
-
-### Step 6: Run a Validation Pass Before Booking-Ready Output
-
-Before the detailed plan becomes booking-ready, validate the big decisions in this order:
-
-1. **Flight / rail entry-exit pattern**
-2. **Hotel base strategy**
-3. **Anchor POI strength**
-4. **Route transfer realism**
-
-At this stage, your reply should explicitly say what was validated and what still needs verification.
-
-For example:
-
-- "Validated: Urumqi in / Yining out looks better than round-trip pricing."
-- "Validated: Yining has enough hotel supply under the target nightly budget."
-- "Still need to verify: whether Nalati-area transfer times are too long for Day 4."
-
-### Step 7: Show a Plan Skeleton Before the Full Plan
-
-Before writing a long itinerary, show a short skeleton the user can approve.
-
-At this stage you should ask for explicit user confirmation again:
-
-- confirm the selected route is final,
-- confirm booking strategy (transport + hotel),
-- confirm whether to proceed to full day-by-day output.
-
-The skeleton should include:
-
-- recommended route title
-- transport strategy
-- hotel-base strategy
-- budget snapshot
-- 2-3 key tradeoffs
-- what you want the user to confirm
-- whether the trip is still in `route framing` or has advanced into `booking-ready`
-
-Use `plan_generator.mjs` as the structured source of truth for this:
+骨架来源：
 
 ```bash
 node {baseDir}/scripts/plan_generator.mjs --trip-id=<id>
 ```
 
-Use these sections before presenting the detailed itinerary:
+优先展示：`route_framing`、`live_validation`、`plan_skeleton`、`booking_strategy`。
 
-- `route_framing`
-- `live_validation`
-- `plan_skeleton`
-- `booking_strategy`
+#### Step 6 输出格式（必须先展示总结卡片）
 
-### Step 8: Generate the Detailed Plan
+先输出“计划骨架总结”，再问确认；未完成确认不进入 Step 7。
+这一步必须是一个**独立回复回合**（先总结，再等用户确认），不得与 Step 7 合并在同一回复里。
 
-Only after route framing is accepted **and the main validation gates are cleared** should you generate the detailed plan.
+建议模板：
 
-Hard gate for itinerary generation:
+1. `路线结论`：已选 `route_id` + 1 行推荐理由
+2. `轻验证结论`：`go / caution / block` + 天气/交通关键提醒
+3. `策略摘要`：交通策略（按需）+ 酒店策略（后置细化）
+4. `待确认项`：最多 2-3 条（如日期是否微调、是否接受某段长转场）
+5. `确认问题`：`是否确认按该骨架进入逐日详细计划？`
+
+Step 6 完成门槛（全部满足才可进入 Step 7）：
+
+- 已输出 Step 6 总结卡片；
+- 已收到用户明确确认（如“确认/继续/按这个走”）；
+- 已在上下文中记录 `light_validation_confirmed = true`（或等效确认状态）。
+
+### Step 7：生成详细计划（满足硬门槛）
+
+必须满足：
 
 - `route_choice_confirmed === true`
-- `selected_route` is present (from `confirm_route_choice`)
-- `booking_ready.status === "ready"` (or user explicitly accepts a non-ready draft)
+- `selected_route` 已存在
+- `light_validation_confirmed === true`（用户已确认 Step 5 结论）
+- `booking_ready.status === "ready"`（或用户明确接受未就绪草案）
 
-For a single structured JSON object (itinerary, budget, packing, etc.), prefer `plan_generator.mjs --trip-json=...` or the skill runtime `index.js` with `mode: "trip_plan"` once `trip` includes confirmed route state (`route_choice_confirmed=true`, `selected_route`) and any `live_results` you have.
-
-If you already have live tool results for flights, hotels, or attractions, synthesize them into a booking-ready package before presenting the final recommendation:
+合成 booking-ready：
 
 ```bash
 node {baseDir}/scripts/booking_ready.mjs --trip='<trip_json>' --route='<route_json>' --validation='<live_validation_json>' --results='<live_results_json>'
 ```
 
-`live_results_json` is expected to contain raw tool outputs, for example:
+`live_results_json` 典型字段：
 
-- `flights`: result of `flyai search-flight`
-- `hotels`: result of `flyai search-hotel`
-- `pois`: result of `flyai search-poi`
+- `flights`（`flyai search-flight`）
+- `hotels`（`flyai search-hotel`）
+- `pois`（`flyai search-poi`）
 
-Use the resulting `booking_ready` section to choose:
+`live_results_json` 应保留原始工具输出（即工具返回的原始结果），例如：
 
-- preferred transport option,
-- preferred hotel base and top hotel candidates,
-- anchor attractions worth keeping in the final plan.
+- `flights`：`flyai search-flight` 的结果
+- `hotels`：`flyai search-hotel` 的结果
+- `pois`：`flyai search-poi` 的结果
 
-The answer order should be:
+使用生成后的 `booking_ready` 部分来选择：
 
-1. Recommendation summary
-2. Live transport and hotel validation summary
-3. Transport and hotel strategy
-4. Day-by-day execution cards
-5. Budget breakdown
-6. Packing checklist
-7. Cultural and safety notes
-8. Pre-trip actions
+- 首选交通方案
+- 首选酒店基地与 2-3 个候选酒店/酒店区域
+- 应保留在最终行程中的核心锚点景点
 
-#### Booking-Ready Output Rules
+最终答复顺序（必须遵守）：
 
-When the user is close to booking, the answer should no longer say only "I can also help check hotels/flights."
-Instead, it should contain:
+1. 推荐结论
+2. 实时交通与酒店验证摘要
+3. 交通与住宿策略
+4. 逐日执行卡片
+5. 预算拆分
+6. 打包清单
+7. 礼仪与安全提示
+8. 行前待办
 
-- a preferred transport pattern,
-- 2-3 hotel candidates or hotel zones,
-- the key live constraints that shaped the route,
-- any must-book-now items,
-- remaining uncertainties if not fully validated.
+补充规则：若任一条目存在来源链接（如航班/酒店/景点/参考帖子），必须在该条目中附上可点击链接；若没有可分享链接，明确标注“暂无可分享链接”。
 
-#### Day-by-Day Rules
+#### 近预订输出规则
 
-Each day should be an execution card, not just a list of attractions.
+当用户接近预订时，答复不应只说“我也可以继续帮你查酒店/机票”。必须包含：
 
-Every day should include:
+- 一个首选交通模式；
+- 2-3 个酒店候选或酒店区域；
+- 对路线产生影响的关键实时约束；
+- 任何“需要尽快锁定”的项目；
+- 若未完全验证，明确剩余不确定项。
 
-- primary goal
-- secondary goal
-- time anchors
-- transit strategy
-- meal strategy
-- energy load
-- booking watchouts
-- weather backup
+#### 每日执行卡片规则
 
-Use the generated itinerary structure from `plan_generator.mjs` and fill in real POIs after validating transport and hotel choices.
+每日必须是执行卡片，而不是景点清单。每一天都应包含：
 
-### Step 9: Move Into Pre-Trip Service
+- 当日主目标
+- 当日次目标
+- 时间锚点
+- 转场策略
+- 餐食策略
+- 体力负荷
+- 预订风险提醒
+- 天气备选方案
 
-Once the user likes the plan or starts booking, move the trip from exploration into execution support.
+使用 `plan_generator.mjs` 生成的行程结构作为骨架，并在完成交通与酒店选择后填充真实 POI。
 
-At this stage:
+### Step 8：行前服务（用户开始预订后）
 
-- lock in the route
-- store selected route / route framing
-- track bookings
-- persist live results and booking-ready picks
-- generate pre-trip checklists
-- generate pre-trip briefs on demand
-- prepare for future reminder delivery
-
-You can persist the execution state with `travel_db.mjs`, for example:
+进入执行态后建议持久化：
 
 ```bash
 node {baseDir}/scripts/travel_db.mjs --cmd=save_live_results --trip-id=<trip_id> --payload='<live_results_json>'
 node {baseDir}/scripts/travel_db.mjs --cmd=save_booking_ready --trip-id=<trip_id> --payload='<booking_ready_json>'
 node {baseDir}/scripts/travel_db.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='<partial_json>'
-# `update_trip` is an alias of `patch_trip` (merge fields such as stage, selected_route).
 node {baseDir}/scripts/travel_db.mjs --cmd=confirm_booking --trip-id=<trip_id> --category=hotel --payload='<selected_hotel_json>'
 ```
 
-Suggested stage values:
+推荐阶段值：
 
 - `intake`
 - `route_framing`
@@ -489,53 +347,47 @@ Suggested stage values:
 - `in_trip`
 - `completed`
 
-### Step 10: During-Trip Support
+### Step 9：行中支持
 
-During the trip, help with:
+支持行中场景：
 
-- weather-based adjustments
-- missed transport
-- nearby fallback ideas
-- daily spending tracking
-- quick daily briefs
-
-Generate lightweight briefs on demand with:
+- 天气突变改线
+- 误车/误点后的重排
+- 附近备选点位
+- 当日简报与支出跟踪
 
 ```bash
 node {baseDir}/scripts/briefing.mjs --mode=pre_trip --trip='<trip_json>' --plan='<plan_json>'
 node {baseDir}/scripts/briefing.mjs --mode=daily --trip='<trip_json>' --plan='<plan_json>' --day=2
 ```
 
-If the user has already departed, mark the trip as active first:
+已出发先标记：
 
 ```bash
 node {baseDir}/scripts/travel_db.mjs --cmd=start_trip --trip-id=<trip_id>
 ```
 
-For now, brief generation may be manual or invoked by other workflow layers. A cron scheduler can be added later without changing the briefing format.
+### Step 10：行后沉淀
 
-**Expenses and budget (programmatic only — no `travel_db` CLI):** use exports from `index.js` / `travel_db.mjs`, for example `addExpense(tripId, { category, amount, description, date })` and `getBudgetSummary(tripId)`.
+程序接口：
 
-### Step 11: Post-Trip Updates
+- `moveTripToPast(tripId)`
+- `addPreviousDestination("城市, 国家")`
+- `updatePreference` / `savePreferences`
 
-**Programmatic:** `moveTripToPast(tripId)` and `addPreviousDestination("City, Country")` from the same module surface as Step 10; merge durable preference updates via `updatePreference` / `savePreferences` as appropriate.
+更新可复用偏好：真实节奏承受、酒店风格偏好、是否厌恶频繁换酒店、兴趣权重变化等。
 
-Also update preferences if you learned anything durable:
+## 示例与回归
 
-- preferred hotel style
-- realistic pace
-- dislike of hotel switching
-- stronger interest in food / museums / hiking / photography
+- 完整中文示例：`references/example_dialogue.md`
+- 描述与触发回归：`references/trigger_regression.md`
 
-## Example dialogue
+## 备注
 
-Full sample transcript (Xinjiang, route framing first): **`references/example_dialogue.md`**.  
-After frontmatter changes, run through **`references/trigger_regression.md`** once by hand.
+- 数据文件：`~/.openclaw/agents/travel-planner/preferences.json`、`~/.openclaw/agents/travel-planner/trips.json`
+- CLI 统一入口：`node {baseDir}/scripts/<script>.mjs --key=value`
 
-## Notes
-
-- Preferences and trips JSON: `~/.openclaw/agents/travel-planner/preferences.json`, `~/.openclaw/agents/travel-planner/trips.json`
-- CLI: `node {baseDir}/scripts/<script>.mjs` (all scripts use `--key=value`; see each `--help`).
+常用命令：
 
 ```bash
 node {baseDir}/scripts/travel_db.mjs --cmd=is_initialized
@@ -547,17 +399,17 @@ node {baseDir}/scripts/plan_generator.mjs --trip-id=<id> --output=plan.json
 node {baseDir}/scripts/travel_db.mjs --cmd=export
 ```
 
-## Resources (scripts and references)
+## 资源索引
 
 | Path | Role |
 |------|------|
-| `scripts/travel_db.mjs` | Preferences, trips, budget summary data, export |
-| `scripts/plan_generator.mjs` | Route framing, skeletons, itineraries, packing |
-| `scripts/live_validation.mjs` | Tool plan and gates (does not call live APIs) |
-| `scripts/route_selector.mjs` | Destination tag + note only (no built-in routes) |
-| `scripts/booking_ready.mjs` | Merge live results into booking-ready package |
-| `scripts/briefing.mjs` | Pre-trip and daily brief payloads |
-| `references/travel_guidelines.md` | Research checklist, budget framework, pacing |
-| `references/cultural_etiquette.md` | Country etiquette templates |
-| `references/example_dialogue.md` | Worked example: intake, route framing, backup route |
-| `references/trigger_regression.md` | Should / should-not trigger checks for description edits |
+| `scripts/travel_db.mjs` | 偏好、行程、预算摘要、导出 |
+| `scripts/plan_generator.mjs` | 路线框定、计划骨架、逐日行程、打包建议 |
+| `scripts/live_validation.mjs` | 校验计划与门槛（不直接调用外部 API） |
+| `scripts/route_selector.mjs` | 路线候选结构化输出 |
+| `scripts/booking_ready.mjs` | 合并实时结果生成 booking-ready 包 |
+| `scripts/briefing.mjs` | 行前/每日简报 |
+| `references/travel_guidelines.md` | 研究、预算、节奏与安全清单 |
+| `references/cultural_etiquette.md` | 礼仪与文化注意事项模板 |
+| `references/example_dialogue.md` | 中文完整示例（先框线再细化） |
+| `references/trigger_regression.md` | 触发/不触发回归检查 |

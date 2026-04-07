@@ -1,18 +1,4 @@
-/**
- * Route framing module
- *
- * Single responsibility:
- * - decide route candidates (primary + backup) from normalized trip input
- * - expose source metadata so downstream modules know whether route is XHS-first or fallback
- *
- * Non-goals:
- * - do NOT generate daily itinerary cards
- * - do NOT run live booking validation
- *
- * Design note:
- * Route framing is intentionally isolated here so `plan_generator.mjs` can stay focused on
- * composing the final plan document from an already-framed route.
- */
+/** Route framing module (single-platform + fallback metadata). */
 
 import { fileURLToPath } from "node:url";
 
@@ -41,80 +27,140 @@ function destinationKey(tripRequest) {
   return "generic";
 }
 
-/**
- * Build a normalized route candidate from XHS evidence.
- * This helper never talks to XHS directly; it only consumes pre-normalized evidence
- * written on the trip record by the agent orchestration step.
- *
- * @param {object} xhsEvidence
- * @returns {{
- *   recommended_route: object,
- *   alternatives: object[],
- *   evidence_links: string[],
- *   evidence_summary: string,
- *   source_confidence: string
- * }}
- */
-function buildXhsRouteCandidates(xhsEvidence) {
-  const routes = xhsEvidence.route_hints?.popular_loops || [];
-  const stops = xhsEvidence.route_hints?.popular_stops || [];
-  const bases = xhsEvidence.stay_hints?.recommended_bases || [];
-  const summary = String(xhsEvidence.summary || "").trim();
-  const quality = String(xhsEvidence.evidence_quality || "low").toLowerCase();
-  const links = (xhsEvidence.sources || []).slice(0, 8).map((item) => item.url).filter(Boolean);
+function normalizePlatform(value) {
+  const text = normalizeText(value);
+  if (text === "xhs" || text === "xiaohongshu" || text === "小红书") return "xhs";
+  if (text === "amap" || text === "gaode" || text === "高德地图") return "amap";
+  if (text === "web" || text === "web_search" || text === "search" || text === "搜索引擎") return "web";
+  if (text === "auto" || !text) return "auto";
+  return "xhs";
+}
 
-  const recommendedRoute = {
+function inferDestinationLabel(tripRequest) {
+  return String(
+    tripRequest.destination_text ||
+      tripRequest.destination?.region ||
+      tripRequest.destination?.city ||
+      tripRequest.destination?.country ||
+      "目的地",
+  ).trim();
+}
+
+function inferDurationDays(tripRequest) {
+  const days = Number.parseInt(String(tripRequest.duration_days || 5), 10);
+  if (!Number.isFinite(days) || days <= 0) return 5;
+  return days;
+}
+
+function buildPlatformDefaultCandidates(tripRequest, platform) {
+  const destinationLabel = inferDestinationLabel(tripRequest);
+  const days = inferDurationDays(tripRequest);
+  const baseTitle =
+    platform === "xhs"
+      ? "小红书热度优先线"
+      : platform === "amap"
+        ? "高德可达性优先线"
+        : "搜索引擎时效优先线";
+  const baseSummary =
+    platform === "xhs"
+      ? `基于${destinationLabel}的热门游记偏好生成，适合先框定玩法。`
+      : platform === "amap"
+        ? `基于${destinationLabel}的路网与转场可达性生成，适合控行车/换乘压力。`
+        : `基于${destinationLabel}的公开网页信息生成，适合补充时效与临时信息。`;
+
+  const primary = {
+    route_id: `${platform}_primary_${days}d`,
+    title: `${destinationLabel}${days}天·${baseTitle}`,
+    summary: baseSummary,
+    source_platform: platform,
+    duration_days: days,
+  };
+  const altFast = {
+    route_id: `${platform}_alt_fast_${days}d`,
+    title: `${destinationLabel}${days}天·紧凑覆盖线`,
+    summary: "覆盖点位更多，但转场压力更高。",
+    source_platform: platform,
+    duration_days: days,
+  };
+  const altRelaxed = {
+    route_id: `${platform}_alt_relaxed_${days}d`,
+    title: `${destinationLabel}${days}天·轻松慢游线`,
+    summary: "转场更少，留白更多，适合稳节奏。",
+    source_platform: platform,
+    duration_days: days,
+  };
+
+  return {
+    ok: true,
+    recommended_route: primary,
+    alternatives: [altFast, altRelaxed],
+    route_options: [primary, altFast, altRelaxed],
+    source_confidence: platform === "web" ? "low" : "medium",
+    evidence_summary: "",
+    evidence_links: [],
+  };
+}
+
+function buildXhsCandidatesFromEvidence(xhsEvidence) {
+  const loops = Array.isArray(xhsEvidence?.route_hints?.popular_loops)
+    ? xhsEvidence.route_hints.popular_loops
+    : [];
+  if (loops.length === 0) return null;
+  const quality = String(xhsEvidence?.evidence_quality || "medium").toLowerCase();
+  const links = (xhsEvidence?.sources || []).map((item) => item?.url).filter(Boolean).slice(0, 8);
+  const primaryStops = Array.isArray(loops[0]) ? loops[0] : [];
+  const primary = {
     route_id: "xhs_primary_1",
-    title: "Xiaohongshu high-frequency route",
-    summary: summary || "Route synthesized from Xiaohongshu recent travel notes.",
-    stops: routes[0] || [],
-    hotel_bases: bases,
-    poi_cities: stops.slice(0, 8),
-    source: "xiaohongshu",
+    title: "小红书高频路线",
+    summary: String(xhsEvidence?.summary || "基于小红书游记聚合生成"),
+    stops: primaryStops,
+    source_platform: "xhs",
     evidence_quality: quality,
     evidence_links: links,
   };
-
-  const alternatives = routes.slice(1, 3).map((routeStops, index) => ({
+  const alternatives = loops.slice(1, 3).map((stops, index) => ({
     route_id: `xhs_alt_${index + 1}`,
-    title: `Xiaohongshu backup route ${index + 1}`,
-    summary: "Alternative route extracted from Xiaohongshu notes.",
-    stops: routeStops,
-    source: "xiaohongshu",
+    title: `小红书备选路线${index + 1}`,
+    summary: "基于小红书不同游记取向生成的备选。",
+    stops: Array.isArray(stops) ? stops : [],
+    source_platform: "xhs",
     evidence_quality: quality,
   }));
-
-  // Keep at least 2 route choices for user confirmation.
-  if (alternatives.length === 0 && recommendedRoute.stops.length >= 3) {
-    alternatives.push({
-      route_id: "xhs_alt_scenic_relaxed",
-      title: "Xiaohongshu scenic-relaxed variant",
-      summary: "Lower transfer pressure variant derived from high-frequency stops.",
-      stops: recommendedRoute.stops.slice(0, Math.max(3, recommendedRoute.stops.length - 1)),
-      source: "xiaohongshu",
-      evidence_quality: quality,
-    });
-  }
-
-  const routeOptions = [recommendedRoute, ...alternatives].slice(0, 3);
-  const comparison = routeOptions.map((option, index) => ({
-    route_id: option.route_id,
-    rank: index + 1,
-    fit_reason:
-      index === 0
-        ? "Best fit from Xiaohongshu high-frequency route evidence."
-        : "Backup option with different transfer/pace tradeoff.",
-    risk_note: index === 0 ? "Expect holiday crowding on hot stops." : "May trade scenery density for lower logistics risk.",
-  }));
-
   return {
-    recommended_route: recommendedRoute,
+    ok: true,
+    recommended_route: primary,
     alternatives,
-    route_options: routeOptions,
-    comparison,
+    route_options: [primary, ...alternatives].slice(0, 3),
+    source_confidence: quality === "high" ? "high" : "medium",
+    evidence_summary: String(xhsEvidence?.summary || ""),
     evidence_links: links,
-    evidence_summary: summary,
-    source_confidence: quality,
+  };
+}
+
+function buildRouteCandidatesFromInput(tripRequest, platform) {
+  const candidates = Array.isArray(tripRequest.route_candidates) ? tripRequest.route_candidates : [];
+  const options = Array.isArray(tripRequest.route_options) ? tripRequest.route_options : [];
+  const sourceOptions = (candidates.length > 0 ? candidates : options).slice(0, 3);
+  if (sourceOptions.length === 0) {
+    if (platform === "xhs") {
+      const fromEvidence = buildXhsCandidatesFromEvidence(tripRequest.xhs_evidence || {});
+      if (fromEvidence) return fromEvidence;
+    }
+    return buildPlatformDefaultCandidates(tripRequest, platform);
+  }
+  const mapped = sourceOptions.map((item, index) => ({
+    ...item,
+    route_id: item?.route_id || `${platform}_route_${index + 1}`,
+    source_platform: platform,
+  }));
+  return {
+    ok: true,
+    recommended_route: mapped[0] || {},
+    alternatives: mapped.slice(1),
+    route_options: mapped,
+    source_confidence: "medium",
+    evidence_summary: String(tripRequest.source_reason || "").trim(),
+    evidence_links: [],
   };
 }
 
@@ -122,9 +168,9 @@ function buildXhsRouteCandidates(xhsEvidence) {
  * Route framing entry.
  *
  * Decision strategy:
- * 1) default to `xhs_first`
- * 2) if XHS evidence is sufficiently strong, produce XHS-driven primary/backup routes
- * 3) otherwise return fallback metadata + actionable next step; downstream can still continue safely
+ * 1) single platform only
+ * 2) default platform: xhs
+ * 3) when preference=auto, follow xhs -> amap -> web
  *
  * @param {object} tripRequest
  * @returns {{
@@ -133,72 +179,59 @@ function buildXhsRouteCandidates(xhsEvidence) {
  *   alternatives: object[],
  *   rejected_routes: object[],
  *   framing_source: "agent_tools",
- *   recommendation_source: string,
+ *   used_platform: string,
+ *   fallback_count: number,
+ *   fallback_chain: Array<{platform: string, reason: string}>,
+ *   fallback_reason: string,
  *   source_reason: string,
  *   source_confidence: string,
  *   evidence_summary: string,
  *   evidence_links: string[],
  *   route_options: object[],
  *   comparison: object[],
- *   requires_xhs_evidence: boolean,
  *   next_action: string,
  *   planning_note: string,
  * }}
  */
 export function selectRouteCandidates(tripRequest) {
   const key = destinationKey(tripRequest);
-  const policy = tripRequest.recommendation_source_policy || "xhs_first";
-  const xhsEvidence = tripRequest.xhs_evidence || {};
-  const quality = String(xhsEvidence.evidence_quality || "low").toLowerCase();
-  const hasUsableLoops = Array.isArray(xhsEvidence.route_hints?.popular_loops) &&
-    xhsEvidence.route_hints.popular_loops.length > 0;
-  const hasUsableXhsEvidence =
-    policy === "xhs_first" && hasUsableLoops && (quality === "high" || quality === "medium");
-
-  const xhsCandidates = hasUsableXhsEvidence
-    ? buildXhsRouteCandidates(xhsEvidence)
-    : {
-        recommended_route: {},
-        alternatives: [],
-        route_options: [],
-        comparison: [],
-        evidence_links: [],
-        evidence_summary: "",
-        source_confidence: "low",
-      };
-
-  const sourceReason =
-    policy === "model_only"
-      ? "model_only"
-      : hasUsableXhsEvidence
-        ? ""
-        : xhsEvidence.generated_at
-          ? "xhs_low_signal"
-          : "xhs_runtime_error";
-  const recommendationSource =
-    policy === "model_only" ? "model_only" : hasUsableXhsEvidence ? "xhs_first" : "model_fallback";
+  const preference = normalizePlatform(tripRequest.route_source_preference || "xhs");
+  const fallbackChain = Array.isArray(tripRequest.route_source_fallbacks)
+    ? tripRequest.route_source_fallbacks
+    : [];
+  const usedPlatform = normalizePlatform(
+    tripRequest.route_source_used || (preference === "auto" ? "xhs" : preference),
+  );
+  const candidates = buildRouteCandidatesFromInput(tripRequest, usedPlatform);
+  const sourceReason = String(tripRequest.source_reason || "").trim();
+  const nextAction = candidates.ok
+    ? ""
+    : "Switch to the next platform in fallback chain: xhs -> amap -> web.";
 
   return {
     destination_key: key,
-    recommended_route: xhsCandidates.recommended_route,
-    alternatives: xhsCandidates.alternatives,
+    recommended_route: candidates.recommended_route,
+    alternatives: candidates.alternatives,
     rejected_routes: [],
     framing_source: "agent_tools",
-    recommendation_source: recommendationSource,
+    used_platform: usedPlatform,
+    fallback_count: fallbackChain.length,
+    fallback_chain: fallbackChain,
+    fallback_reason: fallbackChain.length > 0 ? String(fallbackChain[0]?.reason || "") : "",
     source_reason: sourceReason,
-    source_confidence: xhsCandidates.source_confidence,
-    evidence_summary: xhsCandidates.evidence_summary,
-    evidence_links: xhsCandidates.evidence_links,
-    route_options: xhsCandidates.route_options,
-    comparison: xhsCandidates.comparison,
-    requires_xhs_evidence: policy === "xhs_first" && !hasUsableXhsEvidence,
-    next_action:
-      policy === "xhs_first" && !hasUsableXhsEvidence
-        ? "Run Xiaohongshu search/detail first, normalize xhs_evidence.route_hints.popular_loops, then re-run route framing."
-        : "",
+    source_confidence: candidates.source_confidence,
+    evidence_summary: candidates.evidence_summary,
+    evidence_links: candidates.evidence_links,
+    route_options: candidates.route_options,
+    comparison: candidates.route_options.map((option, index) => ({
+      route_id: option.route_id,
+      rank: index + 1,
+      fit_reason: index === 0 ? "Primary recommendation from selected platform." : "Backup option.",
+      risk_note: "Verify transport and hotel feasibility before booking.",
+    })),
+    next_action: nextAction,
     planning_note:
-      "This skill does not ship pre-baked routes. Default to Xiaohongshu-first route framing; " +
-      "if evidence is missing or weak, return fallback metadata and explicit next action before validation.",
+      "Single-platform route framing. Default xhs; if failed, fallback to amap then web search.",
   };
 }
 
@@ -207,7 +240,7 @@ function printRouteSelectorHelp() {
 
 All flags use --key=value. JSON may be inline or @path.
 
-This script consumes trip + optional xhs_evidence and returns route framing candidates + source metadata.
+This script consumes trip input and returns route framing candidates + platform metadata.
 It does not perform external network calls itself.
 
 Usage:

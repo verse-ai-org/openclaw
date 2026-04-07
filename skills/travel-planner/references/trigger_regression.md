@@ -1,24 +1,46 @@
-# Skill trigger regression (manual)
+# 技能触发回归（手工）
 
-Use after changing `SKILL.md` **description** or scope. Goal: load on real travel logistics; stay off generic chit-chat.
+用于在修改 `SKILL.md` 的 description 或适用范围后进行回归。  
+目标：旅行决策类请求应触发；闲聊/非旅行请求不应触发。
 
-## Should tend to activate `travel-planner`
+## 应当倾向触发 `travel-planner`
 
-- "Plan a 10-day trip to Japan with trains and one base in Tokyo."
-- "7-day Xinjiang itinerary, no self-drive, mid-July."
-- "Compare two routes for Yunnan—Lijiang loop vs Shangri-La first."
-- "Booking-ready: hotels under $200 near X, flights from SFO, family of four."
-- "Pre-trip checklist and packing for Iceland in February."
-- "We missed our train—reschedule day 3 of this plan."
+- “帮我做一个川西 5 天路线，不自驾，预算 8000。”
+- “新疆 7 天，上海出发，先给我路线选项再细化。”
+- “对比云南两条线：丽江大理环线 vs 香格里拉优先。”
+- “我要可下单版本：交通、酒店片区、景区预约都给我。”
+- “我们已经在成都 day2，明天暴雨，怎么改行程最稳？”
+- “高铁错过了，帮我把后两天重新排一下。”
 
-## Should usually not activate (or only light help without full workflow)
+## 应当不触发（或仅轻量回复）
 
-- "What's the weather in Paris tomorrow?"
-- "Write a Python function to parse CSV."
-- "Draft a fantasy novel chapter about dragons."
-- "Translate this email to Spanish." (no travel logistics)
+- “明天巴黎天气怎么样？”（仅天气事实）
+- “写个 Python 脚本解析 CSV。”（非旅行）
+- “写一段奇幻小说开头。”（纯创作）
+- “把这封邮件翻译成西班牙语。”（无行程决策）
 
-## Edge cases
+## 边界场景
 
-- **Weather + trip:** If the user is clearly mid-itinerary ("we're in Chengdu day 2, is it safe to drive to X today?"), treat as in-trip support—skill applies.
-- **Vague trip:** One word ("Japan?")—clarify with 1–2 questions before heavy scripts; skill still applies if they want planning.
+- **一词输入（如“新疆？”）**：先 1-2 个澄清问题，再决定是否进入完整流程。
+- **仅问单点票价**：若无路线/行程上下文，先轻量回答并追问是否要进入完整规划。
+
+## 路线平台回归（单平台自动降级）
+
+- `auto + xhs 成功`：应停止在小红书，不再切高德/搜索引擎。
+- `auto + xhs 失败 + amap 成功`：应切换一次，并输出失败原因。
+- `auto + xhs/amap 失败 + web 成功`：应切换两次，并输出两次失败原因。
+- 用户显式选择 `高德地图`：应先执行高德；失败后按链路降级到搜索引擎。
+- 三平台都失败：不得给最终路线，必须返回“失败原因 + 用户下一步动作”。
+- 用户显式选择 `小红书`：必须先调用 `@skills/xiaohongshu` 的检索链路，不允许仅用 browser 打开网页替代。
+- 用户显式选择 `高德地图`：必须先调用 `@skills/amap-lbs-skill`，不允许直接跳过上游检索而仅调用 `route_selector`。
+- 用户显式选择 `搜索引擎`：必须先调用可用搜索工具获取证据并归一化后，再调用 `route_selector`。
+- 任一平台路径下，若缺少上游证据输入（`xhs_evidence` 或 `route_candidates` / `route_options`），输出必须标注为“草案/待外部验证”。
+- 平台选择门禁：在用户未回复平台（且未明确“按默认”）前，不允许直接执行平台检索。
+- `xhs` 检索参数门禁：路线框定场景必须使用 `--sort-by 最多点赞`，不得使用 `--sort-by 最新`。
+
+## Step 5 轻验证回归（交通 + 天气）
+
+- 跨城/跨省行程：应生成交通可达性检查 + 天气窗口检查。
+- 本地/周边短途（无明显跨城线索）：应跳过机票/高铁检查，仅保留天气检查。
+- Step 5 输出必须附带用户确认问题；用户未确认时，不得进入下一步细化。
+- 酒店检查在 Step 5 不应作为硬门槛；仅允许风险提醒（例如旺季尽早锁房）。

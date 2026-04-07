@@ -108,17 +108,25 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
   const anchorPois = poiItems.slice(0, 3);
   const topTrains = trainItems.slice(0, 3);
 
-  const hasTransport = cheapestFlights.length > 0 || topTrains.length > 0;
+  const hasTransportEvidence = cheapestFlights.length > 0 || topTrains.length > 0;
+  const transportRequired = liveValidation?.transport_required !== false;
+  const hasTransport = transportRequired ? hasTransportEvidence : true;
   const hasHotels = topHotels.length > 0;
-  const readiness = hasTransport && hasHotels ? "ready" : "partial";
+  const readiness = hasTransport ? "ready" : "partial";
 
   const routeTitle = selectedRoute.title || "Recommended route";
   const routeSummary = selectedRoute.summary || "";
 
   const watchouts = [];
-  if (!hasTransport) watchouts.push("No live transport results attached yet.");
+  if (!hasTransport && transportRequired) {
+    watchouts.push("No live long-distance transport results attached yet.");
+  }
   if (!hasHotels) watchouts.push("No live hotel results attached yet.");
   if (!anchorPois.length) watchouts.push("No live POI validation attached yet.");
+  if (!transportRequired) {
+    watchouts.push("Long-distance transport validation was skipped for this trip type.");
+  }
+  watchouts.push("Hotels are deferred for detailed day planning unless user asks to validate now.");
 
   if (hasTransport) {
     const dests = new Set(
@@ -145,8 +153,8 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
       route_summary: routeSummary,
       why_booking_ready:
         readiness === "ready"
-          ? "Major route, transport, and lodging assumptions now have live validation support."
-          : "The route is strong, but some live booking inputs are still missing.",
+          ? "Core feasibility checks (transport when needed + risk gating) are in a usable state."
+          : "Core transport feasibility is still missing for a long-distance trip.",
     },
     recommended_sections: [
       "transport options",
@@ -165,8 +173,8 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
     booking_watchouts: [...watchouts, ...(liveValidation.priority_checks || [])],
     next_decision:
       readiness === "ready"
-        ? "Choose the preferred flight pattern and hotel base, then lock the final day-by-day plan."
-        : "Run the missing live checks before presenting the final booking-ready plan.",
+        ? "Ask user to confirm light-validation result, then move to detailed day planning."
+        : "Run missing long-distance transport checks before moving forward.",
     decision_gates: liveValidation.decision_gates || [],
   };
 }

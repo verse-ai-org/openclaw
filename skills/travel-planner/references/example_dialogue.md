@@ -1,34 +1,75 @@
-# Example: Xinjiang 7-day planning dialogue
+# 示例对话：新疆 7 天（单平台优先 + 自动降级）
 
-Illustrates **route framing before** day-by-day detail (Workflow Step 4–5), minimal intake questions, and one recommended route plus one backup. The assistant’s route narrative is **agent-produced** (research + tools such as flyai/amap)—`route_selector.mjs` does not inject fixed itineraries.
+本示例展示以下关键动作：
+
+- 先最小问题采集，不做长问卷
+- 先做路线框定，再做逐日细化
+- 平台可选：小红书 / 高德地图 / 搜索引擎
+- 未指定时默认小红书，失败自动降级
+- 用户确认 `route_id` 后进入 Step 5 轻验证（交通 + 天气）
+- Step 5 结束后必须再次确认，才进入下一步细化
 
 ```
-User: "Help me plan a 7-day trip to Xinjiang"
+用户：帮我规划一个新疆 7 天行程。
 
-Assistant: [Checks preferences, creates lightweight trip record]
+助手：
+可以，我先不直接铺满 7 天日程，先帮你选对路线版本。
+先确认 5 个高影响信息：
+1）出行月份？
+2）出发城市？
+3）总预算大概多少？
+4）偏风景、人文还是美食？
+5）能接受自驾吗？
 
-Before I map daily stops, I want to frame the right version of Xinjiang for you.
-Just a few things that change the route a lot:
-1. Roughly which month are you going?
-2. Which city are you flying from?
-3. Budget per person or total?
-4. More interested in scenery, photography, culture, or food?
-5. Are you okay with self-driving, or would you rather avoid it?
+用户：7 月中旬，上海出发，两个人总预算 1.4 万，主要风景摄影，不想自驾。
 
-User: "Mid-July, flying from Shanghai, two people, around 7,000 RMB each, mostly scenery, don't want to self-drive."
+助手：
+收到。我先走“路线框定”阶段，给你 2-3 个 `route_id` 选项，再请你确认一个。
+你想用哪个平台来框定路线：小红书 / 高德地图 / 搜索引擎？
+如果你不指定，我默认先用小红书；失败会自动切到高德地图，再切搜索引擎。
 
-Assistant: [Runs route framing, then light validation]
+用户：默认就行。
 
-Best fit: North Xinjiang Yili soft route.
-Why: it gives you stronger scenery density within 7 days, avoids forcing both Yili and Kanas, and is more comfortable without self-driving.
+助手：
+好，我先用小红书。
+（此处执行：xhs 路线框定失败，自动降级到 amap；随后成功）
 
-Backup option: Kanas scenic line.
-Why not first: more transfer-heavy and more tiring for a first Xinjiang trip at this pace.
+助手：
+本次使用平台：高德地图
+已降级次数：1
+降级原因：小红书检索失败（未登录或返回空结果）
 
-Suggested transport:
-- Fly into Urumqi
-- Use a local driver / small-group route for the core days
-- Keep hotel changes to 3 bases max
+我给你 3 个候选路线：
 
-If this direction feels right, I'll turn it into a booking-ready 7-day plan with hotel strategy, transport chain, and daily execution cards.
+- `route_yili_soft_7d`
+  权衡：景观密度高、换乘压力适中、对不自驾最友好。
+- `route_kanas_focus_7d`
+  权衡：风景很强，但转场更长，体力压力高于前者。
+- `route_north_mix_7d`
+  权衡：覆盖更广，但每天路程更紧，酒店切换频率更高。
+
+我推荐 `route_yili_soft_7d`，原因：
+1）符合你“风景摄影 + 不自驾”的约束；
+2）7 天内可避免过度折返；
+3）更容易做到 3 个酒店基地区域内完成。
+
+（若本次使用小红书且拿到证据，应先展示“小红书原文参考”，每条包含点赞/收藏数量）
+
+请你在这 3 个里选一个 `route_id`，我再进入轻验证（交通 + 天气）。
+
+用户：选 `route_yili_soft_7d`。
+
+助手：
+好，已确认路线。下一步我会先做轻验证：
+1）上海进出新疆的航班/高铁衔接（若适用）；
+2）计划时间窗口内的天气风险。
+（此处执行：live_validation -> flyai/12306/amap -> booking_ready）
+
+助手：
+验证结果摘要：
+- 已验证：上海往返乌鲁木齐 + 区域内转场方案可落地；
+- 已验证：天气窗口总体可执行，但有 1 天需防风雨备选。
+- 提醒：酒店放在逐日阶段细化，旺季建议尽早锁房。
+
+是否确认进入下一步，生成逐日执行卡片版行程？
 ```
