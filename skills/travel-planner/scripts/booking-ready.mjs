@@ -1,21 +1,33 @@
-/**
- * Turn validated live search results into a booking-ready travel package
- * (Node port of booking_ready.py)
- */
+import { readJsonFromCliValue, runScript } from "./cli_args.mjs";
 
-import { fileURLToPath } from "node:url";
+function toNonEmptyString(...values) {
+  for (const value of values) {
+    const text = String(value || "").trim();
+    if (text) return text;
+  }
+  return "";
+}
 
-import {
-  assertOnlyFlags,
-  isCliHelp,
-  parseCliArgs,
-  readJsonFromCliValue,
-  requireFlag,
-} from "./cli_args.mjs";
+function firstArray(...candidates) {
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+  return [];
+}
 
 function firstList(payload) {
-  const data = (payload || {}).data || {};
-  return Array.isArray(data.itemList) ? data.itemList : [];
+  if (Array.isArray(payload)) return payload;
+  const root = payload || {};
+  const data = root.data || {};
+  return firstArray(
+    data.itemList,
+    data.items,
+    data.list,
+    root.itemList,
+    root.items,
+    root.list,
+    root.results,
+  );
 }
 
 function cleanPrice(value) {
@@ -41,7 +53,7 @@ function flightOption(item) {
     duration: firstJourney.totalDuration || item.totalDuration || "",
     price: item.adultPrice || "",
     price_value: cleanPrice(item.adultPrice),
-    booking_link: item.jumpUrl || "",
+    booking_link: toNonEmptyString(item.jumpUrl, item.jump_url, item.url, item.link),
   };
 }
 
@@ -57,7 +69,16 @@ function hotelOption(item) {
     review: item.review || "",
     price: item.price || "",
     price_value: cleanPrice(item.price),
-    booking_link: item.detailUrl || "",
+    booking_link: toNonEmptyString(
+      item.detailUrl,
+      item.detail_url,
+      item.jumpUrl,
+      item.jump_url,
+      item.hotelUrl,
+      item.hotel_url,
+      item.url,
+      item.link,
+    ),
     image: item.mainPic || "",
   };
 }
@@ -69,8 +90,32 @@ function poiOption(item) {
     address: item.address || "",
     ticket_name: ticketInfo.ticketName || "",
     ticket_price: ticketInfo.price,
-    booking_link: item.jumpUrl || "",
+    booking_link: toNonEmptyString(
+      item.jumpUrl,
+      item.jump_url,
+      item.detailUrl,
+      item.url,
+      item.link,
+    ),
     image: item.mainPic || "",
+  };
+}
+
+function diningOption(item) {
+  return {
+    name: item.name || "",
+    address: item.address || item.poiAddress || "",
+    category: item.categoryName || item.tag || item.type || "",
+    price: item.price || item.avgPrice || "",
+    booking_link: toNonEmptyString(
+      item.jumpUrl,
+      item.jump_url,
+      item.detailUrl,
+      item.detail_url,
+      item.url,
+      item.link,
+    ),
+    image: item.mainPic || item.picUrl || "",
   };
 }
 
@@ -101,18 +146,25 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
   const flightItems = firstList(liveResults?.flights || {}).map(flightOption);
   const hotelItems = firstList(liveResults?.hotels || {}).map(hotelOption);
   const poiItems = firstList(liveResults?.pois || {}).map(poiOption);
+  const diningItems = firstArray(
+    firstList(liveResults?.food || {}),
+    firstList(liveResults?.dining || {}),
+  ).map(diningOption);
   const trainItems = (liveResults?.transport?.trains || []).map(trainOption);
 
   const cheapestFlights = topSorted(flightItems, 3, "price_value");
   const topHotels = topSorted(hotelItems, 3, "price_value");
   const anchorPois = poiItems.slice(0, 3);
+  const topDining = diningItems.slice(0, 3);
   const topTrains = trainItems.slice(0, 3);
 
   const hasTransportEvidence = cheapestFlights.length > 0 || topTrains.length > 0;
   const transportRequired = liveValidation?.transport_required !== false;
   const hasTransport = transportRequired ? hasTransportEvidence : true;
   const hasHotels = topHotels.length > 0;
-  const readiness = hasTransport ? "ready" : "partial";
+  const hasDining = topDining.length > 0;
+  // transport + hotels 满足即为 ready；dining 是加分项不作门限
+  const readiness = hasTransport && hasHotels ? "ready" : "partial";
 
   const routeTitle = selectedRoute.title || "Recommended route";
   const routeSummary = selectedRoute.summary || "";
@@ -122,6 +174,7 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
     watchouts.push("No live long-distance transport results attached yet.");
   }
   if (!hasHotels) watchouts.push("No live hotel results attached yet.");
+  if (!hasDining) watchouts.push("No live dining results attached yet.");
   if (!anchorPois.length) watchouts.push("No live POI validation attached yet.");
   if (!transportRequired) {
     watchouts.push("Long-distance transport validation was skipped for this trip type.");
@@ -129,10 +182,9 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
   watchouts.push("Hotels are deferred for detailed day planning unless user asks to validate now.");
 
   if (hasTransport) {
-    const dests = new Set(
-      cheapestFlights.filter((f) => f.destination).map((f) => f.destination),
-    );
-    if (dests.size > 1) watchouts.push("Multiple arrival hubs are still in contention; explain why one wins.");
+    const dests = new Set(cheapestFlights.filter((f) => f.destination).map((f) => f.destination));
+    if (dests.size > 1)
+      watchouts.push("Multiple arrival hubs are still in contention; explain why one wins.");
   }
 
   if (hasHotels) {
@@ -159,6 +211,7 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
     recommended_sections: [
       "transport options",
       "hotel options",
+      "dining options",
       "anchor attractions",
       "booking watchouts",
       "next decision",
@@ -166,54 +219,41 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
     transport_options: cheapestFlights,
     rail_options: topTrains,
     hotel_options: topHotels,
+    dining_options: topDining,
     anchor_pois: anchorPois,
     chosen_transport: cheapestFlights[0] || topTrains[0] || {},
     chosen_hotel: topHotels[0] || {},
+    chosen_dining: topDining[0] || {},
     chosen_anchor_poi: anchorPois[0] || {},
     booking_watchouts: [...watchouts, ...(liveValidation.priority_checks || [])],
     next_decision:
       readiness === "ready"
         ? "Ask user to confirm light-validation result, then move to detailed day planning."
-        : "Run missing long-distance transport checks before moving forward.",
+        : "Run missing live transport/hotel/dining checks before moving forward.",
     decision_gates: liveValidation.decision_gates || [],
   };
 }
 
-function printBookingReadyHelp() {
-  console.log(`booking_ready.mjs — synthesize booking-ready package from live tool outputs
-
-All flags use --key=value. JSON may be inline or @path.
-
-Usage:
-  node booking_ready.mjs --trip=<json|@file> --route=<json|@file> --validation=<json|@file> [--results=<json|@file>]
-
-Options:
-  --trip         Required. Trip object.
-  --route        Required. Route object.
-  --validation   Required. Live validation object.
-  --results      Optional (default {}).
-`);
-}
-
-function main() {
-  const argv = process.argv.slice(2);
-  if (isCliHelp(argv)) {
-    printBookingReadyHelp();
-    process.exit(0);
-  }
-  const args = parseCliArgs(argv);
-  assertOnlyFlags(args, ["trip", "route", "validation", "results"]);
-  requireFlag(args, "trip");
-  requireFlag(args, "route");
-  requireFlag(args, "validation");
-  const trip = readJsonFromCliValue("trip", args.trip, undefined);
-  const route = readJsonFromCliValue("route", args.route, undefined);
-  const validation = readJsonFromCliValue("validation", args.validation, undefined);
-  const results = readJsonFromCliValue("results", args.results, {});
-  console.log(JSON.stringify(buildBookingReadyPackage(trip, route, validation, results), null, 2));
-}
-
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  main();
-}
+runScript({
+  name: "booking-ready.mjs",
+  description: "将实时搜索结果合并生成 booking-ready 行程包",
+  usage:
+    "node booking-ready.mjs --trip=<json|@file> --route=<json|@file> --validation=<json|@file> [--results=<json|@file>]",
+  flags: [
+    { name: "trip", desc: "行程对象 JSON 或 @文件路径" },
+    { name: "route", desc: "路线对象 JSON 或 @文件路径" },
+    { name: "validation", desc: "实时验证对象 JSON 或 @文件路径" },
+    { name: "results", desc: "实时搜索结果 JSON 或 @文件路径（可选，默认 {}）" },
+  ],
+  required: ["trip", "route", "validation"],
+  callerUrl: import.meta.url,
+  run(args) {
+    const trip = readJsonFromCliValue("trip", args.trip, undefined);
+    const route = readJsonFromCliValue("route", args.route, undefined);
+    const validation = readJsonFromCliValue("validation", args.validation, undefined);
+    const results = readJsonFromCliValue("results", args.results, {});
+    console.log(
+      JSON.stringify(buildBookingReadyPackage(trip, route, validation, results), null, 2),
+    );
+  },
+});

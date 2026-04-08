@@ -1,37 +1,17 @@
 /** Route framing module (single-platform + fallback metadata). */
 
-import { fileURLToPath } from "node:url";
-
-import {
-  assertOnlyFlags,
-  isCliHelp,
-  parseCliArgs,
-  readJsonFromCliValue,
-  requireFlag,
-} from "./cli_args.mjs";
+import { readJsonFromCliValue, runScript } from "./cli_args.mjs";
 
 function normalizeText(value) {
   return String(value).trim().toLowerCase();
-}
-
-function destinationKey(tripRequest) {
-  const destination = tripRequest.destination || {};
-  const parts = [
-    destination.city || "",
-    destination.region || "",
-    destination.country || "",
-    tripRequest.destination_text || "",
-  ];
-  const text = parts.filter(Boolean).join(" ");
-  const normalized = normalizeText(text);
-  return "generic";
 }
 
 function normalizePlatform(value) {
   const text = normalizeText(value);
   if (text === "xhs" || text === "xiaohongshu" || text === "小红书") return "xhs";
   if (text === "amap" || text === "gaode" || text === "高德地图") return "amap";
-  if (text === "web" || text === "web_search" || text === "search" || text === "搜索引擎") return "web";
+  if (text === "web" || text === "web_search" || text === "search" || text === "搜索引擎")
+    return "web";
   if (text === "auto" || !text) return "auto";
   return "xhs";
 }
@@ -107,7 +87,10 @@ function buildXhsCandidatesFromEvidence(xhsEvidence) {
     : [];
   if (loops.length === 0) return null;
   const quality = String(xhsEvidence?.evidence_quality || "medium").toLowerCase();
-  const links = (xhsEvidence?.sources || []).map((item) => item?.url).filter(Boolean).slice(0, 8);
+  const links = (xhsEvidence?.sources || [])
+    .map((item) => item?.url)
+    .filter(Boolean)
+    .slice(0, 8);
   const primaryStops = Array.isArray(loops[0]) ? loops[0] : [];
   const primary = {
     route_id: "xhs_primary_1",
@@ -126,6 +109,18 @@ function buildXhsCandidatesFromEvidence(xhsEvidence) {
     source_platform: "xhs",
     evidence_quality: quality,
   }));
+  // 若只有 1 条 loop，补一个平台默认备选，确保 route_options.length >= 2
+  if (alternatives.length === 0) {
+    alternatives.push({
+      route_id: "xhs_alt_generic",
+      title: "备选路线（自动补全）",
+      summary: "基于小红书证据自动补全的备选路线框架，待进一步补充。",
+      stops: primaryStops.slice().reverse().filter(Boolean),
+      source_platform: "xhs",
+      evidence_quality: quality,
+    });
+  }
+
   return {
     ok: true,
     recommended_route: primary,
@@ -138,7 +133,9 @@ function buildXhsCandidatesFromEvidence(xhsEvidence) {
 }
 
 function buildRouteCandidatesFromInput(tripRequest, platform) {
-  const candidates = Array.isArray(tripRequest.route_candidates) ? tripRequest.route_candidates : [];
+  const candidates = Array.isArray(tripRequest.route_candidates)
+    ? tripRequest.route_candidates
+    : [];
   const options = Array.isArray(tripRequest.route_options) ? tripRequest.route_options : [];
   const sourceOptions = (candidates.length > 0 ? candidates : options).slice(0, 3);
   if (sourceOptions.length === 0) {
@@ -194,8 +191,45 @@ function buildRouteCandidatesFromInput(tripRequest, platform) {
  * }}
  */
 export function selectRouteCandidates(tripRequest) {
-  const key = destinationKey(tripRequest);
   const preference = normalizePlatform(tripRequest.route_source_preference || "xhs");
+  const policy = String(tripRequest.recommendation_source_policy || "").trim();
+  // xhs_first policy: 若无上游证据则需要 agent 先走 xhs 检索链路
+  const isXhsFirst = policy === "xhs_first" || preference === "xhs";
+  const hasXhsEvidence =
+    isXhsFirst &&
+    tripRequest.xhs_evidence != null &&
+    Array.isArray(tripRequest.xhs_evidence?.route_hints?.popular_loops) &&
+    tripRequest.xhs_evidence.route_hints.popular_loops.length > 0;
+
+  if (isXhsFirst && !hasXhsEvidence) {
+    // 还没有小红书证据：要求 agent 先走第四步 xhs 检索链路
+    return {
+      destination_key: "generic",
+      recommendation_source: policy || "xhs_first",
+      requires_xhs_evidence: true,
+      recommended_route: {},
+      alternatives: [],
+      rejected_routes: [],
+      framing_source: "agent_tools",
+      used_platform: "xhs",
+      fallback_count: 0,
+      fallback_chain: [],
+      fallback_reason: "",
+      source_reason: "",
+      source_confidence: "none",
+      evidence_summary: "",
+      evidence_links: [],
+      route_options: [],
+      comparison: [],
+      next_action:
+        "Fetch Xiaohongshu route evidence first: call @skills/xiaohongshu search-feeds, " +
+        "then pipe results through xhs_evidence_builder.mjs before calling route_selector again.",
+      planning_note:
+        "Xiaohongshu-first policy active. No XHS evidence found. " +
+        "Must complete XHS search fallback before route framing can proceed.",
+    };
+  }
+
   const fallbackChain = Array.isArray(tripRequest.route_source_fallbacks)
     ? tripRequest.route_source_fallbacks
     : [];
@@ -204,12 +238,11 @@ export function selectRouteCandidates(tripRequest) {
   );
   const candidates = buildRouteCandidatesFromInput(tripRequest, usedPlatform);
   const sourceReason = String(tripRequest.source_reason || "").trim();
-  const nextAction = candidates.ok
-    ? ""
-    : "Switch to the next platform in fallback chain: xhs -> amap -> web.";
 
   return {
-    destination_key: key,
+    destination_key: "generic",
+    recommendation_source: policy || usedPlatform,
+    requires_xhs_evidence: false,
     recommended_route: candidates.recommended_route,
     alternatives: candidates.alternatives,
     rejected_routes: [],
@@ -229,42 +262,23 @@ export function selectRouteCandidates(tripRequest) {
       fit_reason: index === 0 ? "Primary recommendation from selected platform." : "Backup option.",
       risk_note: "Verify transport and hotel feasibility before booking.",
     })),
-    next_action: nextAction,
+    next_action: candidates.ok
+      ? ""
+      : "Switch to the next platform in fallback chain: xhs -> amap -> web.",
     planning_note:
       "Single-platform route framing. Default xhs; if failed, fallback to amap then web search.",
   };
 }
 
-function printRouteSelectorHelp() {
-  console.log(`route_selector.mjs — route framing decision module
-
-All flags use --key=value. JSON may be inline or @path.
-
-This script consumes trip input and returns route framing candidates + platform metadata.
-It does not perform external network calls itself.
-
-Usage:
-  node route_selector.mjs --input=<trip_request_json|@file>
-
-Example:
-  node route_selector.mjs --input='{"destination":{"region":"Xinjiang"},"duration_days":7}'
-`);
-}
-
-function main() {
-  const argv = process.argv.slice(2);
-  if (isCliHelp(argv)) {
-    printRouteSelectorHelp();
-    process.exit(0);
-  }
-  const args = parseCliArgs(argv);
-  assertOnlyFlags(args, ["input"]);
-  requireFlag(args, "input");
-  const payload = readJsonFromCliValue("input", args.input, undefined);
-  console.log(JSON.stringify(selectRouteCandidates(payload), null, 2));
-}
-
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  main();
-}
+runScript({
+  name: "route-plan.mjs",
+  description: "路线框定决策模块，消费上游证据输出结构化候选路线",
+  usage: "node route-plan.mjs --input=<trip_request_json|@file>",
+  flags: [{ name: "input", desc: "trip 请求对象 JSON 或 @文件路径" }],
+  required: ["input"],
+  callerUrl: import.meta.url,
+  run(args) {
+    const payload = readJsonFromCliValue("input", args.input, undefined);
+    console.log(JSON.stringify(selectRouteCandidates(payload), null, 2));
+  },
+});

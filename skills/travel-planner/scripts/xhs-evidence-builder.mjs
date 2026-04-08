@@ -1,19 +1,12 @@
-import { fileURLToPath } from "node:url";
-
-import {
-  assertOnlyFlags,
-  isCliHelp,
-  parseCliArgs,
-  readJsonFromCliValue,
-  requireFlag,
-} from "./cli_args.mjs";
+import { readJsonFromCliValue, runScript } from "./cli_args.mjs";
 
 function toNumber(value) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") return 0;
   const normalized = value.replace(/[,\s]/g, "");
   if (!normalized) return 0;
-  if (normalized.endsWith("w")) return Math.round(Number.parseFloat(normalized.slice(0, -1)) * 10000);
+  if (normalized.endsWith("w"))
+    return Math.round(Number.parseFloat(normalized.slice(0, -1)) * 10000);
   const n = Number.parseFloat(normalized);
   return Number.isFinite(n) ? n : 0;
 }
@@ -22,7 +15,9 @@ function pickLikeCount(item) {
   return Math.max(
     toNumber(item?.like_count),
     toNumber(item?.liked_count),
+    toNumber(item?.likedCount),
     toNumber(item?.interact_info?.liked_count),
+    toNumber(item?.interactInfo?.likedCount),
     toNumber(item?.interaction?.likes),
     toNumber(item?.metrics?.likes),
   );
@@ -34,22 +29,65 @@ function isVideoNote(item) {
     String(item?.type || ""),
     String(item?.model_type || ""),
     String(item?.display_type || ""),
-  ].join(" ").toLowerCase();
+  ]
+    .join(" ")
+    .toLowerCase();
   return candidates.includes("视频") || candidates.includes("video");
 }
 
 function parseLoopFromText(text, destinationHint) {
   const cleaned = String(text || "").replace(/\s+/g, "");
   if (!cleaned) return [];
-  const delimiter = cleaned.includes("→") ? "→" : cleaned.includes("-") ? "-" : cleaned.includes("—") ? "—" : "";
+  const dayMatches = [...cleaned.matchAll(/(?:day|Day|DAY|第?\d+天)[：:：-]?([^。；;]+)/g)];
+  if (dayMatches.length > 0) {
+    const merged = dayMatches
+      .map((m) => String(m[1] || "").trim())
+      .filter(Boolean)
+      .join("→");
+    return parseLoopFromText(merged, destinationHint);
+  }
+  const delimiter = cleaned.includes("→")
+    ? "→"
+    : cleaned.includes("-")
+      ? "-"
+      : cleaned.includes("—")
+        ? "—"
+        : "";
   if (!delimiter) {
     return destinationHint ? [destinationHint] : [];
   }
   const parts = cleaned
     .split(delimiter)
-    .map((part) => part.replace(/[D天第\d日]/g, "").trim())
+    .map((part) =>
+      part
+        .replace(/[D天第\d日]/g, "")
+        .replace(/[(（][^)）]*[)）]/g, "")
+        .replace(/^\W+|\W+$/g, "")
+        .trim(),
+    )
     .filter(Boolean);
   return parts.length >= 2 ? parts : destinationHint ? [destinationHint] : [];
+}
+
+function inferTitle(item) {
+  return String(item?.title || item?.displayTitle || item?.display_title || item?.name || "").trim();
+}
+
+function inferId(item) {
+  return String(item?.id || item?.note_id || item?.noteId || "").trim();
+}
+
+function inferUrl(item, id) {
+  const raw = String(item?.url || item?.note_url || item?.noteUrl || item?.share_url || "").trim();
+  if (raw) return raw;
+  if (id) return `https://www.xiaohongshu.com/explore/${id}`;
+  return "";
+}
+
+function inferText(item) {
+  return String(
+    item?.desc || item?.description || item?.content || item?.note_content || inferTitle(item),
+  ).trim();
 }
 
 export function buildXhsSearchQueries(destinationText, durationDays) {
@@ -70,14 +108,17 @@ export function buildXhsEvidence(input = {}) {
 
   const filtered = searchResults
     .filter((item) => !isVideoNote(item))
-    .map((item) => ({
-      id: item?.id || item?.note_id || "",
-      title: String(item?.title || item?.name || "").trim(),
-      url: String(item?.url || item?.note_url || "").trim(),
+    .map((item) => {
+      const id = inferId(item);
+      return {
+      id,
+      title: inferTitle(item),
+      url: inferUrl(item, id),
       like_count: pickLikeCount(item),
-      text: String(item?.desc || item?.description || item?.title || "").trim(),
-      note_type: String(item?.note_type || item?.type || "").trim(),
-    }))
+      text: inferText(item),
+      note_type: String(item?.note_type || item?.type || item?.noteType || "").trim(),
+    };
+    })
     .filter((item) => item.url && item.title)
     .sort((a, b) => b.like_count - a.like_count);
 
@@ -97,7 +138,8 @@ export function buildXhsEvidence(input = {}) {
         sort_by: "最多点赞",
       },
     },
-    evidence_quality: top.length >= 2 && loops.length > 0 ? "high" : top.length > 0 ? "medium" : "low",
+    evidence_quality:
+      top.length >= 2 && loops.length > 0 ? "high" : top.length > 0 ? "medium" : "low",
     generated_at: new Date().toISOString(),
     sources: top.map((item) => ({
       id: item.id,
@@ -116,40 +158,25 @@ export function buildXhsEvidence(input = {}) {
     },
     summary:
       top.length > 0
-        ? `Selected ${top.length} high-like graphic-note posts for route framing.`
-        : "No usable Xiaohongshu graphic notes were found.",
+        ? `已选取 ${top.length} 篇高点赞图文笔记，用于路线框定。`
+        : "未找到可用的小红书图文笔记。",
   };
 }
 
-function printHelp() {
-  console.log(`xhs_evidence_builder.mjs — normalize Xiaohongshu search results
-
-Usage:
-  node xhs_evidence_builder.mjs --input=<json_or_@file>
-
-Input shape:
-  {
-    "destination_text":"川西",
-    "duration_days":5,
-    "search_results":[...]
-  }
-`);
-}
-
-function main() {
-  const argv = process.argv.slice(2);
-  if (isCliHelp(argv)) {
-    printHelp();
-    process.exit(0);
-  }
-  const args = parseCliArgs(argv);
-  assertOnlyFlags(args, ["input"]);
-  requireFlag(args, "input");
-  const payload = readJsonFromCliValue("input", args.input, undefined);
-  console.log(JSON.stringify(buildXhsEvidence(payload), null, 2));
-}
-
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  main();
-}
+runScript({
+  name: "xhs-evidence-builder.mjs",
+  description: "规范化小红书搜索结果，输出 xhs_evidence 对象供 route-plan 消费",
+  usage: "node xhs-evidence-builder.mjs --input=<json|@file>",
+  flags: [
+    {
+      name: "input",
+      desc: "{ destination_text, duration_days, search_results[] } JSON 或 @文件路径",
+    },
+  ],
+  required: ["input"],
+  callerUrl: import.meta.url,
+  run(args) {
+    const payload = readJsonFromCliValue("input", args.input, undefined);
+    console.log(JSON.stringify(buildXhsEvidence(payload), null, 2));
+  },
+});

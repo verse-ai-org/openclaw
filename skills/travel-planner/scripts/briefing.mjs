@@ -1,16 +1,4 @@
-/**
- * Pre-trip and daily brief generation (Node port of briefing.py)
- */
-
-import { fileURLToPath } from "node:url";
-
-import {
-  assertOnlyFlags,
-  isCliHelp,
-  parseCliArgs,
-  readJsonFromCliValue,
-  requireFlag,
-} from "./cli_args.mjs";
+import { readJsonFromCliValue, runScript } from "./cli_args.mjs";
 
 function parseDate(value) {
   if (!value) return null;
@@ -68,9 +56,7 @@ export function buildPreTripBrief(tripData, plan) {
     trip_name: name,
     days_until_departure: daysUntil,
     headline:
-      daysUntil != null
-        ? `${name} departs in ${daysUntil} days.`
-        : `Pre-trip brief for ${name}.`,
+      daysUntil != null ? `${name} departs in ${daysUntil} days.` : `Pre-trip brief for ${name}.`,
     must_handle_next: tasks.slice(0, 5),
     booking_status: bookingReady.status || "",
     confirmed_bookings: confirmed,
@@ -94,8 +80,7 @@ export function buildDailyBrief(tripData, plan, dayIndex = 1) {
   const idx = Math.max(1, dayIndex) - 1;
   const dayCard = itinerary[Math.min(idx, itinerary.length - 1)];
   const bookingReady = plan.booking_ready || {};
-  const hotelChoice =
-    (tripData.confirmed_bookings || {}).hotel || {};
+  const hotelChoice = (tripData.confirmed_bookings || {}).hotel || {};
 
   const items = [
     `Primary goal: ${dayCard.primary_goal || ""}`,
@@ -134,47 +119,30 @@ export function buildDailyBrief(tripData, plan, dayIndex = 1) {
   };
 }
 
-function printBriefingHelp() {
-  console.log(`briefing.mjs — pre-trip or daily brief JSON
-
-All flags use --key=value. JSON may be inline or @path.
-
-Usage:
-  node briefing.mjs --mode=pre_trip|daily --trip=<json|@file> --plan=<json|@file> [--day=<N>]
-
-Options:
-  --mode   Required. pre_trip or daily.
-  --trip   Required. Trip object.
-  --plan   Required. Plan object.
-  --day    For daily mode; 1-based day index (default 1).
-`);
-}
-
-function main() {
-  const argv = process.argv.slice(2);
-  if (isCliHelp(argv)) {
-    printBriefingHelp();
-    process.exit(0);
-  }
-  const args = parseCliArgs(argv);
-  assertOnlyFlags(args, ["mode", "trip", "plan", "day"]);
-  requireFlag(args, "mode");
-  requireFlag(args, "trip");
-  requireFlag(args, "plan");
-  const mode = args.mode;
-  const trip = readJsonFromCliValue("trip", args.trip, undefined);
-  const plan = readJsonFromCliValue("plan", args.plan, undefined);
-  const dayRaw = args.day !== undefined && args.day !== "" ? args.day : "1";
-  const day = Number.parseInt(dayRaw, 10);
-  if (!Number.isFinite(day)) {
-    console.error("Error: --day must be a number");
-    process.exit(1);
-  }
-  const result = mode === "pre_trip" ? buildPreTripBrief(trip, plan) : buildDailyBrief(trip, plan, day);
-  console.log(JSON.stringify(result, null, 2));
-}
-
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  main();
-}
+runScript({
+  name: "briefing.mjs",
+  description: "行前简报或每日简报 JSON 输出",
+  usage:
+    "node briefing.mjs --mode=pre_trip|daily --trip=<json|@file> --plan=<json|@file> [--day=<N>]",
+  flags: [
+    { name: "mode", desc: "pre_trip 或 daily" },
+    { name: "trip", desc: "行程对象 JSON 或 @文件路径" },
+    { name: "plan", desc: "计划对象 JSON 或 @文件路径" },
+    { name: "day", desc: "每日模式下的第几天（从 1 开始，默认 1）" },
+  ],
+  required: ["mode", "trip", "plan"],
+  callerUrl: import.meta.url,
+  run(args) {
+    const trip = readJsonFromCliValue("trip", args.trip, undefined);
+    const plan = readJsonFromCliValue("plan", args.plan, undefined);
+    const dayRaw = args.day !== undefined && args.day !== "" ? args.day : "1";
+    const day = Number.parseInt(dayRaw, 10);
+    if (!Number.isFinite(day)) {
+      console.error("Error: --day 必须为数字");
+      process.exit(1);
+    }
+    const result =
+      args.mode === "pre_trip" ? buildPreTripBrief(trip, plan) : buildDailyBrief(trip, plan, day);
+    console.log(JSON.stringify(result, null, 2));
+  },
+});

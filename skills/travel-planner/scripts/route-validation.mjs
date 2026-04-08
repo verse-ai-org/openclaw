@@ -1,16 +1,4 @@
-/**
- * Booking-oriented validation helpers (Node port of live_validation.py)
- */
-
-import { fileURLToPath } from "node:url";
-
-import {
-  assertOnlyFlags,
-  isCliHelp,
-  parseCliArgs,
-  readJsonFromCliValue,
-  requireFlag,
-} from "./cli_args.mjs";
+import { readJsonFromCliValue, runScript } from "./cli_args.mjs";
 
 function safeDate(value, fallbackDays) {
   if (value) return value;
@@ -20,12 +8,7 @@ function safeDate(value, fallbackDays) {
 }
 
 function extractDepartureCity(tripData, preferences) {
-  return (
-    tripData.departure_city ||
-    preferences.departure_city ||
-    tripData.origin_city ||
-    ""
-  );
+  return tripData.departure_city || preferences.departure_city || tripData.origin_city || "";
 }
 
 function flightValidation(tripData, selectedRoute, preferences) {
@@ -167,7 +150,8 @@ function needsLongDistanceTransport(tripData, selectedRoute, preferences) {
 }
 
 function weatherValidation(tripData, selectedRoute, preferences) {
-  const destination = tripData.destination_text || selectedRoute.region || selectedRoute.title || "<destination>";
+  const destination =
+    tripData.destination_text || selectedRoute.region || selectedRoute.title || "<destination>";
   const startDate = safeDate(tripData.departure_date || "", 30);
   const endDate = safeDate(tripData.return_date || "", 37);
   const pace = preferences.pace_preference || tripData.pace_preference || "moderate";
@@ -223,6 +207,38 @@ function chinaTransportValidation(selectedRoute) {
   ];
 }
 
+function hotelValidation(selectedRoute) {
+  const bases = (selectedRoute.hotel_bases || []).slice(0, 3);
+  return bases.map((base) => ({
+    decision: `Validate hotel availability in ${base}`,
+    goal: "Confirm that hotels in this base are available and within budget.",
+    tool: "@skills/trip search-hotel",
+    skill: "@skills/trip",
+    runner: "skill",
+    result_bucket: "hotels",
+    skill_action: "search-hotel",
+    skill_input: { city: base },
+    required_inputs: { city: base },
+    skill_hint: "Call @skills/trip with search-hotel for each hotel base.",
+  }));
+}
+
+function poiValidation(selectedRoute) {
+  const cities = (selectedRoute.poi_cities || []).slice(0, 3);
+  return cities.map((city) => ({
+    decision: `Check top attractions in ${city}`,
+    goal: "Surface must-see POIs and verify ticket/booking requirements.",
+    tool: "@skills/trip search-poi",
+    skill: "@skills/trip",
+    runner: "skill",
+    result_bucket: "pois",
+    skill_action: "search-poi",
+    skill_input: { city },
+    required_inputs: { city },
+    skill_hint: "Call @skills/trip with search-poi for each POI city.",
+  }));
+}
+
 function railValidation(tripData) {
   const validations = [];
   for (const segment of tripData.rail_segments || []) {
@@ -259,8 +275,12 @@ function railValidation(tripData) {
 export function buildLiveValidation(tripData, selectedRoute, preferences) {
   const destinationCountry = String((tripData.destination || {}).country || "").toLowerCase();
   const transportNeed = needsLongDistanceTransport(tripData, selectedRoute, preferences);
-  const flightChecks = transportNeed.required ? flightValidation(tripData, selectedRoute, preferences) : [];
+  const flightChecks = transportNeed.required
+    ? flightValidation(tripData, selectedRoute, preferences)
+    : [];
   const weatherChecks = weatherValidation(tripData, selectedRoute, preferences);
+  const hotelChecks = hotelValidation(selectedRoute);
+  const poiChecks = poiValidation(selectedRoute);
   const china =
     transportNeed.required && ["china", "cn", "中国"].includes(destinationCountry)
       ? chinaTransportValidation(selectedRoute)
@@ -276,12 +296,19 @@ export function buildLiveValidation(tripData, selectedRoute, preferences) {
       ready_when: transportNeed.required
         ? "At least one realistic long-distance transport path is validated."
         : "Long-distance transport is not required for this trip.",
-      depends_on: transportNeed.required ? ["flight validation", "rail/map validation"] : ["not required"],
+      depends_on: transportNeed.required
+        ? ["flight validation", "rail/map validation"]
+        : ["not required"],
     },
     {
       name: "Weather feasibility",
       ready_when: "No blocking weather risk is detected in the travel window.",
       depends_on: ["weather validation"],
+    },
+    {
+      name: "Hotel & POI availability",
+      ready_when: "At least one hotel option and key POIs verified per base city.",
+      depends_on: ["hotel validation", "poi validation"],
     },
   ];
 
@@ -299,8 +326,8 @@ export function buildLiveValidation(tripData, selectedRoute, preferences) {
     transport_requirement_reason: transportNeed.reason,
     tool_plan: {
       flights: flightChecks,
-      hotels: [],
-      pois: [],
+      hotels: hotelChecks,
+      pois: poiChecks,
       transport: [...china, ...rail],
       weather: weatherChecks,
     },
@@ -333,38 +360,22 @@ export function buildLiveValidation(tripData, selectedRoute, preferences) {
   };
 }
 
-function printLiveValidationHelp() {
-  console.log(`live_validation.mjs — build validation package (does not call external APIs)
-
-All flags use --key=value. JSON may be inline or @path.
-
-Usage:
-  node live_validation.mjs --trip=<trip_json|@file> --route=<route_json|@file> [--preferences=<json|@file>]
-
-Options:
-  --trip          Required. Trip object.
-  --route         Required. Selected route object.
-  --preferences   Optional (default {}).
-`);
-}
-
-function main() {
-  const argv = process.argv.slice(2);
-  if (isCliHelp(argv)) {
-    printLiveValidationHelp();
-    process.exit(0);
-  }
-  const args = parseCliArgs(argv);
-  assertOnlyFlags(args, ["trip", "route", "preferences"]);
-  requireFlag(args, "trip");
-  requireFlag(args, "route");
-  const trip = readJsonFromCliValue("trip", args.trip, undefined);
-  const route = readJsonFromCliValue("route", args.route, undefined);
-  const preferences = readJsonFromCliValue("preferences", args.preferences, {});
-  console.log(JSON.stringify(buildLiveValidation(trip, route, preferences), null, 2));
-}
-
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  main();
-}
+runScript({
+  name: "route-validation.mjs",
+  description: "构建验证计划包",
+  usage:
+    "node route-validation.mjs --trip=<json|@file> --route=<json|@file> [--preferences=<json|@file>]",
+  flags: [
+    { name: "trip", desc: "行程对象 JSON 或 @文件路径" },
+    { name: "route", desc: "已选路线对象 JSON 或 @文件路径" },
+    { name: "preferences", desc: "用户偏好对象 JSON 或 @文件路径（可选，默认 {}）" },
+  ],
+  required: ["trip", "route"],
+  callerUrl: import.meta.url,
+  run(args) {
+    const trip = readJsonFromCliValue("trip", args.trip, undefined);
+    const route = readJsonFromCliValue("route", args.route, undefined);
+    const preferences = readJsonFromCliValue("preferences", args.preferences, {});
+    console.log(JSON.stringify(buildLiveValidation(trip, route, preferences), null, 2));
+  },
+});

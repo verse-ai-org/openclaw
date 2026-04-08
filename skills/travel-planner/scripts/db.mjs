@@ -6,15 +6,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import {
   assertOnlyFlags,
-  isCliHelp,
-  parseCliArgs,
   readJsonFromCliValue,
   requireCmd,
   requireFlag,
+  runScript,
 } from "./cli_args.mjs";
 
 /** @type {string | null} */
@@ -34,8 +31,45 @@ function dbDir() {
 
 const preferencesFile = () => path.join(dbDir(), "preferences.json");
 const tripsFile = () => path.join(dbDir(), "trips.json");
+const dataDir = () => path.join(dbDir(), "data");
+const evidenceDir = () => path.join(dataDir(), "evidence");
 
 const DEFAULT_TRIP_STAGE = "intake";
+
+/** Default values for all trip fields. Centralises the schema so that
+ * normalizeTripRecord never needs per-field ??= assignments. */
+const TRIP_DEFAULTS = {
+  stage: DEFAULT_TRIP_STAGE,
+  planning_mode: "explore",
+  destination_text: "",
+  travel_month: null,
+  travel_month_text: "",
+  date_flexibility: "",
+  transport_preferences: [],
+  constraints: [],
+  must_do: [],
+  nice_to_have: [],
+  selected_route: {},
+  route_source_preference: "xhs",
+  route_source_used: "",
+  route_source_fallbacks: [],
+  source_reason: "",
+  route_evidence_meta: null,
+  route_candidates: [],
+  route_options: [],
+  route_choice_confirmed: false,
+  chosen_route_id: "",
+  route_plan: null,
+  route_validation: null,
+  live_results: null,
+  booking_strategy: {},
+  booking_ready: null,
+  bookings_confirmed: false,
+  confirmed_bookings: {},
+  during_trip: false,
+  daily_brief_preferences: { local_morning_hour: 7 },
+  service_preferences: { daily_channel_brief: false, pre_trip_reminders: false },
+};
 
 function emptyRouteFraming() {
   return {
@@ -92,6 +126,7 @@ function emptyLiveResults() {
 
 export function ensureDbFiles() {
   fs.mkdirSync(dbDir(), { recursive: true });
+  fs.mkdirSync(evidenceDir(), { recursive: true });
 
   if (!fs.existsSync(preferencesFile())) {
     const defaultPrefs = {
@@ -144,36 +179,27 @@ function saveJson(filePath, data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
 }
 
+function sanitizeFileToken(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+function evidenceFilePath(tripId, platform = "xhs") {
+  const safeTripId = sanitizeFileToken(tripId);
+  const safePlatform = sanitizeFileToken(platform || "xhs");
+  return path.join(evidenceDir(), `${safeTripId}.${safePlatform}.json`);
+}
+
 export function normalizeTripRecord(trip) {
-  trip.stage ??= DEFAULT_TRIP_STAGE;
-  trip.planning_mode ??= "explore";
-  trip.destination_text ??= "";
-  trip.travel_month ??= null;
-  trip.travel_month_text ??= "";
-  trip.date_flexibility ??= "";
-  trip.transport_preferences ??= [];
-  trip.constraints ??= [];
-  trip.must_do ??= [];
-  trip.nice_to_have ??= [];
-  trip.selected_route ??= {};
-  trip.route_source_preference ??= "xhs";
-  trip.route_source_used ??= "";
-  trip.route_source_fallbacks ??= [];
-  trip.source_reason ??= "";
-  trip.route_candidates ??= [];
-  trip.route_options ??= [];
-  trip.route_choice_confirmed ??= false;
-  trip.chosen_route_id ??= "";
-  trip.route_framing ??= emptyRouteFraming();
-  trip.live_validation ??= emptyLiveValidation();
-  trip.live_results ??= emptyLiveResults();
-  trip.booking_strategy ??= {};
-  trip.booking_ready ??= emptyBookingReady();
-  trip.bookings_confirmed ??= false;
-  trip.confirmed_bookings ??= {};
-  trip.during_trip ??= false;
-  trip.daily_brief_preferences ??= { local_morning_hour: 7 };
-  trip.service_preferences ??= { daily_channel_brief: false, pre_trip_reminders: false };
+  // Merge defaults first (preserves existing values), then fix up object fields
+  // that need to be initialised from factory functions rather than plain literals.
+  Object.assign(trip, { ...TRIP_DEFAULTS, ...trip });
+  if (!trip.route_plan) trip.route_plan = emptyRouteFraming();
+  if (!trip.route_evidence_meta) trip.route_evidence_meta = {};
+  if (!trip.route_validation) trip.route_validation = emptyLiveValidation();
+  if (!trip.live_results) trip.live_results = emptyLiveResults();
+  if (!trip.booking_ready) trip.booking_ready = emptyBookingReady();
   return trip;
 }
 
@@ -287,28 +313,6 @@ export function setTripStage(tripId, stage) {
   return updateTrip(tripId, { stage });
 }
 
-export function saveRouteFraming(tripId, recommendedRoute, alternatives, rejectedRoutes, decisionSummary) {
-  const routeOptions =
-    recommendedRoute && Object.keys(recommendedRoute).length
-      ? [recommendedRoute, ...(alternatives || [])]
-      : alternatives || [];
-  const updates = {
-    stage: "route_framing",
-    selected_route: recommendedRoute || {},
-    route_candidates: routeOptions,
-    route_options: routeOptions,
-    route_choice_confirmed: false,
-    chosen_route_id: "",
-    route_framing: {
-      recommended_route: recommendedRoute,
-      alternatives: alternatives || [],
-      rejected_routes: rejectedRoutes || [],
-      decision_summary: decisionSummary || {},
-    },
-  };
-  return updateTrip(tripId, updates);
-}
-
 export function saveRouteFramingWithSource(
   tripId,
   recommendedRoute,
@@ -319,22 +323,37 @@ export function saveRouteFramingWithSource(
   fallbackCount = 0,
   fallbackReason = "",
   fallbackChain = [],
+  sourceReason = "",
+  routeSourcePreference = "",
 ) {
+  const trip = getTripById(tripId);
+  if (!trip) return false;
   const routeOptions =
     recommendedRoute && Object.keys(recommendedRoute).length
       ? [recommendedRoute, ...(alternatives || [])]
       : alternatives || [];
+  const platform = String(usedPlatform || "").trim().toLowerCase();
+  if (platform === "xhs") {
+    const evidenceMeta = trip.route_evidence_meta || {};
+    const quality = String(evidenceMeta?.quality || "").toLowerCase();
+    const sourceCount = Number(evidenceMeta?.source_count || 0);
+    const hasEvidence = sourceCount > 0 || quality === "medium" || quality === "high";
+    if (!hasEvidence) return false;
+  }
+  if (routeOptions.length < 2) return false;
   const normalizedFallbacks = Array.isArray(fallbackChain) ? fallbackChain : [];
   const updates = {
-    stage: "route_framing",
+    stage: "route_plan",
     selected_route: recommendedRoute || {},
     route_candidates: routeOptions,
     route_options: routeOptions,
     route_choice_confirmed: false,
     chosen_route_id: "",
     route_source_used: usedPlatform || "",
+    source_reason: sourceReason || "",
     route_source_fallbacks: normalizedFallbacks,
-    route_framing: {
+    ...(routeSourcePreference ? { route_source_preference: routeSourcePreference } : {}),
+    route_plan: {
       used_platform: usedPlatform || "",
       fallback_count: Number.isFinite(Number(fallbackCount)) ? Number(fallbackCount) : 0,
       fallback_reason: fallbackReason || "",
@@ -352,6 +371,7 @@ export function confirmRouteChoice(tripId, routeId) {
   const trip = getTripById(tripId);
   if (!trip) return false;
   const options = trip.route_options || trip.route_candidates || [];
+  if (!Array.isArray(options) || options.length < 2) return false;
   const chosen = options.find((option) => option?.route_id === routeId);
   if (!chosen) return false;
   return updateTrip(tripId, {
@@ -363,24 +383,80 @@ export function confirmRouteChoice(tripId, routeId) {
 }
 
 export function saveXhsEvidence(tripId, xhsEvidence) {
+  const sourceRefs = Array.isArray(xhsEvidence?.sources)
+    ? xhsEvidence.sources
+        .slice(0, 3)
+        .map((item) => ({
+          id: String(item?.id || ""),
+          title: String(item?.title || ""),
+          url: String(item?.url || ""),
+          like_count: Number(item?.like_count || 0),
+          note_type: String(item?.note_type || ""),
+        }))
+        .filter((item) => item.title || item.url)
+    : [];
+  const evidencePath = evidenceFilePath(tripId, "xhs");
+  saveJson(evidencePath, xhsEvidence || {});
   return updateTrip(tripId, {
     source_reason: xhsEvidence?.summary || "",
+    route_evidence_meta: {
+      platform: "xhs",
+      quality: String(xhsEvidence?.evidence_quality || "low"),
+      query: xhsEvidence?.query || {},
+      source_count: sourceRefs.length,
+      source_refs: sourceRefs,
+      evidence_file: path.relative(dbDir(), evidencePath),
+      generated_at: String(xhsEvidence?.generated_at || new Date().toISOString()),
+    },
   });
 }
 
-export function saveRouteFramingMetadata(
-  tripId,
-  routeSourceUsed,
-  sourceReason,
-  routeSourcePreference,
-  routeSourceFallbacks = [],
-) {
+export function saveRouteEvidence(tripId, platform, evidencePayload) {
+  const platformName = String(platform || "xhs").trim() || "xhs";
+  const sourceRefs = Array.isArray(evidencePayload?.sources)
+    ? evidencePayload.sources
+        .slice(0, 3)
+        .map((item) => ({
+          id: String(item?.id || ""),
+          title: String(item?.title || ""),
+          url: String(item?.url || ""),
+          like_count: Number(item?.like_count || 0),
+          note_type: String(item?.note_type || ""),
+        }))
+        .filter((item) => item.title || item.url)
+    : [];
+  const evidencePath = evidenceFilePath(tripId, platformName);
+  saveJson(evidencePath, evidencePayload || {});
   return updateTrip(tripId, {
-    route_source_used: routeSourceUsed || "",
-    source_reason: sourceReason || "",
-    ...(routeSourcePreference ? { route_source_preference: routeSourcePreference } : {}),
-    route_source_fallbacks: Array.isArray(routeSourceFallbacks) ? routeSourceFallbacks : [],
+    route_evidence_meta: {
+      platform: platformName,
+      quality: String(evidencePayload?.evidence_quality || "low"),
+      query: evidencePayload?.query || {},
+      source_count: sourceRefs.length,
+      source_refs: sourceRefs,
+      evidence_file: path.relative(dbDir(), evidencePath),
+      generated_at: String(evidencePayload?.generated_at || new Date().toISOString()),
+    },
   });
+}
+
+export function getRouteEvidence(tripId) {
+  const trip = getTripById(tripId);
+  if (!trip) return null;
+  const meta = trip.route_evidence_meta || {};
+  const relPath = String(meta.evidence_file || "");
+  let payload = null;
+  if (relPath) {
+    const absPath = path.join(dbDir(), relPath);
+    if (fs.existsSync(absPath)) {
+      payload = loadJson(absPath);
+    }
+  }
+  return {
+    trip_id: tripId,
+    meta,
+    evidence: payload,
+  };
 }
 
 export function saveLiveResults(tripId, liveResults) {
@@ -565,140 +641,196 @@ export function resetAll() {
   ensureDbFiles();
 }
 
-function printTravelDbHelp() {
-  console.log(`Travel Planner Database Manager — local JSON store under ~/.openclaw/agents/travel-planner/
+// All known flags across all --cmd values (used for flag validation per-command).
+const CMD_FLAGS = {
+  is_initialized: ["cmd"],
+  save_preferences: ["cmd", "payload"],
+  get_preferences: ["cmd"],
+  get_trips: ["cmd", "status"],
+  get_trip: ["cmd", "trip-id"],
+  add_trip: ["cmd", "payload", "list"],
+  patch_trip: ["cmd", "trip-id", "payload"],
+  update_trip: ["cmd", "trip-id", "payload"],
+  save_live_results: ["cmd", "trip-id", "payload"],
+  save_booking_ready: ["cmd", "trip-id", "payload"],
+  save_route_evidence: ["cmd", "trip-id", "platform", "payload"],
+  get_route_evidence: ["cmd", "trip-id"],
+  save_route_plan: [
+    "cmd",
+    "trip-id",
+    "recommended-route",
+    "alternatives",
+    "rejected-routes",
+    "decision-summary",
+    "route-source-used",
+    "source-reason",
+    "route-source-preference",
+    "route-source-fallbacks",
+  ],
+  confirm_route_choice: ["cmd", "trip-id", "route-id"],
+  confirm_booking: ["cmd", "trip-id", "category", "payload"],
+  start_trip: ["cmd", "trip-id"],
+  stats: ["cmd"],
+  export: ["cmd"],
+  reset: ["cmd"],
+};
 
-All flags use --key=value. JSON may be inline or @path (e.g. --payload=@trip.json).
+runScript({
+  name: "db.mjs",
+  description: "旅行规划数据库管理器，本地 JSON 存储于 ~/.openclaw/agents/travel-planner/",
+  usage: "node db.mjs --cmd=<name> [其他 flag...]",
+  flags: Object.keys(CMD_FLAGS)
+    .flatMap((cmd) => CMD_FLAGS[cmd].map((f) => ({ name: f, desc: `用于 --cmd=${cmd}` })))
+    .filter((f, i, arr) => arr.findIndex((x) => x.name === f.name) === i),
+  required: ["cmd"],
+  callerUrl: import.meta.url,
+  run(args) {
+    const command = requireCmd(args);
+    // Per-command flag guard
+    const allowed =
+      CMD_FLAGS[command] ?? CMD_FLAGS[command === "update_trip" ? "patch_trip" : command];
+    if (allowed) assertOnlyFlags(args, allowed);
 
-Usage:
-  node travel_db.mjs --cmd=<name> [--flag=...]
-
-Commands:
-  --cmd=is_initialized
-    Print true or false.
-  --cmd=get_preferences
-    Print preferences JSON.
-  --cmd=save_preferences --payload=<json|@file>
-    Merge-save preferences (sets initialized).
-  --cmd=get_trips [--status=current|past|ideas|all]
-    Default status: all.
-  --cmd=get_trip --trip-id=<id>
-  --cmd=add_trip --payload=<json|@file> [--list=current|past|idea]
-    Create a trip; prints { ok, trip_id }. Default list: current.
-  --cmd=patch_trip --trip-id=<id> --payload=<json|@file>
-  --cmd=update_trip --trip-id=<id> --payload=<json|@file>
-    Alias of patch_trip.
-  --cmd=save_live_results --trip-id=<id> [--payload=<json|@file>]
-    Default payload: {}.
-  --cmd=save_booking_ready --trip-id=<id> [--payload=<json|@file>]
-  --cmd=confirm_booking --trip-id=<id> --category=<name> [--payload=<json|@file>]
-  --cmd=start_trip --trip-id=<id>
-  --cmd=stats
-  --cmd=export
-    Full dump (preferences + trips + stats).
-  --cmd=reset
-    Not supported non-interactively; delete JSON files or use API.
-
-Examples:
-  node travel_db.mjs --cmd=is_initialized
-  node travel_db.mjs --cmd=save_preferences --payload='{"departure_city":"成都","budget_level":"mid-range"}'
-`);
-}
-
-function main() {
-  const argv = process.argv.slice(2);
-  if (isCliHelp(argv)) {
-    printTravelDbHelp();
-    process.exit(0);
-  }
-
-  const args = parseCliArgs(argv);
-  const command = requireCmd(args);
-
-  if (command === "is_initialized") {
-    assertOnlyFlags(args, ["cmd"]);
-    console.log(isInitialized() ? "true" : "false");
-  } else if (command === "save_preferences") {
-    assertOnlyFlags(args, ["cmd", "payload"]);
-    const payload = readJsonFromCliValue("save_preferences", args.payload, undefined);
-    savePreferences(payload);
-    console.log(JSON.stringify({ ok: true }, null, 2));
-  } else if (command === "get_preferences") {
-    assertOnlyFlags(args, ["cmd"]);
-    console.log(JSON.stringify(getPreferences(), null, 2));
-  } else if (command === "get_trips") {
-    assertOnlyFlags(args, ["cmd", "status"]);
-    const status = args.status && args.status !== "" ? args.status : "all";
-    console.log(JSON.stringify(getTrips(status), null, 2));
-  } else if (command === "get_trip") {
-    assertOnlyFlags(args, ["cmd", "trip-id"]);
-    const tripId = requireFlag(args, "trip-id");
-    console.log(JSON.stringify(getTripById(tripId) || {}, null, 2));
-  } else if (command === "add_trip") {
-    assertOnlyFlags(args, ["cmd", "payload", "list"]);
-    const payload = readJsonFromCliValue("add_trip", args.payload, undefined);
-    const listRaw = args.list && args.list !== "" ? args.list : "current";
-    const status =
-      listRaw === "past" ? "past" : listRaw === "idea" ? "idea" : "current";
-    try {
-      const tripId = addTrip(payload, status);
-      console.log(JSON.stringify({ ok: true, trip_id: tripId }, null, 2));
-    } catch (e) {
-      console.error(`Error: add_trip failed (${e instanceof Error ? e.message : String(e)})`);
-      process.exit(1);
-    }
-  } else if (command === "patch_trip" || command === "update_trip") {
-    assertOnlyFlags(args, ["cmd", "trip-id", "payload"]);
-    const tripId = requireFlag(args, "trip-id");
-    const payload = readJsonFromCliValue(command, args.payload, undefined);
-    try {
-      const ok = updateTrip(tripId, payload);
+    if (command === "is_initialized") {
+      console.log(isInitialized() ? "true" : "false");
+    } else if (command === "save_preferences") {
+      const payload = readJsonFromCliValue("save_preferences", args.payload, undefined);
+      savePreferences(payload);
+      console.log(JSON.stringify({ ok: true }, null, 2));
+    } else if (command === "get_preferences") {
+      console.log(JSON.stringify(getPreferences(), null, 2));
+    } else if (command === "get_trips") {
+      const status = args.status && args.status !== "" ? args.status : "all";
+      console.log(JSON.stringify(getTrips(status), null, 2));
+    } else if (command === "get_trip") {
+      const tripId = requireFlag(args, "trip-id");
+      console.log(JSON.stringify(getTripById(tripId) || {}, null, 2));
+    } else if (command === "add_trip") {
+      const payload = readJsonFromCliValue("add_trip", args.payload, undefined);
+      const listRaw = args.list && args.list !== "" ? args.list : "current";
+      const status = listRaw === "past" ? "past" : listRaw === "idea" ? "idea" : "current";
+      try {
+        const tripId = addTrip(payload, status);
+        console.log(JSON.stringify({ ok: true, trip_id: tripId }, null, 2));
+      } catch (e) {
+        console.error(`Error: add_trip failed (${e instanceof Error ? e.message : String(e)})`);
+        process.exit(1);
+      }
+    } else if (command === "patch_trip" || command === "update_trip") {
+      const tripId = requireFlag(args, "trip-id");
+      const payload = readJsonFromCliValue(command, args.payload, undefined);
+      try {
+        const ok = updateTrip(tripId, payload);
+        console.log(JSON.stringify({ ok }, null, 2));
+        if (!ok) {
+          console.error(`Error: trip not found: ${tripId}`);
+          process.exit(1);
+        }
+      } catch (e) {
+        console.error(`Error: ${e instanceof Error ? e.message : String(e)}`);
+        process.exit(1);
+      }
+    } else if (command === "save_live_results") {
+      const tripId = requireFlag(args, "trip-id");
+      const payload = readJsonFromCliValue("save_live_results", args.payload, {});
+      console.log(JSON.stringify({ ok: saveLiveResults(tripId, payload) }, null, 2));
+    } else if (command === "save_booking_ready") {
+      const tripId = requireFlag(args, "trip-id");
+      const payload = readJsonFromCliValue("save_booking_ready", args.payload, {});
+      console.log(JSON.stringify({ ok: saveBookingReadyPackage(tripId, payload) }, null, 2));
+    } else if (command === "save_route_evidence") {
+      const tripId = requireFlag(args, "trip-id");
+      const platform = requireFlag(args, "platform");
+      const payload = readJsonFromCliValue("save_route_evidence", args.payload, {});
+      const ok = saveRouteEvidence(tripId, platform, payload);
       console.log(JSON.stringify({ ok }, null, 2));
       if (!ok) {
         console.error(`Error: trip not found: ${tripId}`);
         process.exit(1);
       }
-    } catch (e) {
-      console.error(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    } else if (command === "get_route_evidence") {
+      const tripId = requireFlag(args, "trip-id");
+      const result = getRouteEvidence(tripId);
+      console.log(JSON.stringify(result || {}, null, 2));
+      if (!result) {
+        console.error(`Error: trip not found: ${tripId}`);
+        process.exit(1);
+      }
+    } else if (command === "save_route_plan") {
+      const tripId = requireFlag(args, "trip-id");
+      const recommendedRoute = readJsonFromCliValue(
+        "recommended-route",
+        args["recommended-route"],
+        {},
+      );
+      const alternatives = readJsonFromCliValue("alternatives", args.alternatives, []);
+      const rejectedRoutes = readJsonFromCliValue("rejected-routes", args["rejected-routes"], []);
+      const decisionSummary = readJsonFromCliValue(
+        "decision-summary",
+        args["decision-summary"],
+        {},
+      );
+      const routeSourceUsed = String(args["route-source-used"] || "");
+      const sourceReason = String(args["source-reason"] || "");
+      const routeSourcePref = String(args["route-source-preference"] || "");
+      const fallbackChain = (() => {
+        const raw = readJsonFromCliValue(
+          "route-source-fallbacks",
+          args["route-source-fallbacks"],
+          [],
+        );
+        return Array.isArray(raw) ? raw : [];
+      })();
+      const fallbackCount = fallbackChain.length;
+      const fallbackReason = fallbackCount > 0 ? String(fallbackChain[0]?.reason || "") : "";
+      // Single write — sourceReason + routeSourcePref merged in
+      const ok = saveRouteFramingWithSource(
+        tripId,
+        recommendedRoute,
+        alternatives,
+        rejectedRoutes,
+        decisionSummary,
+        routeSourceUsed,
+        fallbackCount,
+        fallbackReason,
+        fallbackChain,
+        sourceReason,
+        routeSourcePref,
+      );
+      console.log(JSON.stringify({ ok }, null, 2));
+      if (!ok) {
+        console.error(`Error: trip not found: ${tripId}`);
+        process.exit(1);
+      }
+    } else if (command === "confirm_route_choice") {
+      const tripId = requireFlag(args, "trip-id");
+      const routeId = requireFlag(args, "route-id");
+      const ok = confirmRouteChoice(tripId, routeId);
+      console.log(JSON.stringify({ ok }, null, 2));
+      if (!ok) {
+        console.error(
+          `Error: confirm_route_choice failed (trip or route not found): ${tripId}/${routeId}`,
+        );
+        process.exit(1);
+      }
+    } else if (command === "confirm_booking") {
+      const tripId = requireFlag(args, "trip-id");
+      const category = requireFlag(args, "category");
+      const payload = readJsonFromCliValue("confirm_booking", args.payload, {});
+      console.log(JSON.stringify({ ok: confirmBookingChoice(tripId, category, payload) }, null, 2));
+    } else if (command === "start_trip") {
+      const tripId = requireFlag(args, "trip-id");
+      console.log(JSON.stringify({ ok: startTrip(tripId) }, null, 2));
+    } else if (command === "stats") {
+      console.log(JSON.stringify(getTravelStats(), null, 2));
+    } else if (command === "export") {
+      console.log(JSON.stringify(exportAll(), null, 2));
+    } else if (command === "reset") {
+      console.error("重置操作不支持非交互调用；请删除 JSON 文件或使用 API。");
+      process.exit(1);
+    } else {
+      console.error(`未知 --cmd 值: ${command}`);
       process.exit(1);
     }
-  } else if (command === "save_live_results") {
-    assertOnlyFlags(args, ["cmd", "trip-id", "payload"]);
-    const tripId = requireFlag(args, "trip-id");
-    const payload = readJsonFromCliValue("save_live_results", args.payload, {});
-    console.log(JSON.stringify({ ok: saveLiveResults(tripId, payload) }, null, 2));
-  } else if (command === "save_booking_ready") {
-    assertOnlyFlags(args, ["cmd", "trip-id", "payload"]);
-    const tripId = requireFlag(args, "trip-id");
-    const payload = readJsonFromCliValue("save_booking_ready", args.payload, {});
-    console.log(JSON.stringify({ ok: saveBookingReadyPackage(tripId, payload) }, null, 2));
-  } else if (command === "confirm_booking") {
-    assertOnlyFlags(args, ["cmd", "trip-id", "category", "payload"]);
-    const tripId = requireFlag(args, "trip-id");
-    const category = requireFlag(args, "category");
-    const payload = readJsonFromCliValue("confirm_booking", args.payload, {});
-    console.log(JSON.stringify({ ok: confirmBookingChoice(tripId, category, payload) }, null, 2));
-  } else if (command === "start_trip") {
-    assertOnlyFlags(args, ["cmd", "trip-id"]);
-    const tripId = requireFlag(args, "trip-id");
-    console.log(JSON.stringify({ ok: startTrip(tripId) }, null, 2));
-  } else if (command === "stats") {
-    assertOnlyFlags(args, ["cmd"]);
-    console.log(JSON.stringify(getTravelStats(), null, 2));
-  } else if (command === "export") {
-    assertOnlyFlags(args, ["cmd"]);
-    console.log(JSON.stringify(exportAll(), null, 2));
-  } else if (command === "reset") {
-    assertOnlyFlags(args, ["cmd"]);
-    console.error("Interactive reset not supported from CLI in Node port; use API or delete files manually.");
-    process.exit(1);
-  } else {
-    console.error(`Unknown --cmd value: ${command}`);
-    process.exit(1);
-  }
-}
-
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  main();
-}
+  },
+});
