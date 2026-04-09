@@ -62,7 +62,7 @@ async function main() {
       console.log('═'.repeat(80));
       console.log('\n📊 规划数据统计：');
       console.log(`   兴趣点数量: ${result.pois.length} 个`);
-      console.log(`   路线数量: ${result?.mapTaskData?.length ? result.mapTaskData.filter(item => item.type === 'route').length : 0} 条`);
+      console.log(`   路线数量: ${result?.mapTaskData?.length ? result.mapTaskData.length : 0} 条`);
       console.log(`   出行方式: ${routeType === 'walking' ? '步行' : routeType === 'driving' ? '驾车' : routeType === 'riding' ? '骑行' : '公交'}`);
       console.log('\n' + '═'.repeat(80));
       console.log('\n🎉 规划完成！\n');
