@@ -40,7 +40,7 @@ metadata:
 ### 第一步：读取偏好
 
 ```bash
-node scripts/db.mjs --cmd=is_initialized
+node {baseDir}/scripts/db.mjs --cmd=is_initialized
 ```
 
 - 若返回 `false`：进入轻量偏好采集。
@@ -62,7 +62,7 @@ node scripts/db.mjs --cmd=is_initialized
 保存时仅写入用户已明确提供的字段：
 
 ```bash
-node scripts/db.mjs --cmd=save_preferences --payload='{"departure_city":"上海","budget_level":"mid-range","pace_preference":"moderate","travel_companions":"couple","interests":["nature","food","photography"],"transport_preferences":["private driver","short flight okay"],"walking_tolerance":"moderate"}'
+node {baseDir}/scripts/db.mjs --cmd=save_preferences --payload='{"departure_city":"上海","budget_level":"mid-range","pace_preference":"moderate","travel_companions":"couple","interests":["nature","food","photography"],"transport_preferences":["private driver","short flight okay"],"walking_tolerance":"moderate"}'
 ```
 
 ### 第三步：创建 trip 记录
@@ -70,7 +70,7 @@ node scripts/db.mjs --cmd=save_preferences --payload='{"departure_city":"上海"
 尽快建档，允许字段不完整：
 
 ```bash
-node scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新疆","destination":{"region":"Xinjiang","country":"China"},"duration_days":7,"budget":{"total":14000,"currency":"CNY"},"travelers":2,"activities":["nature","photography"],"constraints":["不自驾"],"transport_preferences":["private driver","short domestic flight okay"],"stage":"intake"}' --list=current
+node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新疆","destination":{"region":"Xinjiang","country":"China"},"duration_days":7,"budget":{"total":14000,"currency":"CNY"},"travelers":2,"activities":["nature","photography"],"constraints":["不自驾"],"transport_preferences":["private driver","short domestic flight okay"],"stage":"intake"}' --list=current
 ```
 
 记录返回的 `trip_id`，后续都用 `--trip-id=<id>`。
@@ -102,7 +102,7 @@ node scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新疆","dest
 路线规划脚本：
 
 ```bash
-node scripts/route-plan.mjs --input='<trip_request_json_with_route_platform_metadata>'
+node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json_with_route_platform_metadata>'
 ```
 
 #### 必须顺序（不可跳步）
@@ -136,14 +136,14 @@ node scripts/db.mjs --cmd=save_route_evidence --trip-id=<trip_id> --platform=xhs
 6. 一旦成功，持久化路线框定（含平台与降级信息）：
 
 ```bash
-node scripts/db.mjs --cmd=save_route_plan --trip-id=<trip_id> --recommended-route='<recommended_route_json>' --alternatives='<alternatives_json>' --rejected-routes='<rejected_routes_json>' --decision-summary='<decision_summary_json>' --route-source-used=<xhs|amap|web|auto> --source-reason='<source_reason_text>' --route-source-preference=<xhs|amap|web|auto> --route-source-fallbacks='<fallback_chain_json>'
+node {baseDir}/scripts/db.mjs --cmd=save_route_plan --trip-id=<trip_id> --recommended-route='<recommended_route_json>' --alternatives='<alternatives_json>' --rejected-routes='<rejected_routes_json>' --decision-summary='<decision_summary_json>' --route-source-used=<xhs|amap|web|auto> --source-reason='<source_reason_text>' --route-source-preference=<xhs|amap|web|auto> --route-source-fallbacks='<fallback_chain_json>'
 ```
 
 7. 展示 `route_options` 并要求用户明确选择 `route_id`。
 8. 持久化用户选择：
 
 ```bash
-node scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --route-id=<route_id>
+node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --route-id=<route_id>
 ```
 
 #### 硬性守卫（必须执行）
@@ -215,7 +215,7 @@ node scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --route-id=<r
 7. **必须向用户发起确认**（是否继续下一步）；未确认不得进入后续步骤。
 
 #### 兜底处理
-`scripts/route-validation.mjs` 只生成检查计划，不会自动修复外部依赖故障。若调用失败：
+`{baseDir}/scripts/route-validation.mjs` 只生成检查计划，不会自动修复外部依赖故障。若调用失败：
 
 1. 明确说明哪一项失败（`flyai`/`12306`/`amap-lbs-skill`/web）。
 2. 仍可给路线框定与骨架方案，但价格/余票/时刻必须标注为**未验证**。
@@ -225,7 +225,7 @@ node scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --route-id=<r
 
 ```bash
 # 仅构建验证计划（tool_plan），不直接执行外部 skill
-node scripts/route-validation.mjs --trip='<trip_json>' --route='<route_json>' --preferences='<prefs_json>'
+node {baseDir}/scripts/route-validation.mjs --trip='<trip_json>' --route='<route_json>' --preferences='<prefs_json>'
 ```
 
 
@@ -240,7 +240,7 @@ node scripts/route-validation.mjs --trip='<trip_json>' --route='<route_json>' --
 骨架来源：
 
 ```bash
-node scripts/plan-generator.mjs --trip-id=<id>
+node {baseDir}/scripts/plan-generator.mjs --trip-id=<id>
 ```
 
 优先展示：`route_plan`、`route_validation`、`plan_skeleton`、`booking_strategy`。
@@ -289,7 +289,7 @@ node scripts/plan-generator.mjs --trip-id=<id>
 建议命令（骨架生成）：
 
 ```bash
-node scripts/plan-generator.mjs --trip-id=<trip_id>
+node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id>
 ```
 
 本步回复顺序（固定）：
@@ -339,15 +339,15 @@ node scripts/plan-generator.mjs --trip-id=<trip_id>
 合成与持久化建议：
 
 ```bash
-node scripts/booking-ready.mjs --trip='<trip_json>' --route='<route_json>' --validation='<route-validation_json>' --results='<live_results_json>'
-node scripts/db.mjs --cmd=save_live_results --trip-id=<trip_id> --payload='<live_results_json>'
-node scripts/db.mjs --cmd=save_booking_ready --trip-id=<trip_id> --payload='<booking_ready_json>'
+node {baseDir}/scripts/booking-ready.mjs --trip='<trip_json>' --route='<route_json>' --validation='<route-validation_json>' --results='<live_results_json>'
+node {baseDir}/scripts/db.mjs --cmd=save_live_results --trip-id=<trip_id> --payload='<live_results_json>'
+node {baseDir}/scripts/db.mjs --cmd=save_booking_ready --trip-id=<trip_id> --payload='<booking_ready_json>'
 ```
 
 若用户确认具体预订项，再执行：
 
 ```bash
-node scripts/db.mjs --cmd=confirm_booking --trip-id=<trip_id> --category=hotel --payload='<selected_hotel_json>'
+node {baseDir}/scripts/db.mjs --cmd=confirm_booking --trip-id=<trip_id> --category=hotel --payload='<selected_hotel_json>'
 ```
 
 Step 8 最终答复顺序（必须遵守）：
@@ -384,14 +384,14 @@ Step 8 最终答复顺序（必须遵守）：
 - 当日简报与支出跟踪
 
 ```bash
-node scripts/briefing.mjs --mode=pre_trip --trip='<trip_json>' --plan='<plan_json>'
-node scripts/briefing.mjs --mode=daily --trip='<trip_json>' --plan='<plan_json>' --day=2
+node {baseDir}/scripts/briefing.mjs --mode=pre_trip --trip='<trip_json>' --plan='<plan_json>'
+node {baseDir}/scripts/briefing.mjs --mode=daily --trip='<trip_json>' --plan='<plan_json>' --day=2
 ```
 
 已出发先标记：
 
 ```bash
-node scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
+node {baseDir}/scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
 ```
 
 ### 第十步：行后沉淀
@@ -411,21 +411,22 @@ node scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
 
 ## 备注
 
-- 数据文件：`~/.openclaw/agents/travel-planner/preferences.json`、`~/.openclaw/agents/travel-planner/trips.json`
+- Preferences: `~/.openclaw/agents/travel-planner/preferences.json`、
+- Trips: `~/.openclaw/agents/travel-planner/trips.json`
 - CLI 统一入口：`node scripts/<script>.mjs --key=value`
 
 常用命令：
 
 ```bash
-node scripts/db.mjs --cmd=is_initialized
-node scripts/db.mjs --cmd=add_trip --payload='<json>' --list=current
-node scripts/db.mjs --cmd=save_route_evidence --trip-id=<id> --platform=xhs --payload='<xhs_evidence_json>'
-node scripts/db.mjs --cmd=get_route_evidence --trip-id=<id>
-node scripts/db.mjs --cmd=get_preferences
-node scripts/db.mjs --cmd=get_trips --status=current
-node scripts/db.mjs --cmd=stats
-node scripts/plan-generator.mjs --trip-id=<id> --output=plan.json
-node scripts/db.mjs --cmd=export
+node {baseDir}/scripts/db.mjs --cmd=is_initialized
+node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='<json>' --list=current
+node {baseDir}/scripts/db.mjs --cmd=save_route_evidence --trip-id=<id> --platform=xhs --payload='<xhs_evidence_json>'
+node {baseDir}/scripts/db.mjs --cmd=get_route_evidence --trip-id=<id>
+node {baseDir}/scripts/db.mjs --cmd=get_preferences
+node {baseDir}/scripts/db.mjs --cmd=get_trips --status=current
+node {baseDir}/scripts/db.mjs --cmd=stats
+node {baseDir}/scripts/plan-generator.mjs --trip-id=<id> --output=plan.json
+node {baseDir}/scripts/db.mjs --cmd=export
 ```
 
 ## 资源索引
