@@ -47,6 +47,14 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     skills: ["travel-planner", "xiaohongshu", "flyai", "amap-lbs-skill", "12306"],
     tools: { profile: "full", deny: [] },
   },
+  {
+    id: "my-office-helper",
+    name: "Office Helper",
+    workspace: "~/.openclaw/agents/my-office-helper",
+    templateSubdir: "agents/my-office-helper",
+    skills: ["word-docx", "excel-xlsx", "my-pdf", "office-document-specialist-suite"],
+    tools: { profile: "full", deny: [] },
+  },
 ] as const;
 
 /**
