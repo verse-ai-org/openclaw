@@ -36,16 +36,17 @@
 - [groups.md](file://docs/channels/groups.md)
 - [bluebubbles reactions.ts](file://extensions/bluebubbles/src/reactions.ts)
 - [status-reaction-variants.ts](file://src/telegram/status-reaction-variants.ts)
+- [chat-attachments.ts](file://src/gateway/chat-attachments.ts)
+- [attachments.normalize.ts](file://src/media-understanding/attachments.normalize.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增ChatSidebar组件的详细分析，提供现代化侧边栏界面
-- 更新useSessionManager钩子的完整功能说明，包括会话管理和历史加载
-- 新增markdown-components.tsx组件系统的详细说明
-- 更新GatewayChatRuntimeProvider的增强功能，包括流式渲染和工具调用管理
-- 新增内容块系统和交错渲染机制的详细说明
-- 更新会话管理架构，从SessionSelector迁移到ChatSidebar
+- 新增Composer组件的拖拽上传、实时预览、文件类型验证等重大改进功能
+- 更新UserMessage组件对附件的改进显示功能
+- 新增文件大小限制、数量限制和MIME类型验证的详细说明
+- 更新附件预览组件的实时删除和错误处理功能
+- 新增拖拽上传状态指示和视觉反馈机制
 
 ## 目录
 1. [简介](#简介)
@@ -62,7 +63,7 @@
 ## 简介
 本文件系统性阐述WebChat界面的设计与实现，覆盖实时聊天、消息收发、界面布局、消息历史、输入框功能、多媒体消息、文件传输、表情反应、聊天室与群组管理、隐私策略以及WebSocket连接、消息同步与离线处理等主题。文档基于仓库中的UI实现、网关协议、通道适配层与平台集成进行综合分析，帮助开发者与运维人员快速理解并部署WebChat。
 
-**更新** 本版本重点反映了从传统Lit框架向现代React架构的迁移，包括新的ChatSidebar组件、增强的useSessionManager钩子、markdown-components.tsx组件系统，以及GatewayChatRuntimeProvider的全面增强。
+**更新** 本版本重点反映了聊天组件的重大改进，包括Composer组件的拖拽上传、实时预览、文件类型验证等功能，以及UserMessage组件对附件的改进显示。
 
 ## 项目结构
 WebChat界面现已迁移到React架构，由前端UI、网关客户端、通道适配层与平台集成四部分组成：
@@ -79,7 +80,7 @@ React_ChatSidebar["ChatSidebar.tsx<br/>现代化侧边栏"]
 React_Markdown["markdown-components.tsx<br/>Markdown组件系统"]
 React_ThreadView["ThreadView.tsx<br/>线程视图"]
 React_Session["SessionSelector.tsx<br/>会话选择器(兼容)"]
-React_Composer["Composer.tsx<br/>消息composer"]
+React_Composer["Composer.tsx<br/>增强的消息composer"]
 React_Runtime["GatewayChatRuntimeProvider.tsx<br/>运行时提供者"]
 end
 subgraph "状态管理"
@@ -89,7 +90,7 @@ Zustand_Gateway["gateway.store.ts<br/>网关状态管理"]
 end
 subgraph "消息渲染组件"
 React_Assistant["AssistantMessage.tsx<br/>助手消息"]
-React_User["UserMessage.tsx<br/>用户消息"]
+React_User["UserMessage.tsx<br/>用户消息(附件改进)"]
 React_Tool["ToolFallback.tsx<br/>工具降级组件"]
 end
 subgraph "会话管理钩子"
@@ -157,7 +158,8 @@ Android_Session --> Hook_SessionManager
 - **消息渲染组件**：AssistantMessage、UserMessage和ToolFallback提供丰富的消息渲染能力，支持Markdown、工具调用和附件。
 - **运行时提供者**：GatewayChatRuntimeProvider桥接Zustand状态与Assistant UI组件库，实现消息转换和事件处理。
 - **事件桥接**：useChatEventBridge将网关事件转换为Zustand状态更新，保持组件解耦。
-- **Composer组件**：提供富文本输入、附件上传和发送控制功能。
+- **Composer组件**：提供富文本输入、附件上传和发送控制功能，支持拖拽上传、实时预览和文件类型验证。
+- **增强的UserMessage组件**：改进的附件显示功能，支持文件标签和预览。
 - **工具降级组件**：ToolFallback展示工具调用的分类、状态和详细信息。
 
 **章节来源**
@@ -167,6 +169,8 @@ Android_Session --> Hook_SessionManager
 - [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
+- [Composer.tsx:1-334](file://ui-react/src/components/chat/Composer.tsx#L1-L334)
+- [UserMessage.tsx:1-152](file://ui-react/src/components/chat/UserMessage.tsx#L1-L152)
 
 ## 架构总览
 WebChat采用"React前端 + Zustand状态管理 + Assistant UI组件库"的现代化架构，通过GatewayChatRuntimeProvider桥接网关事件与React组件。前端通过WebSocket与网关通信，使用标准方法如chat.history、chat.send、chat.inject进行消息同步与交互。群组策略与提及门禁在通道层统一处理，确保跨渠道一致性。
@@ -214,108 +218,96 @@ Runtime-->>UI : 重新渲染组件
 
 ## 详细组件分析
 
-### ChatSidebar现代化侧边栏组件
-- **品牌标识区域**：显示OpenClaw品牌和连接状态指示器，提供直观的视觉反馈。
-- **会话管理功能**：集成会话列表、新建会话按钮和会话切换功能。
-- **网关状态监控**：实时显示网关连接状态，提供断线检测和重连提示。
-- **无障碍支持**：完整的aria-label和tooltip支持，确保可访问性。
-- **响应式设计**：使用Sidebar组件库实现现代化的侧边栏布局。
+### 增强的Composer组件
+**更新** Composer组件现已实现拖拽上传、实时预览、文件类型验证等重大改进功能。
+
+- **拖拽上传支持**：使用ComposerPrimitive.AttachmentDropzone实现拖拽上传功能，支持拖拽状态指示和视觉反馈。
+- **实时文件预览**：AttachmentPreview组件提供待上传文件的实时预览，包括文件名、大小和删除按钮。
+- **文件类型验证**：支持多种文件类型的验证，包括图片、PDF、Office文档等。
+- **文件大小限制**：单文件5MB限制，总文件20MB限制，最多10个文件。
+- **错误处理机制**：完善的错误处理，包括文件类型不支持、大小超限等错误提示。
+- **删除功能**：支持实时删除待上传文件，提供一键移除功能。
 
 ```mermaid
 flowchart TD
-Sidebar["ChatSidebar组件"] --> Header["品牌头部<br/>OpenClaw + 连接状态"]
-Sidebar --> Content["会话内容<br/>会话列表 + 新建按钮"]
-Sidebar --> Footer["网关状态<br/>连接指示器"]
-Header --> Brand["品牌图标 + 标题"]
-Header --> Status["连接状态指示<br/>Connected/Disconnected"]
-Content --> Sessions["会话分组<br/>会话列表"]
-Content --> NewBtn["新建会话按钮<br/>disabled=未连接"]
-Sessions --> SessionItems["会话菜单项<br/>激活状态 + 提示"]
-SessionItems --> Active["当前激活会话<br/>高亮显示"]
-SessionItems --> Inactive["非激活会话<br/>普通显示"]
-Footer --> GatewayIndicator["网关状态指示<br/>彩色圆点 + 文本"]
+Composer["Composer组件"] --> Dropzone["拖拽上传区域<br/>AttachmentDropzone"]
+Composer --> Input["消息输入框<br/>ComposerPrimitive.Input"]
+Composer --> Actions["操作按钮<br/>发送/取消"]
+Dropzone --> Preview["附件预览<br/>AttachmentPreview"]
+Preview --> FileList["文件列表<br/>文件名 + 大小"]
+Preview --> DeleteBtn["删除按钮<br/>一键移除"]
+Dropzone --> DragState["拖拽状态<br/>data-[dragging=true]"]
+DragState --> VisualFeedback["视觉反馈<br/>边框 + 背景色"]
+FileList --> FileTypeIcon["文件类型图标<br/>Image/FileText"]
+FileList --> FileInfo["文件信息<br/>fileName + size"]
 ```
 
 **图表来源**
-- [ChatSidebar.tsx:19-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L117)
+- [Composer.tsx:237-334](file://ui-react/src/components/chat/Composer.tsx#L237-L334)
+- [Composer.tsx:70-120](file://ui-react/src/components/chat/Composer.tsx#L70-L120)
 
 **章节来源**
-- [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
+- [Composer.tsx:1-334](file://ui-react/src/components/chat/Composer.tsx#L1-L334)
 
-### markdown-components.tsx组件系统
-- **共享组件定义**：提供统一的Markdown组件样式，基于shadcn typography规范。
-- **双模式支持**：支持assistant-ui上下文的mdComponents和独立使用的plainMdComponents。
-- **智能代码块处理**：根据上下文自动区分行内代码和代码块，提供不同的样式处理。
-- **类型安全**：完整的Typescript类型定义，确保组件使用的一致性和安全性。
-- **样式继承**：使用cn工具函数实现条件样式组合，支持主题和状态切换。
+### 改进的UserMessage组件
+**更新** UserMessage组件现已改进附件显示功能。
+
+- **附件标签显示**：在消息气泡上方右对齐显示附件标签，支持图片和文档类型。
+- **文件类型图标**：根据文件类型显示相应的图标，图片使用Image图标，文档使用FileText图标。
+- **文件信息展示**：显示文件名和文件大小，支持截断显示长文件名。
+- **状态管理优化**：通过Zustand状态管理直接获取消息附件信息，绕过assistant-ui的复杂类型要求。
+- **空附件处理**：当没有附件时自动隐藏附件区域，避免空白空间。
 
 ```mermaid
 flowchart TD
-MarkdownSystem["Markdown组件系统"] --> SharedStyles["共享元素样式<br/>h1-h6, p, a, blockquote, ul, ol, table"]
-MarkdownSystem --> ContextModes["上下文模式<br/>assistant-ui + 独立使用"]
-MarkdownSystem --> CodeHandling["代码块处理<br/>智能区分 + 样式应用"]
-SharedStyles --> Typography["排版样式<br/>标题层级 + 段落间距"]
-SharedStyles --> Links["链接样式<br/>下划线 + 颜色变化"]
-SharedStyles --> Lists["列表样式<br/>有序/无序 + 缩进"]
-SharedStyles --> Tables["表格样式<br/>边框 + 响应式"]
-ContextModes --> AssistantUI["assistant-ui模式<br/>useIsMarkdownCodeBlock钩子"]
-ContextModes --> PlainMode["独立模式<br/>className启发式判断"]
-CodeHandling --> AssistantUI --> InlineCode["行内代码<br/>背景色 + 圆角"]
-CodeHandling --> AssistantUI --> BlockCode["代码块<br/>滚动容器 + 语言标识"]
-CodeHandling --> PlainMode --> InlineCode
-CodeHandling --> PlainMode --> BlockCode
+UserMessage["UserMessage组件"] --> MessageBubble["消息气泡<br/>右对齐"]
+UserMessage --> Attachments["附件区域<br/>上对齐 + 右对齐"]
+Attachments --> TagList["标签列表<br/>flex-wrap"]
+TagList --> Tag["附件标签<br/>文件名 + 图标"]
+Tag --> FileTypeIcon["文件类型图标<br/>Image/FileText"]
+Tag --> FileName["文件名<br/>truncate"]
+Tag --> FileSize["文件大小<br/>格式化显示"]
+MessageBubble --> TextContent["文本内容<br/>MessagePrimitive.Parts"]
 ```
 
 **图表来源**
-- [markdown-components.tsx:16-174](file://ui-react/src/components/chat/markdown-components.tsx#L16-L174)
+- [UserMessage.tsx:15-152](file://ui-react/src/components/chat/UserMessage.tsx#L15-L152)
+- [UserMessage.tsx:117-152](file://ui-react/src/components/chat/UserMessage.tsx#L117-L152)
 
 **章节来源**
-- [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
+- [UserMessage.tsx:1-152](file://ui-react/src/components/chat/UserMessage.tsx#L1-L152)
 
-### useSessionManager会话管理钩子
-- **会话列表管理**：通过chat.sessions.list获取和更新会话列表，支持加载状态管理。
-- **历史加载机制**：支持silent模式避免界面闪烁，提供完整的消息历史加载。
-- **会话切换功能**：自动更新设置状态和加载对应会话的历史消息。
-- **新会话创建**：支持创建新会话并自动切换到新会话，提供回退机制。
-- **事件监听**：注册chat.final事件监听器，实现历史自动刷新。
-- **连接状态管理**：在网关连接时自动加载会话和历史数据。
+### 文件上传验证系统
+**更新** 新增完整的文件上传验证系统，包括大小限制、类型验证和错误处理。
+
+- **文件大小验证**：单文件5MB限制，总文件20MB限制，实时计算当前总大小。
+- **文件数量限制**：最多10个文件，防止过多文件同时上传。
+- **MIME类型验证**：支持图片、PDF、Office文档等多种类型验证。
+- **实时错误提示**：上传过程中实时显示错误信息，包括类型不支持、大小超限等。
+- **Base64编码**：自动将文件转换为Base64格式，移除data URL前缀。
 
 ```mermaid
 stateDiagram-v2
-[*] --> Disconnected
-Disconnected --> LoadingSessions : 连接建立
-LoadingSessions --> SessionsLoaded : 成功加载
-LoadingSessions --> SessionsLoaded : 加载失败(回退)
-SessionsLoaded --> SwitchingSession : 切换会话
-SwitchingSession --> LoadingHistory : 加载历史
-LoadingHistory --> HistoryLoaded : 历史加载完成
-HistoryLoaded --> Idle : 空闲状态
-Idle --> CreatingSession : 创建新会话
-CreatingSession --> SwitchingSession : 切换到新会话
-CreatingSession --> SwitchingSession : 创建失败(回退)
-state LoadingSessions {
-[*] --> Requesting
-Requesting --> Success
-Requesting --> Failure
-Success --> [*]
-Failure --> [*]
-}
-state LoadingHistory {
-[*] --> Clearing
-Clearing --> SettingLoading
-SettingLoading --> Requesting
-Requesting --> Success
-Requesting --> Error
-Success --> [*]
-Error --> [*]
-}
+[*] --> Idle
+Idle --> Validating : 选择文件
+Validating --> SizeCheck : 检查文件大小
+SizeCheck --> TypeCheck : 检查MIME类型
+TypeCheck --> Encoding : 读取文件
+Encoding --> Success : Base64编码成功
+Encoding --> Error : 读取失败
+SizeCheck --> Error : 超出大小限制
+TypeCheck --> Error : 类型不支持
+Success --> Preview : 显示预览
+Error --> ErrorMessage : 显示错误
+ErrorMessage --> Idle : 清除错误
 ```
 
 **图表来源**
-- [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
+- [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
 
 **章节来源**
-- [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
+- [Composer.tsx:12-52](file://ui-react/src/components/chat/Composer.tsx#L12-L52)
+- [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
 
 ### 增强的GatewayChatRuntimeProvider
 - **内容块系统**：支持交错的文本和工具调用渲染，保持原始消息顺序。
@@ -510,6 +502,7 @@ Note over Store,Gateway : 支持断线重连和事件缓冲
 - **Assistant UI集成**：使用@assistant-ui/react系列包提供统一的UI组件和运行时支持。
 - **Tailwind CSS**：使用Tailwind 4.x提供现代化的样式系统，支持响应式设计。
 - **组件系统集成**：ChatSidebar替代SessionSelector，提供更丰富的会话管理功能。
+- **文件上传依赖**：Composer组件依赖FileReader API进行文件读取和Base64编码。
 
 ```mermaid
 graph LR
@@ -525,6 +518,8 @@ Events --> AssistantUI["@assistant-ui/react"]
 AssistantUI --> Components["UI组件库"]
 MarkdownComponents["markdown-components.tsx"] --> AssistantUI
 ChatSidebar["ChatSidebar.tsx"] --> SessionManager
+Composer["Composer.tsx"] --> FileReader["FileReader API"]
+UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 ```
 
 **图表来源**
@@ -549,12 +544,15 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 - **资源复用**：vite.config.ts配置公共资源目录，避免重复构建静态资源。
 - **内容块优化**：GatewayChatRuntimeProvider优化contentBlocks的处理，减少不必要的渲染。
 - **会话管理缓存**：useSessionManager实现会话列表缓存，避免频繁的API调用。
+- **文件上传优化**：Composer组件使用Base64编码，避免大文件阻塞UI线程。
+- **实时预览优化**：AttachmentPreview组件使用虚拟化列表，支持大量文件的高效渲染。
 
 **章节来源**
 - [vite.config.ts:13-14](file://ui-react/vite.config.ts#L13-L14)
 - [package.json:11-42](file://ui-react/package.json#L11-L42)
 - [GatewayChatRuntimeProvider.tsx:132-197](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L132-L197)
 - [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
+- [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
 
 ## 故障排除指南
 - **连接失败**：检查网关端口与认证配置，确认WebSocket握手成功，查看gateway.store的错误状态。
@@ -564,6 +562,8 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 - **工具调用异常**：检查ToolFallback的分类和状态处理，验证工具调用的生命周期管理。
 - **会话管理问题**：检查useSessionManager的API调用，确认chat.sessions.list和chat.history的成功响应。
 - **侧边栏显示问题**：确认ChatSidebar的依赖注入正常，检查useSessionManager钩子的状态返回。
+- **文件上传失败**：检查文件大小限制、MIME类型验证和Base64编码过程，确认FileReader API正常工作。
+- **拖拽上传无效**：检查ComposerPrimitive.AttachmentDropzone的CSS类和data-[dragging]状态，确认拖拽事件处理正常。
 
 **章节来源**
 - [gateway.store.ts:115-126](file://ui-react/src/store/gateway.store.ts#L115-L126)
@@ -571,18 +571,25 @@ ChatSidebar["ChatSidebar.tsx"] --> SessionManager
 - [GatewayChatRuntimeProvider.tsx:227-236](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L227-L236)
 - [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
 - [ChatSidebar.tsx:19-22](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L22)
+- [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
 
 ## 结论
-WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，采用"React + Zustand + Assistant UI"的技术栈实现了更加现代化和可维护的聊天体验。新的架构通过组件化设计、状态管理和事件桥接机制，提供了更好的开发体验和用户体验。通过新增的ChatSidebar组件、增强的useSessionManager钩子、markdown-components.tsx组件系统，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为未来的功能扩展奠定了坚实的基础。
+WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，采用"React + Zustand + Assistant UI"的技术栈实现了更加现代化和可维护的聊天体验。新的架构通过组件化设计、状态管理和事件桥接机制，提供了更好的开发体验和用户体验。
+
+**更新** 本次更新重点反映了聊天组件的重大改进，包括Composer组件的拖拽上传、实时预览、文件类型验证等功能，以及UserMessage组件对附件的改进显示。这些改进显著提升了文件上传的用户体验，提供了更直观的文件管理界面和更严格的文件验证机制。
+
+通过新增的ChatSidebar组件、增强的useSessionManager钩子、markdown-components.tsx组件系统，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为未来的功能扩展奠定了坚实的基础。
 
 ## 附录
 - **配置参考**：WebChat使用网关端点与认证参数，React构建配置独立于传统UI，输出到独立的dist目录。
 - **开发环境**：使用Vite 7.3.1提供开发服务器，支持热重载和TypeScript编译。
 - **生产部署**：构建输出到dist/control-ui-react目录，避免与现有Lit UI冲突。
 - **组件兼容性**：SessionSelector组件保留向后兼容性，但不再作为独立组件使用。
+- **文件上传限制**：单文件5MB，总文件20MB，最多10个文件，支持多种文件类型验证。
 
 **章节来源**
 - [vite.config.ts:21-28](file://ui-react/vite.config.ts#L21-L28)
 - [package.json:5-10](file://ui-react/package.json#L5-L10)
 - [router.tsx:19-41](file://ui-react/src/router.tsx#L19-L41)
 - [SessionSelector.tsx:1-7](file://ui-react/src/components/chat/SessionSelector.tsx#L1-L7)
+- [Composer.tsx:12-39](file://ui-react/src/components/chat/Composer.tsx#L12-L39)

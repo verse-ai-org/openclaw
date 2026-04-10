@@ -14,7 +14,21 @@
 - [pi-embedded-runner.run-embedded-pi-agent.auth-profile-rotation.e2e.test.ts](file://src/agents/pi-embedded-runner.run-embedded-pi-agent.auth-profile-rotation.e2e.test.ts)
 - [openclaw-tools.subagents.sessions-spawn.test-harness.ts](file://src/agents/openclaw-tools.subagents.sessions-spawn.test-harness.ts)
 - [AGENTS.md](file://AGENTS.md)
+- [SOUL.md](file://docs/reference/templates/agents/my-office-helper/SOUL.md)
+- [SOUL.md](file://docs/reference/templates/agents/travel-planner/SOUL.md)
+- [SKILL.md](file://skills/word-docx/SKILL.md)
+- [SKILL.md](file://skills/excel-xlsx/SKILL.md)
+- [SKILL.md](file://skills/my-pdf/SKILL.md)
+- [SKILL.md](file://skills/office-document-specialist-suite/SKILL.md)
+- [SKILL.md](file://skills/travel-planner/SKILL.md)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 新增Office Helper代理配置，包含word-docx、excel-xlsx、my-pdf、office-document-specialist-suite等Office文档处理技能
+- 更新旅行规划代理的技能配置，增强旅行规划能力
+- 完善代理模板系统，支持Office Helper的完整工作流
+- 扩展代理技能生态系统，提供更专业的文档处理能力
 
 ## 目录
 1. [简介](#简介)
@@ -22,16 +36,20 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考虑](#性能考虑)
-8. [故障排除指南](#故障排除指南)
-9. [结论](#结论)
+6. [代理配置与管理](#代理配置与管理)
+7. [技能生态系统](#技能生态系统)
+8. [依赖关系分析](#依赖关系分析)
+9. [性能考虑](#性能考虑)
+10. [故障排除指南](#故障排除指南)
+11. [结论](#结论)
 
 ## 简介
 
 内置代理系统是 OpenClaw 平台的核心组件，负责管理和协调各种内置代理程序的运行。该系统提供了完整的代理生命周期管理、资源分配、任务调度和监控功能。通过统一的接口和标准化的协议，内置代理系统能够支持多种类型的代理程序，包括但不限于聊天机器人、工具执行器、任务调度器等。
 
 该系统采用模块化设计，每个组件都有明确的职责分工，同时通过标准化的接口实现松耦合集成。系统支持代理的动态创建、销毁、状态监控和资源回收，确保在高并发场景下的稳定性和可靠性。
+
+**更新** 新增Office Helper代理和旅行规划代理的技能配置，扩展了文档处理和旅行规划的专业能力。
 
 ## 项目结构
 
@@ -53,6 +71,10 @@ L[auth-health.ts] --> M[认证健康检查]
 N[anthropic-payload-log.ts] --> O[负载日志记录]
 P[测试文件] --> Q[单元测试]
 P --> R[集成测试]
+S[代理模板系统] --> T[Office Helper模板]
+S --> U[旅行规划模板]
+V[技能配置] --> W[文档处理技能]
+V --> X[旅行规划技能]
 end
 ```
 
@@ -70,6 +92,8 @@ end
 - 循环检测：`tool-loop-detection.ts`
 - 认证健康检查：`auth-health.ts`
 - 负载日志：`anthropic-payload-log.ts`
+- 代理模板系统：`docs/reference/templates/agents/`
+- 技能配置：`skills/`
 
 **章节来源**
 - [builtin-agents.ts:1-100](file://src/agents/builtin-agents.ts#L1-L100)
@@ -111,9 +135,18 @@ class AgentInstance {
 +execute(task) Promise~ExecutionResult~
 +terminate() Promise~void~
 }
+class BuiltinAgentDef {
++id string
++name string
++workspace string
++templateSubdir string
++skills string[]
++tools ToolRestrictions
+}
 AgentRegistry --> Agent : manages
 Agent --> AgentInstance : creates
 AgentInstance --> Process : spawns
+BuiltinAgentDef --> Agent : defines
 ```
 
 **图表来源**
@@ -328,6 +361,133 @@ DenyAccess --> CleanupScope
 - [agent-scope.ts:1-300](file://src/agents/agent-scope.ts#L1-L300)
 - [acp-spawn.ts:1-250](file://src/agents/acp-spawn.ts#L1-L250)
 
+## 代理配置与管理
+
+### 内置代理定义
+
+内置代理系统通过集中配置管理所有内置代理，包括Office Helper和旅行规划代理：
+
+```mermaid
+classDiagram
+class BUILTIN_AGENTS {
++BUILTIN_AGENTS array
++ensureBuiltinAgents() Promise~OpenClawConfig~
+}
+class OfficeHelperAgent {
++id : "my-office-helper"
++name : "Office Helper"
++workspace : "~/.openclaw/agents/my-office-helper"
++templateSubdir : "agents/my-office-helper"
++skills : ["word-docx", "excel-xlsx", "my-pdf", "office-document-specialist-suite"]
++tools : {profile : "full", deny : []}
+}
+class TravelPlannerAgent {
++id : "travel-planner"
++name : "Travel Planner"
++workspace : "~/.openclaw/agents/travel-planner"
++templateSubdir : "agents/travel-planner"
++skills : ["travel-planner", "xiaohongshu", "flyai", "amap-lbs-skill", "12306", "weather"]
++tools : {profile : "full", deny : []}
+}
+BUILTIN_AGENTS --> OfficeHelperAgent
+BUILTIN_AGENTS --> TravelPlannerAgent
+```
+
+**图表来源**
+- [builtin-agents.ts:37-70](file://src/agents/builtin-agents.ts#L37-L70)
+
+### 代理模板系统
+
+代理模板系统为每个内置代理提供完整的配置和行为指导：
+
+**Office Helper代理模板**
+- **核心哲学**：文档是手段而非目的，精确性即尊重
+- **技能配置**：专门的Office文档处理技能组合
+- **工作流程**：先阅读相关技能文档再执行操作
+- **格式转换原则**：确认保留内容，警告有损转换
+
+**旅行规划代理模板**
+- **核心理念**：成为你想跟随的旅行者
+- **技能配置**：旅行规划、地图服务、预订系统等综合技能
+- **个性化服务**：根据用户预算和偏好调整详细程度
+- **安全第一**：关注目的地安全警告和风险
+
+**章节来源**
+- [builtin-agents.ts:37-70](file://src/agents/builtin-agents.ts#L37-L70)
+- [SOUL.md:1-115](file://docs/reference/templates/agents/my-office-helper/SOUL.md#L1-L115)
+- [SOUL.md:1-72](file://docs/reference/templates/agents/travel-planner/SOUL.md#L1-L72)
+
+## 技能生态系统
+
+### Office文档处理技能
+
+Office Helper代理集成了完整的Office文档处理技能生态系统：
+
+```mermaid
+graph TB
+subgraph "Office文档处理技能"
+WD[word-docx] --> WordProcessing[Word文档处理]
+EX[excel-xlsx] --> ExcelProcessing[Excel表格处理]
+MP[my-pdf] --> PDFProcessing[PDF文档处理]
+ODS[office-document-specialist-suite] --> MultiFormat[多格式文档处理]
+end
+subgraph "技能协作"
+WD --> ODS
+EX --> ODS
+MP --> ODS
+ODS --> FormatConversion[格式转换]
+ODS --> DataExtraction[数据提取]
+ODS --> DocumentAnalysis[文档分析]
+end
+```
+
+**图表来源**
+- [builtin-agents.ts:62-67](file://src/agents/builtin-agents.ts#L62-L67)
+- [SKILL.md](file://skills/word-docx/SKILL.md)
+- [SKILL.md](file://skills/excel-xlsx/SKILL.md)
+- [SKILL.md](file://skills/my-pdf/SKILL.md)
+- [SKILL.md](file://skills/office-document-specialist-suite/SKILL.md)
+
+### 旅行规划技能组合
+
+旅行规划代理配备了全面的旅行规划技能：
+
+```mermaid
+graph TB
+subgraph "旅行规划技能"
+TP[travel-planner] --> TripPlanning[行程规划]
+XH[xiaohongshu] --> SocialMedia[社交媒体内容]
+FL[flyai] --> AI搜索服务
+AL[amap-lbs-skill] --> 地图导航服务
+TW[12306] --> 火车票预订
+WS[weather] --> 天气预报
+end
+subgraph "服务集成"
+TP --> XH
+TP --> FL
+TP --> AL
+TP --> TW
+TP --> WS
+end
+```
+
+**图表来源**
+- [builtin-agents.ts:47-54](file://src/agents/builtin-agents.ts#L47-L54)
+- [SKILL.md](file://skills/travel-planner/SKILL.md)
+
+### 技能协作机制
+
+技能之间的协作机制确保复杂任务的高效处理：
+
+1. **优先级排序**：根据任务类型选择最合适的技能
+2. **工作流集成**：技能间的数据传递和状态同步
+3. **错误处理**：单个技能失败时的降级处理
+4. **性能优化**：并行处理可并行的任务
+
+**章节来源**
+- [builtin-agents.ts:62-67](file://src/agents/builtin-agents.ts#L62-L67)
+- [builtin-agents.ts:47-54](file://src/agents/builtin-agents.ts#L47-L54)
+
 ## 依赖关系分析
 
 内置代理系统的依赖关系相对简单且清晰，主要依赖于核心的运行时环境和标准库：
@@ -343,12 +503,16 @@ APP[apply-patch.ts]
 TLD[tool-loop-detection.ts]
 AH[auth-health.ts]
 APL[anthropic-payload-log.ts]
+OHT[Office Helper模板]
+TPT[旅行规划模板]
 end
 subgraph "外部依赖"
 Node[node: fs, path, child_process]
 Utils[utils.ts]
 Logger[logger.ts]
 Config[config.ts]
+Skills[技能配置]
+Templates[代理模板]
 end
 BA --> AP
 BA --> AS
@@ -357,6 +521,12 @@ BA --> APP
 BA --> TLD
 BA --> AH
 BA --> APL
+BA --> OHT
+BA --> TPT
+OHT --> Skills
+TPT --> Skills
+OHT --> Templates
+TPT --> Templates
 AP --> Node
 AS --> Node
 ACSP --> Node
@@ -404,6 +574,13 @@ APL --> Config
 - **进程缓存**：缓存已启动的代理实例
 - **路径缓存**：缓存解析后的文件路径
 - **配置缓存**：缓存代理配置信息
+
+### 技能执行优化
+
+针对Office Helper和旅行规划代理的特殊需求：
+- **技能预热**：常用技能提前加载到内存
+- **工作流优化**：复杂任务分解为多个简单技能执行
+- **结果缓存**：重复计算的结果进行缓存
 
 ## 故障排除指南
 
@@ -473,6 +650,11 @@ GracefulShutdown --> End
    - 优化线程池和连接池大小
    - 实施负载均衡策略
 
+4. **技能执行效率低**
+   - 分析技能执行时间分布
+   - 优化技能间的协作流程
+   - 考虑技能预加载机制
+
 **章节来源**
 - [auth-health.ts:1-250](file://src/agents/auth-health.ts#L1-L250)
 - [anthropic-payload-log.ts:1-250](file://src/agents/anthropic-payload-log.ts#L1-L250)
@@ -481,16 +663,20 @@ GracefulShutdown --> End
 
 内置代理系统作为 OpenClaw 平台的核心组件，展现了优秀的架构设计和实现质量。系统通过模块化的组件设计、清晰的职责分离和完善的错误处理机制，为平台提供了稳定可靠的代理管理能力。
 
+**更新** 最新版本显著增强了Office文档处理和旅行规划能力，通过新增Office Helper代理和优化旅行规划代理配置，系统现在能够提供更专业、更高效的文档处理和旅行规划服务。
+
 系统的主要优势包括：
 - **高度模块化**：每个组件都有明确的职责和接口
 - **良好的扩展性**：支持新的代理类型和功能模块
 - **强大的监控能力**：提供全面的系统状态监控
 - **完善的错误处理**：具备自愈能力和故障恢复机制
+- **专业的技能生态**：提供针对特定领域的专业技能组合
 
 未来的发展方向可能包括：
 - **智能化代理管理**：引入机器学习算法优化代理调度
 - **增强的安全性**：加强代理间的安全隔离和访问控制
 - **更好的可观测性**：提供更详细的性能指标和诊断信息
 - **云原生支持**：支持容器化部署和微服务架构
+- **技能生态扩展**：持续增加更多专业领域的技能组合
 
-内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。
+内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的Office Helper和旅行规划代理进一步丰富了系统的能力矩阵，为用户提供更加专业和便捷的服务体验。

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   useChatStore,
+  toolStreamEntryToResultText,
   type ToolStreamEntry,
   type ChatMessage,
   type ChatMessageRole,
@@ -8,7 +9,10 @@ import {
   type ContentBlock,
   type MessageAttachment,
 } from "@/store/chat.store";
-import { registerChatDispatch, unregisterChatDispatch } from "@/store/gateway.store";
+import {
+  registerChatDispatch,
+  unregisterChatDispatch,
+} from "@/store/gateway.store";
 
 // ---------------------------------------------------------------------------
 // useChatEventBridge
@@ -62,11 +66,20 @@ export function stripAttachmentContent(raw: string): {
       seen.add(fileName);
       // Infer a rough mimeType from extension for icon display
       const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-      const mimeType = ext === "pdf" ? "application/pdf"
-        : ext === "docx" || ext === "doc" ? "application/msword"
-        : ext === "xlsx" || ext === "xls" ? "application/vnd.ms-excel"
-        : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext}`
-        : "text/plain";
+      const mimeType =
+        ext === "pdf"
+          ? "application/pdf"
+          : ext === "docx" || ext === "doc"
+            ? "application/msword"
+            : ext === "xlsx" || ext === "xls"
+              ? "application/vnd.ms-excel"
+              : ext === "png" ||
+                  ext === "jpg" ||
+                  ext === "jpeg" ||
+                  ext === "gif" ||
+                  ext === "webp"
+                ? `image/${ext}`
+                : "text/plain";
       attachments.push({ fileName, mimeType, size: 0 });
     }
   }
@@ -128,7 +141,9 @@ export function normalizeRole(raw: string | undefined): ChatMessageRole {
  * parts in a single message, which triggers ToolGroup wrapping.
  * Messages that contain text (or have no contentBlocks) are left unchanged.
  */
-export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] {
+export function consolidateToolMessages(
+  messages: ChatMessage[],
+): ChatMessage[] {
   const result: ChatMessage[] = [];
   let i = 0;
 
@@ -142,7 +157,10 @@ export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] 
     }
 
     const blocks = msg.contentBlocks;
-    const isToolOnly = blocks && blocks.length > 0 && blocks.every((b) => b.type === "tool-call");
+    const isToolOnly =
+      blocks &&
+      blocks.length > 0 &&
+      blocks.every((b) => b.type === "tool-call");
 
     if (!isToolOnly) {
       result.push(msg);
@@ -173,7 +191,9 @@ export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] 
   return result;
 }
 
-function extractTextFromToolResultBlock(block: Record<string, unknown>): string | undefined {
+function extractTextFromToolResultBlock(
+  block: Record<string, unknown>,
+): string | undefined {
   if (typeof block.text === "string") {
     return block.text;
   }
@@ -182,7 +202,9 @@ function extractTextFromToolResultBlock(block: Record<string, unknown>): string 
   }
   if (Array.isArray(block.content)) {
     return (block.content as Array<Record<string, unknown>>)
-      .filter((b) => (b.type as string) === "text" && typeof b.text === "string")
+      .filter(
+        (b) => (b.type as string) === "text" && typeof b.text === "string",
+      )
       .map((b) => b.text as string)
       .join("");
   }
@@ -190,7 +212,9 @@ function extractTextFromToolResultBlock(block: Record<string, unknown>): string 
 }
 
 /** Error UI follows server/toolResult `isError` only — no client-side inference. */
-function resolveToolResultPhase(block: Record<string, unknown>): "result" | "error" {
+function resolveToolResultPhase(
+  block: Record<string, unknown>,
+): "result" | "error" {
   return block.isError === true ? "error" : "result";
 }
 
@@ -211,13 +235,17 @@ export function mergeToolResults(rawMessages: unknown[]): unknown[] {
 
   for (const raw of rawMessages) {
     const msg = raw as Record<string, unknown>;
-    const roleStr = ((msg.role as string) ?? "").toLowerCase().replace(/_/g, "");
+    const roleStr = ((msg.role as string) ?? "")
+      .toLowerCase()
+      .replace(/_/g, "");
 
     if (roleStr === "toolresult" || roleStr === "tool") {
       // Find the last preceding non-toolResult assistant message and append result blocks.
       for (let i = out.length - 1; i >= 0; i--) {
         const prev = out[i];
-        const prevRole = ((prev.role as string) ?? "").toLowerCase().replace(/_/g, "");
+        const prevRole = ((prev.role as string) ?? "")
+          .toLowerCase()
+          .replace(/_/g, "");
         if (prevRole === "toolresult" || prevRole === "tool") {
           continue;
         }
@@ -232,7 +260,9 @@ export function mergeToolResults(rawMessages: unknown[]): unknown[] {
         );
         const unpaired = prevContent.find(
           (b) =>
-            (b.type as string) === "toolCall" && typeof b.id === "string" && !pairedIds.has(b.id),
+            (b.type as string) === "toolCall" &&
+            typeof b.id === "string" &&
+            !pairedIds.has(b.id),
         );
         const toolCallId = unpaired?.id as string | undefined;
 
@@ -240,7 +270,9 @@ export function mergeToolResults(rawMessages: unknown[]): unknown[] {
           ? (msg.content as Array<Record<string, unknown>>)
           : [];
         const resultText = rawContent
-          .filter((b) => (b.type as string) === "text" && typeof b.text === "string")
+          .filter(
+            (b) => (b.type as string) === "text" && typeof b.text === "string",
+          )
           .map((b) => b.text as string)
           .join("");
         const resultBlock: Record<string, unknown> = {
@@ -296,7 +328,9 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
     if (!block || typeof block !== "object") {
       continue;
     }
-    const kind = (typeof block.type === "string" ? block.type : "").toLowerCase().replace(/_/g, "");
+    const kind = (typeof block.type === "string" ? block.type : "")
+      .toLowerCase()
+      .replace(/_/g, "");
     const isToolCall =
       kind === "toolcall" ||
       kind === "tooluse" ||
@@ -309,7 +343,8 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
       (typeof block.id === "string" ? block.id : undefined) ??
       (typeof block.toolCallId === "string" ? block.toolCallId : undefined) ??
       crypto.randomUUID();
-    const toolName = (typeof block.name === "string" ? block.name : undefined) ?? "tool";
+    const toolName =
+      (typeof block.name === "string" ? block.name : undefined) ?? "tool";
     const argsRaw = block.arguments ?? block.args;
     let argsText: string | undefined;
     if (typeof argsRaw === "string") {
@@ -329,7 +364,9 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
     if (!block || typeof block !== "object") {
       continue;
     }
-    const kind = (typeof block.type === "string" ? block.type : "").toLowerCase().replace(/_/g, "");
+    const kind = (typeof block.type === "string" ? block.type : "")
+      .toLowerCase()
+      .replace(/_/g, "");
     if (kind !== "toolresult") {
       continue;
     }
@@ -340,7 +377,9 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
     const resultText = extractTextFromToolResultBlock(block);
     const resPhase = resolveToolResultPhase(block);
 
-    const existing = toolCallId ? parts.find((p) => p.toolCallId === toolCallId) : null;
+    const existing = toolCallId
+      ? parts.find((p) => p.toolCallId === toolCallId)
+      : null;
     if (existing) {
       existing.result = resultText;
       existing.phase = resPhase;
@@ -367,7 +406,9 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
  * array, preserving the original interleaved order so the UI can render
  * them as: text → tool card → text → tool card …
  */
-export function extractContentBlocks(rawContent: unknown): ContentBlock[] | undefined {
+export function extractContentBlocks(
+  rawContent: unknown,
+): ContentBlock[] | undefined {
   if (!Array.isArray(rawContent)) {
     return undefined;
   }
@@ -379,12 +420,17 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
   // }
 
   // Build a map of toolCallId -> result/error for the second pass
-  const resultMap = new Map<string, { result?: string; phase: "result" | "error" }>();
+  const resultMap = new Map<
+    string,
+    { result?: string; phase: "result" | "error" }
+  >();
   for (const block of blocks) {
     if (!block || typeof block !== "object") {
       continue;
     }
-    const kind = (typeof block.type === "string" ? block.type : "").toLowerCase().replace(/_/g, "");
+    const kind = (typeof block.type === "string" ? block.type : "")
+      .toLowerCase()
+      .replace(/_/g, "");
     if (kind !== "toolresult") {
       continue;
     }
@@ -404,9 +450,15 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
     if (!block || typeof block !== "object") {
       continue;
     }
-    const kind = (typeof block.type === "string" ? block.type : "").toLowerCase().replace(/_/g, "");
+    const kind = (typeof block.type === "string" ? block.type : "")
+      .toLowerCase()
+      .replace(/_/g, "");
 
-    if (kind === "text" && typeof block.text === "string" && block.text.trim()) {
+    if (
+      kind === "text" &&
+      typeof block.text === "string" &&
+      block.text.trim()
+    ) {
       out.push({ type: "text", text: block.text });
       continue;
     }
@@ -424,7 +476,8 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
       (typeof block.id === "string" ? block.id : undefined) ??
       (typeof block.toolCallId === "string" ? block.toolCallId : undefined) ??
       crypto.randomUUID();
-    const toolName = (typeof block.name === "string" ? block.name : undefined) ?? "tool";
+    const toolName =
+      (typeof block.name === "string" ? block.name : undefined) ?? "tool";
     const argsRaw = block.arguments ?? block.args;
     let argsText: string | undefined;
     if (typeof argsRaw === "string") {
@@ -482,16 +535,69 @@ export function useChatEventBridge() {
           } else if (state === "final") {
             const text = extractMessageText(chatPayload?.message);
             if (text) {
-              // Inline message — add directly, clear stream
-              useChatStore.getState().resetStream();
-              const finalMsg: ChatMessage = {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                content: text,
-                ts: Date.now(),
-                runId: chatPayload?.runId,
-              };
-              useChatStore.getState().setMessages([...useChatStore.getState().messages, finalMsg]);
+              // Inline message — merge with any accumulated tool calls from streaming.
+              // If tool calls were streamed before this final text, include them.
+              const storeState = useChatStore.getState();
+              const { committedBlocks, toolStreamById, toolStreamOrder } =
+                storeState;
+              const hasToolCalls = toolStreamOrder.length > 0;
+              const hasCommitted = committedBlocks.length > 0;
+
+              if (hasToolCalls || hasCommitted) {
+                // Build full contentBlocks: committed text + tool calls + final text
+                const contentBlocks: ContentBlock[] = [...committedBlocks];
+                for (const id of toolStreamOrder) {
+                  const entry = toolStreamById.get(id);
+                  if (!entry) {
+                    continue;
+                  }
+                  contentBlocks.push({
+                    type: "tool-call",
+                    toolCallId: entry.id,
+                    toolName: entry.toolName ?? "tool",
+                    argsText:
+                      entry.input != null
+                        ? JSON.stringify(entry.input, null, 2)
+                        : undefined,
+                    result: toolStreamEntryToResultText(entry),
+                    phase:
+                      entry.phase === "result"
+                        ? "result"
+                        : entry.phase === "error"
+                          ? "error"
+                          : "call",
+                  });
+                }
+                if (text.trim()) {
+                  contentBlocks.push({ type: "text", text });
+                }
+                storeState.resetStream();
+                const finalMsg: ChatMessage = {
+                  id: crypto.randomUUID(),
+                  role: "assistant",
+                  content: text,
+                  ts: Date.now(),
+                  runId: chatPayload?.runId,
+                  contentBlocks:
+                    contentBlocks.length > 0 ? contentBlocks : undefined,
+                };
+                useChatStore
+                  .getState()
+                  .setMessages([...useChatStore.getState().messages, finalMsg]);
+              } else {
+                // No tool calls — add directly, clear stream
+                storeState.resetStream();
+                const finalMsg: ChatMessage = {
+                  id: crypto.randomUUID(),
+                  role: "assistant",
+                  content: text,
+                  ts: Date.now(),
+                  runId: chatPayload?.runId,
+                };
+                useChatStore
+                  .getState()
+                  .setMessages([...useChatStore.getState().messages, finalMsg]);
+              }
             } else if (
               useChatStore.getState().stream !== null ||
               useChatStore.getState().committedBlocks.length > 0
@@ -515,11 +621,15 @@ export function useChatEventBridge() {
             useChatStore.getState().setSending(false);
             useChatStore.getState().setRunId(null);
             if (state === "error") {
-              const errMsg = chatPayload?.errorMessage ?? "Generation failed. Please try again.";
+              const errMsg =
+                chatPayload?.errorMessage ??
+                "Generation failed. Please try again.";
               useChatStore
                 .getState()
                 .setLastError(
-                  typeof errMsg === "string" ? errMsg : "Generation failed. Please try again.",
+                  typeof errMsg === "string"
+                    ? errMsg
+                    : "Generation failed. Please try again.",
                 );
             }
           }
@@ -532,7 +642,9 @@ export function useChatEventBridge() {
         case "agent": {
           const agentPayload = p;
           const stream = agentPayload?.stream as string | undefined;
-          const data = agentPayload?.data as Record<string, unknown> | undefined;
+          const data = agentPayload?.data as
+            | Record<string, unknown>
+            | undefined;
 
           if (stream === "tool" && data) {
             const phase = data.phase as string | undefined;
@@ -552,7 +664,9 @@ export function useChatEventBridge() {
               };
               useChatStore.getState().upsertToolStream(entry);
             } else if (phase === "result") {
-              const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
+              const existing = useChatStore
+                .getState()
+                .toolStreamById.get(toolCallId ?? "");
               if (existing) {
                 const isError = Boolean(data.isError);
                 if (isError) {
@@ -560,7 +674,8 @@ export function useChatEventBridge() {
                   useChatStore.getState().upsertToolStream({
                     ...existing,
                     phase: "error",
-                    error: typeof data.error === "string" ? data.error : undefined,
+                    error:
+                      typeof data.error === "string" ? data.error : undefined,
                     output: data.meta ?? data.result ?? undefined,
                   });
                 } else {
@@ -574,7 +689,9 @@ export function useChatEventBridge() {
                 }
               }
             } else if (phase === "error") {
-              const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
+              const existing = useChatStore
+                .getState()
+                .toolStreamById.get(toolCallId ?? "");
               if (existing) {
                 useChatStore.getState().upsertToolStream({
                   ...existing,
@@ -646,7 +763,10 @@ export function useChatEventBridge() {
             if (role === "user") {
               const stripped = stripAttachmentContent(rawContent);
               content = stripped.prompt;
-              attachments = stripped.attachments.length > 0 ? stripped.attachments : undefined;
+              attachments =
+                stripped.attachments.length > 0
+                  ? stripped.attachments
+                  : undefined;
             }
 
             return {
@@ -670,7 +790,9 @@ export function useChatEventBridge() {
               const preview = blocks
                 ? blocks
                     .map((b) =>
-                      b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0, 20)}`,
+                      b.type === "tool-call"
+                        ? `tool:${b.toolName}`
+                        : `text:${b.text.slice(0, 20)}`,
                     )
                     .join(", ")
                 : `[no blocks] content=${m.content.slice(0, 40)}`;
@@ -685,13 +807,17 @@ export function useChatEventBridge() {
 
           if (import.meta.env.DEV) {
             console.group("[chat.history] after consolidate");
-            console.log(`total: ${consolidated.length} (was ${normalized.length})`);
+            console.log(
+              `total: ${consolidated.length} (was ${normalized.length})`,
+            );
             consolidated.slice(0, 20).forEach((m, i) => {
               const blocks = m.contentBlocks;
               const preview = blocks
                 ? blocks
                     .map((b) =>
-                      b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0, 20)}`,
+                      b.type === "tool-call"
+                        ? `tool:${b.toolName}`
+                        : `text:${b.text.slice(0, 20)}`,
                     )
                     .join(", ")
                 : `[no blocks] content=${m.content.slice(0, 40)}`;
@@ -759,7 +885,9 @@ export function useChatEventBridge() {
         case "chat.stream.error": {
           useChatStore.getState().resetStream();
           useChatStore.getState().setSending(false);
-          useChatStore.getState().setLastError("Generation failed. Please try again.");
+          useChatStore
+            .getState()
+            .setLastError("Generation failed. Please try again.");
           break;
         }
 

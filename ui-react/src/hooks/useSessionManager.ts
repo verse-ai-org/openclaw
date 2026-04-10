@@ -103,7 +103,10 @@ export function useSessionManager() {
             if (role === "user") {
               const stripped = stripAttachmentContent(rawContent);
               content = stripped.prompt;
-              attachments = stripped.attachments.length > 0 ? stripped.attachments : undefined;
+              attachments =
+                stripped.attachments.length > 0
+                  ? stripped.attachments
+                  : undefined;
             }
             return {
               id: (msg.id as string) ?? crypto.randomUUID(),
@@ -113,10 +116,11 @@ export function useSessionManager() {
               runId: msg.runId as string | undefined,
               sessionKey: key,
               attachments,
-              // Use stripped content for user messages so contentBlocks (used by
-              // convertMessage for rendering) never contain injected file text.
-              toolCalls: extractToolCallParts(content),
-              contentBlocks: extractContentBlocks(content),
+              // Pass raw msg.content (array) so extractToolCallParts/extractContentBlocks
+              // can see toolCall blocks. The normalized text string `content` has already
+              // lost all tool-call information.
+              toolCalls: extractToolCallParts(msg.content),
+              contentBlocks: extractContentBlocks(msg.content),
             };
           });
           // Step 2: merge consecutive tool-call-only assistant messages so
@@ -125,12 +129,20 @@ export function useSessionManager() {
 
           if (import.meta.env.DEV) {
             console.group("[loadHistory] pipeline");
-            console.log(`raw=${result.messages.length} → merged=${merged.length} → normalized=${normalized.length} → consolidated=${consolidated.length}`);
+            console.log(
+              `raw=${result.messages.length} → merged=${merged.length} → normalized=${normalized.length} → consolidated=${consolidated.length}`,
+            );
             consolidated.slice(0, 20).forEach((m, i) => {
               const blocks = m.contentBlocks;
               const preview = blocks
-                ? blocks.map(b => b.type === "tool-call" ? `tool:${b.toolName}` : `text:${b.text.slice(0,20)}`).join(", ")
-                : `[no blocks] content=${m.content.slice(0,40)}`;
+                ? blocks
+                    .map((b) =>
+                      b.type === "tool-call"
+                        ? `tool:${b.toolName}`
+                        : `text:${b.text.slice(0, 20)}`,
+                    )
+                    .join(", ")
+                : `[no blocks] content=${m.content.slice(0, 40)}`;
               console.log(`  [${i}] role=${m.role} blocks=[${preview}]`);
             });
             console.groupEnd();
@@ -149,7 +161,9 @@ export function useSessionManager() {
 
   // React to pending history reload requests (set by useChatEventBridge on chat:final)
   useEffect(() => {
-    if (!pendingReloadKey) return;
+    if (!pendingReloadKey) {
+      return;
+    }
     void loadHistory(pendingReloadKey, true);
     useChatStore.getState().setPendingHistoryReloadKey(null);
   }, [pendingReloadKey, loadHistory]);
@@ -173,7 +187,10 @@ export function useSessionManager() {
         return { ok: false, error: "Not connected" };
       }
       try {
-        await client.request("sessions.delete", { key, deleteTranscript: true });
+        await client.request("sessions.delete", {
+          key,
+          deleteTranscript: true,
+        });
         // Remove from local list
         setSessions((prev) => prev.filter((s) => s.key !== key));
         // If we just deleted the active session, switch to the agent's main session

@@ -135,10 +135,10 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
 
   // Append streaming assistant placeholder to the message list while active.
   // Builds contentBlocks from:
-  //   1. committedBlocks — text segments frozen before tool calls
-  //   2. current stream text — text being streamed right now
-  //   3. in-flight tool call entries from toolStreamById (in order)
-  // This correctly renders interleaved text → tool → text → tool patterns.
+  //   1. committedBlocks — text segments frozen before tool calls (interleaved with tools)
+  //   2. in-flight tool call entries from toolStreamById (in order)
+  //   3. current stream text — text being streamed AFTER the last tool call
+  // This correctly renders interleaved text → tool → text → tool → text patterns.
   const messages: ChatMessage[] = useMemo(() => {
     if (!isRunning) {
       return chatMessages;
@@ -149,13 +149,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       ...committedBlocks,
     ];
 
-    // Current in-progress stream text
-    const streamContent = stream ?? "";
-    if (streamContent.trim()) {
-      contentBlocks.push({ type: "text", text: streamContent });
-    }
-
-    // In-flight tool calls in arrival order
+    // In-flight tool calls in arrival order — come AFTER committed text blocks
     for (const id of toolStreamOrder) {
       const entry = toolStreamById.get(id);
       if (!entry) {
@@ -170,6 +164,13 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         result: toolStreamEntryToResultText(entry),
         phase: entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
       });
+    }
+
+    // Current in-progress stream text — appended AFTER all tool calls
+    // so it appears below the tool group rather than pushing tools down
+    const streamContent = stream ?? "";
+    if (streamContent.trim()) {
+      contentBlocks.push({ type: "text", text: streamContent });
     }
 
     // Build flat toolCalls array for the backward-compat field
