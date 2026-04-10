@@ -9,11 +9,9 @@ function normalizeText(value) {
 function normalizePlatform(value) {
   const text = normalizeText(value);
   if (text === "xhs" || text === "xiaohongshu" || text === "小红书") return "xhs";
-  if (text === "amap" || text === "gaode" || text === "高德地图") return "amap";
-  if (text === "web" || text === "web_search" || text === "search" || text === "搜索引擎")
-    return "web";
-  if (text === "auto" || !text) return "auto";
-  return "xhs";
+  if (text === "search" || text === "搜索" || text === "search_engine" || text === "搜索引擎") return "search";
+  if (text === "auto" || !text) return "search";
+  return "search";
 }
 
 function inferDestinationLabel(tripRequest) {
@@ -75,7 +73,7 @@ function buildPlatformDefaultCandidates(tripRequest, platform) {
     recommended_route: primary,
     alternatives: [altFast, altRelaxed],
     route_options: [primary, altFast, altRelaxed],
-    source_confidence: platform === "web" ? "low" : "medium",
+    source_confidence: platform === "search" ? "low" : "medium",
     evidence_summary: "",
     evidence_links: [],
   };
@@ -132,15 +130,98 @@ function buildXhsCandidatesFromEvidence(xhsEvidence) {
   };
 }
 
-function buildRouteCandidatesFromInput(tripRequest, platform) {
-  const candidates = Array.isArray(tripRequest.route_candidates)
-    ? tripRequest.route_candidates
+function uniqueStops(input) {
+  const seen = new Set();
+  const list = [];
+  for (const item of input || []) {
+    const stop = String(item || "").trim();
+    if (!stop) continue;
+    const key = stop.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    list.push(stop);
+  }
+  return list;
+}
+
+function buildSearchCandidatesFromEvidence(searchEvidence) {
+  const quality = String(searchEvidence?.evidence_quality || "low").toLowerCase();
+  const links = (searchEvidence?.sources || [])
+    .map((item) => item?.url)
+    .filter(Boolean)
+    .slice(0, 8);
+
+  const loops = Array.isArray(searchEvidence?.route_hints?.popular_loops)
+    ? searchEvidence.route_hints.popular_loops.filter((item) => Array.isArray(item) && item.length > 1)
     : [];
+  const keyDestinations = uniqueStops(searchEvidence?.route_hints?.key_destinations || []);
+
+  const primaryStops = loops.length > 0 ? uniqueStops(loops[0]) : keyDestinations;
+  if (primaryStops.length < 2) return null;
+
+  const primary = {
+    route_id: "search_primary_1",
+    title: "搜索证据主路线",
+    summary:
+      String(searchEvidence?.summary || "").trim() ||
+      `基于搜索结果提炼锚点：${primaryStops.join(" → ")}`,
+    stops: primaryStops,
+    source_platform: "search",
+    evidence_quality: quality,
+    evidence_links: links,
+  };
+
+  const alternatives = [];
+  for (const loop of loops.slice(1, 3)) {
+    const stops = uniqueStops(loop);
+    if (stops.length < 2) continue;
+    alternatives.push({
+      route_id: `search_alt_loop_${alternatives.length + 1}`,
+      title: `搜索证据备选路线${alternatives.length + 1}`,
+      summary: "基于搜索证据中不同攻略线索生成。",
+      stops,
+      source_platform: "search",
+      evidence_quality: quality,
+      evidence_links: links,
+    });
+  }
+
+  if (alternatives.length === 0) {
+    const reversed = primaryStops.slice().reverse();
+    if (reversed.length >= 2) {
+      alternatives.push({
+        route_id: "search_alt_reverse",
+        title: "搜索证据备选路线（反向）",
+        summary: "基于同一锚点链路的反向备选，用于节奏对比。",
+        stops: reversed,
+        source_platform: "search",
+        evidence_quality: quality,
+        evidence_links: links,
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    recommended_route: primary,
+    alternatives,
+    route_options: [primary, ...alternatives].slice(0, 3),
+    source_confidence: quality === "high" ? "medium" : "low",
+    evidence_summary: String(searchEvidence?.summary || ""),
+    evidence_links: links,
+  };
+}
+
+function buildRouteCandidatesFromInput(tripRequest, platform) {
   const options = Array.isArray(tripRequest.route_options) ? tripRequest.route_options : [];
-  const sourceOptions = (candidates.length > 0 ? candidates : options).slice(0, 3);
+  const sourceOptions = options.slice(0, 3);
   if (sourceOptions.length === 0) {
     if (platform === "xhs") {
-      const fromEvidence = buildXhsCandidatesFromEvidence(tripRequest.xhs_evidence || {});
+      const fromEvidence = buildXhsCandidatesFromEvidence(tripRequest.route_evidence || {});
+      if (fromEvidence) return fromEvidence;
+    }
+    if (platform === "search") {
+      const fromEvidence = buildSearchCandidatesFromEvidence(tripRequest.route_evidence || {});
       if (fromEvidence) return fromEvidence;
     }
     return buildPlatformDefaultCandidates(tripRequest, platform);
@@ -156,7 +237,7 @@ function buildRouteCandidatesFromInput(tripRequest, platform) {
     alternatives: mapped.slice(1),
     route_options: mapped,
     source_confidence: "medium",
-    evidence_summary: String(tripRequest.source_reason || "").trim(),
+    evidence_summary: "",
     evidence_links: [],
   };
 }
@@ -167,7 +248,7 @@ function buildRouteCandidatesFromInput(tripRequest, platform) {
  * Decision strategy:
  * 1) single platform only
  * 2) default platform: xhs
- * 3) when preference=auto, follow xhs -> amap -> web
+ * 3) when preference=auto, follow xhs -> search
  *
  * @param {object} tripRequest
  * @returns {{
@@ -187,26 +268,35 @@ function buildRouteCandidatesFromInput(tripRequest, platform) {
  *   route_options: object[],
  *   comparison: object[],
  *   next_action: string,
+ *   requires_platform_evidence: boolean,
+ *   required_evidence_platform: string,
  *   planning_note: string,
  * }}
  */
 export function selectRouteCandidates(tripRequest) {
-  const preference = normalizePlatform(tripRequest.route_source_preference || "xhs");
+  const inferredPreference =
+    tripRequest.route_source_preference ||
+    tripRequest.route_source_used ||
+    tripRequest.route_evidence?.platform ||
+    "xhs";
+  const preference = normalizePlatform(inferredPreference);
   const policy = String(tripRequest.recommendation_source_policy || "").trim();
   // xhs_first policy: 若无上游证据则需要 agent 先走 xhs 检索链路
   const isXhsFirst = policy === "xhs_first" || preference === "xhs";
   const hasXhsEvidence =
     isXhsFirst &&
-    tripRequest.xhs_evidence != null &&
-    Array.isArray(tripRequest.xhs_evidence?.route_hints?.popular_loops) &&
-    tripRequest.xhs_evidence.route_hints.popular_loops.length > 0;
+    tripRequest.route_evidence != null &&
+    Array.isArray(tripRequest.route_evidence?.route_hints?.popular_loops) &&
+    tripRequest.route_evidence.route_hints.popular_loops.length > 0;
 
   if (isXhsFirst && !hasXhsEvidence) {
     // 还没有小红书证据：要求 agent 先走第四步 xhs 检索链路
     return {
       destination_key: "generic",
       recommendation_source: policy || "xhs_first",
-      requires_xhs_evidence: true,
+      requires_route_evidence: true,
+      requires_platform_evidence: true,
+      required_evidence_platform: "xhs",
       recommended_route: {},
       alternatives: [],
       rejected_routes: [],
@@ -223,7 +313,7 @@ export function selectRouteCandidates(tripRequest) {
       comparison: [],
       next_action:
         "Fetch Xiaohongshu route evidence first: call @skills/xiaohongshu search-feeds, " +
-        "then pipe results through xhs_evidence_builder.mjs before calling route_selector again.",
+        "then normalize to RouteEvidenceV1 and persist with save_route_evidence before route planning.",
       planning_note:
         "Xiaohongshu-first policy active. No XHS evidence found. " +
         "Must complete XHS search fallback before route framing can proceed.",
@@ -237,12 +327,14 @@ export function selectRouteCandidates(tripRequest) {
     tripRequest.route_source_used || (preference === "auto" ? "xhs" : preference),
   );
   const candidates = buildRouteCandidatesFromInput(tripRequest, usedPlatform);
-  const sourceReason = String(tripRequest.source_reason || "").trim();
+  const sourceReason = "";
 
   return {
     destination_key: "generic",
     recommendation_source: policy || usedPlatform,
-    requires_xhs_evidence: false,
+    requires_route_evidence: false,
+    requires_platform_evidence: false,
+    required_evidence_platform: "",
     recommended_route: candidates.recommended_route,
     alternatives: candidates.alternatives,
     rejected_routes: [],
@@ -264,9 +356,9 @@ export function selectRouteCandidates(tripRequest) {
     })),
     next_action: candidates.ok
       ? ""
-      : "Switch to the next platform in fallback chain: xhs -> amap -> web.",
+      : "Switch to the next platform in fallback chain: xhs -> search.",
     planning_note:
-      "Single-platform route framing. Default xhs; if failed, fallback to amap then web search.",
+      "Single-platform route framing. Default xhs; if failed, fallback to search.",
   };
 }
 

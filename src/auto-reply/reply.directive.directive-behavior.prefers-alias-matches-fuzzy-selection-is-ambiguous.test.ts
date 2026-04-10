@@ -76,7 +76,12 @@ describe("directive behavior", () => {
     body: string;
   }) {
     return await getReplyFromConfig(
-      { Body: params.body, From: "+1222", To: "+1222", CommandAuthorized: true },
+      {
+        Body: params.body,
+        From: "+1222",
+        To: "+1222",
+        CommandAuthorized: true,
+      },
       {},
       makeMoonshotConfig(params.home, params.storePath),
     );
@@ -86,7 +91,9 @@ describe("directive behavior", () => {
     response: Awaited<ReturnType<typeof getReplyFromConfig>>;
     storePath: string;
   }) {
-    const text = Array.isArray(params.response) ? params.response[0]?.text : params.response?.text;
+    const text = Array.isArray(params.response)
+      ? params.response[0]?.text
+      : params.response?.text;
     expect(text).toContain("Model set to moonshot/kimi-k2-0905-preview.");
     assertModelSelection(params.storePath, {
       provider: "moonshot",
@@ -99,7 +106,11 @@ describe("directive behavior", () => {
     await withTempHome(async (home) => {
       const storePath = path.join(home, "sessions.json");
 
-      for (const body of ["/model kimi", "/model kimi-k2-0905-preview", "/model moonshot/kimi"]) {
+      for (const body of [
+        "/model kimi",
+        "/model kimi-k2-0905-preview",
+        "/model moonshot/kimi",
+      ]) {
         const res = await runMoonshotModelDirective({
           home,
           storePath,
@@ -119,11 +130,11 @@ describe("directive behavior", () => {
           config: {
             agents: {
               defaults: {
-                model: { primary: "minimax/MiniMax-M2.5" },
+                model: { primary: "minimax/MiniMax-M2.7" },
                 workspace: path.join(home, "openclaw"),
                 models: {
-                  "minimax/MiniMax-M2.5": {},
-                  "minimax/MiniMax-M2.5-highspeed": {},
+                  "minimax/MiniMax-M2.7": {},
+                  "minimax/MiniMax-M2.7-highspeed": {},
                   "lmstudio/minimax-m2.5-gs32": {},
                 },
               },
@@ -135,13 +146,18 @@ describe("directive behavior", () => {
                   baseUrl: "https://api.minimax.io/anthropic",
                   apiKey: "sk-test", // pragma: allowlist secret
                   api: "anthropic-messages",
-                  models: [makeModelDefinition("MiniMax-M2.5", "MiniMax M2.5")],
+                  models: [makeModelDefinition("MiniMax-M2.7", "MiniMax M2.7")],
                 },
                 lmstudio: {
                   baseUrl: "http://127.0.0.1:1234/v1",
                   apiKey: "lmstudio", // pragma: allowlist secret
                   api: "openai-responses",
-                  models: [makeModelDefinition("minimax-m2.5-gs32", "MiniMax M2.5 GS32")],
+                  models: [
+                    makeModelDefinition(
+                      "minimax-m2.5-gs32",
+                      "MiniMax M2.7 GS32",
+                    ),
+                  ],
                 },
               },
             },
@@ -153,11 +169,11 @@ describe("directive behavior", () => {
           config: {
             agents: {
               defaults: {
-                model: { primary: "minimax/MiniMax-M2.5" },
+                model: { primary: "minimax/MiniMax-M2.7" },
                 workspace: path.join(home, "openclaw"),
                 models: {
-                  "minimax/MiniMax-M2.5": {},
-                  "minimax/MiniMax-M2.5-highspeed": {},
+                  "minimax/MiniMax-M2.7": {},
+                  "minimax/MiniMax-M2.7-highspeed": {},
                 },
               },
             },
@@ -169,8 +185,11 @@ describe("directive behavior", () => {
                   apiKey: "sk-test", // pragma: allowlist secret
                   api: "anthropic-messages",
                   models: [
-                    makeModelDefinition("MiniMax-M2.5", "MiniMax M2.5"),
-                    makeModelDefinition("MiniMax-M2.5-highspeed", "MiniMax M2.5 Highspeed"),
+                    makeModelDefinition("MiniMax-M2.7", "MiniMax M2.7"),
+                    makeModelDefinition(
+                      "MiniMax-M2.7-highspeed",
+                      "MiniMax M2.7 Highspeed",
+                    ),
                   ],
                 },
               },
@@ -179,7 +198,12 @@ describe("directive behavior", () => {
         },
       ]) {
         await getReplyFromConfig(
-          { Body: testCase.body, From: "+1222", To: "+1222", CommandAuthorized: true },
+          {
+            Body: testCase.body,
+            From: "+1222",
+            To: "+1222",
+            CommandAuthorized: true,
+          },
           {},
           {
             ...testCase.config,
@@ -196,7 +220,12 @@ describe("directive behavior", () => {
       const storePath = sessionStorePath(home);
 
       const res = await getReplyFromConfig(
-        { Body: "/model ki", From: "+1222", To: "+1222", CommandAuthorized: true },
+        {
+          Body: "/model ki",
+          From: "+1222",
+          To: "+1222",
+          CommandAuthorized: true,
+        },
         {},
         {
           agents: {
@@ -217,13 +246,20 @@ describe("directive behavior", () => {
                 baseUrl: "https://api.moonshot.ai/v1",
                 apiKey: "sk-test", // pragma: allowlist secret
                 api: "openai-completions",
-                models: [makeModelDefinition("kimi-k2-0905-preview", "Kimi K2")],
+                models: [
+                  makeModelDefinition("kimi-k2-0905-preview", "Kimi K2"),
+                ],
               },
               lmstudio: {
                 baseUrl: "http://127.0.0.1:1234/v1",
                 apiKey: "lmstudio", // pragma: allowlist secret
                 api: "openai-responses",
-                models: [makeModelDefinition("kimi-k2-0905-preview", "Kimi K2 (Local)")],
+                models: [
+                  makeModelDefinition(
+                    "kimi-k2-0905-preview",
+                    "Kimi K2 (Local)",
+                  ),
+                ],
               },
             },
           },
@@ -232,7 +268,9 @@ describe("directive behavior", () => {
       );
 
       const text = replyText(res);
-      expect(text).toContain("Model set to Kimi (moonshot/kimi-k2-0905-preview).");
+      expect(text).toContain(
+        "Model set to Kimi (moonshot/kimi-k2-0905-preview).",
+      );
       assertModelSelection(storePath, {
         provider: "moonshot",
         model: "kimi-k2-0905-preview",
@@ -264,7 +302,12 @@ describe("directive behavior", () => {
       );
 
       const res = await getReplyFromConfig(
-        { Body: "/model Opus@anthropic:work", From: "+1222", To: "+1222", CommandAuthorized: true },
+        {
+          Body: "/model Opus@anthropic:work",
+          From: "+1222",
+          To: "+1222",
+          CommandAuthorized: true,
+        },
         {},
         makeModelSwitchConfig(home),
       );
@@ -281,13 +324,20 @@ describe("directive behavior", () => {
     await withTempHome(async (home) => {
       drainSystemEvents(MAIN_SESSION_KEY);
       await getReplyFromConfig(
-        { Body: "/model Opus", From: "+1222", To: "+1222", CommandAuthorized: true },
+        {
+          Body: "/model Opus",
+          From: "+1222",
+          To: "+1222",
+          CommandAuthorized: true,
+        },
         {},
         makeModelSwitchConfig(home),
       );
 
       let events = drainSystemEvents(MAIN_SESSION_KEY);
-      expect(events).toContain("Model switched to Opus (anthropic/claude-opus-4-5).");
+      expect(events).toContain(
+        "Model switched to Opus (anthropic/claude-opus-4-5).",
+      );
 
       drainSystemEvents(MAIN_SESSION_KEY);
 
@@ -321,7 +371,9 @@ describe("directive behavior", () => {
           CommandAuthorized: true,
         },
         {},
-        makeWhatsAppDirectiveConfig(home, { model: { primary: "openai/gpt-4.1-mini" } }),
+        makeWhatsAppDirectiveConfig(home, {
+          model: { primary: "openai/gpt-4.1-mini" },
+        }),
       );
 
       events = drainSystemEvents(MAIN_SESSION_KEY);

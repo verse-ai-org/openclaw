@@ -340,7 +340,7 @@ export function buildLiveValidation(tripData, selectedRoute, preferences) {
       status: "pending_confirmation",
       requires_user_confirmation: true,
       confirmation_question:
-        "轻验证已完成（交通 + 天气）。是否确认进入下一步细化？若不确认可先调整路线或日期。",
+        "验证已完成（交通 + 天气）。是否确认进入下一步细化？若不确认可先调整路线或日期。",
       next_step_options: [
         {
           id: "confirm_and_continue",

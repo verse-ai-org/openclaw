@@ -51,7 +51,12 @@ const AUTH_CHOICE_GROUP_DEFS: {
     value: "minimax",
     label: "MiniMax",
     hint: "M2.5 (recommended)",
-    choices: ["minimax-portal", "minimax-api", "minimax-api-key-cn", "minimax-api-lightning"],
+    choices: [
+      "minimax-portal",
+      "minimax-api",
+      "minimax-api-key-cn",
+      "minimax-api-lightning",
+    ],
   },
   {
     value: "moonshot",
@@ -203,19 +208,21 @@ const PROVIDER_AUTH_CHOICE_OPTION_HINTS: Partial<Record<AuthChoice, string>> = {
   "opencode-go": "Shared OpenCode key; Kimi/GLM/MiniMax Go catalog",
 };
 
-const PROVIDER_AUTH_CHOICE_OPTION_LABELS: Partial<Record<AuthChoice, string>> = {
-  "moonshot-api-key": "Kimi API key (.ai)",
-  "moonshot-api-key-cn": "Kimi API key (.cn)",
-  "kimi-code-api-key": "Kimi Code API key (subscription)",
-  "cloudflare-ai-gateway-api-key": "Cloudflare AI Gateway",
-  "opencode-zen": "OpenCode Zen catalog",
-  "opencode-go": "OpenCode Go catalog",
-};
+const PROVIDER_AUTH_CHOICE_OPTION_LABELS: Partial<Record<AuthChoice, string>> =
+  {
+    "moonshot-api-key": "Kimi API key (.ai)",
+    "moonshot-api-key-cn": "Kimi API key (.cn)",
+    "kimi-code-api-key": "Kimi Code API key (subscription)",
+    "cloudflare-ai-gateway-api-key": "Cloudflare AI Gateway",
+    "opencode-zen": "OpenCode Zen catalog",
+    "opencode-go": "OpenCode Go catalog",
+  };
 
 function buildProviderAuthChoiceOptions(): AuthChoiceOption[] {
   return ONBOARD_PROVIDER_AUTH_FLAGS.map((flag) => ({
     value: flag.authChoice,
-    label: PROVIDER_AUTH_CHOICE_OPTION_LABELS[flag.authChoice] ?? flag.description,
+    label:
+      PROVIDER_AUTH_CHOICE_OPTION_LABELS[flag.authChoice] ?? flag.description,
     ...(PROVIDER_AUTH_CHOICE_OPTION_HINTS[flag.authChoice]
       ? { hint: PROVIDER_AUTH_CHOICE_OPTION_HINTS[flag.authChoice] }
       : {}),
@@ -296,15 +303,15 @@ const BASE_AUTH_CHOICE_OPTIONS: ReadonlyArray<AuthChoiceOption> = [
     label: "OpenCode Zen catalog",
     hint: "Claude, GPT, Gemini via opencode.ai/zen",
   },
-  { value: "minimax-api", label: "MiniMax M2.5" },
+  { value: "minimax-api", label: "MiniMax M2.7" },
   {
     value: "minimax-api-key-cn",
-    label: "MiniMax M2.5 (CN)",
+    label: "MiniMax M2.7 (CN)",
     hint: "China endpoint (api.minimaxi.com)",
   },
   {
     value: "minimax-api-lightning",
-    label: "MiniMax M2.5 Highspeed",
+    label: "MiniMax M2.7 Highspeed",
     hint: "Official fast tier (legacy: Lightning)",
   },
   { value: "qianfan-api-key", label: "Qianfan API key" },
@@ -353,7 +360,10 @@ export function buildAuthChoiceOptions(params: {
   return options;
 }
 
-export function buildAuthChoiceGroups(params: { store: AuthProfileStore; includeSkip: boolean }): {
+export function buildAuthChoiceGroups(params: {
+  store: AuthProfileStore;
+  includeSkip: boolean;
+}): {
   groups: AuthChoiceGroup[];
   skipOption?: AuthChoiceOption;
 } {

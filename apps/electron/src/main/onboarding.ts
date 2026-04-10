@@ -58,7 +58,7 @@ export interface OnboardingConfig {
   gatewayAuth?: "token" | "password";
   /** Pre-existing gateway token to reuse (if any) */
   gatewayToken?: string;
-  /** Fully-qualified model id, e.g. "minimax/MiniMax-M2.5" */
+  /** Fully-qualified model id, e.g. "minimax/MiniMax-M2.7" */
   resolvedModelId?: string;
   /** Provider group id, e.g. "minimax" | "anthropic" | "openai" */
   authProviderGroup?: string;
@@ -225,7 +225,7 @@ export function buildOpenClawConfig(
     "openai";
 
   // Rewrite model id prefix to match the resolved provider id.
-  // e.g. "minimax-cn/MiniMax-M2.5" → "minimax-portal/MiniMax-M2.5" when provider="minimax-portal"
+  // e.g. "minimax-cn/MiniMax-M2.7" → "minimax-portal/MiniMax-M2.7" when provider="minimax-portal"
   const rawModelPrefix = rawModelId.includes("/")
     ? rawModelId.split("/")[0]
     : null;
@@ -345,7 +345,10 @@ export function buildOpenClawConfig(
   // references (e.g. memory-core) that would cause Gateway startup failure.
   const existingWithoutPluginSlots = { ...existing } as Record<string, unknown>;
   if (existingPlugins) {
-    const { slots: _slots, ...pluginsWithoutSlots } = existingPlugins as Record<string, unknown>;
+    const { slots: _slots, ...pluginsWithoutSlots } = existingPlugins as Record<
+      string,
+      unknown
+    >;
     existingWithoutPluginSlots.plugins = pluginsWithoutSlots;
   }
 

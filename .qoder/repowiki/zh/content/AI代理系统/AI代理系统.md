@@ -9,10 +9,16 @@
 - [src/memory/index.ts](file://src/memory/index.ts)
 - [src/memory/manager.ts](file://src/memory/manager.ts)
 - [src/context-engine/index.ts](file://src/context-engine/index.ts)
-- [skills/travel-planner/index.js](file://skills/travel-planner/index.js)
 - [skills/travel-planner/SKILL.md](file://skills/travel-planner/SKILL.md)
-- [skills/travel-planner/scripts/plan_generator.py](file://skills/travel-planner/scripts/plan_generator.py)
-- [skills/travel-planner/scripts/travel_db.py](file://skills/travel-planner/scripts/travel_db.py)
+- [skills/travel-planner/scripts/cli_args.mjs](file://skills/travel-planner/scripts/cli_args.mjs)
+- [skills/travel-planner/scripts/db.mjs](file://skills/travel-planner/scripts/db.mjs)
+- [skills/travel-planner/scripts/plan-generator.mjs](file://skills/travel-planner/scripts/plan-generator.mjs)
+- [skills/travel-planner/scripts/route-plan.mjs](file://skills/travel-planner/scripts/route-plan.mjs)
+- [skills/travel-planner/scripts/route-validation.mjs](file://skills/travel-planner/scripts/route-validation.mjs)
+- [skills/travel-planner/scripts/briefing.mjs](file://skills/travel-planner/scripts/briefing.mjs)
+- [skills/travel-planner/scripts/booking-ready.mjs](file://skills/travel-planner/scripts/booking-ready.mjs)
+- [skills/travel-planner/scripts/xhs-evidence-builder.mjs](file://skills/travel-planner/scripts/xhs-evidence-builder.mjs)
+- [skills/travel-planner/package.json](file://skills/travel-planner/package.json)
 - [skills/flyai/SKILL.md](file://skills/flyai/SKILL.md)
 - [ui/src/ui/controllers/skills.ts](file://ui/src/ui/controllers/skills.ts)
 - [ui-react/src/store/skills.store.ts](file://ui-react/src/store/skills.store.ts)
@@ -23,10 +29,10 @@
 
 ## 更新摘要
 **所做更改**
-- 新增旅行规划技能模块，包括完整的Python脚本实现和数据库管理
-- 集成FlyAI旅行搜索技能，支持航班、酒店、景点等综合搜索
-- 更新UI组件以支持新的技能安装和管理功能
-- 增强工具执行机制以支持新的旅行相关工具
+- 更新旅行规划技能章节，反映JavaScript架构迁移，从Python脚本迁移到Node.js实现
+- 新增CLI参数解析和数据库管理功能的详细描述
+- 更新技能架构图以反映新的JavaScript模块化设计
+- 增强数据库管理器的功能说明，包括JSON文件存储和状态管理
 
 ## 目录
 1. [简介](#简介)
@@ -43,7 +49,7 @@
 12. [附录](#附录)
 
 ## 简介
-本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成新的旅行规划和FlyAI技能，以及更新的UI组件，提供更丰富的旅行相关服务和更好的用户体验。
+本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成新的旅行规划技能，该技能已从Python架构完全迁移到JavaScript架构，提供更丰富的旅行相关服务和更好的用户体验。
 
 ## 项目结构
 OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Telegram、Discord等），并通过网关（Gateway）作为统一控制平面，协调会话、工具与事件。系统采用"本地优先"的设计，强调在用户设备上运行，确保低延迟与隐私保护。
@@ -54,8 +60,7 @@ OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Te
   - 记忆（Memory）：内置SQLite向量/关键词混合检索，支持增量同步与缓存。
   - 上下文引擎（Context Engine）：负责系统提示词组装、压缩与注入。
   - 工具（Tools）：浏览器控制、画布、节点、定时任务、会话间通信等。
-  - **新增** 旅行规划技能：完整的旅行计划生成和偏好管理。
-  - **新增** FlyAI技能：综合旅行搜索和预订服务。
+  - **新增** 旅行规划技能：基于JavaScript的全新架构，提供完整的旅行计划生成和偏好管理。
 
 ```mermaid
 graph TB
@@ -104,10 +109,12 @@ Channels --> WS
   - 注册与解析上下文引擎工厂，支持传统引擎与初始化流程。
 - 代理循环
   - 定义从入口到生命周期事件、流式输出、工具执行与持久化的完整链路；支持队列化与并发控制。
-- **新增** 旅行规划技能
-  - Python脚本驱动的旅行计划生成，支持偏好管理和预算跟踪。
-- **新增** FlyAI技能
-  - 综合旅行搜索和预订能力，支持多种旅行场景。
+- **新增** JavaScript旅行规划技能
+  - 基于Node.js的全新架构，提供完整的旅行计划生成、偏好管理和数据库管理功能。
+- **新增** CLI参数解析系统
+  - 统一的`--key=value`参数解析，支持JSON值内联和文件路径引用。
+- **新增** 数据库管理器
+  - 基于JSON文件的本地存储，提供偏好、行程、预算和状态管理。
 
 **章节来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
@@ -272,84 +279,196 @@ Wait-->>RPC : "状态/时间戳"
 
 ## 新增功能模块
 
-### 旅行规划技能（Travel Planner）
-旅行规划技能提供了完整的旅行计划生成和偏好管理功能，包括Python脚本驱动的智能规划和本地数据库存储。
+### JavaScript旅行规划技能架构
 
-- 核心功能
-  - 旅行偏好管理：支持预算水平、旅行风格、兴趣爱好、饮食限制等全方位偏好收集。
-  - 计划生成：根据用户偏好和目的地信息生成详细的日程安排、预算分解和打包清单。
-  - 数据库管理：本地JSON文件存储旅行偏好、历史行程和预算跟踪。
-  - 预算跟踪：实时跟踪旅行支出，提供分类统计和剩余预算提醒。
+**更新** 旅行规划技能已从Python架构完全迁移到JavaScript架构，提供更现代化的模块化设计和更好的性能表现。
+
+旅行规划技能现在采用纯JavaScript实现，基于Node.js生态系统，提供完整的旅行计划生成、偏好管理和数据库管理功能。新架构采用模块化设计，每个功能模块都有清晰的职责分工和统一的CLI参数解析系统。
 
 ```mermaid
 flowchart TD
-Start(["旅行规划请求"]) --> CheckPrefs["检查偏好设置"]
-CheckPrefs --> HasPrefs{"偏好已设置?"}
-HasPrefs --> |否| CollectPrefs["收集旅行偏好"]
-HasPrefs --> |是| GenPlan["生成旅行计划"]
-CollectPrefs --> SavePrefs["保存偏好设置"]
-SavePrefs --> GenPlan
-GenPlan --> Itinerary["生成日程安排"]
-GenPlan --> Budget["计算预算分解"]
-GenPlan --> Checklist["生成打包清单"]
-Itinerary --> Output["返回完整计划"]
-Budget --> Output
-Checklist --> Output
+subgraph "旅行规划技能架构"
+Start(["旅行规划请求"]) --> CLI["CLI参数解析"]
+CLI --> DB["数据库管理器"]
+CLI --> PlanGen["计划生成器"]
+CLI --> RoutePlan["路线规划器"]
+CLI --> RouteVal["路线验证器"]
+CLI --> Briefing["简报生成器"]
+CLI --> Booking["预订准备器"]
+CLI --> XHSEvidence["小红书证据构建器"]
+DB --> JSONStore["JSON文件存储"]
+PlanGen --> TripData["行程数据"]
+RoutePlan --> PlatformSel["平台选择"]
+RouteVal --> ToolPlan["工具计划"]
+Briefing --> PreTrip["行前简报"]
+Briefing --> DailyBrief["每日简报"]
+Booking --> LiveResults["实时结果"]
+XHSEvidence --> Evidence["证据构建"]
+JSONStore --> Preferences["偏好数据"]
+JSONStore --> Trips["行程数据"]
+JSONStore --> EvidenceFiles["证据文件"]
+end
 ```
 
 **图示来源**
-- [skills/travel-planner/scripts/plan_generator.py:317-361](file://skills/travel-planner/scripts/plan_generator.py#L317-L361)
-- [skills/travel-planner/scripts/travel_db.py:72-98](file://skills/travel-planner/scripts/travel_db.py#L72-L98)
+- [skills/travel-planner/scripts/cli_args.mjs:155-187](file://skills/travel-planner/scripts/cli_args.mjs#L155-L187)
+- [skills/travel-planner/scripts/db.mjs:25-35](file://skills/travel-planner/scripts/db.mjs#L25-L35)
+- [skills/travel-planner/SKILL.md:412-447](file://skills/travel-planner/SKILL.md#L412-L447)
 
-- 技能特性
-  - Python3运行时要求，支持复杂的旅行规划算法。
-  - 本地数据库存储，确保用户隐私和数据安全。
-  - 智能预算分配，根据不同住宿标准自动调整各项支出比例。
-  - 动态打包清单生成，根据目的地气候和活动类型定制。
+#### CLI参数解析系统
 
-**章节来源**
-- [skills/travel-planner/index.js:1-9](file://skills/travel-planner/index.js#L1-L9)
-- [skills/travel-planner/SKILL.md:1-83](file://skills/travel-planner/SKILL.md#L1-L83)
-- [skills/travel-planner/scripts/plan_generator.py:1-391](file://skills/travel-planner/scripts/plan_generator.py#L1-L391)
-- [skills/travel-planner/scripts/travel_db.py:1-432](file://skills/travel-planner/scripts/travel_db.py#L1-L432)
+**新增** 统一的CLI参数解析系统，支持`--key=value`格式和JSON值内联。
 
-### FlyAI旅行搜索技能
-FlyAI技能集成了Fliggy MCP服务，提供全面的旅行搜索和预订能力，支持多种旅行场景和需求。
+新的CLI参数解析系统提供了标准化的命令行接口，支持以下特性：
 
-- 核心能力
-  - 综合搜索：支持酒店、航班、景点、演出等多种旅行元素的自然语言搜索。
-  - 实时预订：连接Fliggy MCP服务，提供真实的旅行产品预订能力。
-  - 多语言支持：支持中英文双语界面和查询。
-  - 场景覆盖：支持个人旅行、团体旅行、商务出行、家庭度假等多种场景。
+- `--key=value`格式的参数传递
+- JSON值内联支持和文件路径引用（`@/path/to.json`）
+- 参数验证和错误处理
+- 自动生成帮助信息
+- 类型安全的参数访问
 
 ```mermaid
 flowchart TD
-Query["自然语言查询"] --> Intent["意图识别"]
-Intent --> Category{"搜索类别?"}
-Category --> |酒店| HotelSearch["酒店搜索"]
-Category --> |航班| FlightSearch["航班搜索"]
-Category --> |景点| POISearch["景点搜索"]
-Category --> |综合| KeywordSearch["关键词搜索"]
-HotelSearch --> MCP["Fliggy MCP服务"]
-FlightSearch --> MCP
-POISearch --> MCP
-KeywordSearch --> MCP
-MCP --> Results["返回搜索结果"]
-Results --> Format["格式化输出"]
-Format --> Display["富文本展示"]
+CLIArgs["CLI参数"] --> Parse["解析器"]
+Parse --> Validate["验证器"]
+Validate --> Flags["标志参数"]
+Validate --> Values["值参数"]
+Flags --> JSONParser["JSON解析器"]
+Values --> JSONParser
+JSONParser --> RunScript["脚本执行器"]
+RunScript --> Output["输出结果"]
 ```
 
 **图示来源**
-- [skills/flyai/SKILL.md:70-101](file://skills/flyai/SKILL.md#L70-L101)
+- [skills/travel-planner/scripts/cli_args.mjs:29-55](file://skills/travel-planner/scripts/cli_args.mjs#L29-L55)
+- [skills/travel-planner/scripts/cli_args.mjs:155-187](file://skills/travel-planner/scripts/cli_args.mjs#L155-L187)
 
-- 技术实现
-  - Node.js运行时，支持异步API调用。
-  - 单行JSON输出格式，便于管道处理和Python解析。
-  - 图片和预订链接的自动识别和展示。
-  - 严格的品牌曝光和营销规范。
+#### 数据库管理器
+
+**新增** 基于JSON文件的本地存储系统，提供完整的数据持久化功能。
+
+数据库管理器是旅行规划技能的核心组件，负责所有数据的持久化存储和管理：
+
+- 偏好数据管理：旅行偏好、预算设置、兴趣爱好等
+- 行程数据管理：当前行程、历史行程、行程想法等
+- 实时结果存储：交通、酒店、景点等实时查询结果
+- 证据文件管理：小红书等平台的搜索证据
+- 状态跟踪：行程阶段、预订状态、支出记录等
+
+```mermaid
+flowchart TD
+DBManager["数据库管理器"] --> Preferences["偏好管理"]
+DBManager --> Trips["行程管理"]
+DBManager --> Evidence["证据管理"]
+DBManager --> LiveResults["实时结果"]
+DBManager --> Expenses["支出管理"]
+DBManager --> Stats["统计信息"]
+Preferences --> PrefFile["preferences.json"]
+Trips --> TripsFile["trips.json"]
+Evidence --> EvidenceDir["evidence/目录"]
+LiveResults --> LiveDir["live_results/目录"]
+Expenses --> ExpenseFile["expenses.json"]
+Stats --> StatsFile["stats.json"]
+```
+
+**图示来源**
+- [skills/travel-planner/scripts/db.mjs:25-35](file://skills/travel-planner/scripts/db.mjs#L25-L35)
+- [skills/travel-planner/scripts/db.mjs:127-165](file://skills/travel-planner/scripts/db.mjs#L127-L165)
 
 **章节来源**
-- [skills/flyai/SKILL.md:1-144](file://skills/flyai/SKILL.md#L1-L144)
+- [skills/travel-planner/SKILL.md:13-447](file://skills/travel-planner/SKILL.md#L13-L447)
+- [skills/travel-planner/scripts/cli_args.mjs:1-187](file://skills/travel-planner/scripts/cli_args.mjs#L1-L187)
+- [skills/travel-planner/scripts/db.mjs:1-837](file://skills/travel-planner/scripts/db.mjs#L1-L837)
+
+### 旅行规划技能核心模块
+
+#### 计划生成器（Plan Generator）
+
+**更新** 计划生成器现在完全基于JavaScript实现，提供更高效的旅行计划生成能力。
+
+计划生成器负责将已持久化的行程数据转换为结构化的旅行计划骨架，支持以下功能：
+
+- 从数据库读取行程数据
+- 生成计划骨架和每日行程
+- 计算预算分解和打包清单
+- 生成行前和每日简报
+- 与预订准备器集成
+
+```mermaid
+flowchart TD
+PlanGen["计划生成器"] --> LoadTrip["加载行程数据"]
+LoadTrip --> GenerateSkeleton["生成计划骨架"]
+GenerateSkeleton --> GenerateDaily["生成每日行程"]
+GenerateDaily --> CalculateBudget["计算预算分解"]
+CalculateBudget --> GenerateChecklist["生成打包清单"]
+GenerateChecklist --> GenerateBrief["生成简报"]
+GenerateBrief --> OutputPlan["输出完整计划"]
+```
+
+**图示来源**
+- [skills/travel-planner/scripts/plan-generator.mjs:534-654](file://skills/travel-planner/scripts/plan-generator.mjs#L534-L654)
+
+#### 路线规划器（Route Planner）
+
+**更新** 路线规划器采用新的JavaScript实现，提供更灵活的路线选择和验证功能。
+
+路线规划器负责根据用户偏好和平台证据生成候选路线：
+
+- 支持多个平台的路线生成（小红书、高德地图、搜索引擎）
+- 自动降级机制和错误处理
+- 路线比较和推荐
+- 证据质量和来源追踪
+
+#### 路线验证器（Route Validator）
+
+**更新** 路线验证器提供实时的旅行可行性验证，确保计划的可执行性。
+
+路线验证器负责验证旅行计划的可行性：
+
+- 交通可达性验证
+- 天气风险评估
+- 酒店和景点可用性检查
+- 决策门限和风险评级
+
+#### 简报生成器（Briefing Generator）
+
+**更新** 简报生成功能现在支持行前和每日两种模式，提供个性化的旅行指导。
+
+简报生成器负责生成旅行过程中的重要信息：
+
+- 行前简报：出发前的重要事项和准备工作
+- 每日简报：当天的活动安排和注意事项
+- 个性化提醒：基于用户偏好的特殊提醒
+
+#### 预订准备器（Booking Ready）
+
+**更新** 预订准备器整合实时搜索结果，生成可执行的预订决策包。
+
+预订准备器负责将实时查询结果转换为可执行的预订建议：
+
+- 合并多源实时数据
+- 生成最优预订组合
+- 风险评估和注意事项
+- 决策支持和建议
+
+#### 小红书证据构建器（XHS Evidence Builder）
+
+**更新** 小红书证据构建器专门处理小红书平台的搜索结果，提取有用的旅行线索。
+
+小红书证据构建器负责处理小红书平台的旅行内容：
+
+- 文章内容解析和过滤
+- 路线线索提取和聚类
+- 热门程度评估
+- 证据质量评级
+
+**章节来源**
+- [skills/travel-planner/scripts/plan-generator.mjs:1-703](file://skills/travel-planner/scripts/plan-generator.mjs#L1-L703)
+- [skills/travel-planner/scripts/route-plan.mjs:1-285](file://skills/travel-planner/scripts/route-plan.mjs#L1-L285)
+- [skills/travel-planner/scripts/route-validation.mjs:1-382](file://skills/travel-planner/scripts/route-validation.mjs#L1-L382)
+- [skills/travel-planner/scripts/briefing.mjs:1-149](file://skills/travel-planner/scripts/briefing.mjs#L1-L149)
+- [skills/travel-planner/scripts/booking-ready.mjs:1-260](file://skills/travel-planner/scripts/booking-ready.mjs#L1-L260)
+- [skills/travel-planner/scripts/xhs-evidence-builder.mjs:1-183](file://skills/travel-planner/scripts/xhs-evidence-builder.mjs#L1-L183)
 
 ## UI组件更新
 
@@ -403,12 +522,13 @@ Canvas A2UI组件提供了增强的用户界面交互能力，支持复杂的用
 - 组件耦合
   - 代理循环依赖上下文引擎进行提示词组装、依赖内存索引管理器进行上下文检索、依赖工具执行器进行动作执行。
   - 代理作用域为上述组件提供会话键解析与代理配置，决定工作区、模型与沙箱策略。
-  - **新增** 旅行规划技能通过Python脚本与系统集成，提供本地数据持久化。
-  - **新增** FlyAI技能通过Node.js与外部旅行服务API集成。
+  - **新增** JavaScript旅行规划技能通过Node.js模块化架构与系统集成，提供本地数据持久化。
+  - **新增** CLI参数解析系统为所有技能脚本提供统一的命令行接口。
+  - **新增** 数据库管理器提供JSON文件存储和状态管理功能。
 - 外部依赖
   - 模型提供商（OpenAI/Anthropic等）通过嵌入式Pi代理内核访问。
   - 多渠道适配器通过网关WebSocket接入，形成统一的消息入口。
-  - **新增** Fliggy MCP服务提供实时旅行产品数据。
+  - **新增** 各种旅行服务API通过技能接口访问，如Fliggy MCP、小红书、高德地图等。
 
 ```mermaid
 graph LR
@@ -420,8 +540,11 @@ AgentLoop --> Providers["模型提供商"]
 AgentLoop --> TravelSkills["旅行规划技能"]
 AgentLoop --> FlyAISkills["FlyAI技能"]
 Channels["多渠道适配器"] --> AgentLoop
-TravelSkills --> PythonRuntime["Python3运行时"]
-FlyAISkills --> NodeRuntime["Node.js运行时"]
+TravelSkills --> NodeRuntime["Node.js运行时"]
+TravelSkills --> CLIParser["CLI参数解析器"]
+TravelSkills --> DBManager["数据库管理器"]
+TravelSkills --> JSONStorage["JSON文件存储"]
+FlyAISkills --> NodeRuntime
 ```
 
 **图示来源**
@@ -441,12 +564,16 @@ FlyAISkills --> NodeRuntime["Node.js运行时"]
   - 批量嵌入与缓存统计减少重复计算；只读数据库自动恢复保障稳定性。
 - 上下文组装
   - 合理的系统提示词长度与压缩策略可降低token消耗，提高响应速度。
-- **新增** 旅行规划技能
-  - Python脚本的I/O操作可能成为性能瓶颈，建议合理设置缓存策略。
-  - 数据库文件操作需要适当的锁机制，避免并发冲突。
-- **新增** FlyAI技能
-  - 外部API调用存在网络延迟，需要实现超时控制和重试机制。
-  - JSON格式的数据处理需要高效的解析和序列化。
+- **新增** JavaScript旅行规划技能
+  - Node.js运行时相比Python具有更好的性能表现和更低的内存占用。
+  - 模块化设计减少了不必要的依赖加载，提高了启动速度。
+  - JSON文件存储比数据库操作更快，适合频繁的读写操作。
+- **新增** CLI参数解析系统
+  - 统一的参数解析减少了重复代码，提高了脚本的一致性和可靠性。
+  - 错误处理和验证机制确保了参数的正确性。
+- **新增** 数据库管理器
+  - JSON文件存储提供了简单可靠的数据持久化方案。
+  - 自动文件创建和默认值设置减少了初始化复杂度。
 
 ## 故障排查指南
 - 代理循环
@@ -456,14 +583,19 @@ FlyAISkills --> NodeRuntime["Node.js运行时"]
   - 检查向量维度、FTS可用性与提供者状态；必要时切换到FTS-only模式或调整混合检索参数。
 - 上下文引擎
   - 确认系统提示词构建阶段的钩子未引入过长内容；必要时启用压缩钩子或调整提示词长度限制。
-- **新增** 旅行规划技能
-  - Python3运行时检查：确认系统已安装Python3且版本满足要求。
-  - 数据库文件权限：确保用户对~/.openclaw/agents/travel-planner目录有读写权限。
-  - 脚本依赖：检查所需的Python模块是否正确安装。
-- **新增** FlyAI技能
-  - Node.js运行时：确认Node.js版本兼容性和运行时环境。
-  - API密钥配置：检查FLYAI_API_KEY等环境变量是否正确设置。
-  - 网络连接：验证对外部旅行服务API的网络访问权限。
+- **新增** JavaScript旅行规划技能
+  - Node.js运行时检查：确认Node.js版本兼容性和运行时环境。
+  - 文件权限检查：确保用户对`~/.openclaw/agents/travel-planner`目录有读写权限。
+  - JSON文件格式验证：检查JSON文件的语法正确性和数据完整性。
+  - 模块依赖检查：确认所有必需的Node.js模块已正确安装。
+- **新增** CLI参数解析系统
+  - 参数格式验证：确保使用正确的`--key=value`格式。
+  - JSON值解析：检查JSON语法错误和文件路径有效性。
+  - 参数验证：确认必需参数已提供且格式正确。
+- **新增** 数据库管理器
+  - 文件存在性检查：确认JSON文件存在且可访问。
+  - 数据完整性验证：检查数据结构的完整性和一致性。
+  - 错误处理：查看具体的错误信息和解决建议。
 
 **章节来源**
 - [docs/concepts/agent-loop.md:138-149](file://docs/concepts/agent-loop.md#L138-L149)
@@ -471,7 +603,7 @@ FlyAISkills --> NodeRuntime["Node.js运行时"]
 - [src/memory/manager.ts:626-738](file://src/memory/manager.ts#L626-L738)
 
 ## 结论
-OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构，实现了从消息到动作再到回复的完整闭环。系统现已成功集成了旅行规划和FlyAI技能，提供了更丰富的旅行相关服务。新增的UI组件进一步提升了用户体验，支持技能的安装、管理和监控。代理作用域与会话路由确保多代理协作与会话隔离；内存检索提供高效的知识检索能力；代理循环与钩子体系支撑灵活的推理与决策流程。结合队列化与并发控制、只读数据库恢复与缓存策略，以及新的旅行规划和搜索能力，系统在性能与稳定性之间取得良好平衡。
+OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构，实现了从消息到动作再到回复的完整闭环。系统现已成功集成了全新的JavaScript旅行规划技能，该技能完全替代了原有的Python实现，提供了更现代、更高效的架构设计。新增的CLI参数解析系统和数据库管理器进一步提升了技能的可用性和可靠性。新增的UI组件进一步提升了用户体验，支持技能的安装、管理和监控。代理作用域与会话路由确保多代理协作与会话隔离；内存检索提供高效的知识检索能力；代理循环与钩子体系支撑灵活的推理与决策流程。结合队列化与并发控制、只读数据库恢复与缓存策略，以及新的JavaScript旅行规划技能，系统在性能与稳定性之间取得良好平衡。
 
 ## 附录
 
@@ -480,12 +612,14 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 在before_model_resolve、before_prompt_build、before_tool_call、after_tool_call、tool_result_persist等钩子中注入自定义逻辑。
 - 工具调用
   - 工具事件通过tool流输出，结果在持久化前可被tool_result_persist转换。
-- **新增** 旅行规划技能开发
-  - 使用Python3编写技能逻辑，利用本地数据库存储用户偏好。
+- **新增** JavaScript旅行规划技能开发
+  - 使用Node.js和ES模块系统开发，遵循统一的CLI参数解析规范。
   - 实现完整的错误处理和数据验证机制。
-- **新增** FlyAI技能开发
-  - 使用Node.js开发，遵循单行JSON输出规范。
-  - 实现严格的图片和链接格式化规则。
+  - 使用JSON文件进行数据持久化，确保数据一致性和可靠性。
+- **新增** CLI参数解析开发
+  - 使用`runScript()`工厂函数简化脚本开发。
+  - 实现参数验证和错误处理。
+  - 支持JSON值内联和文件路径引用。
 
 **章节来源**
 - [docs/concepts/agent-loop.md:80-95](file://docs/concepts/agent-loop.md#L80-L95)
@@ -521,9 +655,10 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 主会话默认允许工具执行；非主会话建议启用沙箱并限制工具白名单。
 - 思考与冗长度
   - 使用/think与/verbose命令调节思考深度与冗长度，结合/streaming行为优化体验。
-- **新增** 旅行规划技能配置
-  - 确保Python3运行时可用，检查脚本依赖完整性。
+- **新增** JavaScript旅行规划技能配置
+  - 确保Node.js运行时可用，检查脚本依赖完整性。
   - 配置旅行偏好数据库目录权限，确保数据持久化正常。
+  - 使用统一的CLI参数格式进行技能调用。
 
 **章节来源**
 - [README.md:318-338](file://README.md#L318-L338)
@@ -544,12 +679,14 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 主会话默认允许工具执行；群组/频道安全建议启用沙箱并限制工具白名单。
 - 权限与节点
   - macOS节点权限需遵循TCC；执行本地动作需通过node.invoke并注意权限状态。
-- **新增** 旅行规划技能安全
-  - Python脚本执行需要适当的沙箱隔离，防止恶意代码执行。
-  - 数据库文件访问需要权限控制，避免敏感信息泄露。
-- **新增** FlyAI技能安全
-  - 外部API调用需要HTTPS加密传输，保护用户隐私数据。
-  - API密钥管理需要安全存储，避免硬编码在源码中。
+- **新增** JavaScript旅行规划技能安全
+  - Node.js脚本执行需要适当的沙箱隔离，防止恶意代码执行。
+  - JSON文件访问需要权限控制，避免敏感信息泄露。
+  - CLI参数解析需要输入验证，防止注入攻击。
+- **新增** 数据库管理器安全
+  - 文件系统权限管理，确保数据文件的安全访问。
+  - JSON数据验证，防止损坏的数据文件。
+  - 路径遍历防护，防止恶意文件路径访问。
 
 **章节来源**
 - [README.md:332-338](file://README.md#L332-L338)

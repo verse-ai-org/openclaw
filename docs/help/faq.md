@@ -148,7 +148,7 @@ Quick answers plus deeper troubleshooting for real-world setups (local dev, VPS,
   - [How do I switch models on the fly (without restarting)?](#how-do-i-switch-models-on-the-fly-without-restarting)
   - [Can I use GPT 5.2 for daily tasks and Codex 5.3 for coding](#can-i-use-gpt-52-for-daily-tasks-and-codex-53-for-coding)
   - [Why do I see "Model … is not allowed" and then no reply?](#why-do-i-see-model-is-not-allowed-and-then-no-reply)
-  - [Why do I see "Unknown model: minimax/MiniMax-M2.5"?](#why-do-i-see-unknown-model-minimaxminimaxm25)
+  - [Why do I see "Unknown model: minimax/MiniMax-M2.7"?](#why-do-i-see-unknown-model-minimaxminimaxm25)
   - [Can I use MiniMax as my default and OpenAI for complex tasks?](#can-i-use-minimax-as-my-default-and-openai-for-complex-tasks)
   - [Are opus / sonnet / gpt built-in shortcuts?](#are-opus-sonnet-gpt-builtin-shortcuts)
   - [How do I define/override model shortcuts (aliases)?](#how-do-i-defineoverride-model-shortcuts-aliases)
@@ -790,7 +790,7 @@ This stores OAuth tokens in auth profiles on the gateway host. Details: [Model p
 
 ### Is a local model OK for casual chats
 
-Usually no. OpenClaw needs large context + strong safety; small cards truncate and leak. If you must, run the **largest** MiniMax M2.5 build you can locally (LM Studio) and see [/gateway/local-models](/gateway/local-models). Smaller/quantized models increase prompt-injection risk - see [Security](/gateway/security).
+Usually no. OpenClaw needs large context + strong safety; small cards truncate and leak. If you must, run the **largest** MiniMax M2.7 build you can locally (LM Studio) and see [/gateway/local-models](/gateway/local-models). Smaller/quantized models increase prompt-injection risk - see [Security](/gateway/security).
 
 ### How do I keep hosted model traffic in a specific region
 
@@ -2069,7 +2069,7 @@ Models are referenced as `provider/model` (example: `anthropic/claude-opus-4-6`)
 **For tool-enabled or untrusted-input agents:** prioritize model strength over cost.
 **For routine/low-stakes chat:** use cheaper fallback models and route by agent role.
 
-MiniMax M2.5 has its own docs: [MiniMax](/providers/minimax) and
+MiniMax M2.7 has its own docs: [MiniMax](/providers/minimax) and
 [Local models](/gateway/local-models).
 
 Rule of thumb: use the **best model you can afford** for high-stakes work, and a cheaper
@@ -2193,8 +2193,8 @@ Fix checklist:
 1. Upgrade to **2026.1.12** (or run from source `main`), then restart the gateway.
 2. Make sure MiniMax is configured (wizard or JSON), or that a MiniMax API key
    exists in env/auth profiles so the provider can be injected.
-3. Use the exact model id (case-sensitive): `minimax/MiniMax-M2.5` or
-   `minimax/MiniMax-M2.5-highspeed`.
+3. Use the exact model id (case-sensitive): `minimax/MiniMax-M2.7` or
+   `minimax/MiniMax-M2.7-highspeed`.
 4. Run:
 
    ```bash
@@ -2217,9 +2217,9 @@ Fallbacks are for **errors**, not "hard tasks," so use `/model` or a separate ag
   env: { MINIMAX_API_KEY: "sk-...", OPENAI_API_KEY: "sk-..." },
   agents: {
     defaults: {
-      model: { primary: "minimax/MiniMax-M2.5" },
+      model: { primary: "minimax/MiniMax-M2.7" },
       models: {
-        "minimax/MiniMax-M2.5": { alias: "minimax" },
+        "minimax/MiniMax-M2.7": { alias: "minimax" },
         "openai/gpt-5.2": { alias: "gpt" },
       },
     },

@@ -11,9 +11,9 @@ title: "Local Models"
 
 Local is doable, but OpenClaw expects large context + strong defenses against prompt injection. Small cards truncate context and leak safety. Aim high: **≥2 maxed-out Mac Studios or equivalent GPU rig (~$30k+)**. A single **24 GB** GPU works only for lighter prompts with higher latency. Use the **largest / full-size model variant you can run**; aggressively quantized or “small” checkpoints raise prompt-injection risk (see [Security](/gateway/security)).
 
-## Recommended: LM Studio + MiniMax M2.5 (Responses API, full-size)
+## Recommended: LM Studio + MiniMax M2.7 (Responses API, full-size)
 
-Best current local stack. Load MiniMax M2.5 in LM Studio, enable the local server (default `http://127.0.0.1:1234`), and use Responses API to keep reasoning separate from final text.
+Best current local stack. Load MiniMax M2.7 in LM Studio, enable the local server (default `http://127.0.0.1:1234`), and use Responses API to keep reasoning separate from final text.
 
 ```json5
 {
@@ -36,7 +36,7 @@ Best current local stack. Load MiniMax M2.5 in LM Studio, enable the local serve
         models: [
           {
             id: "minimax-m2.5-gs32",
-            name: "MiniMax M2.5 GS32",
+            name: "MiniMax M2.7 GS32",
             reasoning: false,
             input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -53,7 +53,7 @@ Best current local stack. Load MiniMax M2.5 in LM Studio, enable the local serve
 **Setup checklist**
 
 - Install LM Studio: [https://lmstudio.ai](https://lmstudio.ai)
-- In LM Studio, download the **largest MiniMax M2.5 build available** (avoid “small”/heavily quantized variants), start the server, confirm `http://127.0.0.1:1234/v1/models` lists it.
+- In LM Studio, download the **largest MiniMax M2.7 build available** (avoid “small”/heavily quantized variants), start the server, confirm `http://127.0.0.1:1234/v1/models` lists it.
 - Keep the model loaded; cold-load adds startup latency.
 - Adjust `contextWindow`/`maxTokens` if your LM Studio build differs.
 - For WhatsApp, stick to Responses API so only final text is sent.
@@ -87,7 +87,7 @@ Keep hosted models configured even when running local; use `models.mode: "merge"
         models: [
           {
             id: "minimax-m2.5-gs32",
-            name: "MiniMax M2.5 GS32",
+            name: "MiniMax M2.7 GS32",
             reasoning: false,
             input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

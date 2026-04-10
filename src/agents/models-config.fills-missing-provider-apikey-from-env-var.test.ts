@@ -17,7 +17,11 @@ installModelsConfigTestHooks();
 
 const MODELS_JSON_NAME = "models.json";
 
-async function withEnvVar(name: string, value: string, run: () => Promise<void>) {
+async function withEnvVar(
+  name: string,
+  value: string,
+  run: () => Promise<void>,
+) {
   const previous = process.env[name];
   process.env[name] = value;
   try {
@@ -72,7 +76,9 @@ async function runCustomProviderMergeTest(params: {
 }) {
   const existingProviderKey = params.existingProviderKey ?? "custom";
   const configProviderKey = params.configProviderKey ?? "custom";
-  await writeAgentModelsJson({ providers: { [existingProviderKey]: params.seedProvider } });
+  await writeAgentModelsJson({
+    providers: { [existingProviderKey]: params.seedProvider },
+  });
   await ensureOpenClawModelsJson({
     models: {
       mode: "merge",
@@ -135,11 +141,16 @@ describe("models-config", () => {
       await ensureOpenClawModelsJson(validated.config);
 
       const parsed = await readGeneratedModelsJson<{
-        providers: Record<string, { api?: string; models?: Array<{ id: string; api?: string }> }>;
+        providers: Record<
+          string,
+          { api?: string; models?: Array<{ id: string; api?: string }> }
+        >;
       }>();
 
       expect(parsed.providers.anthropic?.api).toBe("anthropic-messages");
-      expect(parsed.providers.anthropic?.models?.[0]?.api).toBe("anthropic-messages");
+      expect(parsed.providers.anthropic?.models?.[0]?.api).toBe(
+        "anthropic-messages",
+      );
     });
   });
 
@@ -154,8 +165,8 @@ describe("models-config", () => {
                 api: "anthropic-messages",
                 models: [
                   {
-                    id: "MiniMax-M2.5",
-                    name: "MiniMax M2.5",
+                    id: "MiniMax-M2.7",
+                    name: "MiniMax M2.7",
                     reasoning: false,
                     input: ["text"],
                     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -171,7 +182,10 @@ describe("models-config", () => {
         await ensureOpenClawModelsJson(cfg);
 
         const parsed = await readGeneratedModelsJson<{
-          providers: Record<string, { apiKey?: string; models?: Array<{ id: string }> }>;
+          providers: Record<
+            string,
+            { apiKey?: string; models?: Array<{ id: string }> }
+          >;
         }>();
         expect(parsed.providers.minimax?.apiKey).toBe("MINIMAX_API_KEY"); // pragma: allowlist secret
         const ids = parsed.providers.minimax?.models?.map((model) => model.id);
@@ -209,8 +223,12 @@ describe("models-config", () => {
         providers: Record<string, { baseUrl?: string }>;
       }>();
 
-      expect(parsed.providers.existing?.baseUrl).toBe("http://localhost:1234/v1");
-      expect(parsed.providers["custom-proxy"]?.baseUrl).toBe("http://localhost:4000/v1");
+      expect(parsed.providers.existing?.baseUrl).toBe(
+        "http://localhost:1234/v1",
+      );
+      expect(parsed.providers["custom-proxy"]?.baseUrl).toBe(
+        "http://localhost:4000/v1",
+      );
     });
   });
 
@@ -225,7 +243,9 @@ describe("models-config", () => {
         },
       });
       expect(parsed.providers.custom?.apiKey).toBe("AGENT_KEY");
-      expect(parsed.providers.custom?.baseUrl).toBe("https://config.example/v1");
+      expect(parsed.providers.custom?.baseUrl).toBe(
+        "https://config.example/v1",
+      );
     });
   });
 
@@ -242,7 +262,9 @@ describe("models-config", () => {
         configProviderKey: " custom ",
       });
       expect(parsed.providers.custom?.apiKey).toBe("AGENT_KEY");
-      expect(parsed.providers.custom?.baseUrl).toBe("https://config.example/v1");
+      expect(parsed.providers.custom?.baseUrl).toBe(
+        "https://config.example/v1",
+      );
     });
   });
 
@@ -257,7 +279,9 @@ describe("models-config", () => {
         },
       });
       expect(parsed.providers.custom?.apiKey).toBe("AGENT_KEY");
-      expect(parsed.providers.custom?.baseUrl).toBe("https://config.example/v1");
+      expect(parsed.providers.custom?.baseUrl).toBe(
+        "https://config.example/v1",
+      );
     });
   });
 
@@ -279,7 +303,9 @@ describe("models-config", () => {
         },
       });
       expect(parsed.providers.custom?.apiKey).toBe("AGENT_KEY");
-      expect(parsed.providers.custom?.baseUrl).toBe("https://config.example/v1");
+      expect(parsed.providers.custom?.baseUrl).toBe(
+        "https://config.example/v1",
+      );
     });
   });
 
@@ -291,7 +317,9 @@ describe("models-config", () => {
             baseUrl: "https://agent.example/v1",
             apiKey: "STALE_AGENT_KEY", // pragma: allowlist secret
             api: "openai-responses",
-            models: [{ id: "agent-model", name: "Agent model", input: ["text"] }],
+            models: [
+              { id: "agent-model", name: "Agent model", input: ["text"] },
+            ],
           },
         },
       });
@@ -301,7 +329,11 @@ describe("models-config", () => {
           providers: {
             custom: {
               ...createMergeConfigProvider(),
-              apiKey: { source: "env", provider: "default", id: "CUSTOM_PROVIDER_API_KEY" }, // pragma: allowlist secret
+              apiKey: {
+                source: "env",
+                provider: "default",
+                id: "CUSTOM_PROVIDER_API_KEY",
+              }, // pragma: allowlist secret
             },
           },
         },
@@ -311,7 +343,9 @@ describe("models-config", () => {
         providers: Record<string, { apiKey?: string; baseUrl?: string }>;
       }>();
       expect(parsed.providers.custom?.apiKey).toBe("CUSTOM_PROVIDER_API_KEY"); // pragma: allowlist secret
-      expect(parsed.providers.custom?.baseUrl).toBe("https://config.example/v1");
+      expect(parsed.providers.custom?.baseUrl).toBe(
+        "https://config.example/v1",
+      );
     });
   });
 
@@ -328,7 +362,11 @@ describe("models-config", () => {
               "minimax:default": {
                 type: "api_key",
                 provider: "minimax",
-                keyRef: { source: "env", provider: "default", id: "MINIMAX_API_KEY" }, // pragma: allowlist secret
+                keyRef: {
+                  source: "env",
+                  provider: "default",
+                  id: "MINIMAX_API_KEY",
+                }, // pragma: allowlist secret
               },
             },
           },
@@ -343,7 +381,9 @@ describe("models-config", () => {
             baseUrl: "https://api.minimax.io/anthropic",
             apiKey: "STALE_AGENT_KEY", // pragma: allowlist secret
             api: "anthropic-messages",
-            models: [{ id: "MiniMax-M2.5", name: "MiniMax M2.5", input: ["text"] }],
+            models: [
+              { id: "MiniMax-M2.7", name: "MiniMax M2.7", input: ["text"] },
+            ],
           },
         },
       });
@@ -370,7 +410,9 @@ describe("models-config", () => {
             baseUrl: "https://agent.example/v1",
             apiKey: NON_ENV_SECRETREF_MARKER,
             api: "openai-responses",
-            models: [{ id: "agent-model", name: "Agent model", input: ["text"] }],
+            models: [
+              { id: "agent-model", name: "Agent model", input: ["text"] },
+            ],
           },
         },
       });
@@ -405,14 +447,19 @@ describe("models-config", () => {
         },
       });
       expect(parsed.providers.custom?.apiKey).toBe("CONFIG_KEY");
-      expect(parsed.providers.custom?.baseUrl).toBe("https://config.example/v1");
+      expect(parsed.providers.custom?.baseUrl).toBe(
+        "https://config.example/v1",
+      );
     });
   });
 
   it("refreshes moonshot capabilities while preserving explicit token limits", async () => {
     await withTempHome(async () => {
       await withEnvVar("MOONSHOT_API_KEY", "sk-moonshot-test", async () => {
-        const cfg = createMoonshotConfig({ contextWindow: 1024, maxTokens: 256 });
+        const cfg = createMoonshotConfig({
+          contextWindow: 1024,
+          maxTokens: 256,
+        });
 
         await ensureOpenClawModelsJson(cfg);
 
@@ -431,7 +478,9 @@ describe("models-config", () => {
             }
           >;
         }>();
-        const kimi = parsed.providers.moonshot?.models?.find((model) => model.id === "kimi-k2.5");
+        const kimi = parsed.providers.moonshot?.models?.find(
+          (model) => model.id === "kimi-k2.5",
+        );
         expect(kimi?.input).toEqual(["text", "image"]);
         expect(kimi?.reasoning).toBe(false);
         expect(kimi?.contextWindow).toBe(1024);
@@ -444,88 +493,109 @@ describe("models-config", () => {
   });
 
   it("does not persist resolved env var value as plaintext in models.json", async () => {
-    await withEnvVar("OPENAI_API_KEY", "sk-plaintext-should-not-appear", async () => {
-      await withTempHome(async () => {
-        const cfg: OpenClawConfig = {
-          models: {
-            providers: {
-              openai: {
-                baseUrl: "https://api.openai.com/v1",
-                apiKey: "sk-plaintext-should-not-appear", // pragma: allowlist secret; already resolved by loadConfig
-                api: "openai-completions",
-                models: [
-                  {
-                    id: "gpt-4.1",
-                    name: "GPT-4.1",
-                    input: ["text"],
-                    reasoning: false,
-                    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-                    contextWindow: 128000,
-                    maxTokens: 16384,
-                  },
-                ],
+    await withEnvVar(
+      "OPENAI_API_KEY",
+      "sk-plaintext-should-not-appear",
+      async () => {
+        await withTempHome(async () => {
+          const cfg: OpenClawConfig = {
+            models: {
+              providers: {
+                openai: {
+                  baseUrl: "https://api.openai.com/v1",
+                  apiKey: "sk-plaintext-should-not-appear", // pragma: allowlist secret; already resolved by loadConfig
+                  api: "openai-completions",
+                  models: [
+                    {
+                      id: "gpt-4.1",
+                      name: "GPT-4.1",
+                      input: ["text"],
+                      reasoning: false,
+                      cost: {
+                        input: 0,
+                        output: 0,
+                        cacheRead: 0,
+                        cacheWrite: 0,
+                      },
+                      contextWindow: 128000,
+                      maxTokens: 16384,
+                    },
+                  ],
+                },
               },
             },
-          },
-        };
-        await ensureOpenClawModelsJson(cfg);
-        const result = await readGeneratedModelsJson<{
-          providers: Record<string, { apiKey?: string }>;
-        }>();
-        expect(result.providers.openai?.apiKey).toBe("OPENAI_API_KEY");
-      });
-    });
+          };
+          await ensureOpenClawModelsJson(cfg);
+          const result = await readGeneratedModelsJson<{
+            providers: Record<string, { apiKey?: string }>;
+          }>();
+          expect(result.providers.openai?.apiKey).toBe("OPENAI_API_KEY");
+        });
+      },
+    );
   });
 
   it("replaces stale merged apiKey when config key normalizes to a known env marker", async () => {
-    await withEnvVar("OPENAI_API_KEY", "sk-plaintext-should-not-appear", async () => {
-      await withTempHome(async () => {
-        await writeAgentModelsJson({
-          providers: {
-            openai: {
-              baseUrl: "https://api.openai.com/v1",
-              apiKey: "STALE_AGENT_KEY", // pragma: allowlist secret
-              api: "openai-completions",
-              models: [{ id: "gpt-4.1", name: "GPT-4.1", input: ["text"] }],
-            },
-          },
-        });
-        const cfg: OpenClawConfig = {
-          models: {
-            mode: "merge",
+    await withEnvVar(
+      "OPENAI_API_KEY",
+      "sk-plaintext-should-not-appear",
+      async () => {
+        await withTempHome(async () => {
+          await writeAgentModelsJson({
             providers: {
               openai: {
                 baseUrl: "https://api.openai.com/v1",
-                apiKey: "sk-plaintext-should-not-appear", // pragma: allowlist secret; simulates resolved ${OPENAI_API_KEY}
+                apiKey: "STALE_AGENT_KEY", // pragma: allowlist secret
                 api: "openai-completions",
-                models: [
-                  {
-                    id: "gpt-4.1",
-                    name: "GPT-4.1",
-                    input: ["text"],
-                    reasoning: false,
-                    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-                    contextWindow: 128000,
-                    maxTokens: 16384,
-                  },
-                ],
+                models: [{ id: "gpt-4.1", name: "GPT-4.1", input: ["text"] }],
               },
             },
-          },
-        };
-        await ensureOpenClawModelsJson(cfg);
-        const result = await readGeneratedModelsJson<{
-          providers: Record<string, { apiKey?: string }>;
-        }>();
-        expect(result.providers.openai?.apiKey).toBe("OPENAI_API_KEY"); // pragma: allowlist secret
-      });
-    });
+          });
+          const cfg: OpenClawConfig = {
+            models: {
+              mode: "merge",
+              providers: {
+                openai: {
+                  baseUrl: "https://api.openai.com/v1",
+                  apiKey: "sk-plaintext-should-not-appear", // pragma: allowlist secret; simulates resolved ${OPENAI_API_KEY}
+                  api: "openai-completions",
+                  models: [
+                    {
+                      id: "gpt-4.1",
+                      name: "GPT-4.1",
+                      input: ["text"],
+                      reasoning: false,
+                      cost: {
+                        input: 0,
+                        output: 0,
+                        cacheRead: 0,
+                        cacheWrite: 0,
+                      },
+                      contextWindow: 128000,
+                      maxTokens: 16384,
+                    },
+                  ],
+                },
+              },
+            },
+          };
+          await ensureOpenClawModelsJson(cfg);
+          const result = await readGeneratedModelsJson<{
+            providers: Record<string, { apiKey?: string }>;
+          }>();
+          expect(result.providers.openai?.apiKey).toBe("OPENAI_API_KEY"); // pragma: allowlist secret
+        });
+      },
+    );
   });
 
   it("preserves explicit larger token limits when they exceed implicit catalog defaults", async () => {
     await withTempHome(async () => {
       await withEnvVar("MOONSHOT_API_KEY", "sk-moonshot-test", async () => {
-        const cfg = createMoonshotConfig({ contextWindow: 350000, maxTokens: 16384 });
+        const cfg = createMoonshotConfig({
+          contextWindow: 350000,
+          maxTokens: 16384,
+        });
 
         await ensureOpenClawModelsJson(cfg);
         const parsed = await readGeneratedModelsJson<{
@@ -540,7 +610,9 @@ describe("models-config", () => {
             }
           >;
         }>();
-        const kimi = parsed.providers.moonshot?.models?.find((model) => model.id === "kimi-k2.5");
+        const kimi = parsed.providers.moonshot?.models?.find(
+          (model) => model.id === "kimi-k2.5",
+        );
         expect(kimi?.contextWindow).toBe(350000);
         expect(kimi?.maxTokens).toBe(16384);
       });
@@ -565,7 +637,9 @@ describe("models-config", () => {
             }
           >;
         }>();
-        const kimi = parsed.providers.moonshot?.models?.find((model) => model.id === "kimi-k2.5");
+        const kimi = parsed.providers.moonshot?.models?.find(
+          (model) => model.id === "kimi-k2.5",
+        );
         expect(kimi?.contextWindow).toBe(256000);
         expect(kimi?.maxTokens).toBe(8192);
       });

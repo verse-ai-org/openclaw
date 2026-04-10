@@ -153,7 +153,7 @@ openclaw models list | grep venice
 | `zai-org-glm-4.7-flash`                | GLM 4.7 Flash                       | 128k    | Reasoning                  |
 | `zai-org-glm-5`                        | GLM 5                               | 198k    | Reasoning                  |
 | `minimax-m21`                          | MiniMax M2.1                        | 198k    | Reasoning                  |
-| `minimax-m25`                          | MiniMax M2.5                        | 198k    | Reasoning                  |
+| `minimax-m25`                          | MiniMax M2.7                        | 198k    | Reasoning                  |
 
 ### Anonymized Models (15) — Via Venice Proxy
 

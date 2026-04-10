@@ -28,7 +28,7 @@ export function inferTripStage(tripData) {
   if (tripData.during_trip) return "in_trip";
   if (tripData.bookings_confirmed) return "ready_to_book";
   if (tripData.selected_route && Object.keys(tripData.selected_route).length) return "plan_ready";
-  if (tripData.route_candidates?.length) return "route_plan";
+  if (tripData.route_options?.length) return "route_plan";
   return "intake";
 }
 
@@ -56,6 +56,12 @@ export function generateRouteFraming(tripData) {
   if (existing && existing.recommended_route) {
     // 已有持久化的路线框定，直接返回
     const recommended = existing.recommended_route || {};
+    const evidenceMeta = tripData.route_evidence_meta || {};
+    const quality = String(evidenceMeta.quality || "").toLowerCase();
+    const verificationStatus = String(evidenceMeta.verification_status || "");
+    const sourceConfidence =
+      quality === "high" ? "high" : quality === "medium" ? "medium" : quality === "low" ? "low" : "persisted";
+    const sourceReason = String(existing?.decision_summary?.source_reason || "");
     return {
       stage: "route_plan",
       recommended_route: recommended,
@@ -64,8 +70,9 @@ export function generateRouteFraming(tripData) {
       used_platform: existing.used_platform || "",
       fallback_count: Number(existing.fallback_count || 0),
       fallback_reason: existing.fallback_reason || "",
-      source_reason: tripData.source_reason || "",
-      source_confidence: "persisted",
+      source_reason: sourceReason,
+      source_confidence: sourceConfidence,
+      verification_status: verificationStatus,
       evidence_summary: "",
       evidence_links: [],
       next_action: "",
@@ -111,7 +118,7 @@ export function generatePlanSkeleton(tripData, preferences) {
     route_summary: route.summary || "",
     stay_strategy: route.stay_strategy || "在路线确认前尽量减少换酒店次数。",
     transport_strategy:
-      route.suggested_transport || "先确定锤子城市与主要交通方式，再展开逐日细节。",
+      route.suggested_transport || "先确定锤子城市与主要交通方式，再展开每日细节。",
     budget_snapshot: {
       total: budgetTotal,
       travelers,
@@ -575,9 +582,9 @@ export function generateTripPlan(tripData) {
           ? "needs_route_validation"
           : "route_only",
     next_actions: [
-      ...(!routeChoiceConfirmed ? ["先确认路线选项，再进行验证与逐日规划。"] : []),
+      ...(!routeChoiceConfirmed ? ["先确认路线选项，再进行验证与每日规划。"] : []),
       "实时检索交通选项（机票或高铁）。",
-      "实时检索酒店选项，锁定前不指定逐日锤点。",
+      "实时检索酒店选项，锁定前不指定每日锤点。",
       "实时检索餐饮选项并保留至少一个可分享链接。",
       "门限达标且链接存在后升级为可下单回复。",
     ],

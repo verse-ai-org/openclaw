@@ -21,7 +21,9 @@ const VENICE_DEFAULT_CONTEXT_WINDOW = 128_000;
 const VENICE_DEFAULT_MAX_TOKENS = 4096;
 const VENICE_DISCOVERY_HARD_MAX_TOKENS = 131_072;
 const VENICE_DISCOVERY_TIMEOUT_MS = 10_000;
-const VENICE_DISCOVERY_RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const VENICE_DISCOVERY_RETRYABLE_HTTP_STATUS = new Set([
+  408, 425, 429, 500, 502, 503, 504,
+]);
 const VENICE_DISCOVERY_RETRYABLE_NETWORK_CODES = new Set([
   "ECONNABORTED",
   "ECONNREFUSED",
@@ -295,7 +297,7 @@ export const VENICE_MODEL_CATALOG = [
   },
   {
     id: "minimax-m25",
-    name: "MiniMax M2.5",
+    name: "MiniMax M2.7",
     reasoning: true,
     input: ["text"],
     contextWindow: 198000,
@@ -461,7 +463,9 @@ export type VeniceCatalogEntry = (typeof VENICE_MODEL_CATALOG)[number];
  * as ModelDefinitionConfig doesn't support custom metadata fields. Privacy
  * mode is inherent to each model and documented in the catalog/docs.
  */
-export function buildVeniceModelDefinition(entry: VeniceCatalogEntry): ModelDefinitionConfig {
+export function buildVeniceModelDefinition(
+  entry: VeniceCatalogEntry,
+): ModelDefinitionConfig {
   return {
     id: entry.id,
     name: entry.name,
@@ -474,7 +478,9 @@ export function buildVeniceModelDefinition(entry: VeniceCatalogEntry): ModelDefi
     // See: https://github.com/openclaw/openclaw/issues/15819
     compat: {
       supportsUsageInStreaming: false,
-      ...("supportsTools" in entry && !entry.supportsTools ? { supportsTools: false } : {}),
+      ...("supportsTools" in entry && !entry.supportsTools
+        ? { supportsTools: false }
+        : {}),
     },
   };
 }
@@ -556,7 +562,10 @@ function isRetryableVeniceDiscoveryError(err: unknown): boolean {
   if (err instanceof Error && err.name === "AbortError") {
     return true;
   }
-  if (err instanceof TypeError && err.message.toLowerCase() === "fetch failed") {
+  if (
+    err instanceof TypeError &&
+    err.message.toLowerCase() === "fetch failed"
+  ) {
     return true;
   }
   return hasRetryableNetworkCode(err);
@@ -573,13 +582,18 @@ function resolveApiMaxCompletionTokens(params: {
   apiModel: VeniceModel;
   knownMaxTokens?: number;
 }): number | undefined {
-  const raw = normalizePositiveInt(params.apiModel.model_spec?.maxCompletionTokens);
+  const raw = normalizePositiveInt(
+    params.apiModel.model_spec?.maxCompletionTokens,
+  );
   if (!raw) {
     return undefined;
   }
-  const contextWindow = normalizePositiveInt(params.apiModel.model_spec?.availableContextTokens);
+  const contextWindow = normalizePositiveInt(
+    params.apiModel.model_spec?.availableContextTokens,
+  );
   const knownMaxTokens =
-    typeof params.knownMaxTokens === "number" && Number.isFinite(params.knownMaxTokens)
+    typeof params.knownMaxTokens === "number" &&
+    Number.isFinite(params.knownMaxTokens)
       ? Math.floor(params.knownMaxTokens)
       : undefined;
   const hardCap = knownMaxTokens ?? VENICE_DISCOVERY_HARD_MAX_TOKENS;
@@ -588,8 +602,11 @@ function resolveApiMaxCompletionTokens(params: {
 }
 
 function resolveApiSupportsTools(apiModel: VeniceModel): boolean | undefined {
-  const supportsFunctionCalling = apiModel.model_spec?.capabilities?.supportsFunctionCalling;
-  return typeof supportsFunctionCalling === "boolean" ? supportsFunctionCalling : undefined;
+  const supportsFunctionCalling =
+    apiModel.model_spec?.capabilities?.supportsFunctionCalling;
+  return typeof supportsFunctionCalling === "boolean"
+    ? supportsFunctionCalling
+    : undefined;
 }
 
 /**
@@ -630,7 +647,9 @@ export async function discoverVeniceModels(): Promise<ModelDefinitionConfig[]> {
     );
 
     if (!response.ok) {
-      log.warn(`Failed to discover models: HTTP ${response.status}, using static catalog`);
+      log.warn(
+        `Failed to discover models: HTTP ${response.status}, using static catalog`,
+      );
       return staticVeniceModelDefinitions();
     }
 
@@ -686,7 +705,8 @@ export async function discoverVeniceModels(): Promise<ModelDefinitionConfig[]> {
           input: hasVision ? ["text", "image"] : ["text"],
           cost: VENICE_DEFAULT_COST,
           contextWindow:
-            normalizePositiveInt(apiSpec?.availableContextTokens) ?? VENICE_DEFAULT_CONTEXT_WINDOW,
+            normalizePositiveInt(apiSpec?.availableContextTokens) ??
+            VENICE_DEFAULT_CONTEXT_WINDOW,
           maxTokens: apiMaxTokens ?? VENICE_DEFAULT_MAX_TOKENS,
           // Avoid usage-only streaming chunks that can break OpenAI-compatible parsers.
           compat: {
@@ -700,7 +720,9 @@ export async function discoverVeniceModels(): Promise<ModelDefinitionConfig[]> {
     return models.length > 0 ? models : staticVeniceModelDefinitions();
   } catch (error) {
     if (error instanceof VeniceDiscoveryHttpError) {
-      log.warn(`Failed to discover models: HTTP ${error.status}, using static catalog`);
+      log.warn(
+        `Failed to discover models: HTTP ${error.status}, using static catalog`,
+      );
       return staticVeniceModelDefinitions();
     }
     log.warn(`Discovery failed: ${String(error)}, using static catalog`);

@@ -100,7 +100,9 @@ export function applyZaiProviderConfig(
 
   const providers = { ...cfg.models?.providers };
   const existingProvider = providers.zai;
-  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const existingModels = Array.isArray(existingProvider?.models)
+    ? existingProvider.models
+    : [];
 
   const defaultModels = [
     buildZaiModelDefinition({ id: "glm-5" }),
@@ -118,17 +120,17 @@ export function applyZaiProviderConfig(
     }
   }
 
-  const { apiKey: existingApiKey, ...existingProviderRest } = (existingProvider ?? {}) as Record<
-    string,
-    unknown
-  > as { apiKey?: string };
-  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const { apiKey: existingApiKey, ...existingProviderRest } =
+    (existingProvider ?? {}) as Record<string, unknown> as { apiKey?: string };
+  const resolvedApiKey =
+    typeof existingApiKey === "string" ? existingApiKey : undefined;
   const normalizedApiKey = resolvedApiKey?.trim();
 
   const baseUrl = params?.endpoint
     ? resolveZaiBaseUrl(params.endpoint)
-    : (typeof existingProvider?.baseUrl === "string" ? existingProvider.baseUrl : "") ||
-      resolveZaiBaseUrl();
+    : (typeof existingProvider?.baseUrl === "string"
+        ? existingProvider.baseUrl
+        : "") || resolveZaiBaseUrl();
 
   providers.zai = {
     ...existingProviderRest,
@@ -138,7 +140,10 @@ export function applyZaiProviderConfig(
     models: mergedModels.length > 0 ? mergedModels : defaultModels,
   };
 
-  return applyOnboardAuthAgentModelsAndProviders(cfg, { agentModels: models, providers });
+  return applyOnboardAuthAgentModelsAndProviders(cfg, {
+    agentModels: models,
+    providers,
+  });
 }
 
 export function applyZaiConfig(
@@ -146,12 +151,15 @@ export function applyZaiConfig(
   params?: { endpoint?: string; modelId?: string },
 ): OpenClawConfig {
   const modelId = params?.modelId?.trim() || ZAI_DEFAULT_MODEL_ID;
-  const modelRef = modelId === ZAI_DEFAULT_MODEL_ID ? ZAI_DEFAULT_MODEL_REF : `zai/${modelId}`;
+  const modelRef =
+    modelId === ZAI_DEFAULT_MODEL_ID ? ZAI_DEFAULT_MODEL_REF : `zai/${modelId}`;
   const next = applyZaiProviderConfig(cfg, params);
   return applyAgentDefaultModelPrimary(next, modelRef);
 }
 
-export function applyOpenrouterProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applyOpenrouterProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   const models = { ...cfg.agents?.defaults?.models };
   models[OPENROUTER_DEFAULT_MODEL_REF] = {
     ...models[OPENROUTER_DEFAULT_MODEL_REF],
@@ -175,11 +183,15 @@ export function applyOpenrouterConfig(cfg: OpenClawConfig): OpenClawConfig {
   return applyAgentDefaultModelPrimary(next, OPENROUTER_DEFAULT_MODEL_REF);
 }
 
-export function applyMoonshotProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applyMoonshotProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   return applyMoonshotProviderConfigWithBaseUrl(cfg, MOONSHOT_BASE_URL);
 }
 
-export function applyMoonshotProviderConfigCn(cfg: OpenClawConfig): OpenClawConfig {
+export function applyMoonshotProviderConfigCn(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   return applyMoonshotProviderConfigWithBaseUrl(cfg, MOONSHOT_CN_BASE_URL);
 }
 
@@ -215,7 +227,9 @@ export function applyMoonshotConfigCn(cfg: OpenClawConfig): OpenClawConfig {
   return applyAgentDefaultModelPrimary(next, MOONSHOT_DEFAULT_MODEL_REF);
 }
 
-export function applyKimiCodeProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applyKimiCodeProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   const models = { ...cfg.agents?.defaults?.models };
   models[KIMI_CODING_MODEL_REF] = {
     ...models[KIMI_CODING_MODEL_REF],
@@ -239,28 +253,33 @@ export function applyKimiCodeConfig(cfg: OpenClawConfig): OpenClawConfig {
   return applyAgentDefaultModelPrimary(next, KIMI_CODING_MODEL_REF);
 }
 
-export function applySyntheticProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applySyntheticProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   const models = { ...cfg.agents?.defaults?.models };
   models[SYNTHETIC_DEFAULT_MODEL_REF] = {
     ...models[SYNTHETIC_DEFAULT_MODEL_REF],
-    alias: models[SYNTHETIC_DEFAULT_MODEL_REF]?.alias ?? "MiniMax M2.5",
+    alias: models[SYNTHETIC_DEFAULT_MODEL_REF]?.alias ?? "MiniMax M2.7",
   };
 
   const providers = { ...cfg.models?.providers };
   const existingProvider = providers.synthetic;
-  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
-  const syntheticModels = SYNTHETIC_MODEL_CATALOG.map(buildSyntheticModelDefinition);
+  const existingModels = Array.isArray(existingProvider?.models)
+    ? existingProvider.models
+    : [];
+  const syntheticModels = SYNTHETIC_MODEL_CATALOG.map(
+    buildSyntheticModelDefinition,
+  );
   const mergedModels = [
     ...existingModels,
     ...syntheticModels.filter(
       (model) => !existingModels.some((existing) => existing.id === model.id),
     ),
   ];
-  const { apiKey: existingApiKey, ...existingProviderRest } = (existingProvider ?? {}) as Record<
-    string,
-    unknown
-  > as { apiKey?: string };
-  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const { apiKey: existingApiKey, ...existingProviderRest } =
+    (existingProvider ?? {}) as Record<string, unknown> as { apiKey?: string };
+  const resolvedApiKey =
+    typeof existingApiKey === "string" ? existingApiKey : undefined;
   const normalizedApiKey = resolvedApiKey?.trim();
   providers.synthetic = {
     ...existingProviderRest,
@@ -270,7 +289,10 @@ export function applySyntheticProviderConfig(cfg: OpenClawConfig): OpenClawConfi
     models: mergedModels.length > 0 ? mergedModels : syntheticModels,
   };
 
-  return applyOnboardAuthAgentModelsAndProviders(cfg, { agentModels: models, providers });
+  return applyOnboardAuthAgentModelsAndProviders(cfg, {
+    agentModels: models,
+    providers,
+  });
 }
 
 export function applySyntheticConfig(cfg: OpenClawConfig): OpenClawConfig {
@@ -335,14 +357,18 @@ export function applyVeniceConfig(cfg: OpenClawConfig): OpenClawConfig {
  * Apply Together provider configuration without changing the default model.
  * Registers Together models and sets up the provider, but preserves existing model selection.
  */
-export function applyTogetherProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applyTogetherProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   const models = { ...cfg.agents?.defaults?.models };
   models[TOGETHER_DEFAULT_MODEL_REF] = {
     ...models[TOGETHER_DEFAULT_MODEL_REF],
     alias: models[TOGETHER_DEFAULT_MODEL_REF]?.alias ?? "Together AI",
   };
 
-  const togetherModels = TOGETHER_MODEL_CATALOG.map(buildTogetherModelDefinition);
+  const togetherModels = TOGETHER_MODEL_CATALOG.map(
+    buildTogetherModelDefinition,
+  );
   return applyProviderConfigWithModelCatalog(cfg, {
     agentModels: models,
     providerId: "together",
@@ -364,14 +390,18 @@ export function applyTogetherConfig(cfg: OpenClawConfig): OpenClawConfig {
 /**
  * Apply Hugging Face (Inference Providers) provider configuration without changing the default model.
  */
-export function applyHuggingfaceProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applyHuggingfaceProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   const models = { ...cfg.agents?.defaults?.models };
   models[HUGGINGFACE_DEFAULT_MODEL_REF] = {
     ...models[HUGGINGFACE_DEFAULT_MODEL_REF],
     alias: models[HUGGINGFACE_DEFAULT_MODEL_REF]?.alias ?? "Hugging Face",
   };
 
-  const hfModels = HUGGINGFACE_MODEL_CATALOG.map(buildHuggingfaceModelDefinition);
+  const hfModels = HUGGINGFACE_MODEL_CATALOG.map(
+    buildHuggingfaceModelDefinition,
+  );
   return applyProviderConfigWithModelCatalog(cfg, {
     agentModels: models,
     providerId: "huggingface",
@@ -413,7 +443,9 @@ export function applyXaiConfig(cfg: OpenClawConfig): OpenClawConfig {
   return applyAgentDefaultModelPrimary(next, XAI_DEFAULT_MODEL_REF);
 }
 
-export function applyMistralProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applyMistralProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   const models = { ...cfg.agents?.defaults?.models };
   models[MISTRAL_DEFAULT_MODEL_REF] = {
     ...models[MISTRAL_DEFAULT_MODEL_REF],
@@ -443,7 +475,9 @@ export { KILOCODE_BASE_URL };
  * Apply Kilo Gateway provider configuration without changing the default model.
  * Registers Kilo Gateway and sets up the provider, but preserves existing model selection.
  */
-export function applyKilocodeProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applyKilocodeProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   const models = { ...cfg.agents?.defaults?.models };
   models[KILOCODE_DEFAULT_MODEL_REF] = {
     ...models[KILOCODE_DEFAULT_MODEL_REF],
@@ -491,7 +525,9 @@ export function applyAuthProfileConfig(
   };
 
   const configuredProviderProfiles = Object.entries(cfg.auth?.profiles ?? {})
-    .filter(([, profile]) => profile.provider.toLowerCase() === normalizedProvider)
+    .filter(
+      ([, profile]) => profile.provider.toLowerCase() === normalizedProvider,
+    )
     .map(([profileId, profile]) => ({ profileId, mode: profile.mode }));
 
   // Maintain `auth.order` when it already exists. Additionally, if we detect
@@ -503,14 +539,19 @@ export function applyAuthProfileConfig(
     existingProviderOrder && preferProfileFirst
       ? [
           params.profileId,
-          ...existingProviderOrder.filter((profileId) => profileId !== params.profileId),
+          ...existingProviderOrder.filter(
+            (profileId) => profileId !== params.profileId,
+          ),
         ]
       : existingProviderOrder;
   const hasMixedConfiguredModes = configuredProviderProfiles.some(
-    ({ profileId, mode }) => profileId !== params.profileId && mode !== params.mode,
+    ({ profileId, mode }) =>
+      profileId !== params.profileId && mode !== params.mode,
   );
   const derivedProviderOrder =
-    existingProviderOrder === undefined && preferProfileFirst && hasMixedConfiguredModes
+    existingProviderOrder === undefined &&
+    preferProfileFirst &&
+    hasMixedConfiguredModes
       ? [
           params.profileId,
           ...configuredProviderProfiles
@@ -542,7 +583,9 @@ export function applyAuthProfileConfig(
   };
 }
 
-export function applyQianfanProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
+export function applyQianfanProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
   const models = { ...cfg.agents?.defaults?.models };
   models[QIANFAN_DEFAULT_MODEL_REF] = {
     ...models[QIANFAN_DEFAULT_MODEL_REF],
@@ -556,7 +599,9 @@ export function applyQianfanProviderConfig(cfg: OpenClawConfig): OpenClawConfig 
       }
     | undefined;
   const existingBaseUrl =
-    typeof existingProvider?.baseUrl === "string" ? existingProvider.baseUrl.trim() : "";
+    typeof existingProvider?.baseUrl === "string"
+      ? existingProvider.baseUrl.trim()
+      : "";
   const resolvedBaseUrl = existingBaseUrl || QIANFAN_BASE_URL;
   const resolvedApi =
     typeof existingProvider?.api === "string"
@@ -591,7 +636,7 @@ function applyModelStudioProviderConfigWithBaseUrl(
     "qwen3-max-2026-01-23",
     "qwen3-coder-next",
     "qwen3-coder-plus",
-    "MiniMax-M2.5",
+    "MiniMax-M2.7",
     "glm-5",
     "glm-4.7",
     "kimi-k2.5",
@@ -609,14 +654,16 @@ function applyModelStudioProviderConfigWithBaseUrl(
 
   const providers = { ...cfg.models?.providers };
   const existingProvider = providers.modelstudio;
-  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const existingModels = Array.isArray(existingProvider?.models)
+    ? existingProvider.models
+    : [];
 
   const defaultModels = [
     buildModelStudioModelDefinition({ id: "qwen3.5-plus" }),
     buildModelStudioModelDefinition({ id: "qwen3-max-2026-01-23" }),
     buildModelStudioModelDefinition({ id: "qwen3-coder-next" }),
     buildModelStudioModelDefinition({ id: "qwen3-coder-plus" }),
-    buildModelStudioModelDefinition({ id: "MiniMax-M2.5" }),
+    buildModelStudioModelDefinition({ id: "MiniMax-M2.7" }),
     buildModelStudioModelDefinition({ id: "glm-5" }),
     buildModelStudioModelDefinition({ id: "glm-4.7" }),
     buildModelStudioModelDefinition({ id: "kimi-k2.5" }),
@@ -631,11 +678,10 @@ function applyModelStudioProviderConfigWithBaseUrl(
     }
   }
 
-  const { apiKey: existingApiKey, ...existingProviderRest } = (existingProvider ?? {}) as Record<
-    string,
-    unknown
-  > as { apiKey?: string };
-  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const { apiKey: existingApiKey, ...existingProviderRest } =
+    (existingProvider ?? {}) as Record<string, unknown> as { apiKey?: string };
+  const resolvedApiKey =
+    typeof existingApiKey === "string" ? existingApiKey : undefined;
   const normalizedApiKey = resolvedApiKey?.trim();
 
   providers.modelstudio = {
@@ -646,15 +692,28 @@ function applyModelStudioProviderConfigWithBaseUrl(
     models: mergedModels.length > 0 ? mergedModels : defaultModels,
   };
 
-  return applyOnboardAuthAgentModelsAndProviders(cfg, { agentModels: models, providers });
+  return applyOnboardAuthAgentModelsAndProviders(cfg, {
+    agentModels: models,
+    providers,
+  });
 }
 
-export function applyModelStudioProviderConfig(cfg: OpenClawConfig): OpenClawConfig {
-  return applyModelStudioProviderConfigWithBaseUrl(cfg, MODELSTUDIO_GLOBAL_BASE_URL);
+export function applyModelStudioProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
+  return applyModelStudioProviderConfigWithBaseUrl(
+    cfg,
+    MODELSTUDIO_GLOBAL_BASE_URL,
+  );
 }
 
-export function applyModelStudioProviderConfigCn(cfg: OpenClawConfig): OpenClawConfig {
-  return applyModelStudioProviderConfigWithBaseUrl(cfg, MODELSTUDIO_CN_BASE_URL);
+export function applyModelStudioProviderConfigCn(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
+  return applyModelStudioProviderConfigWithBaseUrl(
+    cfg,
+    MODELSTUDIO_CN_BASE_URL,
+  );
 }
 
 export function applyModelStudioConfig(cfg: OpenClawConfig): OpenClawConfig {

@@ -1,7 +1,10 @@
 import type { StreamFn } from "@mariozechner/pi-agent-core";
 import type { Context, Model, SimpleStreamOptions } from "@mariozechner/pi-ai";
 import { describe, expect, it, vi } from "vitest";
-import { applyExtraParamsToAgent, resolveExtraParams } from "./pi-embedded-runner.js";
+import {
+  applyExtraParamsToAgent,
+  resolveExtraParams,
+} from "./pi-embedded-runner.js";
 import { log } from "./pi-embedded-runner/logger.js";
 
 describe("resolveExtraParams", () => {
@@ -172,9 +175,15 @@ describe("resolveExtraParams", () => {
 
 describe("applyExtraParamsToAgent", () => {
   function createOptionsCaptureAgent() {
-    const calls: Array<(SimpleStreamOptions & { openaiWsWarmup?: boolean }) | undefined> = [];
+    const calls: Array<
+      (SimpleStreamOptions & { openaiWsWarmup?: boolean }) | undefined
+    > = [];
     const baseStreamFn: StreamFn = (_model, _context, options) => {
-      calls.push(options as (SimpleStreamOptions & { openaiWsWarmup?: boolean }) | undefined);
+      calls.push(
+        options as
+          | (SimpleStreamOptions & { openaiWsWarmup?: boolean })
+          | undefined,
+      );
       return {} as ReturnType<StreamFn>;
     };
     return {
@@ -183,7 +192,10 @@ describe("applyExtraParamsToAgent", () => {
     };
   }
 
-  function buildAnthropicModelConfig(modelKey: string, params: Record<string, unknown>) {
+  function buildAnthropicModelConfig(
+    modelKey: string,
+    params: Record<string, unknown>,
+  ) {
     return {
       agents: {
         defaults: {
@@ -226,7 +238,10 @@ describe("applyExtraParamsToAgent", () => {
   function runParallelToolCallsPayloadMutationCase(params: {
     applyProvider: string;
     applyModelId: string;
-    model: Model<"openai-completions"> | Model<"openai-responses"> | Model<"anthropic-messages">;
+    model:
+      | Model<"openai-completions">
+      | Model<"openai-responses">
+      | Model<"anthropic-messages">;
     cfg?: Record<string, unknown>;
     extraParamsOverride?: Record<string, unknown>;
     payload?: Record<string, unknown>;
@@ -275,7 +290,9 @@ describe("applyExtraParamsToAgent", () => {
     // reasoning (e.g. deepseek/deepseek-r1).
     const payloads: Record<string, unknown>[] = [];
     const baseStreamFn: StreamFn = (_model, _context, options) => {
-      const payload: Record<string, unknown> = { model: "deepseek/deepseek-r1" };
+      const payload: Record<string, unknown> = {
+        model: "deepseek/deepseek-r1",
+      };
       options?.onPayload?.(payload, _model);
       payloads.push(payload);
       return {} as ReturnType<StreamFn>;
@@ -314,7 +331,14 @@ describe("applyExtraParamsToAgent", () => {
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "openrouter", "openrouter/auto", undefined, "low");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "openrouter",
+      "openrouter/auto",
+      undefined,
+      "low",
+    );
 
     const model = {
       api: "openai-completions",
@@ -338,7 +362,14 @@ describe("applyExtraParamsToAgent", () => {
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "openrouter", "openrouter/auto", undefined, "off");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "openrouter",
+      "openrouter/auto",
+      undefined,
+      "off",
+    );
 
     const model = {
       api: "openai-completions",
@@ -356,14 +387,23 @@ describe("applyExtraParamsToAgent", () => {
   it("does not inject effort when payload already has reasoning.max_tokens", () => {
     const payloads: Record<string, unknown>[] = [];
     const baseStreamFn: StreamFn = (_model, _context, options) => {
-      const payload: Record<string, unknown> = { reasoning: { max_tokens: 256 } };
+      const payload: Record<string, unknown> = {
+        reasoning: { max_tokens: 256 },
+      };
       options?.onPayload?.(payload, _model);
       payloads.push(payload);
       return {} as ReturnType<StreamFn>;
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "openrouter", "openrouter/auto", undefined, "low");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "openrouter",
+      "openrouter/auto",
+      undefined,
+      "low",
+    );
 
     const model = {
       api: "openai-completions",
@@ -578,7 +618,9 @@ describe("applyExtraParamsToAgent", () => {
       });
 
       expect(payload).not.toHaveProperty("parallel_tool_calls");
-      expect(warnSpy).toHaveBeenCalledWith("ignoring invalid parallel_tool_calls param: false");
+      expect(warnSpy).toHaveBeenCalledWith(
+        "ignoring invalid parallel_tool_calls param: false",
+      );
     } finally {
       warnSpy.mockRestore();
     }
@@ -598,7 +640,7 @@ describe("applyExtraParamsToAgent", () => {
       agent,
       undefined,
       "siliconflow",
-      "Pro/MiniMaxAI/MiniMax-M2.5",
+      "Pro/MiniMaxAI/MiniMax-M2.7",
       undefined,
       "off",
     );
@@ -606,7 +648,7 @@ describe("applyExtraParamsToAgent", () => {
     const model = {
       api: "openai-completions",
       provider: "siliconflow",
-      id: "Pro/MiniMaxAI/MiniMax-M2.5",
+      id: "Pro/MiniMaxAI/MiniMax-M2.7",
     } as Model<"openai-completions">;
     const context: Context = { messages: [] };
     void agent.streamFn?.(model, context, {});
@@ -656,7 +698,14 @@ describe("applyExtraParamsToAgent", () => {
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "moonshot", "kimi-k2.5", undefined, "off");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "moonshot",
+      "kimi-k2.5",
+      undefined,
+      "off",
+    );
 
     const model = {
       api: "openai-completions",
@@ -680,7 +729,14 @@ describe("applyExtraParamsToAgent", () => {
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "moonshot", "kimi-k2.5", undefined, "low");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "moonshot",
+      "kimi-k2.5",
+      undefined,
+      "low",
+    );
 
     const model = {
       api: "openai-completions",
@@ -718,7 +774,14 @@ describe("applyExtraParamsToAgent", () => {
       },
     };
 
-    applyExtraParamsToAgent(agent, cfg, "moonshot", "kimi-k2.5", undefined, "high");
+    applyExtraParamsToAgent(
+      agent,
+      cfg,
+      "moonshot",
+      "kimi-k2.5",
+      undefined,
+      "high",
+    );
 
     const model = {
       api: "openai-completions",
@@ -755,7 +818,14 @@ describe("applyExtraParamsToAgent", () => {
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "kimi-coding", "k2p5", undefined, "low");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "kimi-coding",
+      "k2p5",
+      undefined,
+      "low",
+    );
 
     const model = {
       api: "anthropic-messages",
@@ -799,7 +869,14 @@ describe("applyExtraParamsToAgent", () => {
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "anthropic", "claude-sonnet-4-6", undefined, "low");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "anthropic",
+      "claude-sonnet-4-6",
+      undefined,
+      "low",
+    );
 
     const model = {
       api: "anthropic-messages",
@@ -902,7 +979,14 @@ describe("applyExtraParamsToAgent", () => {
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "atproxy", "gemini-3.1-pro-high", undefined, "high");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "atproxy",
+      "gemini-3.1-pro-high",
+      undefined,
+      "high",
+    );
 
     const model = {
       api: "google-generative-ai",
@@ -914,7 +998,9 @@ describe("applyExtraParamsToAgent", () => {
 
     expect(payloads).toHaveLength(1);
     const thinkingConfig = (
-      payloads[0]?.config as { thinkingConfig?: Record<string, unknown> } | undefined
+      payloads[0]?.config as
+        | { thinkingConfig?: Record<string, unknown> }
+        | undefined
     )?.thinkingConfig;
     expect(thinkingConfig).toEqual({
       includeThoughts: true,
@@ -923,7 +1009,11 @@ describe("applyExtraParamsToAgent", () => {
     expect(
       (
         payloads[0]?.contents as
-          | Array<{ parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> }>
+          | Array<{
+              parts?: Array<{
+                inlineData?: { mimeType?: string; data?: string };
+              }>;
+            }>
           | undefined
       )?.[0]?.parts?.[1]?.inlineData,
     ).toEqual({
@@ -949,7 +1039,14 @@ describe("applyExtraParamsToAgent", () => {
     };
     const agent = { streamFn: baseStreamFn };
 
-    applyExtraParamsToAgent(agent, undefined, "atproxy", "gemini-3.1-pro-high", undefined, "high");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "atproxy",
+      "gemini-3.1-pro-high",
+      undefined,
+      "high",
+    );
 
     const model = {
       api: "google-generative-ai",
@@ -1256,7 +1353,12 @@ describe("applyExtraParamsToAgent", () => {
   it("disables prompt caching for non-Anthropic Bedrock models", () => {
     const { calls, agent } = createOptionsCaptureAgent();
 
-    applyExtraParamsToAgent(agent, undefined, "amazon-bedrock", "amazon.nova-micro-v1");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "amazon-bedrock",
+      "amazon.nova-micro-v1",
+    );
 
     const model = {
       api: "openai-completions",
@@ -1274,7 +1376,12 @@ describe("applyExtraParamsToAgent", () => {
   it("keeps Anthropic Bedrock models eligible for provider-side caching", () => {
     const { calls, agent } = createOptionsCaptureAgent();
 
-    applyExtraParamsToAgent(agent, undefined, "amazon-bedrock", "us.anthropic.claude-sonnet-4-5");
+    applyExtraParamsToAgent(
+      agent,
+      undefined,
+      "amazon-bedrock",
+      "us.anthropic.claude-sonnet-4-5",
+    );
 
     const model = {
       api: "openai-completions",
@@ -1305,7 +1412,12 @@ describe("applyExtraParamsToAgent", () => {
       },
     };
 
-    applyExtraParamsToAgent(agent, cfg, "amazon-bedrock", "us.anthropic.claude-opus-4-6-v1");
+    applyExtraParamsToAgent(
+      agent,
+      cfg,
+      "amazon-bedrock",
+      "us.anthropic.claude-opus-4-6-v1",
+    );
 
     const model = {
       api: "openai-completions",
@@ -1322,7 +1434,9 @@ describe("applyExtraParamsToAgent", () => {
 
   it("adds Anthropic 1M beta header when context1m is enabled for Opus/Sonnet", () => {
     const { calls, agent } = createOptionsCaptureAgent();
-    const cfg = buildAnthropicModelConfig("anthropic/claude-opus-4-6", { context1m: true });
+    const cfg = buildAnthropicModelConfig("anthropic/claude-opus-4-6", {
+      context1m: true,
+    });
 
     applyExtraParamsToAgent(agent, cfg, "anthropic", "claude-opus-4-6");
 
@@ -1426,7 +1540,9 @@ describe("applyExtraParamsToAgent", () => {
   });
 
   it("ignores context1m for non-Opus/Sonnet Anthropic models", () => {
-    const cfg = buildAnthropicModelConfig("anthropic/claude-haiku-3-5", { context1m: true });
+    const cfg = buildAnthropicModelConfig("anthropic/claude-haiku-3-5", {
+      context1m: true,
+    });
     const headers = runAnthropicHeaderCase({
       cfg,
       modelId: "claude-haiku-3-5",
@@ -1616,7 +1732,9 @@ describe("applyExtraParamsToAgent", () => {
       });
 
       expect(payload).not.toHaveProperty("service_tier");
-      expect(warnSpy).toHaveBeenCalledWith("ignoring invalid OpenAI service tier param: invalid");
+      expect(warnSpy).toHaveBeenCalledWith(
+        "ignoring invalid OpenAI service tier param: invalid",
+      );
     } finally {
       warnSpy.mockRestore();
     }
@@ -1715,7 +1833,9 @@ describe("applyExtraParamsToAgent", () => {
       },
     });
     expect(payload).not.toHaveProperty("store");
-    expect(payload.context_management).toEqual([{ type: "compaction", compact_threshold: 12_345 }]);
+    expect(payload.context_management).toEqual([
+      { type: "compaction", compact_threshold: 12_345 },
+    ]);
   });
 
   it("auto-injects OpenAI Responses context_management compaction for direct OpenAI models", () => {
@@ -1800,7 +1920,9 @@ describe("applyExtraParamsToAgent", () => {
         context_management: [{ type: "compaction", compact_threshold: 12_345 }],
       },
     });
-    expect(payload.context_management).toEqual([{ type: "compaction", compact_threshold: 12_345 }]);
+    expect(payload.context_management).toEqual([
+      { type: "compaction", compact_threshold: 12_345 },
+    ]);
   });
 
   it("allows disabling OpenAI Responses context_management compaction via model params", () => {

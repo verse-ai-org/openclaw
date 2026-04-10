@@ -12,7 +12,9 @@ import { SUBAGENT_SPAWN_ACCEPTED_NOTE } from "./subagent-spawn.js";
 
 const callGatewayMock = getCallGatewayMock();
 type GatewayCall = { method?: string; params?: unknown };
-type SessionsSpawnConfigOverride = Parameters<typeof setSessionsSpawnConfigOverride>[0];
+type SessionsSpawnConfigOverride = Parameters<
+  typeof setSessionsSpawnConfigOverride
+>[0];
 
 function mockLongRunningSpawnFlow(params: {
   calls: GatewayCall[];
@@ -47,7 +49,10 @@ function mockLongRunningSpawnFlow(params: {
   });
 }
 
-function mockPatchAndSingleAgentRun(params: { calls: GatewayCall[]; runId: string }) {
+function mockPatchAndSingleAgentRun(params: {
+  calls: GatewayCall[];
+  runId: string;
+}) {
   callGatewayMock.mockImplementation(async (opts: unknown) => {
     const request = opts as GatewayCall;
     params.calls.push(request);
@@ -89,7 +94,9 @@ async function expectSpawnUsesConfiguredModel(params: {
   });
 
   const patchCall = calls.find(
-    (call) => call.method === "sessions.patch" && (call.params as { model?: string })?.model,
+    (call) =>
+      call.method === "sessions.patch" &&
+      (call.params as { model?: string })?.model,
   );
   expect(patchCall?.params).toMatchObject({
     model: params.expectedModel,
@@ -124,13 +131,17 @@ describe("openclaw-tools: subagents (sessions_spawn model + thinking)", () => {
       modelApplied: true,
     });
 
-    const patchIndex = calls.findIndex((call) => call.method === "sessions.patch");
+    const patchIndex = calls.findIndex(
+      (call) => call.method === "sessions.patch",
+    );
     const agentIndex = calls.findIndex((call) => call.method === "agent");
     expect(patchIndex).toBeGreaterThan(-1);
     expect(agentIndex).toBeGreaterThan(-1);
     expect(patchIndex).toBeLessThan(agentIndex);
     const patchCall = calls.find(
-      (call) => call.method === "sessions.patch" && (call.params as { model?: string })?.model,
+      (call) =>
+        call.method === "sessions.patch" &&
+        (call.params as { model?: string })?.model,
     );
     expect(patchCall?.params).toMatchObject({
       key: expect.stringContaining("subagent:"),
@@ -199,11 +210,11 @@ describe("openclaw-tools: subagents (sessions_spawn model + thinking)", () => {
     await expectSpawnUsesConfiguredModel({
       config: {
         session: { mainKey: "main", scope: "per-sender" },
-        agents: { defaults: { subagents: { model: "minimax/MiniMax-M2.5" } } },
+        agents: { defaults: { subagents: { model: "minimax/MiniMax-M2.7" } } },
       },
       runId: "run-default-model",
       callId: "call-default-model",
-      expectedModel: "minimax/MiniMax-M2.5",
+      expectedModel: "minimax/MiniMax-M2.7",
     });
   });
 
@@ -220,7 +231,7 @@ describe("openclaw-tools: subagents (sessions_spawn model + thinking)", () => {
       config: {
         session: { mainKey: "main", scope: "per-sender" },
         agents: {
-          defaults: { subagents: { model: "minimax/MiniMax-M2.5" } },
+          defaults: { subagents: { model: "minimax/MiniMax-M2.7" } },
           list: [{ id: "research", subagents: { model: "opencode/claude" } }],
         },
       },
@@ -235,7 +246,7 @@ describe("openclaw-tools: subagents (sessions_spawn model + thinking)", () => {
       config: {
         session: { mainKey: "main", scope: "per-sender" },
         agents: {
-          defaults: { model: { primary: "minimax/MiniMax-M2.5" } },
+          defaults: { model: { primary: "minimax/MiniMax-M2.7" } },
           list: [{ id: "research", model: { primary: "opencode/claude" } }],
         },
       },
@@ -251,7 +262,8 @@ describe("openclaw-tools: subagents (sessions_spawn model + thinking)", () => {
       calls,
       acceptedAtBase: 4000,
       patch: async (request) => {
-        const model = (request.params as { model?: unknown } | undefined)?.model;
+        const model = (request.params as { model?: unknown } | undefined)
+          ?.model;
         if (model === "bad-model") {
           throw new Error("invalid model: bad-model");
         }
@@ -272,7 +284,9 @@ describe("openclaw-tools: subagents (sessions_spawn model + thinking)", () => {
     expect(result.details).toMatchObject({
       status: "error",
     });
-    expect(String((result.details as { error?: string }).error ?? "")).toContain("invalid model");
+    expect(
+      String((result.details as { error?: string }).error ?? ""),
+    ).toContain("invalid model");
     expect(calls.some((call) => call.method === "agent")).toBe(false);
   });
 

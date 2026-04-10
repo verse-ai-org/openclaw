@@ -566,7 +566,7 @@ terms before depending on subscription auth.
     workspace: "~/.openclaw/workspace",
     model: {
       primary: "anthropic/claude-opus-4-6",
-      fallbacks: ["minimax/MiniMax-M2.5"],
+      fallbacks: ["minimax/MiniMax-M2.7"],
     },
   },
 }
@@ -615,7 +615,7 @@ terms before depending on subscription auth.
         models: [
           {
             id: "minimax-m2.5-gs32",
-            name: "MiniMax M2.5 GS32",
+            name: "MiniMax M2.7 GS32",
             reasoning: false,
             input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

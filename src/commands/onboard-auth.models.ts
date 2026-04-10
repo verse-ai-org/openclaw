@@ -1,4 +1,7 @@
-import { QIANFAN_BASE_URL, QIANFAN_DEFAULT_MODEL_ID } from "../agents/models-config.providers.js";
+import {
+  QIANFAN_BASE_URL,
+  QIANFAN_DEFAULT_MODEL_ID,
+} from "../agents/models-config.providers.js";
 import type { ModelDefinitionConfig } from "../config/types.js";
 import {
   KILOCODE_DEFAULT_CONTEXT_WINDOW,
@@ -17,7 +20,7 @@ export {
 export const DEFAULT_MINIMAX_BASE_URL = "https://api.minimax.io/v1";
 export const MINIMAX_API_BASE_URL = "https://api.minimax.io/anthropic";
 export const MINIMAX_CN_API_BASE_URL = "https://api.minimaxi.com/anthropic";
-export const MINIMAX_HOSTED_MODEL_ID = "MiniMax-M2.5";
+export const MINIMAX_HOSTED_MODEL_ID = "MiniMax-M2.7";
 export const MINIMAX_HOSTED_MODEL_REF = `minimax/${MINIMAX_HOSTED_MODEL_ID}`;
 export const DEFAULT_MINIMAX_CONTEXT_WINDOW = 200000;
 export const DEFAULT_MINIMAX_MAX_TOKENS = 8192;
@@ -35,7 +38,8 @@ export { QIANFAN_BASE_URL, QIANFAN_DEFAULT_MODEL_ID };
 export const QIANFAN_DEFAULT_MODEL_REF = `qianfan/${QIANFAN_DEFAULT_MODEL_ID}`;
 
 export const ZAI_CODING_GLOBAL_BASE_URL = "https://api.z.ai/api/coding/paas/v4";
-export const ZAI_CODING_CN_BASE_URL = "https://open.bigmodel.cn/api/coding/paas/v4";
+export const ZAI_CODING_CN_BASE_URL =
+  "https://open.bigmodel.cn/api/coding/paas/v4";
 export const ZAI_GLOBAL_BASE_URL = "https://api.z.ai/api/paas/v4";
 export const ZAI_CN_BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
 export const ZAI_DEFAULT_MODEL_ID = "glm-5";
@@ -89,8 +93,8 @@ export const ZAI_DEFAULT_COST = {
 };
 
 const MINIMAX_MODEL_CATALOG = {
-  "MiniMax-M2.5": { name: "MiniMax M2.5", reasoning: true },
-  "MiniMax-M2.5-highspeed": { name: "MiniMax M2.5 Highspeed", reasoning: true },
+  "MiniMax-M2.7": { name: "MiniMax M2.7", reasoning: true },
+  "MiniMax-M2.7-highspeed": { name: "MiniMax M2.7 Highspeed", reasoning: true },
 } as const;
 
 type MinimaxCatalogId = keyof typeof MINIMAX_MODEL_CATALOG;
@@ -124,7 +128,9 @@ export function buildMinimaxModelDefinition(params: {
   };
 }
 
-export function buildMinimaxApiModelDefinition(modelId: string): ModelDefinitionConfig {
+export function buildMinimaxApiModelDefinition(
+  modelId: string,
+): ModelDefinitionConfig {
   return buildMinimaxModelDefinition({
     id: modelId,
     cost: MINIMAX_API_COST,
@@ -226,8 +232,10 @@ export function buildKilocodeModelDefinition(): ModelDefinitionConfig {
 }
 
 // Alibaba Cloud Model Studio Coding Plan
-export const MODELSTUDIO_CN_BASE_URL = "https://coding.dashscope.aliyuncs.com/v1";
-export const MODELSTUDIO_GLOBAL_BASE_URL = "https://coding-intl.dashscope.aliyuncs.com/v1";
+export const MODELSTUDIO_CN_BASE_URL =
+  "https://coding.dashscope.aliyuncs.com/v1";
+export const MODELSTUDIO_GLOBAL_BASE_URL =
+  "https://coding-intl.dashscope.aliyuncs.com/v1";
 export const MODELSTUDIO_DEFAULT_MODEL_ID = "qwen3.5-plus";
 export const MODELSTUDIO_DEFAULT_MODEL_REF = `modelstudio/${MODELSTUDIO_DEFAULT_MODEL_ID}`;
 export const MODELSTUDIO_DEFAULT_COST = {
@@ -266,8 +274,8 @@ const MODELSTUDIO_MODEL_CATALOG = {
     contextWindow: 1000000,
     maxTokens: 65536,
   },
-  "MiniMax-M2.5": {
-    name: "MiniMax-M2.5",
+  "MiniMax-M2.7": {
+    name: "MiniMax-M2.7",
     reasoning: false,
     input: ["text"],
     contextWindow: 1000000,

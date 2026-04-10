@@ -62,7 +62,7 @@ describe("travel-planner JS modules", () => {
     expect(result.recommended_route).toEqual({});
     expect(result.alternatives).toEqual([]);
     expect(result.framing_source).toBe("agent_tools");
-    expect(result.requires_xhs_evidence).toBe(true);
+    expect(result.requires_route_evidence).toBe(true);
     expect(result.next_action).toMatch(/Xiaohongshu/i);
     expect(result.planning_note).toMatch(/Xiaohongshu-first|fallback/i);
   });
@@ -151,7 +151,7 @@ describe("travel-planner JS modules", () => {
     const result = selectRouteCandidates({
       destination: { region: "川西", country: "China" },
       recommendation_source_policy: "xhs_first",
-      xhs_evidence: {
+      route_evidence: {
         evidence_quality: "high",
         generated_at: "2026-04-07T00:00:00Z",
         summary: "川西小环线高频",
@@ -166,7 +166,7 @@ describe("travel-planner JS modules", () => {
       },
     });
     expect(result.recommendation_source).toBe("xhs_first");
-    expect(result.requires_xhs_evidence).toBe(false);
+    expect(result.requires_route_evidence).toBe(false);
     expect(result.recommended_route?.stops?.length).toBeGreaterThan(0);
     expect(result.evidence_links.length).toBeGreaterThan(0);
     expect(result.route_options.length).toBeGreaterThanOrEqual(2);
@@ -406,6 +406,56 @@ describe("travel-planner JS modules", () => {
       [],
       "xhs route",
       "xhs",
+    );
+    expect(ok).toBe(true);
+  });
+
+  it("saveRouteFramingWithSource rejects amap route without persisted evidence", () => {
+    const id = addTrip(
+      {
+        destination_text: "川西",
+        destination: { country: "China" },
+        duration_days: 5,
+      },
+      "current",
+    );
+    const ok = saveRouteFramingWithSource(
+      id,
+      { route_id: "route_1", name: "A" },
+      [{ route_id: "route_2", name: "B" }],
+      [],
+      {},
+      "amap",
+      0,
+      "",
+      [],
+      "amap route",
+      "amap",
+    );
+    expect(ok).toBe(false);
+  });
+
+  it("saveRouteFramingWithSource accepts web route without persisted evidence", () => {
+    const id = addTrip(
+      {
+        destination_text: "川西",
+        destination: { country: "China" },
+        duration_days: 5,
+      },
+      "current",
+    );
+    const ok = saveRouteFramingWithSource(
+      id,
+      { route_id: "route_1", name: "A" },
+      [{ route_id: "route_2", name: "B" }],
+      [],
+      {},
+      "web",
+      0,
+      "",
+      [],
+      "web route",
+      "web",
     );
     expect(ok).toBe(true);
   });

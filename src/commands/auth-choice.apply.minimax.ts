@@ -1,10 +1,16 @@
-import { normalizeApiKeyInput, validateApiKeyInput } from "./auth-choice.api-key.js";
+import {
+  normalizeApiKeyInput,
+  validateApiKeyInput,
+} from "./auth-choice.api-key.js";
 import {
   createAuthChoiceDefaultModelApplierForMutableState,
   ensureApiKeyFromOptionEnvOrPrompt,
   normalizeSecretInputModeInput,
 } from "./auth-choice.apply-helpers.js";
-import type { ApplyAuthChoiceParams, ApplyAuthChoiceResult } from "./auth-choice.apply.js";
+import type {
+  ApplyAuthChoiceParams,
+  ApplyAuthChoiceResult,
+} from "./auth-choice.apply.js";
 import { applyAuthChoicePluginProvider } from "./auth-choice.apply.plugin-provider.js";
 import {
   applyAuthProfileConfig,
@@ -22,14 +28,17 @@ export async function applyAuthChoiceMiniMax(
 ): Promise<ApplyAuthChoiceResult | null> {
   let nextConfig = params.config;
   let agentModelOverride: string | undefined;
-  const applyProviderDefaultModel = createAuthChoiceDefaultModelApplierForMutableState(
-    params,
-    () => nextConfig,
-    (config) => (nextConfig = config),
-    () => agentModelOverride,
-    (model) => (agentModelOverride = model),
+  const applyProviderDefaultModel =
+    createAuthChoiceDefaultModelApplierForMutableState(
+      params,
+      () => nextConfig,
+      (config) => (nextConfig = config),
+      () => agentModelOverride,
+      (model) => (agentModelOverride = model),
+    );
+  const requestedSecretInputMode = normalizeSecretInputModeInput(
+    params.opts?.secretInputMode,
   );
-  const requestedSecretInputMode = normalizeSecretInputModeInput(params.opts?.secretInputMode);
   const ensureMinimaxApiKey = async (opts: {
     profileId: string;
     promptMessage: string;
@@ -47,7 +56,9 @@ export async function applyAuthChoiceMiniMax(
       validate: validateApiKeyInput,
       prompter: params.prompter,
       setCredential: async (apiKey, mode) =>
-        setMinimaxApiKey(apiKey, params.agentDir, opts.profileId, { secretInputMode: mode }),
+        setMinimaxApiKey(apiKey, params.agentDir, opts.profileId, {
+          secretInputMode: mode,
+        }),
     });
   };
   const applyMinimaxApiVariant = async (opts: {
@@ -77,8 +88,10 @@ export async function applyAuthChoiceMiniMax(
     const modelRef = `${opts.modelRefPrefix}/${opts.modelId}`;
     await applyProviderDefaultModel({
       defaultModel: modelRef,
-      applyDefaultConfig: (config) => opts.applyDefaultConfig(config, opts.modelId),
-      applyProviderConfig: (config) => opts.applyProviderConfig(config, opts.modelId),
+      applyDefaultConfig: (config) =>
+        opts.applyDefaultConfig(config, opts.modelId),
+      applyProviderConfig: (config) =>
+        opts.applyProviderConfig(config, opts.modelId),
     });
     return { config: nextConfig, agentModelOverride };
   };
@@ -87,7 +100,11 @@ export async function applyAuthChoiceMiniMax(
     const endpoint = await params.prompter.select({
       message: "Select MiniMax endpoint",
       options: [
-        { value: "oauth", label: "Global", hint: "OAuth for international users" },
+        {
+          value: "oauth",
+          label: "Global",
+          hint: "OAuth for international users",
+        },
         { value: "oauth-cn", label: "CN", hint: "OAuth for users in China" },
       ],
     });
@@ -112,7 +129,9 @@ export async function applyAuthChoiceMiniMax(
       promptMessage: "Enter MiniMax API key",
       modelRefPrefix: "minimax",
       modelId:
-        params.authChoice === "minimax-api-lightning" ? "MiniMax-M2.5-highspeed" : "MiniMax-M2.5",
+        params.authChoice === "minimax-api-lightning"
+          ? "MiniMax-M2.7-highspeed"
+          : "MiniMax-M2.7",
       applyDefaultConfig: applyMinimaxApiConfig,
       applyProviderConfig: applyMinimaxApiProviderConfig,
     });
@@ -124,7 +143,7 @@ export async function applyAuthChoiceMiniMax(
       provider: "minimax-cn",
       promptMessage: "Enter MiniMax China API key",
       modelRefPrefix: "minimax-cn",
-      modelId: "MiniMax-M2.5",
+      modelId: "MiniMax-M2.7",
       applyDefaultConfig: applyMinimaxApiConfigCn,
       applyProviderConfig: applyMinimaxApiProviderConfigCn,
     });

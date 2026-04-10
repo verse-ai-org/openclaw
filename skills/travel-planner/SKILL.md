@@ -1,6 +1,6 @@
 ---
 name: travel-planner
-description: "中文旅行规划技能。用于偏好记录、路线规划、目的地调研、逐日行程、交通与住宿策略、预算与行前清单。用户提到行程规划、路线选择、出行预算、酒店交通组合、行中改线重排时触发。"
+description: "中文旅行规划技能。用于偏好记录、路线规划、目的地调研、每日行程、交通与住宿策略、预算与行前清单。用户提到行程规划、路线选择、出行预算、酒店交通组合、行中改线重排时触发。"
 license: MIT
 metadata:
   openclaw:
@@ -33,18 +33,23 @@ metadata:
 - 地点、天气、酒店、路程、交通要保证真实性。
 - 每天最多“1 个主锚点 + 1 个附近备选”。
 - 把体力、天气、换乘摩擦作为硬约束。
-- 大区域目的地先“路线框定”，再展开逐日计划。
+- 大区域目的地先“路线框定”，再展开每日计划。
 
 ## 工作流
 
 ### 第一步：读取偏好
 
+#### 执行命令
 ```bash
 node {baseDir}/scripts/db.mjs --cmd=is_initialized
 ```
 
 - 若返回 `false`：进入轻量偏好采集。
 - 若返回 `true`：读取已有偏好，仅补本次行程缺口。
+
+#### 配置文件路径
+- Preferences: `~/.openclaw/agents/travel-planner/preferences.json`、
+- Trips: `~/.openclaw/agents/travel-planner/trips.json`
 
 ### 第二步：轻量偏好采集
 
@@ -58,6 +63,8 @@ node {baseDir}/scripts/db.mjs --cmd=is_initialized
 - 核心兴趣（风景/美食/人文/摄影/亲子等）
 - 交通偏好（自驾/包车/公共交通/短途航班可接受）
 - 步行耐受与行动限制
+
+> 预算分配比例与节奏设计细则见 `references/travel_guidelines.md`。
 
 保存时仅写入用户已明确提供的字段：
 
@@ -79,25 +86,36 @@ node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新
 
 #### 目标
 
-- 使用外部平台帮助用户做路线规划，平台包括：小红书，高德地图，搜索。
+- 使用外部平台帮助用户做路线规划，平台包括：小红书（抄作业）、搜索。
+- 路线框定阶段以内容驱动为主（`xhs/search`），支持用户手动粘贴内容（如小红书图文链接/正文摘要/截图转文字）作为输入证据。
 - 始终输出 2-3 条带 `route_id` 的候选路线，并要求用户确认选择。
 
 #### 平台选择
 
 先问用户：
 
-`你想用哪个平台来框定路线：小红书 / 高德地图 / 搜索引擎？`
+`你想用哪个平台来参考框定路线：小红书（抄作业）/ 搜索？`
 
-- 未指定时默认 `小红书`。
-- 自动降级链固定为：`小红书 -> 高德地图 -> 搜索引擎`。
+- 未指定时默认 `搜索`，默认使用Brave来搜索。
+- 如果小红书流程失败：必须提示用户二选一（`手动提供小红书内容` 或 `改用搜索`）。
 - 硬守卫：在用户未完成平台选择前，不得直接执行任意平台检索。
-- 仅当用户明确表示“默认就行/你决定/按默认”时，才可直接使用默认 `小红书`。
+- 仅当用户明确表示“默认就行/你决定/按默认”时，才可直接使用默认 `搜索`。
+- 当发生平台降级（`xhs -> search`）时，必须在回复中显式提示：`已从小红书降级到搜索`，并说明降级原因。
 
 #### 实现边界（强约束）
 
 - `travel-planner` 内部不直接调用其他 skill 的脚本。
-- `route-plan.mjs` 仅消费上游输入（`xhs_evidence`、`route_candidates`、`route_options`）并输出结构化候选；当平台为 `xhs` 时，`xhs_evidence` 必须先通过 `db.mjs --cmd=save_route_evidence` 持久化后，才允许进入 `save_route_plan`。
-- 当平台为 `xhs` 时，必须先走 `@skills/xiaohongshu` 检索链路；不允许用 browser 打开网页替代。
+- `route-plan.mjs` 仅消费上游输入（`route_evidence`、`route_options`）并输出结构化候选；所有平台（`xhs/search/...`）都必须先按 `RouteEvidenceV1` 调用 `db.mjs --cmd=save_route_evidence` 持久化后，才允许进入 `save_route_plan`。
+- 证据落盘命名采用平台分文件：`~/.openclaw/agents/travel-planner/data/evidence/<trip_id>.<platform>.json`（例如：`<trip_id>.xhs.json`、`<trip_id>.search.json`）。
+- 当平台为 `xhs` 时，默认先走 `@skills/xiaohongshu` 检索链路；若用户明确提供小红书图文内容，可走“用户输入证据”分支，不强制调用平台检索。
+
+统一证据协议（`RouteEvidenceV1`）：
+
+- 所有平台统一走 `save_route_evidence`，不得平台私有化绕过。
+- 证据落盘路径：`~/.openclaw/agents/travel-planner/data/evidence/<trip_id>.<platform>.json`
+- 新平台接入只需做"平台结果 -> RouteEvidenceV1"的适配映射，不改持久化主流程。
+
+> 完整字段说明与 JSON 示例见 `references/route-protocol.md`。
 
 路线规划脚本：
 
@@ -107,28 +125,37 @@ node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json_with_route_pla
 
 #### 必须顺序（不可跳步）
 
-1. 读取或设置 `route_source_preference`（`xhs`/`amap`/`web`/`auto`）。
+1. 读取或设置 `route_source_preference`（`xhs`/`search`）。
 2. 按当前平台拉取上游证据：
-   - `xhs`：调用 `@skills/xiaohongshu` 的 `search-feeds`（必要时补 `get-feed-detail`）。
+   - `search`：默认使用搜索获取路线证据；仅当用户明确指定其他搜索引擎时覆盖默认值。
+   - `xhs`：调用 `@skills/xiaohongshu` 的 `search-feeds` 和 `get-feed-detail`。
      - `xhs` 检索优化（路线框定专用）：
        - 查询词优先使用：`J人<目的地><days>天行程安排`（例如：`J人川西5天行程安排`）。
        - 强制过滤：`--note-type 图文 --sort-by 最多点赞`。
-       - 禁止使用：`--sort-by 最新`（路线框定场景一律不用“最新”排序）。
        - 证据候选中排除视频笔记，只保留图文笔记。
        - 路线证据最多保留前 2-3 条高点赞帖子。
-   - `amap`：调用 `@skills/amap-lbs-skill` 获取路线/POI/转场信息。
-   - `web`：调用可用搜索工具获取路线证据。
+     - `xhs` 异常分流（新增，必须执行）：
+       - 若 `get-feed-detail` 失败/超时/返回空，必须显式提示用户当前状态，不得静默继续。
+       - 必须给用户二选一动作：
+         1) 用户手动提供小红书内容（帖子正文摘要/截图转文字）；
+         2) 改用搜索继续路线框定。
+       - 当用户未明确选择动作时，不得直接进入 `route-plan.mjs`。
+       - 用户选择手动提供内容时，标记为 `evidence_source = user_input_xhs`，并在回复中注明“用户提供，未自动校验”。
+       - 用户选择切换平台时，记录一次 `fallback_reason`（`xhs_detail_unavailable`）后进入 搜索链路，并明确提示用户“已从小红书降级到搜索”。
+   - 用户输入证据分支（适用于 `xhs/search`）：
+     - 当用户主动粘贴内容（小红书图文、网页摘要、截图转文字）时，可直接作为证据输入，不强制重新检索。
+     - 必须标记 `verification_status = user_input_unverified`，并在 `meta` 中写入 `evidence_source`（`user_input_xhs` 或 `user_input_search`）。
 
 3. 归一化输入：
-   - `xhs`：将 `@skills/xiaohongshu` 返回的原始搜索结果，通过 `xhs-evidence-builder.mjs` 规范化后得到 `xhs_evidence`：
+   - `xhs`：将 `@skills/xiaohongshu` 返回的原始搜索结果，通过 `xhs-evidence-builder.mjs` 规范化后得到 `route_evidence`（`platform=xhs`）：
 ```bash
 node scripts/xhs-evidence-builder.mjs --input='{ "destination_text": "<目的地>", "duration_days": <天数>, "search_results": <xhs原始结果_json> }'
 ```
-   - `xhs`：必须先持久化证据（写入 `~/.openclaw/agents/travel-planner/data/evidence`），再进入路线保存：
+   - `xhs/search`：统一先持久化证据（写入 `~/.openclaw/agents/travel-planner/data/evidence`），再进入路线保存：
 ```bash
-node scripts/db.mjs --cmd=save_route_evidence --trip-id=<trip_id> --platform=xhs --payload='<xhs_evidence_json>'
+node scripts/db.mjs --cmd=save_route_evidence --trip-id=<trip_id> --platform=<xhs|web> --payload='<route_evidence_v1_json>'
 ```
-   - `amap/web`：将结果写入 `route_candidates` 或 `route_options`。
+   - `search`：优先在 `route_evidence.route_hints` 提供锚点链路（`key_destinations` 或 `popular_loops`）；`route-plan.mjs` 将据此生成带 `stops` 的候选路线（如 `成都 -> 四姑娘山 -> ...`）。
 
 4. 调用 `route-plan.mjs` 输出候选路线。
    - `recommended_route`、`alternatives`、`decision_summary` 必须来自本次 `route-plan.mjs` 输出，不允许手工臆造。
@@ -136,7 +163,7 @@ node scripts/db.mjs --cmd=save_route_evidence --trip-id=<trip_id> --platform=xhs
 6. 一旦成功，持久化路线框定（含平台与降级信息）：
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=save_route_plan --trip-id=<trip_id> --recommended-route='<recommended_route_json>' --alternatives='<alternatives_json>' --rejected-routes='<rejected_routes_json>' --decision-summary='<decision_summary_json>' --route-source-used=<xhs|amap|web|auto> --source-reason='<source_reason_text>' --route-source-preference=<xhs|amap|web|auto> --route-source-fallbacks='<fallback_chain_json>'
+node {baseDir}/scripts/db.mjs --cmd=save_route_plan --trip-id=<trip_id> --recommended-route='<recommended_route_json>' --alternatives='<alternatives_json>' --rejected-routes='<rejected_routes_json>' --decision-summary='<decision_summary_json>' --route-source-used=<xhs|search> --route-source-preference=<xhs|search> --route-source-fallbacks='<fallback_chain_json>'
 ```
 
 7. 展示 `route_options` 并要求用户明确选择 `route_id`。
@@ -150,21 +177,23 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 
 保存成功判定（必须同时满足）：
 
-- `save_route_evidence` 返回 `ok = true`（`xhs` 平台必需）；
+- `save_route_evidence` 返回 `ok = true`（平台统一前置）；
 - `route-plan.mjs` 输出的 `route_options` 数量 `>= 2`；
 - `save_route_plan` 返回 `ok = true`；
 - 任一条件不满足：不得进入 `confirm_route_choice`。
 
 当 `route_source_preference = auto` 时：
 
-- 必须按 `小红书 -> 高德地图 -> 搜索引擎` 依次尝试。
+- 必须先走 `搜索引擎`, 默认使用Brave。
+- 仅当用户明确指定“小红书优先”时，才按 `小红书 -> 搜索` 尝试。
 - 不允许并行混合多个平台结果。
 - 每次降级必须记录并输出失败原因。
-- 三个平台都失败时，不得给“最终路线”。
+- 两个平台都失败时，不得给“最终路线”。
 - 仅可返回：
   1) 已尝试平台与失败原因；
   2) 用户需要的动作（如登录小红书、提供更具体目的地）；
   3) 用户同意后给临时草案路线（明确标注未验证）。
+- 若首次平台为 `xhs` 且 `get-feed-detail` 不可用，优先发起分流确认：`手动提供小红书内容` 或 `切到搜索`；未确认前不得自动跳过；一旦降级必须显式提示“已降级到搜索”。
 
 当用户显式选择某个平台时：
 
@@ -173,32 +202,21 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 
 路线持久化与确认守卫（新增，必须执行）：
 
-- 当 `used_platform = xhs` 时，若未先执行 `save_route_evidence`，不得执行 `save_route_plan`。
+- 当 `used_platform in {xhs, search}` 时，若未先执行 `save_route_evidence` 或证据不足，不得执行 `save_route_plan`。
+- 当 `used_platform = search` 时，允许弱校验进入 `save_route_plan`。
 - 当 `route_options` 少于 2 条时，不得执行 `save_route_plan`，也不得执行 `confirm_route_choice`。
 - `confirm_route_choice` 只能在“展示候选路线 + 用户明确选中 route_id”后执行，不得提前写入确认态。
 - 若 `save_route_plan` 返回失败，只能返回失败原因和下一步动作，不得伪造“已确认路线”。
+- 当 `xhs` 明确走“用户手动提供内容”分支时，必须在 `decision_summary` 和用户回复中同时标注：`evidence_source=user_input_xhs`、`verification_status=unverified_by_xhs_tool`。
 
 #### 路线框定回复格式
 
+> 完整回复顺序规范、xhs 失败分流提示模板、小红书链接展示格式见 `references/reply-templates.md`。
+
+核心要点：
 - 必须先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
-- 若 `used_platform = 小红书` 且有证据，先给“原文参考”区块，再给路线选项
-- 小红书“原文参考”区块每条都要展示：标题、链接、点赞数、收藏数
-- 给出 2-3 条 `route_id` 路线选项
-- 每条 1 行权衡（时间成本/换乘压力/景观收益）
-- 指出推荐项与推荐理由
-- 解释一个常见备选为何更弱
-- 给简短住宿策略 + 交通策略
+- 给出 2-3 条 `route_id` 路线选项，每条 1 行权衡（时间成本/换乘压力/景观收益）
 - 最后必须发起确认问题（让用户选 `route_id`）
-
-小红书链接段落示例：
-
-`小红书原文参考（优先展示）`
-
-- `[帖子标题A](https://www.xiaohongshu.com/...)`（点赞 1280，收藏 940）
-- `[帖子标题B](https://www.xiaohongshu.com/...)`（点赞 860，收藏 610）
-
-若无有效链接，明确写：
-`本次未拿到可分享的小红书链接，请先登录或重试检索。`
 
 ### 第五步：调研交通和天气
 
@@ -228,7 +246,6 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 node {baseDir}/scripts/route-validation.mjs --trip='<trip_json>' --route='<route_json>' --preferences='<prefs_json>'
 ```
 
-
 ### 第六步：确认计划骨架
 
 总结计划骨架，并二次确认：
@@ -236,6 +253,8 @@ node {baseDir}/scripts/route-validation.mjs --trip='<trip_json>' --route='<route
 - 选中的路线是否最终确认
 - 交通策略 + 住宿区域策略是否确认
 - 是否进入每日执行卡片生成
+
+> 完整对话示例见 `references/example_dialogue.md`；触发/不触发回归场景见 `references/trigger_regression.md`。
 
 骨架来源：
 
@@ -247,22 +266,14 @@ node {baseDir}/scripts/plan-generator.mjs --trip-id=<id>
 
 #### 输出格式
 
-**必须先展示总结卡片**
-先输出“计划骨架总结”，再问确认；未完成确认不进入 Step 7。
-这一步必须是一个**独立回复回合**（先总结，再等用户确认），不得与 Step 7 合并在同一回复里。
+> 计划骨架总结卡片模板（5项结构）见 `references/reply-templates.md` — 第六步。
 
-建议模板：
-
-1. `路线结论`：已选 `route_id` + 1 行推荐理由
-2. `行程调研结论`：`go(可行) / caution（慎重） / block（不可行）` + 天气/交通关键提醒
-3. `策略摘要`：交通策略（按需）+ 预算策略（按需）+ 住宿策略（按需）
-4. `待确认项`：最多 2-3 条（如日期是否微调、是否接受某段长转场）
-5. `确认问题`：`是否确认按该骨架进入逐日详细计划？`
+**必须先展示总结卡片**，再等用户确认；未完成确认不进入 Step 7。这一步必须是一个**独立回复回合**，不得与 Step 7 合并。
 
 完成门槛（全部满足才可进入 Step 7）：
 
 - 已输出 Step 6 总结卡片；
-- 已收到用户明确确认（如“确认/继续/按这个走”）；
+- 已收到用户明确确认（如"确认/继续/按这个走"）；
 - 已在上下文中记录 `light_validation_confirmed = true`（或等效确认状态）。
 
 ### 第七步：生成详细计划
@@ -292,23 +303,7 @@ node {baseDir}/scripts/plan-generator.mjs --trip-id=<id>
 node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id>
 ```
 
-本步回复顺序（固定）：
-
-1. 路线与节奏结论（1-2 行）
-2. 简要每日计划（D1..Dn）
-3. 天气与体力风险提醒
-4. 进入 Step 8 的确认问题（是否开始筛选每日住宿与交通）
-
-#### 简要每日计划规则
-
-每日必须包含：
-
-- 当日主目标
-- 当日次目标
-- 核心活动区域/景点
-- 建议时段（早/中/晚）
-- 体力负荷（低/中/高）
-- 天气风险提醒
+本步回复顺序与每日计划必含字段见 `references/reply-templates.md` — 第七步。
 
 ### 第八步：行前服务（用户开始预订后）
 
@@ -350,29 +345,12 @@ node {baseDir}/scripts/db.mjs --cmd=save_booking_ready --trip-id=<trip_id> --pay
 node {baseDir}/scripts/db.mjs --cmd=confirm_booking --trip-id=<trip_id> --category=hotel --payload='<selected_hotel_json>'
 ```
 
-Step 8 最终答复顺序（必须遵守）：
+最终答复顺序（7项，必须遵守）及链接输出规范见 `references/reply-templates.md` — 第八步。
 
-1. 推荐结论
-2. 交通与住宿策略（按天）
-3. 正常详细每日计划（含执行卡片）
-4. 预算拆分
-5. 打包清单
-6. 礼仪与安全提示
-7. 行前待办
+> 行前清单、打包建议、安全应急细则见 `references/travel_guidelines.md`。
+> 礼仪与文化注意事项见 `references/cultural_etiquette.md`。
 
-链接规则（Step 8 适用）：
-
-- 若存在来源链接（航班/高铁/酒店/景点/参考帖子），必须用 Markdown 可点击格式输出；
-- 若该条目无可分享链接，明确标注“暂无可分享链接”。
-
-推荐阶段值：
-
-- `intake`
-- `route_plan`
-- `plan_ready`
-- `ready_to_book`
-- `in_trip`
-- `completed`
+推荐阶段值枚举见 `references/route-protocol.md`。
 
 ### 第九步：行中支持
 
@@ -420,7 +398,7 @@ node {baseDir}/scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
 ```bash
 node {baseDir}/scripts/db.mjs --cmd=is_initialized
 node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='<json>' --list=current
-node {baseDir}/scripts/db.mjs --cmd=save_route_evidence --trip-id=<id> --platform=xhs --payload='<xhs_evidence_json>'
+node {baseDir}/scripts/db.mjs --cmd=save_route_evidence --trip-id=<id> --platform=xhs --payload='<route_evidence_json>'
 node {baseDir}/scripts/db.mjs --cmd=get_route_evidence --trip-id=<id>
 node {baseDir}/scripts/db.mjs --cmd=get_preferences
 node {baseDir}/scripts/db.mjs --cmd=get_trips --status=current
@@ -436,10 +414,12 @@ node {baseDir}/scripts/db.mjs --cmd=export
 | `scripts/db.mjs` | 偏好、行程、预算摘要、导出（唯一状态存储层） |
 | `scripts/route-plan.mjs` | 路线候选结构化输出 |
 | `scripts/route-validation.mjs` | 校验计划与门限（不直接调用外部 API） |
-| `scripts/plan-generator.mjs` | 读取已持久化的 trip，输出骨架计划、逐日卡片、打包建议（不主动调用其他计算模块） |
-| `scripts/xhs-evidence-builder.mjs` | 规范化小红书搜索结果，输出 `xhs_evidence` 对象（第四步 xhs 链路必走） |
+| `scripts/plan-generator.mjs` | 读取已持久化的 trip，输出骨架计划、每日卡片、打包建议（不主动调用其他计算模块） |
+| `scripts/xhs-evidence-builder.mjs` | 规范化小红书搜索结果，输出 `route_evidence` 对象（其中 `platform=xhs`，第四步 xhs 链路必走） |
 | `scripts/booking-ready.mjs` | 合并实时结果生成 booking-ready 包 |
 | `scripts/briefing.mjs` | 行前/每日简报 |
+| `references/route-protocol.md` | RouteEvidenceV1 协议字段、JSON 示例、行程阶段值枚举 |
+| `references/reply-templates.md` | 路线框定回复格式、xhs 失败分流模板、链接展示规范 |
 | `references/travel_guidelines.md` | 研究、预算、节奏与安全清单 |
 | `references/cultural_etiquette.md` | 礼仪与文化注意事项模板 |
 | `references/example_dialogue.md` | 中文完整示例（先框线再细化） |

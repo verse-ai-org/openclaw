@@ -15,9 +15,13 @@ import { ensureOpenClawModelsJson } from "./models-config.js";
 import { isRateLimitErrorMessage } from "./pi-embedded-helpers/errors.js";
 import { discoverAuthStorage, discoverModels } from "./pi-model-discovery.js";
 
-const LIVE = isTruthyEnvValue(process.env.LIVE) || isTruthyEnvValue(process.env.OPENCLAW_LIVE_TEST);
+const LIVE =
+  isTruthyEnvValue(process.env.LIVE) ||
+  isTruthyEnvValue(process.env.OPENCLAW_LIVE_TEST);
 const DIRECT_ENABLED = Boolean(process.env.OPENCLAW_LIVE_MODELS?.trim());
-const REQUIRE_PROFILE_KEYS = isTruthyEnvValue(process.env.OPENCLAW_LIVE_REQUIRE_PROFILE_KEYS);
+const REQUIRE_PROFILE_KEYS = isTruthyEnvValue(
+  process.env.OPENCLAW_LIVE_REQUIRE_PROFILE_KEYS,
+);
 
 const describeLive = LIVE ? describe : describe.skip;
 
@@ -52,7 +56,8 @@ function formatFailurePreview(
   const limit = Math.max(1, maxItems);
   const lines = failures.slice(0, limit).map((failure, index) => {
     const normalized = failure.error.replace(/\s+/g, " ").trim();
-    const clipped = normalized.length > 320 ? `${normalized.slice(0, 317)}...` : normalized;
+    const clipped =
+      normalized.length > 320 ? `${normalized.slice(0, 317)}...` : normalized;
     return `${index + 1}. ${failure.model}: ${clipped}`;
   });
   const remaining = failures.length - limit;
@@ -102,7 +107,9 @@ function isModelNotFoundErrorMessage(raw: string): boolean {
 describe("isModelNotFoundErrorMessage", () => {
   it("matches whitespace-separated not found errors", () => {
     expect(isModelNotFoundErrorMessage("404 model not found")).toBe(true);
-    expect(isModelNotFoundErrorMessage("model: minimax-text-01 not found")).toBe(true);
+    expect(
+      isModelNotFoundErrorMessage("model: minimax-text-01 not found"),
+    ).toBe(true);
   });
 
   it("still matches underscore and hyphen variants", () => {
@@ -113,7 +120,9 @@ describe("isModelNotFoundErrorMessage", () => {
 
 function isChatGPTUsageLimitErrorMessage(raw: string): boolean {
   const msg = raw.toLowerCase();
-  return msg.includes("hit your chatgpt usage limit") && msg.includes("try again in");
+  return (
+    msg.includes("hit your chatgpt usage limit") && msg.includes("try again in")
+  );
 }
 
 function isInstructionsRequiredError(raw: string): boolean {
@@ -272,7 +281,7 @@ async function completeOkWithRetry(params: {
   if (first.text.length > 0) {
     return first;
   }
-  // Some providers (for example Moonshot Kimi and MiniMax M2.5) may emit
+  // Some providers (for example Moonshot Kimi and MiniMax M2.7) may emit
   // reasoning blocks first and only return text once token budget is higher.
   return await runOnce(256);
 }
@@ -292,7 +301,9 @@ describeLive("live models (profile keys)", () => {
       const anthropicKeys = collectAnthropicApiKeys();
       if (anthropicKeys.length > 0) {
         process.env.ANTHROPIC_API_KEY = anthropicKeys[0];
-        logProgress(`[live-models] anthropic keys loaded: ${anthropicKeys.length}`);
+        logProgress(
+          `[live-models] anthropic keys loaded: ${anthropicKeys.length}`,
+        );
       }
 
       const agentDir = resolveOpenClawAgentDir();
@@ -305,8 +316,13 @@ describeLive("live models (profile keys)", () => {
       const useExplicit = Boolean(rawModels) && !useModern;
       const filter = useExplicit ? parseModelFilter(rawModels) : null;
       const allowNotFoundSkip = useModern;
-      const providers = parseProviderFilter(process.env.OPENCLAW_LIVE_PROVIDERS);
-      const perModelTimeoutMs = toInt(process.env.OPENCLAW_LIVE_MODEL_TIMEOUT_MS, 30_000);
+      const providers = parseProviderFilter(
+        process.env.OPENCLAW_LIVE_PROVIDERS,
+      );
+      const perModelTimeoutMs = toInt(
+        process.env.OPENCLAW_LIVE_MODEL_TIMEOUT_MS,
+        30_000,
+      );
       const maxModels = toInt(process.env.OPENCLAW_LIVE_MAX_MODELS, 0);
 
       const failures: Array<{ model: string; error: string }> = [];
@@ -331,7 +347,10 @@ describeLive("live models (profile keys)", () => {
         }
         try {
           const apiKeyInfo = await getApiKeyForModel({ model, cfg });
-          if (REQUIRE_PROFILE_KEYS && !apiKeyInfo.source.startsWith("profile:")) {
+          if (
+            REQUIRE_PROFILE_KEYS &&
+            !apiKeyInfo.source.startsWith("profile:")
+          ) {
             skipped.push({
               model: id,
               reason: `non-profile credential source: ${apiKeyInfo.source}`,
@@ -354,7 +373,9 @@ describeLive("live models (profile keys)", () => {
         maxModels > 0 ? maxModels : candidates.length,
         (entry) => entry.model.provider,
       );
-      logProgress(`[live-models] selection=${useExplicit ? "explicit" : "modern"}`);
+      logProgress(
+        `[live-models] selection=${useExplicit ? "explicit" : "modern"}`,
+      );
       if (selectedCandidates.length < candidates.length) {
         logProgress(
           `[live-models] capped to ${selectedCandidates.length}/${candidates.length} via OPENCLAW_LIVE_MAX_MODELS=${maxModels}`,
@@ -368,7 +389,9 @@ describeLive("live models (profile keys)", () => {
         const id = `${model.provider}/${model.id}`;
         const progressLabel = `[live-models] ${index + 1}/${total} ${id}`;
         const attemptMax =
-          model.provider === "anthropic" && anthropicKeys.length > 0 ? anthropicKeys.length : 1;
+          model.provider === "anthropic" && anthropicKeys.length > 0
+            ? anthropicKeys.length
+            : 1;
         for (let attempt = 0; attempt < attemptMax; attempt += 1) {
           if (model.provider === "anthropic" && anthropicKeys.length > 0) {
             process.env.ANTHROPIC_API_KEY = anthropicKeys[attempt];
@@ -391,7 +414,8 @@ describeLive("live models (profile keys)", () => {
                 parameters: Type.Object({}, { additionalProperties: false }),
               };
 
-              let firstUserContent = "Call the tool `noop` with {}. Do not write any other text.";
+              let firstUserContent =
+                "Call the tool `noop` with {}. Do not write any other text.";
               let firstUser = {
                 role: "user" as const,
                 content: firstUserContent,
@@ -418,7 +442,11 @@ describeLive("live models (profile keys)", () => {
 
               // Occasional flake: model answers in text instead of tool call (or adds text).
               // Retry a couple times with a stronger instruction so we still exercise the tool-only replay path.
-              for (let i = 0; i < 2 && (!toolCall || firstText.length > 0); i += 1) {
+              for (
+                let i = 0;
+                i < 2 && (!toolCall || firstText.length > 0);
+                i += 1
+              ) {
                 firstUserContent =
                   "Call the tool `noop` with {}. IMPORTANT: respond ONLY with the tool call; no other text.";
                 firstUser = {
@@ -510,7 +538,8 @@ describeLive("live models (profile keys)", () => {
 
             if (
               ok.text.length === 0 &&
-              (model.provider === "google" || model.provider === "google-gemini-cli")
+              (model.provider === "google" ||
+                model.provider === "google-gemini-cli")
             ) {
               skipped.push({
                 model: id,
@@ -547,7 +576,8 @@ describeLive("live models (profile keys)", () => {
             if (
               ok.text.length === 0 &&
               allowNotFoundSkip &&
-              (model.provider === "google-antigravity" || model.provider === "openai-codex")
+              (model.provider === "google-antigravity" ||
+                model.provider === "openai-codex")
             ) {
               skipped.push({
                 model: id,
@@ -566,12 +596,19 @@ describeLive("live models (profile keys)", () => {
               isAnthropicRateLimitError(message) &&
               attempt + 1 < attemptMax
             ) {
-              logProgress(`${progressLabel}: rate limit, retrying with next key`);
+              logProgress(
+                `${progressLabel}: rate limit, retrying with next key`,
+              );
               continue;
             }
-            if (model.provider === "anthropic" && isAnthropicBillingError(message)) {
+            if (
+              model.provider === "anthropic" &&
+              isAnthropicBillingError(message)
+            ) {
               if (attempt + 1 < attemptMax) {
-                logProgress(`${progressLabel}: billing issue, retrying with next key`);
+                logProgress(
+                  `${progressLabel}: billing issue, retrying with next key`,
+                );
                 continue;
               }
               skipped.push({ model: id, reason: message });
@@ -579,7 +616,8 @@ describeLive("live models (profile keys)", () => {
               break;
             }
             if (
-              (model.provider === "google" || model.provider === "google-gemini-cli") &&
+              (model.provider === "google" ||
+                model.provider === "google-gemini-cli") &&
               isGoogleModelNotFoundError(err)
             ) {
               skipped.push({ model: id, reason: message });
@@ -606,7 +644,8 @@ describeLive("live models (profile keys)", () => {
             }
             if (
               allowNotFoundSkip &&
-              (model.provider === "opencode" || model.provider === "opencode-go") &&
+              (model.provider === "opencode" ||
+                model.provider === "opencode-go") &&
               isRateLimitErrorMessage(message)
             ) {
               skipped.push({ model: id, reason: message });
@@ -636,7 +675,10 @@ describeLive("live models (profile keys)", () => {
               logProgress(`${progressLabel}: skip (timeout)`);
               break;
             }
-            if (allowNotFoundSkip && isProviderUnavailableErrorMessage(message)) {
+            if (
+              allowNotFoundSkip &&
+              isProviderUnavailableErrorMessage(message)
+            ) {
               skipped.push({ model: id, reason: message });
               logProgress(`${progressLabel}: skip (provider unavailable)`);
               break;

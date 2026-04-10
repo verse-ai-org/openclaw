@@ -78,7 +78,7 @@ function createApplyAuthChoiceConfig(includeMinimaxProvider = false) {
                 minimax: {
                   baseUrl: "https://api.minimax.io/anthropic",
                   api: "anthropic-messages",
-                  models: [{ id: "MiniMax-M2.5", name: "MiniMax M2.5" }],
+                  models: [{ id: "MiniMax-M2.7", name: "MiniMax M2.7" }],
                 },
               }
             : {}),
@@ -88,9 +88,13 @@ function createApplyAuthChoiceConfig(includeMinimaxProvider = false) {
   };
 }
 
-async function runPromptAuthConfigWithAllowlist(includeMinimaxProvider = false) {
+async function runPromptAuthConfigWithAllowlist(
+  includeMinimaxProvider = false,
+) {
   mocks.promptAuthChoiceGrouped.mockResolvedValue("kilocode-api-key");
-  mocks.applyAuthChoice.mockResolvedValue(createApplyAuthChoiceConfig(includeMinimaxProvider));
+  mocks.applyAuthChoice.mockResolvedValue(
+    createApplyAuthChoiceConfig(includeMinimaxProvider),
+  );
   mocks.promptModelAllowlist.mockResolvedValue({
     models: ["kilocode/kilo/auto"],
   });
@@ -101,21 +105,21 @@ async function runPromptAuthConfigWithAllowlist(includeMinimaxProvider = false) 
 describe("promptAuthConfig", () => {
   it("keeps Kilo provider models while applying allowlist defaults", async () => {
     const result = await runPromptAuthConfigWithAllowlist();
-    expect(result.models?.providers?.kilocode?.models?.map((model) => model.id)).toEqual([
-      "kilo/auto",
-      "anthropic/claude-sonnet-4",
+    expect(
+      result.models?.providers?.kilocode?.models?.map((model) => model.id),
+    ).toEqual(["kilo/auto", "anthropic/claude-sonnet-4"]);
+    expect(Object.keys(result.agents?.defaults?.models ?? {})).toEqual([
+      "kilocode/kilo/auto",
     ]);
-    expect(Object.keys(result.agents?.defaults?.models ?? {})).toEqual(["kilocode/kilo/auto"]);
   });
 
   it("does not mutate provider model catalogs when allowlist is set", async () => {
     const result = await runPromptAuthConfigWithAllowlist(true);
-    expect(result.models?.providers?.kilocode?.models?.map((model) => model.id)).toEqual([
-      "kilo/auto",
-      "anthropic/claude-sonnet-4",
-    ]);
-    expect(result.models?.providers?.minimax?.models?.map((model) => model.id)).toEqual([
-      "MiniMax-M2.5",
-    ]);
+    expect(
+      result.models?.providers?.kilocode?.models?.map((model) => model.id),
+    ).toEqual(["kilo/auto", "anthropic/claude-sonnet-4"]);
+    expect(
+      result.models?.providers?.minimax?.models?.map((model) => model.id),
+    ).toEqual(["MiniMax-M2.7"]);
   });
 });

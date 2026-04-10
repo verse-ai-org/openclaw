@@ -120,26 +120,26 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         label: "MiniMax OAuth (Global)",
         hint: "OAuth plugin for MiniMax — international users",
         type: "oauth",
-        defaultModelId: "minimax/MiniMax-M2.5",
+        defaultModelId: "minimax/MiniMax-M2.7",
       },
       {
         id: "minimax-api",
-        label: "MiniMax M2.5 API key",
+        label: "MiniMax M2.7 API key",
         type: "api-key",
         envVar: "MINIMAX_API_KEY",
         consoleUrl: "https://platform.minimaxi.com",
         keyPlaceholder: "...",
-        defaultModelId: "minimax/MiniMax-M2.5",
+        defaultModelId: "minimax/MiniMax-M2.7",
       },
       {
         id: "minimax-api-lightning",
-        label: "MiniMax M2.5 Highspeed",
+        label: "MiniMax M2.7 Highspeed",
         hint: "Official fast tier",
         type: "api-key",
         envVar: "MINIMAX_API_KEY",
         consoleUrl: "https://platform.minimaxi.com",
         keyPlaceholder: "...",
-        defaultModelId: "minimax/MiniMax-M2.5-Lightning",
+        defaultModelId: "minimax/MiniMax-M2.7-Lightning",
       },
     ],
   },
@@ -153,17 +153,17 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         label: "MiniMax OAuth (CN)",
         hint: "OAuth plugin for MiniMax — users in China",
         type: "oauth",
-        defaultModelId: "minimax-cn/MiniMax-M2.5",
+        defaultModelId: "minimax-cn/MiniMax-M2.7",
       },
       {
         id: "minimax-api-key-cn",
-        label: "MiniMax M2.5 China API key",
+        label: "MiniMax M2.7 China API key",
         hint: "China endpoint (api.minimaxi.com)",
         type: "api-key",
         envVar: "MINIMAX_API_KEY",
         consoleUrl: "https://api.minimaxi.com",
         keyPlaceholder: "...",
-        defaultModelId: "minimax-cn/MiniMax-M2.5",
+        defaultModelId: "minimax-cn/MiniMax-M2.7",
       },
     ],
   },
@@ -230,8 +230,6 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
       },
     ],
   },
-
-
 
   // ── Additional providers ──────────────────────────────────────────────────
   {
@@ -540,7 +538,7 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         envVar: "SYNTHETIC_API_KEY",
         consoleUrl: "https://syntheticai.com",
         keyPlaceholder: "...",
-        defaultModelId: "synthetic/hf:MiniMaxAI/MiniMax-M2.5",
+        defaultModelId: "synthetic/hf:MiniMaxAI/MiniMax-M2.7",
       },
     ],
   },
@@ -628,7 +626,9 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
 ];
 
 /** Look up a provider group by its id. */
-export function findProviderGroup(id: string): AuthProviderGroupDef | undefined {
+export function findProviderGroup(
+  id: string,
+): AuthProviderGroupDef | undefined {
   return AUTH_PROVIDER_GROUPS.find((g) => g.id === id);
 }
 
@@ -650,6 +650,10 @@ export function getFeaturedProviders(): AuthProviderGroupDef[] {
  * Given an authMethod id, return the parent provider group.
  * e.g. "openai-api-key" → the "openai" group.
  */
-export function findProviderGroupForMethod(methodId: string): AuthProviderGroupDef | undefined {
-  return AUTH_PROVIDER_GROUPS.find((g) => g.methods.some((m) => m.id === methodId));
+export function findProviderGroupForMethod(
+  methodId: string,
+): AuthProviderGroupDef | undefined {
+  return AUTH_PROVIDER_GROUPS.find((g) =>
+    g.methods.some((m) => m.id === methodId),
+  );
 }

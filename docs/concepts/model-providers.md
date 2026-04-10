@@ -145,7 +145,7 @@ OpenClaw ships with the pi‑ai catalog. These providers require **no**
 - Example model: `kilocode/anthropic/claude-opus-4.6`
 - CLI: `openclaw onboard --kilocode-api-key <key>`
 - Base URL: `https://api.kilo.ai/api/gateway/`
-- Expanded built-in catalog includes GLM-5 Free, MiniMax M2.5 Free, GPT-5.2, Gemini 3 Pro Preview, Gemini 3 Flash Preview, Grok Code Fast 1, and Kimi K2.5.
+- Expanded built-in catalog includes GLM-5 Free, MiniMax M2.7 Free, GPT-5.2, Gemini 3 Pro Preview, Gemini 3 Flash Preview, Grok Code Fast 1, and Kimi K2.5.
 
 See [/providers/kilocode](/providers/kilocode) for setup details.
 
@@ -319,13 +319,13 @@ Synthetic provides Anthropic-compatible models behind the `synthetic` provider:
 
 - Provider: `synthetic`
 - Auth: `SYNTHETIC_API_KEY`
-- Example model: `synthetic/hf:MiniMaxAI/MiniMax-M2.5`
+- Example model: `synthetic/hf:MiniMaxAI/MiniMax-M2.7`
 - CLI: `openclaw onboard --auth-choice synthetic-api-key`
 
 ```json5
 {
   agents: {
-    defaults: { model: { primary: "synthetic/hf:MiniMaxAI/MiniMax-M2.5" } },
+    defaults: { model: { primary: "synthetic/hf:MiniMaxAI/MiniMax-M2.7" } },
   },
   models: {
     mode: "merge",
@@ -334,7 +334,7 @@ Synthetic provides Anthropic-compatible models behind the `synthetic` provider:
         baseUrl: "https://api.synthetic.new/anthropic",
         apiKey: "${SYNTHETIC_API_KEY}",
         api: "anthropic-messages",
-        models: [{ id: "hf:MiniMaxAI/MiniMax-M2.5", name: "MiniMax M2.5" }],
+        models: [{ id: "hf:MiniMaxAI/MiniMax-M2.7", name: "MiniMax M2.7" }],
       },
     },
   },
@@ -421,7 +421,7 @@ Example (OpenAI‑compatible):
         models: [
           {
             id: "minimax-m2.5-gs32",
-            name: "MiniMax M2.5",
+            name: "MiniMax M2.7",
             reasoning: false,
             input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

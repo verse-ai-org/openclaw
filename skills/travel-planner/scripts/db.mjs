@@ -39,8 +39,11 @@ const DEFAULT_TRIP_STAGE = "intake";
 /** Default values for all trip fields. Centralises the schema so that
  * normalizeTripRecord never needs per-field ??= assignments. */
 const TRIP_DEFAULTS = {
+  // ---- lifecycle ----
   stage: DEFAULT_TRIP_STAGE,
   planning_mode: "explore",
+
+  // ---- trip intent / constraints ----
   destination_text: "",
   travel_month: null,
   travel_month_text: "",
@@ -49,29 +52,39 @@ const TRIP_DEFAULTS = {
   constraints: [],
   must_do: [],
   nice_to_have: [],
+
+  // ---- route planning ----
+  // selected_route is the active route snapshot:
+  // - before confirm: current recommended route
+  // - after confirm: user-chosen route
   selected_route: {},
-  route_source_preference: "xhs",
+  route_source_preference: "auto",
   route_source_used: "",
   route_source_fallbacks: [],
-  source_reason: "",
   route_evidence_meta: null,
-  route_candidates: [],
+  // Single source of truth for route candidates shown to user.
   route_options: [],
   route_choice_confirmed: false,
   chosen_route_id: "",
   route_plan: null,
+
+  // ---- route validation ----
   route_validation: null,
   live_results: null,
+
+  // ---- booking planning ----
   booking_strategy: {},
   booking_ready: null,
   bookings_confirmed: false,
   confirmed_bookings: {},
+
+  // ---- in-trip / service preferences ----
   during_trip: false,
   daily_brief_preferences: { local_morning_hour: 7 },
   service_preferences: { daily_channel_brief: false, pre_trip_reminders: false },
 };
 
-function emptyRouteFraming() {
+function emptyRoutePlanning() {
   return {
     used_platform: "",
     fallback_count: 0,
@@ -90,7 +103,6 @@ function emptyLiveValidation() {
     priority_checks: [],
     tool_plan: {
       flights: [],
-      hotels: [],
       pois: [],
       transport: [],
     },
@@ -191,11 +203,117 @@ function evidenceFilePath(tripId, platform = "xhs") {
   return path.join(evidenceDir(), `${safeTripId}.${safePlatform}.json`);
 }
 
+function normalizePlatformName(platform) {
+  const text = String(platform || "")
+    .trim()
+    .toLowerCase();
+  if (!text) return "search";
+  if (text === "xiaohongshu" || text === "小红书") return "xhs";
+  if (text === "search" || text === "搜索" || text === "search_engine" || text === "搜索引擎") return "search";
+  return text;
+}
+
+function normalizeEvidenceQuality(value) {
+  const text = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (text === "high" || text === "medium" || text === "low") return text;
+  return "low";
+}
+
+function normalizeVerificationStatus(value) {
+  const text = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (text === "user_input_unverified") return "user_input_unverified";
+  return "verified_by_platform_tool";
+}
+
+function normalizeEvidenceSourceItem(item, index) {
+  const metricsRaw = item?.metrics && typeof item.metrics === "object" ? item.metrics : {};
+  const metrics = {};
+  for (const [key, value] of Object.entries(metricsRaw)) {
+    if (value == null || value === "") continue;
+    metrics[key] = value;
+  }
+  if (Number(item?.like_count || 0) > 0 && metrics.like_count == null) {
+    metrics.like_count = Number(item.like_count);
+  }
+  if (Number(item?.save_count || 0) > 0 && metrics.save_count == null) {
+    metrics.save_count = Number(item.save_count);
+  }
+  return {
+    id: String(item?.id || `source_${index + 1}`),
+    title: String(item?.title || ""),
+    url: String(item?.url || ""),
+    type: String(item?.type || item?.note_type || "generic"),
+    metrics,
+    raw: item?.raw && typeof item.raw === "object" ? item.raw : {},
+  };
+}
+
+function normalizeEvidenceV1(platform, evidencePayload) {
+  const payload = evidencePayload && typeof evidencePayload === "object" ? evidencePayload : {};
+  const platformName = normalizePlatformName(payload.platform || platform);
+  const sourcesRaw = Array.isArray(payload.sources) ? payload.sources : [];
+  const sources = sourcesRaw
+    .slice(0, 20)
+    .map((item, index) => normalizeEvidenceSourceItem(item, index))
+    .filter((item) => item.title || item.url);
+  return {
+    platform: platformName,
+    evidence_version: String(payload.evidence_version || "v1"),
+    query: payload.query && typeof payload.query === "object" ? payload.query : {},
+    summary: String(payload.summary || ""),
+    evidence_quality: normalizeEvidenceQuality(payload.evidence_quality),
+    verification_status: normalizeVerificationStatus(payload.verification_status),
+    generated_at: String(payload.generated_at || new Date().toISOString()),
+    sources,
+    route_hints: payload.route_hints && typeof payload.route_hints === "object" ? payload.route_hints : {},
+    meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
+  };
+}
+
+function buildEvidenceMeta(evidence, evidencePath) {
+  const sourceRefs = evidence.sources.slice(0, 3).map((item) => ({
+    id: item.id,
+    title: item.title,
+    url: item.url,
+    type: item.type,
+    metrics: item.metrics || {},
+  }));
+  return {
+    platform: evidence.platform,
+    evidence_version: evidence.evidence_version,
+    quality: evidence.evidence_quality,
+    verification_status: evidence.verification_status,
+    query: evidence.query || {},
+    source_count: evidence.sources.length,
+    source_refs: sourceRefs,
+    evidence_file: path.relative(dbDir(), evidencePath),
+    generated_at: evidence.generated_at,
+  };
+}
+
+function requiresStrictEvidence(platform) {
+  return platform === "xhs" || platform === "amap";
+}
+
+function hasRequiredEvidence(meta, usedPlatform) {
+  if (!meta || typeof meta !== "object") return false;
+  if (normalizePlatformName(meta.platform) !== usedPlatform) return false;
+  const sourceCount = Number(meta.source_count || 0);
+  return sourceCount > 0 && String(meta.evidence_file || "").trim() !== "";
+}
+
 export function normalizeTripRecord(trip) {
   // Merge defaults first (preserves existing values), then fix up object fields
   // that need to be initialised from factory functions rather than plain literals.
   Object.assign(trip, { ...TRIP_DEFAULTS, ...trip });
-  if (!trip.route_plan) trip.route_plan = emptyRouteFraming();
+  // Open-phase schema cleanup: actively drop deprecated duplicated fields.
+  delete trip.route_candidates;
+  delete trip.source_reason;
+  if (!trip.route_plan) trip.route_plan = emptyRoutePlanning();
   if (!trip.route_evidence_meta) trip.route_evidence_meta = {};
   if (!trip.route_validation) trip.route_validation = emptyLiveValidation();
   if (!trip.live_results) trip.live_results = emptyLiveResults();
@@ -332,25 +450,24 @@ export function saveRouteFramingWithSource(
     recommendedRoute && Object.keys(recommendedRoute).length
       ? [recommendedRoute, ...(alternatives || [])]
       : alternatives || [];
-  const platform = String(usedPlatform || "").trim().toLowerCase();
-  if (platform === "xhs") {
-    const evidenceMeta = trip.route_evidence_meta || {};
-    const quality = String(evidenceMeta?.quality || "").toLowerCase();
-    const sourceCount = Number(evidenceMeta?.source_count || 0);
-    const hasEvidence = sourceCount > 0 || quality === "medium" || quality === "high";
-    if (!hasEvidence) return false;
+  const platform = normalizePlatformName(usedPlatform || "");
+  const evidenceMeta = trip.route_evidence_meta || {};
+  if (requiresStrictEvidence(platform) && !hasRequiredEvidence(evidenceMeta, platform)) {
+    return false;
   }
   if (routeOptions.length < 2) return false;
   const normalizedFallbacks = Array.isArray(fallbackChain) ? fallbackChain : [];
+  const normalizedDecisionSummary = {
+    ...(decisionSummary && typeof decisionSummary === "object" ? decisionSummary : {}),
+    ...(sourceReason ? { source_reason: sourceReason } : {}),
+  };
   const updates = {
     stage: "route_plan",
     selected_route: recommendedRoute || {},
-    route_candidates: routeOptions,
     route_options: routeOptions,
     route_choice_confirmed: false,
     chosen_route_id: "",
     route_source_used: usedPlatform || "",
-    source_reason: sourceReason || "",
     route_source_fallbacks: normalizedFallbacks,
     ...(routeSourcePreference ? { route_source_preference: routeSourcePreference } : {}),
     route_plan: {
@@ -361,7 +478,7 @@ export function saveRouteFramingWithSource(
       recommended_route: recommendedRoute,
       alternatives: alternatives || [],
       rejected_routes: rejectedRoutes || [],
-      decision_summary: decisionSummary || {},
+      decision_summary: normalizedDecisionSummary,
     },
   };
   return updateTrip(tripId, updates);
@@ -370,7 +487,7 @@ export function saveRouteFramingWithSource(
 export function confirmRouteChoice(tripId, routeId) {
   const trip = getTripById(tripId);
   if (!trip) return false;
-  const options = trip.route_options || trip.route_candidates || [];
+  const options = trip.route_options || [];
   if (!Array.isArray(options) || options.length < 2) return false;
   const chosen = options.find((option) => option?.route_id === routeId);
   if (!chosen) return false;
@@ -383,73 +500,38 @@ export function confirmRouteChoice(tripId, routeId) {
 }
 
 export function saveXhsEvidence(tripId, xhsEvidence) {
-  const sourceRefs = Array.isArray(xhsEvidence?.sources)
-    ? xhsEvidence.sources
-        .slice(0, 3)
-        .map((item) => ({
-          id: String(item?.id || ""),
-          title: String(item?.title || ""),
-          url: String(item?.url || ""),
-          like_count: Number(item?.like_count || 0),
-          note_type: String(item?.note_type || ""),
-        }))
-        .filter((item) => item.title || item.url)
-    : [];
-  const evidencePath = evidenceFilePath(tripId, "xhs");
-  saveJson(evidencePath, xhsEvidence || {});
-  return updateTrip(tripId, {
-    source_reason: xhsEvidence?.summary || "",
-    route_evidence_meta: {
-      platform: "xhs",
-      quality: String(xhsEvidence?.evidence_quality || "low"),
-      query: xhsEvidence?.query || {},
-      source_count: sourceRefs.length,
-      source_refs: sourceRefs,
-      evidence_file: path.relative(dbDir(), evidencePath),
-      generated_at: String(xhsEvidence?.generated_at || new Date().toISOString()),
-    },
-  });
+  return saveRouteEvidence(tripId, "xhs", xhsEvidence);
 }
 
 export function saveRouteEvidence(tripId, platform, evidencePayload) {
-  const platformName = String(platform || "xhs").trim() || "xhs";
-  const sourceRefs = Array.isArray(evidencePayload?.sources)
-    ? evidencePayload.sources
-        .slice(0, 3)
-        .map((item) => ({
-          id: String(item?.id || ""),
-          title: String(item?.title || ""),
-          url: String(item?.url || ""),
-          like_count: Number(item?.like_count || 0),
-          note_type: String(item?.note_type || ""),
-        }))
-        .filter((item) => item.title || item.url)
-    : [];
+  const normalized = normalizeEvidenceV1(platform, evidencePayload);
+  const platformName = normalized.platform;
   const evidencePath = evidenceFilePath(tripId, platformName);
-  saveJson(evidencePath, evidencePayload || {});
+  saveJson(evidencePath, normalized);
   return updateTrip(tripId, {
-    route_evidence_meta: {
-      platform: platformName,
-      quality: String(evidencePayload?.evidence_quality || "low"),
-      query: evidencePayload?.query || {},
-      source_count: sourceRefs.length,
-      source_refs: sourceRefs,
-      evidence_file: path.relative(dbDir(), evidencePath),
-      generated_at: String(evidencePayload?.generated_at || new Date().toISOString()),
-    },
+    route_evidence_meta: buildEvidenceMeta(normalized, evidencePath),
   });
 }
 
-export function getRouteEvidence(tripId) {
+export function getRouteEvidence(tripId, platform = "") {
   const trip = getTripById(tripId);
   if (!trip) return null;
-  const meta = trip.route_evidence_meta || {};
-  const relPath = String(meta.evidence_file || "");
+  const selectedPlatform = normalizePlatformName(platform || "");
+  const hasExplicitPlatform = String(platform || "").trim() !== "";
+  const defaultMeta = trip.route_evidence_meta || {};
+  const relPath = hasExplicitPlatform
+    ? path.relative(dbDir(), evidenceFilePath(tripId, selectedPlatform))
+    : String(defaultMeta.evidence_file || "");
   let payload = null;
+  let meta = defaultMeta;
   if (relPath) {
     const absPath = path.join(dbDir(), relPath);
     if (fs.existsSync(absPath)) {
       payload = loadJson(absPath);
+      if (hasExplicitPlatform) {
+        const normalized = normalizeEvidenceV1(selectedPlatform, payload || {});
+        meta = buildEvidenceMeta(normalized, absPath);
+      }
     }
   }
   return {
@@ -654,7 +736,7 @@ const CMD_FLAGS = {
   save_live_results: ["cmd", "trip-id", "payload"],
   save_booking_ready: ["cmd", "trip-id", "payload"],
   save_route_evidence: ["cmd", "trip-id", "platform", "payload"],
-  get_route_evidence: ["cmd", "trip-id"],
+  get_route_evidence: ["cmd", "trip-id", "platform"],
   save_route_plan: [
     "cmd",
     "trip-id",
@@ -750,7 +832,8 @@ runScript({
       }
     } else if (command === "get_route_evidence") {
       const tripId = requireFlag(args, "trip-id");
-      const result = getRouteEvidence(tripId);
+      const platform = String(args.platform || "");
+      const result = getRouteEvidence(tripId, platform);
       console.log(JSON.stringify(result || {}, null, 2));
       if (!result) {
         console.error(`Error: trip not found: ${tripId}`);

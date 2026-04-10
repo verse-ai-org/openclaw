@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import { isTruthyEnvValue } from "../infra/env.js";
 
 const MINIMAX_KEY = process.env.MINIMAX_API_KEY ?? "";
-const MINIMAX_BASE_URL = process.env.MINIMAX_BASE_URL?.trim() || "https://api.minimax.io/anthropic";
-const MINIMAX_MODEL = process.env.MINIMAX_MODEL?.trim() || "MiniMax-M2.5";
-const LIVE = isTruthyEnvValue(process.env.MINIMAX_LIVE_TEST) || isTruthyEnvValue(process.env.LIVE);
+const MINIMAX_BASE_URL =
+  process.env.MINIMAX_BASE_URL?.trim() || "https://api.minimax.io/anthropic";
+const MINIMAX_MODEL = process.env.MINIMAX_MODEL?.trim() || "MiniMax-M2.7";
+const LIVE =
+  isTruthyEnvValue(process.env.MINIMAX_LIVE_TEST) ||
+  isTruthyEnvValue(process.env.LIVE);
 
 const describeLive = LIVE && MINIMAX_KEY ? describe : describe.skip;
 
