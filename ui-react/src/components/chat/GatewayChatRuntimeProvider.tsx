@@ -16,6 +16,33 @@ import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 
 // ---------------------------------------------------------------------------
+// Strip agent instruction wrapper tags (e.g. <final>) from display text.
+// These tags are used by agent SKILL prompts as structural markers and
+// should never be shown to users in the chat UI.
+// Handles both:
+//   - Complete wrapping: <final>content</final>  → content
+//   - Partial (streaming): <final>\ncontent...   → content...  (open tag not yet closed)
+// ---------------------------------------------------------------------------
+const AGENT_COMPLETE_TAG_RE = /^\s*<(final|plan)>([\s\S]*?)<\/\1>\s*$/i;
+const AGENT_OPEN_TAG_RE = /^\s*<(?:final|plan)>\n?/i;
+const AGENT_CLOSE_TAG_RE = /\n?<\/(?:final|plan)>\s*$/i;
+
+function stripAgentWrapperTags(text: string): string {
+  let result = text;
+  // Strip complete <tag>...</tag> wrappers (post-stream or history)
+  let match: RegExpMatchArray | null;
+  // eslint-disable-next-line no-cond-assign
+  while ((match = result.match(AGENT_COMPLETE_TAG_RE))) {
+    result = match[2] ?? "";
+  }
+  // Strip partial open tag at start (during streaming, close tag not yet arrived)
+  result = result.replace(AGENT_OPEN_TAG_RE, "");
+  // Strip partial close tag at end (edge case)
+  result = result.replace(AGENT_CLOSE_TAG_RE, "");
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Message conversion: ChatMessage → ThreadMessageLike
 // ---------------------------------------------------------------------------
 function convertMessage(msg: ChatMessage): ThreadMessageLike {
@@ -38,7 +65,7 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
     // Ordered interleaved blocks — preserves original text/tool order
     for (const block of msg.contentBlocks) {
       if (block.type === "text") {
-        parts.push({ type: "text", text: block.text });
+        parts.push({ type: "text", text: stripAgentWrapperTags(block.text) });
       } else {
         let parsedArgs: Record<string, unknown> = {};
         if (block.argsText) {
@@ -61,7 +88,7 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
   } else {
     // Flat fallback: text first, then tool calls
     if (msg.content.trim()) {
-      parts.push({ type: "text", text: msg.content });
+      parts.push({ type: "text", text: stripAgentWrapperTags(msg.content) });
     }
     if (msg.toolCalls && msg.toolCalls.length > 0) {
       for (const tc of msg.toolCalls) {
