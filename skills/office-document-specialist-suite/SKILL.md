@@ -32,6 +32,38 @@ Install before use:
 pip install python-docx openpyxl python-pptx
 ```
 
+Or run the included setup script to create an isolated virtual environment:
+
+```bash
+bash setup.sh
+source .venv/bin/activate
+```
+
+## CLI Tool: ods.py
+
+Generate professional report templates and apply advanced document styling:
+
+**Create a report template:**
+
+```bash
+python ods.py template-report --output report.docx --title 'Q1 Analysis' --author 'John'
+```
+
+**Apply professional styling to an existing document:**
+
+```bash
+python ods.py style-doc input.docx --output styled.docx
+python ods.py style-doc input.docx --output styled.docx --landscape
+```
+
+**Capabilities:**
+
+- Professional page layout (custom margins: 2.4cm left/right, 2.2cm top/bottom)
+- Typography system: Calibri font, styled headings (H1: 18pt navy, H2: 14pt blue)
+- Header/footer with suite name and auto page numbers
+- Custom "Quote Accent" style for callouts
+- Portrait/landscape orientation control
+
 ## Word / DOCX
 
 ```python
