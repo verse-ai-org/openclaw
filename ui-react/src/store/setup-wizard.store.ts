@@ -43,6 +43,18 @@ export interface WizardState {
    */
   usedInviteCode?: boolean;
 
+  /**
+   * From invite code response: Brave Search API key.
+   * Written into openclaw.json tools.web.search.apiKey on wizard completion.
+   */
+  braveApiKey?: string;
+
+  /**
+   * From invite code response: Amap (高德) LBS API key.
+   * Written into openclaw.json skills.entries.amap-lbs-skill.apiKey on wizard completion.
+   */
+  amapApiKey?: string;
+
   // ─── Workspace ───────────────────────────────────────────────────────────
   workspace: string;
 
@@ -125,7 +137,9 @@ export const useWizardStore = create<WizardStore>()(
         if (version < 2) {
           const s = persistedState as Record<string, unknown>;
           const ws = s["wizardState"] as Record<string, unknown> | undefined;
-          if (ws) delete ws["selectedModel"];
+          if (ws) {
+            delete ws["selectedModel"];
+          }
         }
         return persistedState as WizardStore;
       },

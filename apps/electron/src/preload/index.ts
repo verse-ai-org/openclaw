@@ -26,7 +26,9 @@ contextBridge.exposeInMainWorld("electronBridge", {
    * 保存 Onboarding 配置到 ~/.openclaw/openclaw.json。
    * 必须在 notifyOnboardingComplete() 之前调用，确保下次启动不再走 wizard。
    */
-  saveOnboardingConfig: (cfg: unknown): Promise<{ ok: boolean; error?: string }> =>
+  saveOnboardingConfig: (
+    cfg: unknown,
+  ): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("onboarding:saveConfig", cfg),
 
   /**
@@ -62,8 +64,10 @@ contextBridge.exposeInMainWorld("electronBridge", {
   onGatewayRestarting: (
     callback: (data: { attempt: number; maxAttempts: number }) => void,
   ): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, data: { attempt: number; maxAttempts: number }) =>
-      callback(data);
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      data: { attempt: number; maxAttempts: number },
+    ) => callback(data);
     ipcRenderer.on("gateway:restarting", handler);
     return () => ipcRenderer.removeListener("gateway:restarting", handler);
   },
@@ -76,8 +80,10 @@ contextBridge.exposeInMainWorld("electronBridge", {
   onGatewayRestarted: (
     callback: (data: { success: boolean; error?: string }) => void,
   ): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, data: { success: boolean; error?: string }) =>
-      callback(data);
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      data: { success: boolean; error?: string },
+    ) => callback(data);
     ipcRenderer.on("gateway:restarted", handler);
     return () => ipcRenderer.removeListener("gateway:restarted", handler);
   },
@@ -90,8 +96,10 @@ contextBridge.exposeInMainWorld("electronBridge", {
   onGatewayCrashed: (
     callback: (data: { code: number | null; signal: string | null }) => void,
   ): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, data: { code: number | null; signal: string | null }) =>
-      callback(data);
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      data: { code: number | null; signal: string | null },
+    ) => callback(data);
     ipcRenderer.on("gateway:crashed", handler);
     return () => ipcRenderer.removeListener("gateway:crashed", handler);
   },
@@ -113,16 +121,29 @@ contextBridge.exposeInMainWorld("electronBridge", {
    */
   fetchModelCatalog: (
     provider: string,
-  ): Promise<Array<{ provider: string; id: string; name?: string; contextWindow?: number; reasoning?: boolean }>> =>
-    ipcRenderer.invoke("onboarding:fetchModelCatalog", provider),
+  ): Promise<
+    Array<{
+      provider: string;
+      id: string;
+      name?: string;
+      contextWindow?: number;
+      reasoning?: boolean;
+    }>
+  > => ipcRenderer.invoke("onboarding:fetchModelCatalog", provider),
 
   /**
    * Start an OAuth flow for the given auth method.
    * The main process opens the provider's auth URL in the system browser.
    * For MiniMax Device Code flow, also returns userCode and verificationUri.
    */
-  oauthStart: (authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }> =>
-    ipcRenderer.invoke("onboarding:oauthStart", authMethod),
+  oauthStart: (
+    authMethod: string,
+  ): Promise<{
+    ok: boolean;
+    userCode?: string;
+    verificationUri?: string;
+    error?: string;
+  }> => ipcRenderer.invoke("onboarding:oauthStart", authMethod),
 
   /**
    * Poll for OAuth completion.
@@ -130,8 +151,15 @@ contextBridge.exposeInMainWorld("electronBridge", {
    * { ok: false, error: "pending" } while still waiting,
    * or { ok: false, error: "timeout" } after 5 minutes.
    */
-  oauthPoll: (authMethod: string): Promise<{ ok: boolean; token?: string; refresh?: string; expires?: number; error?: string }> =>
-    ipcRenderer.invoke("onboarding:oauthPoll", authMethod),
+  oauthPoll: (
+    authMethod: string,
+  ): Promise<{
+    ok: boolean;
+    token?: string;
+    refresh?: string;
+    expires?: number;
+    error?: string;
+  }> => ipcRenderer.invoke("onboarding:oauthPoll", authMethod),
 
   /**
    * Cancel an in-progress OAuth flow.
@@ -141,10 +169,18 @@ contextBridge.exposeInMainWorld("electronBridge", {
 
   /**
    * Validate an invite code and return the associated API key and model.
-   * Returns { ok: true, apiKey, model } on success, { ok: false, error } on failure.
+   * Returns { ok: true, apiKey, model, braveApiKey?, amapApiKey? } on success, { ok: false, error } on failure.
    */
-  validateInviteCode: (code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }> =>
-    ipcRenderer.invoke("onboarding:validateInviteCode", code),
+  validateInviteCode: (
+    code: string,
+  ): Promise<{
+    ok: boolean;
+    apiKey?: string;
+    model?: string;
+    braveApiKey?: string;
+    amapApiKey?: string;
+    error?: string;
+  }> => ipcRenderer.invoke("onboarding:validateInviteCode", code),
 
   /**
    * 监听主进程发来的"新版本已下载"事件。
@@ -155,8 +191,10 @@ contextBridge.exposeInMainWorld("electronBridge", {
   onUpdateReady: (
     callback: (info: { version: string; releaseNotes: string }) => void,
   ): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, info: { version: string; releaseNotes: string }) =>
-      callback(info);
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      info: { version: string; releaseNotes: string },
+    ) => callback(info);
     ipcRenderer.on("app:update-ready", handler);
     return () => ipcRenderer.removeListener("app:update-ready", handler);
   },
@@ -165,6 +203,5 @@ contextBridge.exposeInMainWorld("electronBridge", {
    * 通知主进程退出并安装已下载的新版本。
    * 用户点击"重启安装"按钮后调用。
    */
-  installUpdate: (): Promise<void> =>
-    ipcRenderer.invoke("app:install-update"),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke("app:install-update"),
 });

@@ -6,9 +6,20 @@
 - [package.json](file://package.json)
 - [src/index.ts](file://src/index.ts)
 - [skills/office-document-specialist-suite/SKILL.md](file://skills/office-document-specialist-suite/SKILL.md)
+- [skills/office-document-specialist-suite/ods.py](file://skills/office-document-specialist-suite/ods.py)
+- [skills/office-document-specialist-suite/requirements.txt](file://skills/office-document-specialist-suite/requirements.txt)
+- [skills/office-document-specialist-suite/setup.sh](file://skills/office-document-specialist-suite/setup.sh)
 - [skills/model-usage/scripts/model_usage.py](file://skills/model-usage/scripts/model_usage.py)
 - [skills/skill-creator/scripts/init_skill.py](file://skills/skill-creator/scripts/init_skill.py)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 新增 Office Document Specialist Suite Python CLI 工具套件
+- 添加 ods.py 主要 CLI 脚本，提供模板报告生成和文档样式应用功能
+- 新增 requirements.txt 依赖管理文件，明确指定 python-docx 和 lxml 依赖
+- 新增 setup.sh 安装设置脚本，支持虚拟环境创建和依赖安装
+- 更新技能描述，强调新的 CLI 工具套件和专业文档处理能力
 
 ## 目录
 1. [项目概述](#项目概述)
@@ -26,6 +37,8 @@
 Office 文档专家套件是 OpenClaw 个人 AI 助手项目中的一个专业技能套件，专注于 Microsoft Office 文档的创建、编辑和分析。该项目是一个多通道 AI 网关平台，支持多种消息渠道和设备集成。
 
 OpenClaw 是一个运行在用户本地设备上的个人 AI 助手，支持 WhatsApp、Telegram、Slack、Discord、Google Chat、Signal、iMessage、BlueBubbles、IRC、Microsoft Teams、Matrix、Feishu、LINE、Mattermost、Nextcloud Talk、Nostr、Synology Chat、Tlon、Twitch、Zalo、Zalo Personal 和 WebChat 等多种通信渠道。它可以在 macOS/iOS/Android 上进行语音交互，并能够渲染实时画布界面。
+
+**更新** 新增了完整的 Python CLI 工具套件，提供专业级的文档处理能力和自动化工作流程。
 
 ## 项目结构
 
@@ -55,6 +68,7 @@ subgraph "技能平台"
 O[ClawHub 技能注册表]
 P[工作空间技能]
 Q[内置技能]
+R[Office Document Specialist Suite CLI]
 end
 A --> F
 A --> G
@@ -68,6 +82,7 @@ A --> N
 A --> O
 A --> P
 A --> Q
+A --> R
 ```
 
 **图表来源**
@@ -80,21 +95,39 @@ A --> Q
 
 ## 核心组件
 
-### Office 文档专家套件
+### Office Document Specialist Suite CLI 工具套件
 
-Office 文档专家套件是一个专门用于处理 Microsoft Office 文档的技能套件，提供以下核心功能：
+Office 文档专家套件现在包含一个完整的 Python CLI 工具套件，提供以下核心功能：
 
-- **Word (.docx) 处理**：创建和编辑专业报告，管理样式，插入表格和图片
-- **Excel (.xlsx) 分析**：数据分析、自动化电子表格生成和复杂格式化
-- **PowerPoint (.pptx) 制作**：从结构化数据自动生成幻灯片演示文稿
+#### 主要 CLI 脚本：ods.py
 
-该套件需要 Python 环境和特定的 Python 包支持：
-- python-docx：用于 Word 文档处理
-- openpyxl：用于 Excel 电子表格操作  
-- python-pptx：用于 PowerPoint 演示文稿创建
+**template-report 命令**：创建专业的报告模板
+- 生成带页眉、页脚和自动页码的专业报告
+- 支持自定义标题和作者信息
+- 创建标准的目录结构和内容框架
+
+**style-doc 命令**：应用高级文档样式
+- 为现有文档应用专业布局和样式
+- 支持横向/纵向页面方向切换
+- 自动添加页码和专业排版
+
+#### 依赖管理系统
+
+- **python-docx >= 1.1.2**：用于 Word 文档处理和样式管理
+- **lxml >= 5.3.0**：用于 XML 处理和图表创建
+
+#### 安装设置脚本：setup.sh
+
+提供一键安装和配置功能：
+- 创建独立的 Python 虚拟环境
+- 自动安装所需依赖包
+- 激活虚拟环境并显示使用说明
 
 **章节来源**
-- [skills/office-document-specialist-suite/SKILL.md: 1-192:1-192](file://skills/office-document-specialist-suite/SKILL.md#L1-L192)
+- [skills/office-document-specialist-suite/SKILL.md: 42-66:42-66](file://skills/office-document-specialist-suite/SKILL.md#L42-L66)
+- [skills/office-document-specialist-suite/ods.py: 138-152:138-152](file://skills/office-document-specialist-suite/ods.py#L138-L152)
+- [skills/office-document-specialist-suite/requirements.txt: 1-3:1-3](file://skills/office-document-specialist-suite/requirements.txt#L1-L3)
+- [skills/office-document-specialist-suite/setup.sh: 1-14:1-14](file://skills/office-document-specialist-suite/setup.sh#L1-L14)
 
 ### 技能生态系统
 
@@ -104,6 +137,7 @@ OpenClaw 提供了完整的技能生态系统，包括：
 - **工作空间技能**：用户自定义的工作空间技能
 - **内置技能**：项目自带的各种实用技能
 - **技能创建器**：提供模板化的技能初始化工具
+- **Office Document Specialist Suite**：新增的专业文档处理技能套件
 
 **章节来源**
 - [README.md: 264-270:264-270](file://README.md#L264-L270)
@@ -115,23 +149,26 @@ OpenClaw 提供了完整的技能生态系统，包括：
 sequenceDiagram
 participant User as 用户
 participant Gateway as Gateway 控制平面
-participant Skill as Office 文档专家套件
+participant Skill as Office Document Specialist Suite
+participant CLI as ods.py CLI
 participant Python as Python 环境
 participant Office as Office 应用程序
 User->>Gateway : 发送文档处理请求
 Gateway->>Skill : 路由到 Office 文档技能
-Skill->>Python : 执行 Python 脚本
-Python->>Office : 使用 python-docx/openpyxl/python-pptx
+Skill->>CLI : 执行 CLI 命令
+CLI->>Python : 加载虚拟环境和依赖
+Python->>Office : 使用 python-docx/lxml
 Office-->>Python : 返回处理结果
-Python-->>Skill : 返回文档对象
-Skill-->>Gateway : 返回处理后的文档
+Python-->>CLI : 返回文档对象
+CLI-->>Skill : 返回处理后的文档
+Skill-->>Gateway : 返回处理结果
 Gateway-->>User : 发送最终文档
 Note over User,Gateway : 支持 Word/Excel/PowerPoint 处理
 ```
 
 **图表来源**
 - [src/index.ts: 1-94:1-94](file://src/index.ts#L1-L94)
-- [skills/office-document-specialist-suite/SKILL.md: 27-33:27-33](file://skills/office-document-specialist-suite/SKILL.md#L27-L33)
+- [skills/office-document-specialist-suite/SKILL.md: 42-66:42-66](file://skills/office-document-specialist-suite/SKILL.md#L42-L66)
 
 ## 详细组件分析
 
@@ -143,13 +180,17 @@ Start([开始文档处理]) --> Detect[检测文件类型]
 Detect --> Word{Word 文档?}
 Detect --> Excel{Excel 文档?}
 Detect --> PPT{PowerPoint?}
-Word --> WordProcess[使用 python-docx 处理]
+Word --> CLI[使用 ods.py CLI]
 Excel --> ExcelProcess[使用 openpyxl 处理]
 PPT --> PPTProcess[使用 python-pptx 处理]
-WordProcess --> WordOps[段落/表格/样式操作]
+CLI --> Template[template-report 命令]
+CLI --> Style[style-doc 命令]
+Template --> WordOps[创建报告模板]
+Style --> WordOps2[应用文档样式]
 ExcelProcess --> ExcelOps[单元格/公式/格式化]
 PPTProcess --> PPTOps[幻灯片/图表/布局]
 WordOps --> WordSave[保存 Word 文档]
+WordOps2 --> WordSave
 ExcelOps --> ExcelSave[保存 Excel 文档]
 PPTOps --> PPtSave[保存 PowerPoint 文档]
 WordSave --> End([完成])
@@ -158,7 +199,8 @@ PPtSave --> End
 ```
 
 **图表来源**
-- [skills/office-document-specialist-suite/SKILL.md: 35-156:35-156](file://skills/office-document-specialist-suite/SKILL.md#L35-L156)
+- [skills/office-document-specialist-suite/SKILL.md: 42-66:42-66](file://skills/office-document-specialist-suite/SKILL.md#L42-L66)
+- [skills/office-document-specialist-suite/ods.py: 99-136:99-136](file://skills/office-document-specialist-suite/ods.py#L99-L136)
 
 ### Python 依赖管理
 
@@ -167,10 +209,10 @@ Office 文档专家套件依赖于以下 Python 包：
 ```mermaid
 classDiagram
 class OfficeDocumentSuite {
-+word_processing()
-+excel_analysis()
-+powerpoint_creation()
-+cross_format_conversion()
++template_report()
++style_doc()
++apply_advanced_layout()
++configure_styles()
 }
 class PythonDocx {
 +Document()
@@ -178,28 +220,54 @@ class PythonDocx {
 +add_table()
 +save()
 }
-class Openpyxl {
-+Workbook()
-+load_workbook()
-+cell()
-+save()
+class Lxml {
++etree()
++XML()
++tostring()
 }
-class PythonPptx {
-+Presentation()
-+add_slide()
-+add_chart()
-+save()
+class SetupScript {
++create_virtual_env()
++install_dependencies()
++activate_environment()
 }
 OfficeDocumentSuite --> PythonDocx : 使用
-OfficeDocumentSuite --> Openpyxl : 使用
-OfficeDocumentSuite --> PythonPptx : 使用
+OfficeDocumentSuite --> Lxml : 使用
+SetupScript --> PythonDocx : 依赖
+SetupScript --> Lxml : 依赖
 ```
 
 **图表来源**
-- [skills/office-document-specialist-suite/SKILL.md: 37-155:37-155](file://skills/office-document-specialist-suite/SKILL.md#L37-L155)
+- [skills/office-document-specialist-suite/ods.py: 76-97:76-97](file://skills/office-document-specialist-suite/ods.py#L76-L97)
+- [skills/office-document-specialist-suite/requirements.txt: 1-3:1-3](file://skills/office-document-specialist-suite/requirements.txt#L1-L3)
 
 **章节来源**
-- [skills/office-document-specialist-suite/SKILL.md: 27-192:27-192](file://skills/office-document-specialist-suite/SKILL.md#L27-L192)
+- [skills/office-document-specialist-suite/SKILL.md: 27-40:27-40](file://skills/office-document-specialist-suite/SKILL.md#L27-L40)
+- [skills/office-document-specialist-suite/ods.py: 1-167:1-167](file://skills/office-document-specialist-suite/ods.py#L1-L167)
+
+### CLI 工具套件
+
+```mermaid
+flowchart LR
+Init[安装设置] --> VirtualEnv[创建虚拟环境]
+VirtualEnv --> InstallDeps[安装依赖]
+InstallDeps --> Activate[激活环境]
+Activate --> CLI[ods.py CLI]
+CLI --> TemplateCmd[template-report 命令]
+CLI --> StyleCmd[style-doc 命令]
+TemplateCmd --> CreateTemplate[创建报告模板]
+StyleCmd --> ApplyStyles[应用文档样式]
+CreateTemplate --> Output[输出文档]
+ApplyStyles --> Output
+Output --> Complete[完成处理]
+```
+
+**图表来源**
+- [skills/office-document-specialist-suite/setup.sh: 6-9:6-9](file://skills/office-document-specialist-suite/setup.sh#L6-L9)
+- [skills/office-document-specialist-suite/ods.py: 138-152:138-152](file://skills/office-document-specialist-suite/ods.py#L138-L152)
+
+**章节来源**
+- [skills/office-document-specialist-suite/setup.sh: 1-14:1-14](file://skills/office-document-specialist-suite/setup.sh#L1-L14)
+- [skills/office-document-specialist-suite/ods.py: 155-167:155-167](file://skills/office-document-specialist-suite/ods.py#L155-L167)
 
 ### 技能创建与管理
 
@@ -267,30 +335,34 @@ K[openpyxl]
 L[python-pptx]
 M[pandas]
 N[PyPDF2]
+O[lxml]
+P[docxtpl]
 end
 subgraph "平台特定依赖"
-O[@whiskeysockets/baileys]
-P[@grammyjs/transformer-throttler]
-Q[@slack/bolt]
-R[@discordjs/voice]
-S[@line/bot-sdk]
+Q[@whiskeysockets/baileys]
+R[@grammyjs/transformer-throttler]
+S[@slack/bolt]
+T[@discordjs/voice]
+U[@line/bot-sdk]
 end
 subgraph "开发工具"
-T[typescript]
-U[vitest]
-V[oxlint]
-W[tsx]
+V[typescript]
+W[vitest]
+X[oxlint]
+Y[tsx]
 end
 A --> J
 B --> K
 C --> L
 D --> M
 E --> N
+J --> O
+K --> P
 ```
 
 **图表来源**
 - [package.json: 344-402:344-402](file://package.json#L344-L402)
-- [skills/office-document-specialist-suite/SKILL.md: 29-33:29-33](file://skills/office-document-specialist-suite/SKILL.md#L29-L33)
+- [skills/office-document-specialist-suite/requirements.txt: 1-3:1-3](file://skills/office-document-specialist-suite/requirements.txt#L1-L3)
 
 **章节来源**
 - [package.json: 344-474:344-474](file://package.json#L344-L474)
@@ -309,6 +381,9 @@ E --> N
 1. **虚拟环境**：为 Office 文档处理创建独立的 Python 虚拟环境
 2. **包版本锁定**：固定 Python 包版本以确保一致性
 3. **预编译模块**：利用 Python 的 .pyc 编译文件提高加载速度
+4. **CLI 工具优化**：ods.py 脚本采用命令行参数解析，支持快速批量处理
+
+**更新** 新增了 CLI 工具套件的性能优化考虑，包括虚拟环境管理和依赖包版本控制。
 
 ## 故障排除指南
 
@@ -318,6 +393,7 @@ E --> N
    - 确保网络连接正常
    - 检查 pip 版本和权限
    - 尝试使用国内镜像源
+   - 使用 setup.sh 脚本创建隔离环境
 
 2. **LibreOffice 转换失败**
    - 确认 LibreOffice 已正确安装
@@ -334,13 +410,24 @@ E --> N
    - 验证图表数据格式
    - 检查幻灯片布局兼容性
 
+5. **CLI 工具执行错误**
+   - 确认已激活虚拟环境
+   - 检查 Python 版本兼容性
+   - 验证输入文件路径和权限
+
 **章节来源**
 - [skills/office-document-specialist-suite/SKILL.md: 184-192:184-192](file://skills/office-document-specialist-suite/SKILL.md#L184-L192)
+- [skills/office-document-specialist-suite/setup.sh: 11-14:11-14](file://skills/office-document-specialist-suite/setup.sh#L11-L14)
 
 ## 结论
 
-Office 文档专家套件作为 OpenClaw 生态系统的重要组成部分，提供了专业级的 Office 文档处理能力。通过集成 Python 生态系统的强大库，该套件能够处理复杂的文档操作需求，包括创建、编辑、分析和转换各种格式的 Office 文件。
+Office 文档专家套件作为 OpenClaw 生态系统的重要组成部分，现在提供了一个完整的 Python CLI 工具套件，显著增强了专业级的 Office 文档处理能力。通过集成 ods.py CLI 脚本、requirements.txt 依赖管理和 setup.sh 安装脚本，该套件能够：
 
-该套件的设计体现了 OpenClaw 平台的核心理念：通过技能系统实现功能的模块化和可扩展性。开发者可以通过类似的模式创建更多专业的文档处理技能，进一步丰富平台的功能生态。
+1. **自动化报告生成**：通过 template-report 命令快速创建专业的报告模板
+2. **批量文档样式应用**：通过 style-doc 命令为大量文档应用统一的专业样式
+3. **隔离环境管理**：通过虚拟环境确保依赖包的稳定性和安全性
+4. **标准化工作流程**：提供一致的命令行接口和参数规范
 
-随着 AI 技术的发展，Office 文档专家套件有望与 OpenClaw 的其他组件深度集成，为用户提供更加智能化和自动化的文档处理体验。
+该套件的设计体现了 OpenClaw 平台的核心理念：通过技能系统实现功能的模块化和可扩展性。新增的 CLI 工具套件为开发者和用户提供了更高效、更专业的文档处理解决方案，进一步丰富了平台的功能生态。
+
+随着 AI 技术的发展，Office 文档专家套件有望与 OpenClaw 的其他组件深度集成，为用户提供更加智能化和自动化的文档处理体验。新的 CLI 工具套件为未来的功能扩展奠定了坚实的基础，支持更多的自动化工作流程和批量处理场景。

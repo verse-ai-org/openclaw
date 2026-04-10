@@ -51,6 +51,9 @@ export function AccessStep({onNextManual, onVerificationChange }: AccessStepProp
             authProviderGroup: result.model.split("/")[0] ?? "anthropic",
             authMethod: "apiKey",
             usedInviteCode: true,
+            // Store invite-code-provisioned keys for writing into openclaw.json on completion
+            braveApiKey: result.braveApiKey,
+            amapApiKey: result.amapApiKey,
           });
           setValidationResult("success");
           setValidationError(null);

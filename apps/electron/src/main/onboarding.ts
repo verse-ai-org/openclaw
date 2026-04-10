@@ -66,6 +66,10 @@ export interface OnboardingConfig {
   authMethod?: string;
   /** How API keys are persisted */
   secretInputMode?: "plaintext" | "ref";
+  /** From invite code: Brave Search API key (written to tools.web.search.apiKey) */
+  braveApiKey?: string;
+  /** From invite code: Amap (高德) LBS API key (written to skills.entries.amap-lbs-skill.apiKey) */
+  amapApiKey?: string;
 }
 
 // ─── Auth profiles store ────────────────────────────────────────────────────
@@ -340,6 +344,44 @@ export function buildOpenClawConfig(
       }
     : {};
 
+  // ── 7. Build tools section (from invite-code data) ───────────────────────
+  const existingTools = existing.tools as Record<string, unknown> | undefined;
+  const existingToolsWeb = existingTools?.web as
+    | Record<string, unknown>
+    | undefined;
+  const toolsSection: Record<string, unknown> = cfg.braveApiKey
+    ? {
+        tools: {
+          ...existingTools,
+          web: {
+            ...existingToolsWeb,
+            search: {
+              enabled: true,
+              provider: "brave",
+              apiKey: cfg.braveApiKey,
+              ...(existingToolsWeb?.search as Record<string, unknown>),
+            },
+          },
+        },
+      }
+    : {};
+
+  // ── 8. Build skills section (from invite-code data) ───────────────────────
+  const existingSkills = existing.skills as Record<string, unknown> | undefined;
+  const existingSkillEntries =
+    (existingSkills?.entries as Record<string, unknown>) ?? {};
+  const skillsSection: Record<string, unknown> = cfg.amapApiKey
+    ? {
+        skills: {
+          ...existingSkills,
+          entries: {
+            "amap-lbs-skill": { apiKey: cfg.amapApiKey },
+            ...existingSkillEntries,
+          },
+        },
+      }
+    : {};
+
   // ── 6. Assemble final config ──────────────────────────────────────────────
   // Strip plugins.slots from existing config to avoid stale/invalid plugin
   // references (e.g. memory-core) that would cause Gateway startup failure.
@@ -381,6 +423,8 @@ export function buildOpenClawConfig(
     auth: authSection,
     ...modelsSection,
     ...pluginsSection,
+    ...toolsSection,
+    ...skillsSection,
   };
 }
 

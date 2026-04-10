@@ -359,7 +359,14 @@ function generateInviteNonce(length = 12): string {
  */
 export async function validateInviteCode(
   code: string,
-): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }> {
+): Promise<{
+  ok: boolean;
+  apiKey?: string;
+  model?: string;
+  braveApiKey?: string;
+  amapApiKey?: string;
+  error?: string;
+}> {
   const trimmed = code.trim().toUpperCase();
   if (!trimmed) {
     return { ok: false, error: "Invite code cannot be empty." };
@@ -385,12 +392,12 @@ export async function validateInviteCode(
       : "(short/empty)";
   await writeDebugLog(
     `[validateInviteCode] code=${trimmed.substring(0, 8)}... url=${url}` +
-    ` NODE_ENV=${process.env.NODE_ENV ?? "(unset)"}` +
-    ` INVITE_CODE_API_BASE_URL=${process.env.INVITE_CODE_API_BASE_URL ?? "(unset)"}` +
-    ` appId=${INVITE_CODE_APP_ID}` +
-    ` appSecret=${secretMasked}` +
-    ` isPackaged=${_app.isPackaged}` +
-    ` INVITE_CODE_APP_SECRET_env=${process.env.INVITE_CODE_APP_SECRET ? "set" : "(unset)"}`,
+      ` NODE_ENV=${process.env.NODE_ENV ?? "(unset)"}` +
+      ` INVITE_CODE_API_BASE_URL=${process.env.INVITE_CODE_API_BASE_URL ?? "(unset)"}` +
+      ` appId=${INVITE_CODE_APP_ID}` +
+      ` appSecret=${secretMasked}` +
+      ` isPackaged=${_app.isPackaged}` +
+      ` INVITE_CODE_APP_SECRET_env=${process.env.INVITE_CODE_APP_SECRET ? "set" : "(unset)"}`,
   );
 
   try {
@@ -493,10 +500,15 @@ export async function validateInviteCode(
       };
     }
 
+    const braveApiKey =
+      typeof data.brave_api_key === "string" ? data.brave_api_key : undefined;
+    const amapApiKey =
+      typeof data.amap_api_key === "string" ? data.amap_api_key : undefined;
+
     // model is optional — fall back to a sensible default if the server omits it.
     const resolvedModel = model ?? "anthropic/claude-opus-4-5";
 
-    return { ok: true, apiKey, model: resolvedModel };
+    return { ok: true, apiKey, model: resolvedModel, braveApiKey, amapApiKey };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       await writeDebugLog(`[validateInviteCode] TIMEOUT after 15s`);

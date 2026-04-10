@@ -47,7 +47,10 @@ export interface WizardAdapter {
    * Returns { ok: true } on success, { ok: false, error } on failure.
    * If not implemented, the UI falls back to basic format validation.
    */
-  validateApiKey?(authMethod: string, apiKey: string): Promise<{ ok: boolean; error?: string }>;
+  validateApiKey?(
+    authMethod: string,
+    apiKey: string,
+  ): Promise<{ ok: boolean; error?: string }>;
 
   /**
    * Start an OAuth flow for the given auth method.
@@ -55,7 +58,12 @@ export interface WizardAdapter {
    * Returns { ok: true } if browser was opened, { ok: false, error } otherwise.
    * For Device Code flows (e.g. MiniMax), also returns userCode and verificationUri.
    */
-  startOAuth?(authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }>;
+  startOAuth?(authMethod: string): Promise<{
+    ok: boolean;
+    userCode?: string;
+    verificationUri?: string;
+    error?: string;
+  }>;
 
   /**
    * Poll for OAuth completion.
@@ -63,7 +71,13 @@ export interface WizardAdapter {
    * Returns { ok: true, token } when complete, { ok: false, error: "pending" } while waiting,
    * or { ok: false, error: "timeout" } / other error string when failed.
    */
-  pollOAuth?(authMethod: string): Promise<{ ok: boolean; token?: string; refresh?: string; expires?: number; error?: string }>;
+  pollOAuth?(authMethod: string): Promise<{
+    ok: boolean;
+    token?: string;
+    refresh?: string;
+    expires?: number;
+    error?: string;
+  }>;
 
   /**
    * Cancel an in-progress OAuth flow.
@@ -83,7 +97,14 @@ export interface WizardAdapter {
    * Returns { ok: false, error } on failure.
    * If not implemented, the UI will show an error message.
    */
-  validateInviteCode?(code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }>;
+  validateInviteCode?(code: string): Promise<{
+    ok: boolean;
+    apiKey?: string;
+    model?: string;
+    braveApiKey?: string;
+    amapApiKey?: string;
+    error?: string;
+  }>;
 }
 
 /**

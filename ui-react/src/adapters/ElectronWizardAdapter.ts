@@ -1,18 +1,44 @@
-import type { WizardAdapter, ElectronAdapterConfig } from '../types/adapter';
+import type { WizardAdapter, ElectronAdapterConfig } from "../types/adapter";
 
 declare global {
   interface Window {
     electronBridge: {
-      wizardRequest(method: string, data: unknown): Promise<Record<string, unknown>>;
+      wizardRequest(
+        method: string,
+        data: unknown,
+      ): Promise<Record<string, unknown>>;
       notifyOnboardingComplete(): Promise<void>;
       restartGateway(): Promise<{ ok: boolean; error?: string }>;
-      saveOnboardingConfig(cfg: unknown): Promise<{ ok: boolean; error?: string }>;
+      saveOnboardingConfig(
+        cfg: unknown,
+      ): Promise<{ ok: boolean; error?: string }>;
       writeDebugLog(message: string): Promise<void>;
-      validateApiKey(authMethod: string, apiKey: string): Promise<{ ok: boolean; error?: string }>;
-      oauthStart(authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }>;
-      oauthPoll(authMethod: string): Promise<{ ok: boolean; token?: string; refresh?: string; expires?: number; error?: string }>;
+      validateApiKey(
+        authMethod: string,
+        apiKey: string,
+      ): Promise<{ ok: boolean; error?: string }>;
+      oauthStart(authMethod: string): Promise<{
+        ok: boolean;
+        userCode?: string;
+        verificationUri?: string;
+        error?: string;
+      }>;
+      oauthPoll(authMethod: string): Promise<{
+        ok: boolean;
+        token?: string;
+        refresh?: string;
+        expires?: number;
+        error?: string;
+      }>;
       oauthCancel(authMethod: string): Promise<{ ok: boolean }>;
-      validateInviteCode(code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }>;
+      validateInviteCode(code: string): Promise<{
+        ok: boolean;
+        apiKey?: string;
+        model?: string;
+        braveApiKey?: string;
+        amapApiKey?: string;
+        error?: string;
+      }>;
     };
   }
 }
@@ -34,7 +60,9 @@ export class ElectronWizardAdapter implements WizardAdapter {
     this.onCancel = config.onCancel;
     this.getConfig = config.getConfig;
     // Debug: log whether getConfig was provided at construction time
-    this.log(`constructor: getConfig=${typeof config.getConfig} onComplete=${typeof config.onComplete}`);
+    this.log(
+      `constructor: getConfig=${typeof config.getConfig} onComplete=${typeof config.onComplete}`,
+    );
   }
 
   private log(msg: string) {
@@ -58,8 +86,10 @@ export class ElectronWizardAdapter implements WizardAdapter {
 
   private async finalizeOnboarding(): Promise<void> {
     // Capture call stack to identify which code path triggered this
-    const stack = new Error('finalize-caller').stack ?? 'no stack';
-    this.log(`finalizeOnboarding: start (getConfig=${typeof this.getConfig}) caller=${stack.split('\n')[2]?.trim() ?? 'unknown'}`);
+    const stack = new Error("finalize-caller").stack ?? "no stack";
+    this.log(
+      `finalizeOnboarding: start (getConfig=${typeof this.getConfig}) caller=${stack.split("\n")[2]?.trim() ?? "unknown"}`,
+    );
 
     // 1. 保存配置到磁盘
     if (this.getConfig) {
@@ -68,28 +98,32 @@ export class ElectronWizardAdapter implements WizardAdapter {
         this.log(`saveOnboardingConfig: ${JSON.stringify(cfg)}`);
         const result = await window.electronBridge.saveOnboardingConfig(cfg);
         if (result.ok) {
-          this.log('saveOnboardingConfig: success');
+          this.log("saveOnboardingConfig: success");
         } else {
-          this.log(`saveOnboardingConfig: FAILED — ${result.error ?? 'unknown'}`);
+          this.log(
+            `saveOnboardingConfig: FAILED — ${result.error ?? "unknown"}`,
+          );
         }
       } catch (err) {
         this.log(`saveOnboardingConfig: threw — ${String(err)}`);
       }
     } else {
-      this.log('saveOnboardingConfig: skipped (no getConfig provided)');
+      this.log("saveOnboardingConfig: skipped (no getConfig provided)");
     }
 
     // 2. 重启 Gateway 使新配置（token）生效
-    this.log('restartGateway: start');
+    this.log("restartGateway: start");
     try {
       const r = await window.electronBridge.restartGateway();
-      this.log(`restartGateway: ${r.ok ? 'ok' : `FAILED — ${r.error ?? 'unknown'}`}`);
+      this.log(
+        `restartGateway: ${r.ok ? "ok" : `FAILED — ${r.error ?? "unknown"}`}`,
+      );
     } catch (err) {
       this.log(`restartGateway: threw — ${String(err)}`);
     }
 
     // 3. 触发 onComplete 回调（UI 可在此切换到完成状态）
-    this.log('onComplete callback: calling');
+    this.log("onComplete callback: calling");
     try {
       await this.onComplete?.();
     } catch (err) {
@@ -97,26 +131,36 @@ export class ElectronWizardAdapter implements WizardAdapter {
     }
 
     // 4. 通知主进程切换到主界面
-    this.log('notifyOnboardingComplete: calling');
+    this.log("notifyOnboardingComplete: calling");
     try {
       await window.electronBridge.notifyOnboardingComplete();
-      this.log('notifyOnboardingComplete: done');
+      this.log("notifyOnboardingComplete: done");
     } catch (err) {
       this.log(`notifyOnboardingComplete: threw — ${String(err)}`);
     }
   }
 
-  async validateApiKey(authMethod: string, apiKey: string): Promise<{ ok: boolean; error?: string }> {
+  async validateApiKey(
+    authMethod: string,
+    apiKey: string,
+  ): Promise<{ ok: boolean; error?: string }> {
     this.log(`validateApiKey: authMethod=${authMethod}`);
     return window.electronBridge.validateApiKey(authMethod, apiKey);
   }
 
-  async startOAuth(authMethod: string): Promise<{ ok: boolean; userCode?: string; verificationUri?: string; error?: string }> {
+  async startOAuth(authMethod: string): Promise<{
+    ok: boolean;
+    userCode?: string;
+    verificationUri?: string;
+    error?: string;
+  }> {
     this.log(`startOAuth: authMethod=${authMethod}`);
     return window.electronBridge.oauthStart(authMethod);
   }
 
-  async pollOAuth(authMethod: string): Promise<{ ok: boolean; token?: string; error?: string }> {
+  async pollOAuth(
+    authMethod: string,
+  ): Promise<{ ok: boolean; token?: string; error?: string }> {
     return window.electronBridge.oauthPoll(authMethod);
   }
 
@@ -129,16 +173,31 @@ export class ElectronWizardAdapter implements WizardAdapter {
    * Validate an invite code and return the associated API key and model.
    * Delegates to the Electron bridge which calls the backend API.
    */
-  async validateInviteCode(code: string): Promise<{ ok: boolean; apiKey?: string; model?: string; error?: string }> {
+  async validateInviteCode(code: string): Promise<{
+    ok: boolean;
+    apiKey?: string;
+    model?: string;
+    braveApiKey?: string;
+    amapApiKey?: string;
+    error?: string;
+  }> {
     this.log(`validateInviteCode: code=${code.substring(0, 8)}...`);
     try {
       const result = await window.electronBridge.validateInviteCode(code);
       if (result.ok && result.apiKey && result.model) {
         this.log(`validateInviteCode: success, model=${result.model}`);
-        return { ok: true, apiKey: result.apiKey, model: result.model };
+        return {
+          ok: true,
+          apiKey: result.apiKey,
+          model: result.model,
+          braveApiKey: result.braveApiKey,
+          amapApiKey: result.amapApiKey,
+        };
       } else {
-        this.log(`validateInviteCode: failed - ${result.error ?? 'unknown error'}`);
-        return { ok: false, error: result.error ?? 'Validation failed' };
+        this.log(
+          `validateInviteCode: failed - ${result.error ?? "unknown error"}`,
+        );
+        return { ok: false, error: result.error ?? "Validation failed" };
       }
     } catch (err) {
       this.log(`validateInviteCode: threw - ${String(err)}`);
@@ -153,7 +212,9 @@ export class ElectronWizardAdapter implements WizardAdapter {
    * This fallback delegates to finalizeOnboarding for any legacy callers.
    */
   async submitStep(_stepData: unknown): Promise<boolean> {
-    this.log('submitStep: delegating to finalizeOnboarding (legacy compat path)');
+    this.log(
+      "submitStep: delegating to finalizeOnboarding (legacy compat path)",
+    );
     setTimeout(() => void this.finalizeOnboarding(), 0);
     return true;
   }
@@ -161,7 +222,7 @@ export class ElectronWizardAdapter implements WizardAdapter {
   async getInitialState(): Promise<Record<string, unknown>> {
     // No wizard session needed — the Electron UI drives all steps locally.
     // Return empty state; the UI store (setup-wizard.store.ts) holds all state.
-    this.log('getInitialState: returning empty state (session-less mode)');
+    this.log("getInitialState: returning empty state (session-less mode)");
     return {};
   }
 }
