@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -6,9 +7,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Pencil } from "lucide-react";
+import { MessageSquare, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAgentsStore } from "@/store/agents.store";
+import { useGatewayStore } from "@/store/gateway.store";
+import { useChatStore } from "@/store/chat.store";
+import { useSettingsStore } from "@/store/settings.store";
+import type { SessionEntry } from "@/hooks/useSessionManager";
 import { SectionLabel } from "./shared";
 
 export type ParsedIdentity = {
@@ -139,6 +144,9 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
   const vibe = identityMd.vibe ?? ident?.description ?? "";
   const initials = name.slice(0, 2).toUpperCase();
 
+  const navigate = useNavigate();
+  const client = useGatewayStore((s) => s.client);
+
   const startEdit = () => {
     setDraft({
       name,
@@ -148,6 +156,37 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
       avatar: avatar ?? "",
     });
     setEditOpen(true);
+  };
+
+  const handleGoToChat = async () => {
+    // Find the most recently updated session for this agent
+    const agentPrefix = `agent:${agentId}:`;
+    let targetKey = `${agentPrefix}main`;
+    if (client?.connected) {
+      try {
+        const result = await client.request<{ sessions?: SessionEntry[] }>(
+          "sessions.list",
+          { includeDerivedTitles: true, includeLastMessage: true },
+        );
+        const agentSessions = (result?.sessions ?? []).filter((s) =>
+          s.key.startsWith(agentPrefix),
+        );
+        if (agentSessions.length > 0) {
+          // Pick the most recently updated session
+          const latest = agentSessions.reduce((a, b) =>
+            (b.updatedAt ?? 0) > (a.updatedAt ?? 0) ? b : a,
+          );
+          targetKey = latest.key;
+        }
+      } catch {
+        // fallback to main session
+      }
+    }
+    useChatStore.getState().setSessionKey(targetKey);
+    useSettingsStore
+      .getState()
+      .updateSettings({ sessionKey: targetKey, lastActiveSessionKey: targetKey });
+    void navigate("/chat");
   };
 
   const handleSaveIdentity = async () => {
@@ -199,6 +238,15 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
             <Pencil className="size-4 text-black" />
           </Button>
         </h1>
+        <button
+          type="button"
+          title="Start chatting"
+          onClick={() => void handleGoToChat()}
+          className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#BA0034] text-white text-[13px] font-bold shadow-[0_2px_8px_rgba(186,0,52,0.25)] hover:bg-[#9b0029] hover:shadow-[0_4px_14px_rgba(186,0,52,0.35)] active:scale-95 transition-all duration-150 select-none"
+        >
+          <MessageSquare className="size-4 shrink-0" />
+          <span>Chat</span>
+        </button>
         <span className="px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#8E8E93] text-[10px] font-bold uppercase">
           {creature}
         </span>
