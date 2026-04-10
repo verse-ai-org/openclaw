@@ -212,6 +212,14 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         return;
       }
 
+      // Build attachments from pendingAttachments in the store
+      const pendingAttachments = useChatStore.getState().pendingAttachments;
+      const attachments = pendingAttachments.map((att) => ({
+        content: att.base64,
+        mimeType: att.mimeType,
+        fileName: att.fileName,
+      }));
+
       // Clear any previous error when user sends a new message
       useChatStore.getState().setLastError(null);
       // Drop leftover stream + tool state from the prior turn so the placeholder row
@@ -224,17 +232,17 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         role: "user" as const,
         content: text,
         ts: Date.now(),
+        attachments:
+          pendingAttachments.length > 0
+            ? pendingAttachments.map((a) => ({
+                fileName: a.fileName,
+                mimeType: a.mimeType,
+                size: a.size,
+              }))
+            : undefined,
       };
       useChatStore.getState().setMessages([...useChatStore.getState().messages, userMsg]);
       useChatStore.getState().setSending(true);
-
-      // Build attachments from pendingAttachments in the store
-      const pendingAttachments = useChatStore.getState().pendingAttachments;
-      const attachments = pendingAttachments.map((att) => ({
-        content: att.base64,
-        mimeType: att.mimeType,
-        fileName: att.fileName,
-      }));
 
       // Clear pending attachments after building
       useChatStore.getState().clearPendingAttachments();

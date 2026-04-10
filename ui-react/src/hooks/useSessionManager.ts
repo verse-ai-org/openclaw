@@ -6,8 +6,9 @@ import {
   extractContentBlocks,
   mergeToolResults,
   consolidateToolMessages,
+  stripAttachmentContent,
 } from "@/hooks/useChatEventBridge";
-import { useChatStore } from "@/store/chat.store";
+import { useChatStore, type MessageAttachment } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 
@@ -93,15 +94,29 @@ export function useSessionManager() {
           const merged = mergeToolResults(result.messages);
           const normalized = merged.map((m: unknown) => {
             const msg = m as Record<string, unknown>;
+            const role = normalizeRole(msg.role as string | undefined);
+            const rawContent = normalizeContent(msg.content ?? msg.text ?? "");
+            // For user messages: strip gateway-injected file content blocks,
+            // preserving only the user's prompt and extracting file names for display.
+            let content = rawContent;
+            let attachments: MessageAttachment[] | undefined;
+            if (role === "user") {
+              const stripped = stripAttachmentContent(rawContent);
+              content = stripped.prompt;
+              attachments = stripped.attachments.length > 0 ? stripped.attachments : undefined;
+            }
             return {
               id: (msg.id as string) ?? crypto.randomUUID(),
-              role: normalizeRole(msg.role as string | undefined),
-              content: normalizeContent(msg.content ?? msg.text ?? ""),
+              role,
+              content,
               ts: (msg.ts as number) ?? (msg.timestamp as number) ?? Date.now(),
               runId: msg.runId as string | undefined,
               sessionKey: key,
-              toolCalls: extractToolCallParts(msg.content),
-              contentBlocks: extractContentBlocks(msg.content),
+              attachments,
+              // Use stripped content for user messages so contentBlocks (used by
+              // convertMessage for rendering) never contain injected file text.
+              toolCalls: extractToolCallParts(content),
+              contentBlocks: extractContentBlocks(content),
             };
           });
           // Step 2: merge consecutive tool-call-only assistant messages so

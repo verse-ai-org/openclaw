@@ -70,6 +70,16 @@ export type ContentBlock =
       phase: "call" | "result" | "error";
     };
 
+/** A sent file attachment stored with the message for display. */
+export interface MessageAttachment {
+  /** Original file name */
+  fileName: string;
+  /** MIME type */
+  mimeType: string;
+  /** File size in bytes */
+  size: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: ChatMessageRole;
@@ -77,6 +87,8 @@ export interface ChatMessage {
   ts: number;
   runId?: string;
   sessionKey?: string;
+  /** File attachments sent with this user message (for display only) */
+  attachments?: MessageAttachment[];
   /** Tool calls embedded in this message (assistant messages with tool use) */
   toolCalls?: ToolCallPart[];
   /**

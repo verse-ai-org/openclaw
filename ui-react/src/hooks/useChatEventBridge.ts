@@ -6,6 +6,7 @@ import {
   type ChatMessageRole,
   type ToolCallPart,
   type ContentBlock,
+  type MessageAttachment,
 } from "@/store/chat.store";
 import { registerChatDispatch, unregisterChatDispatch } from "@/store/gateway.store";
 
@@ -28,6 +29,50 @@ type RawMessage = {
   runId?: string;
   sessionKey?: string;
 };
+
+/**
+ * For user messages from chat.history: strip the appended file-content blocks
+ * that the gateway injects (starting with "以下是上传文件的内容："),
+ * and extract file names from "[文件: filename]" markers.
+ *
+ * Returns the clean prompt text and a list of attachment display metadata.
+ */
+export function stripAttachmentContent(raw: string): {
+  prompt: string;
+  attachments: MessageAttachment[];
+} {
+  // Gateway appends: "\n\n以下是上传文件的内容：\n\n[文件: name]\ncontent..."
+  const SEPARATOR = "\n\n以下是上传文件的内容：";
+  const idx = raw.indexOf(SEPARATOR);
+  if (idx === -1) {
+    return { prompt: raw, attachments: [] };
+  }
+
+  const prompt = raw.slice(0, idx);
+  const attachmentBlock = raw.slice(idx + SEPARATOR.length);
+
+  // Extract file names from "[文件: filename]" markers
+  const fileNameRegex = /\[文件:\s*([^\]]+?)(?:\s*\([^)]*\))?\s*\]/g;
+  const attachments: MessageAttachment[] = [];
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = fileNameRegex.exec(attachmentBlock)) !== null) {
+    const fileName = match[1].trim();
+    if (fileName && !seen.has(fileName)) {
+      seen.add(fileName);
+      // Infer a rough mimeType from extension for icon display
+      const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+      const mimeType = ext === "pdf" ? "application/pdf"
+        : ext === "docx" || ext === "doc" ? "application/msword"
+        : ext === "xlsx" || ext === "xls" ? "application/vnd.ms-excel"
+        : ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp" ? `image/${ext}`
+        : "text/plain";
+      attachments.push({ fileName, mimeType, size: 0 });
+    }
+  }
+
+  return { prompt, attachments };
+}
 
 /** Normalize a raw message content field to a plain string. */
 export function normalizeContent(raw: unknown): string {
@@ -590,16 +635,32 @@ export function useChatEventBridge() {
             console.groupEnd();
           }
 
-          const normalized: ChatMessage[] = mergedMsgs.map((m) => ({
-            id: m.id ?? crypto.randomUUID(),
-            role: normalizeRole(m.role),
-            content: normalizeContent(m.content ?? m.text ?? ""),
-            ts: m.ts ?? m.timestamp ?? Date.now(),
-            runId: m.runId,
-            sessionKey: m.sessionKey,
-            toolCalls: extractToolCallParts(m.content),
-            contentBlocks: extractContentBlocks(m.content),
-          }));
+          const normalized: ChatMessage[] = mergedMsgs.map((m) => {
+            const role = normalizeRole(m.role);
+            const rawContent = normalizeContent(m.content ?? m.text ?? "");
+
+            // For user messages: strip gateway-injected file content blocks,
+            // preserving only the user's prompt and extracting file names for display.
+            let content = rawContent;
+            let attachments: MessageAttachment[] | undefined;
+            if (role === "user") {
+              const stripped = stripAttachmentContent(rawContent);
+              content = stripped.prompt;
+              attachments = stripped.attachments.length > 0 ? stripped.attachments : undefined;
+            }
+
+            return {
+              id: m.id ?? crypto.randomUUID(),
+              role,
+              content,
+              ts: m.ts ?? m.timestamp ?? Date.now(),
+              runId: m.runId,
+              sessionKey: m.sessionKey,
+              attachments,
+              toolCalls: extractToolCallParts(m.content),
+              contentBlocks: extractContentBlocks(m.content),
+            };
+          });
 
           if (import.meta.env.DEV) {
             console.group("[chat.history] after normalize");
