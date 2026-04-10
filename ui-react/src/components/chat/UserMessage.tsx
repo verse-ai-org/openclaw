@@ -3,7 +3,7 @@ import {
   ComposerPrimitive,
   ActionBarPrimitive,
 } from "@assistant-ui/react";
-import { PencilIcon, CheckIcon, XIcon } from "lucide-react";
+import { PencilIcon, CheckIcon, XIcon, FileText, Image } from "lucide-react";
 import type { FC } from "react";
 import { cn } from "@/lib/utils";
 
@@ -107,8 +107,45 @@ const UserText: FC<{ text: string }> = ({ text }) => (
   <p className="whitespace-pre-wrap wrap-break-word">{text}</p>
 );
 
-const UserAttachment: FC = () => (
-  <div className="mb-2">
-    <MessagePrimitive.Attachments components={undefined} />
-  </div>
-);
+const UserAttachment: FC = () => {
+  return (
+    <div className="mb-2 space-y-1.5">
+      <MessagePrimitive.Attachments
+        components={{
+          Attachment: UserAttachmentItem,
+        }}
+      />
+    </div>
+  );
+};
+
+const UserAttachmentItem: FC = (props) => {
+  const attachment = (props as Record<string, unknown>).attachment as
+    | {
+        mimeType?: string;
+        fileName?: string;
+      }
+    | undefined;
+
+  if (!attachment) {
+    return null;
+  }
+
+  // Determine if it's an image
+  const isImage = attachment.mimeType?.startsWith("image/") ?? false;
+
+  // Get file name from attachment metadata or fallback
+  const fileName =
+    attachment.fileName || `file.${attachment.mimeType?.split("/")[1] || "bin"}`;
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-background/10 px-2.5 py-1.5 text-xs">
+      {isImage ? (
+        <Image className="size-3.5 shrink-0 text-background/70" />
+      ) : (
+        <FileText className="size-3.5 shrink-0 text-background/70" />
+      )}
+      <span className="truncate font-medium text-background">{fileName}</span>
+    </div>
+  );
+};

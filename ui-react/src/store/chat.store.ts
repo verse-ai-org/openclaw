@@ -87,6 +87,20 @@ export interface ChatMessage {
   contentBlocks?: ContentBlock[];
 }
 
+/** A pending file attachment waiting to be sent with the next message. */
+export interface PendingAttachment {
+  /** Unique ID for UI keying */
+  id: string;
+  /** Original file name */
+  fileName: string;
+  /** MIME type */
+  mimeType: string;
+  /** File size in bytes */
+  size: number;
+  /** Base64 encoded file content (without data URL prefix) */
+  base64: string;
+}
+
 interface ChatState {
   // History (loaded from gateway)
   messages: ChatMessage[];
@@ -121,6 +135,9 @@ interface ChatState {
   // Last error message (shown inline in the thread)
   lastError: string | null;
 
+  // Pending file attachments (files selected but not yet sent)
+  pendingAttachments: PendingAttachment[];
+
   // Actions
   setSending: (v: boolean) => void;
   setMessages: (msgs: ChatMessage[]) => void;
@@ -130,31 +147,20 @@ interface ChatState {
   appendStreamChunk: (text: string) => void;
   setStream: (text: string) => void;
   setRunId: (id: string | null) => void;
-  /**
-   * Clear streaming text buffer, run id, committed blocks, and in-flight tool stream.
-   * Use when a turn ends or before starting a new outbound message.
-   */
   resetStream: () => void;
-  /**
-   * Freeze the current stream text as a committed text block.
-   * Called when a tool call starts so the preceding text stays rendered.
-   */
   commitCurrentText: () => void;
-  /**
-   * Finalize the stream into a permanent ChatMessage, preserving all
-   * committed blocks and in-flight tool calls.
-   */
   finalizeStream: () => void;
   upsertToolStream: (entry: ToolStreamEntry) => void;
   resetToolStream: () => void;
   setPendingHistoryReloadKey: (key: string | null) => void;
   setLastError: (msg: string | null) => void;
-  /**
-   * Truncate the message list to keep only messages whose ID comes before
-   * (and including) the given parentId. Pass null to clear all messages.
-   * Used for message editing: discard everything after the edited message's parent.
-   */
   truncateMessagesAfter: (parentId: string | null) => void;
+  /** Add pending attachments (called when user selects files) */
+  addPendingAttachments: (attachments: PendingAttachment[]) => void;
+  /** Remove a single pending attachment by id */
+  removePendingAttachment: (id: string) => void;
+  /** Clear all pending attachments (called after send) */
+  clearPendingAttachments: () => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -169,6 +175,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   sessionKey: null,
   pendingHistoryReloadKey: null,
   lastError: null,
+  pendingAttachments: [],
 
   setSending: (v) => set({ sending: v }),
 
@@ -296,6 +303,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setPendingHistoryReloadKey: (key) => set({ pendingHistoryReloadKey: key }),
 
   setLastError: (msg) => set({ lastError: msg }),
+
+  addPendingAttachments: (attachments) =>
+    set((state) => ({ pendingAttachments: [...state.pendingAttachments, ...attachments] })),
+
+  removePendingAttachment: (id) =>
+    set((state) => ({
+      pendingAttachments: state.pendingAttachments.filter((a) => a.id !== id),
+    })),
+
+  clearPendingAttachments: () => set({ pendingAttachments: [] }),
 
   truncateMessagesAfter: (parentId) => {
     set((state) => {

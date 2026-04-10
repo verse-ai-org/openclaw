@@ -397,6 +397,7 @@
     "tslog": "^4.10.2",
     "undici": "^7.22.0",
     "ws": "^8.19.0",
+    "xlsx": "^0.18.5",
     "yaml": "^2.8.2",
     "zod": "^4.3.6"
   },
@@ -407,6 +408,7 @@
     "@types/express": "^5.0.6",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.3.5",
+    "@types/pdf-parse": "^1.1.5",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/ws": "^8.18.1",
     "@typescript/native-preview": "7.0.0-dev.20260308.1",

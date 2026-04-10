@@ -228,16 +228,16 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setMessages([...useChatStore.getState().messages, userMsg]);
       useChatStore.getState().setSending(true);
 
-      // Build attachments from image content parts if present
-      const attachments = message.content
-        .filter((p) => p.type === "image")
-        .map((p) => {
-          if (p.type === "image") {
-            return { dataUrl: p.image, mimeType: "image/png" };
-          }
-          return null;
-        })
-        .filter(Boolean);
+      // Build attachments from pendingAttachments in the store
+      const pendingAttachments = useChatStore.getState().pendingAttachments;
+      const attachments = pendingAttachments.map((att) => ({
+        content: att.base64,
+        mimeType: att.mimeType,
+        fileName: att.fileName,
+      }));
+
+      // Clear pending attachments after building
+      useChatStore.getState().clearPendingAttachments();
 
       const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
 

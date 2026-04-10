@@ -96,12 +96,25 @@ export const DEFAULT_INPUT_IMAGE_MIMES = [
   "image/heif",
 ];
 export const DEFAULT_INPUT_FILE_MIMES = [
+  // Text files
   "text/plain",
   "text/markdown",
   "text/html",
   "text/csv",
+  // Data files
   "application/json",
+  "application/xml",
+  // PDF
   "application/pdf",
+  // Word documents
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  // Excel spreadsheets
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  // PowerPoint presentations
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 export const DEFAULT_INPUT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 export const DEFAULT_INPUT_FILE_MAX_BYTES = 5 * 1024 * 1024;
