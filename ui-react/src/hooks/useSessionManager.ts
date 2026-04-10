@@ -201,7 +201,7 @@ export function useSessionManager() {
       const newKey = agentId
         ? `agent:${agentId}:${crypto.randomUUID().slice(0, 8)}`
         : crypto.randomUUID().slice(0, 8);
-      setSessions((prev) => [...prev, { key: newKey }]);
+      setSessions((prev) => [{ key: newKey }, ...prev]);
       await switchSession(newKey);
     },
     [client, switchSession],
