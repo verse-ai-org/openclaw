@@ -269,14 +269,19 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   // Handler: cancel ongoing generation
   const onCancel = useCallback(async () => {
     const currentRunId = useChatStore.getState().runId;
+    const activeSession =
+      useChatStore.getState().sessionKey ?? settings.sessionKey ?? "main";
     try {
-      await client?.request("chat.abort", { runId: currentRunId });
+      await client?.request("chat.abort", {
+        sessionKey: activeSession,
+        ...(currentRunId ? { runId: currentRunId } : {}),
+      });
     } catch (err) {
       console.error("[chat] abort failed:", err);
     }
     useChatStore.getState().resetStream();
     useChatStore.getState().setSending(false);
-  }, [client]);
+  }, [client, settings.sessionKey]);
 
   // Handler: user edits a past message and resubmits.
   // parentId is the last message that should REMAIN in the thread.

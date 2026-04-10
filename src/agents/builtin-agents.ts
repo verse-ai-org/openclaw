@@ -44,7 +44,14 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     name: "Travel Planner",
     workspace: "~/.openclaw/agents/travel-planner",
     templateSubdir: "agents/travel-planner",
-    skills: ["travel-planner", "xiaohongshu", "flyai", "amap-lbs-skill", "12306"],
+    skills: [
+      "travel-planner",
+      "xiaohongshu",
+      "flyai",
+      "amap-lbs-skill",
+      "12306",
+      "weather",
+    ],
     tools: { profile: "full", deny: [] },
   },
   {
@@ -52,7 +59,12 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     name: "Office Helper",
     workspace: "~/.openclaw/agents/my-office-helper",
     templateSubdir: "agents/my-office-helper",
-    skills: ["word-docx", "excel-xlsx", "my-pdf", "office-document-specialist-suite"],
+    skills: [
+      "word-docx",
+      "excel-xlsx",
+      "my-pdf",
+      "office-document-specialist-suite",
+    ],
     tools: { profile: "full", deny: [] },
   },
 ] as const;
@@ -99,7 +111,14 @@ export async function ensureBuiltinAgents(
       ...(builtin.name ? { name: builtin.name } : {}),
       ...(builtin.workspace ? { workspace: builtin.workspace } : {}),
       ...(builtin.skills ? { skills: builtin.skills } : {}),
-      ...(builtin.tools ? { tools: { ...builtin.tools, deny: builtin.tools.deny ? [...builtin.tools.deny] : undefined } } : {}),
+      ...(builtin.tools
+        ? {
+            tools: {
+              ...builtin.tools,
+              deny: builtin.tools.deny ? [...builtin.tools.deny] : undefined,
+            },
+          }
+        : {}),
     });
     dirty = true;
 

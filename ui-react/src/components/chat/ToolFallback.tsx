@@ -217,13 +217,13 @@ function parseMarkdown(markdown: string): { frontmatter: string; body: string } 
 }
 
 function truncateMiddle(text: string, max = 96): string {
-  if (text.length <= max) return text;
+  if (text.length <= max) { return text; }
   const side = Math.floor((max - 1) / 2);
   return `${text.slice(0, side)}…${text.slice(text.length - side)}`;
 }
 
 function buildArgsPreview(toolName: string, argsText: string | null | undefined): string {
-  if (!argsText) return "";
+  if (!argsText) { return ""; }
 
   const fallback = truncateMiddle(argsText.replace(/\s+/g, " ").trim(), 96);
 
@@ -241,26 +241,26 @@ function buildArgsPreview(toolName: string, argsText: string | null | undefined)
 
     if (category === "exec") {
       const command = readString("command") ?? readString("cmd");
-      if (command) return truncateMiddle(command, 110);
+      if (command) { return truncateMiddle(command, 110); }
     }
 
     if (category === "read" || category === "write" || category === "file") {
       const path = readString("path") ?? readString("file") ?? readString("target");
-      if (path) return truncateMiddle(path, 110);
+      if (path) { return truncateMiddle(path, 110); }
     }
 
     if (category === "search") {
       const query = readString("query") ?? readString("pattern") ?? readString("keyword");
-      if (query) return truncateMiddle(query, 110);
+      if (query) { return truncateMiddle(query, 110); }
     }
 
     const action = readString("action");
     const sessionId = readString("sessionId") ?? readString("session");
-    if (action && sessionId) return `${action} (${sessionId})`;
-    if (action) return action;
+    if (action && sessionId) { return `${action} (${sessionId})`; }
+    if (action) { return action; }
 
     const url = readString("url");
-    if (url) return truncateMiddle(url, 110);
+    if (url) { return truncateMiddle(url, 110); }
 
     const compact = Object.entries(obj)
       .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
@@ -400,25 +400,8 @@ function ToolDetailDrawer({
 // ---------------------------------------------------------------------------
 // ToolFallback — main card component
 // ---------------------------------------------------------------------------
-const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, result, status }) => {
+const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, result, status, isError }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const statusType: ToolStatus =
-    status?.type === "running"
-      ? "running"
-      : status?.type === "incomplete"
-        ? "incomplete"
-        : "complete";
-
-  const isCancelled = status?.type === "incomplete" && status.reason === "cancelled";
-  const category = classifyTool(toolName);
-  const cfg = TOOL_CATEGORY_CONFIG[category];
-  const Icon = cfg.Icon;
-
-  const toolLabel = formatToolLabel(toolName);
-  const argsPreview = buildArgsPreview(toolName, argsText);
-
-  console.log("[ToolFallback]", toolName, { argsText, result, status });
 
   // Result string for display
   const resultStr =
@@ -430,15 +413,65 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
 
   if (process.env.NODE_ENV === "development") {
     // eslint-disable-next-line no-console
-    console.log("[ToolFallback]", toolName, { result, resultStr, status });
+    console.log("[ToolFallback]", toolName, { result, resultStr, status, isError });
   }
+
+  /**
+   * Detect tool failure from result content when the upstream does not set isError.
+   * Some tools (e.g. web_fetch) return a JSON object with `"status":"error"` as the
+   * result string instead of using the isError flag.
+   */
+  function resultIndicatesError(str: string | undefined): boolean {
+    if (!str) { return false; }
+    try {
+      const parsed = JSON.parse(str) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const obj = parsed as Record<string, unknown>;
+        // Matches { status: "error" } or { error: "..." } at top level
+        return obj["status"] === "error" || (typeof obj["error"] === "string" && obj["error"].length > 0);
+      }
+    } catch {
+      // Not JSON — check for common plain-text error patterns
+      return /^error[:\s]/i.test(str.trimStart());
+    }
+    return false;
+  }
+
+  // isError=true means the tool failed even when status.type is "complete"
+  // (assistant-ui marks it complete because result is present, but the gateway
+  // emitted phase:"result" + isError:true which maps to phase:"error" in the store).
+  // Also detect error from result content for tools that embed error info in the result.
+  const hasResultError = resultIndicatesError(resultStr);
+  const statusType: ToolStatus =
+    status?.type === "running"
+      ? "running"
+      : status?.type === "incomplete" || isError === true || hasResultError
+        ? "incomplete"
+        : "complete";
+
+  const isCancelled = status?.type === "incomplete" && status.reason === "cancelled";
+  const category = classifyTool(toolName);
+  const cfg = TOOL_CATEGORY_CONFIG[category];
+  const Icon = cfg.Icon;
+
+  const toolLabel = formatToolLabel(toolName);
+  const argsPreview = buildArgsPreview(toolName, argsText);
 
   const errorMessage =
     status?.type === "incomplete" && status.error
       ? typeof status.error === "string"
         ? status.error
         : JSON.stringify(status.error)
-      : undefined;
+      : hasResultError && resultStr
+        ? (() => {
+            try {
+              const obj = JSON.parse(resultStr) as Record<string, unknown>;
+              return typeof obj["error"] === "string" ? obj["error"] : resultStr;
+            } catch {
+              return resultStr;
+            }
+          })()
+        : undefined;
 
   // Only allow opening drawer when not running
   const canViewDetail = statusType !== "running";
