@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { buildPreTripBrief } from "./briefing.mjs";
 import { readJsonFromCliValue, requireFlag, runScript } from "./cli_args.mjs";
-import { getPreferences, getTripById } from "./db.mjs";
+import { getPreferences, getSelectedRoute, getTripById } from "./db.mjs";
 import { buildLiveValidation } from "./route-validation.mjs";
 
 function pyStripChars(str, chars) {
@@ -27,7 +27,7 @@ export function inferTripStage(tripData) {
   if (tripData.stage) return tripData.stage;
   if (tripData.during_trip) return "in_trip";
   if (tripData.bookings_confirmed) return "ready_to_book";
-  if (tripData.selected_route && Object.keys(tripData.selected_route).length) return "plan_ready";
+  if (tripData.selected_route_id || tripData.chosen_route_id) return "plan_ready";
   if (tripData.route_options?.length) return "route_plan";
   return "intake";
 }
@@ -60,7 +60,13 @@ export function generateRouteFraming(tripData) {
     const quality = String(evidenceMeta.quality || "").toLowerCase();
     const verificationStatus = String(evidenceMeta.verification_status || "");
     const sourceConfidence =
-      quality === "high" ? "high" : quality === "medium" ? "medium" : quality === "low" ? "low" : "persisted";
+      quality === "high"
+        ? "high"
+        : quality === "medium"
+          ? "medium"
+          : quality === "low"
+            ? "low"
+            : "persisted";
     const sourceReason = String(existing?.decision_summary?.source_reason || "");
     return {
       stage: "route_plan",
@@ -106,8 +112,9 @@ export function generateRouteFraming(tripData) {
 
 export function generatePlanSkeleton(tripData, preferences) {
   const destination = tripData.destination || {};
-  // 使用已选定路线，若尚未选定则读取已持久化的 route_plan
-  const route = tripData.selected_route || generateRouteFraming(tripData).recommended_route || {};
+  // Resolve the selected route object from route_options; fall back to persisted route_plan.
+  const route =
+    getSelectedRoute(tripData) || generateRouteFraming(tripData).recommended_route || {};
   const travelers = tripData.travelers || 2;
   const duration = tripData.duration_days || 7;
   const budgetTotal = tripData.budget?.total || 0;
@@ -137,7 +144,7 @@ export function generateDailyItinerary(destination, tripData, interests, pace = 
   const itinerary = [];
   const numDays = Number.parseInt(String(tripData.duration_days || 7), 10);
   const departureDate = tripData.departure_date || "";
-  const route = tripData.selected_route || {};
+  const route = getSelectedRoute(tripData);
   const destinationName = destination.city || destination.region || destination.country || "目的地";
 
   for (let day = 1; day <= numDays; day++) {
@@ -553,12 +560,9 @@ export function generateTripPlan(tripData) {
   // 读取已持久化的路线框定（第四步 save_route_plan 写入）
   const routeFraming = generateRouteFraming(tripData);
   const routeChoiceConfirmed = tripData.route_choice_confirmed === true;
-  const selectedRoute = routeChoiceConfirmed ? tripData.selected_route || {} : {};
+  const selectedRoute = routeChoiceConfirmed ? getSelectedRoute(tripData) : {};
 
-  const skeleton = generatePlanSkeleton(
-    { ...tripData, selected_route: selectedRoute },
-    preferences,
-  );
+  const skeleton = generatePlanSkeleton({ ...tripData }, preferences);
 
   // 读取已持久化的 route_validation（第五步写入）；若尚未走到第五步则自动生成预览版（不写入 DB）
   const persistedValidation = tripData.route_validation || {};
@@ -593,12 +597,7 @@ export function generateTripPlan(tripData) {
 
   const hydratedItinerary = itineraryReady
     ? hydrateItineraryWithBookingReady(
-        generateDailyItinerary(
-          destination,
-          { ...tripData, selected_route: selectedRoute },
-          interests,
-          pace,
-        ),
+        generateDailyItinerary(destination, tripData, interests, pace),
         bookingReady,
         tripData.confirmed_bookings || {},
       )
@@ -626,6 +625,7 @@ export function generateTripPlan(tripData) {
     route_plan: routeFraming,
     route_validation: liveValidation,
     plan_skeleton: skeleton,
+    selected_route_id: tripData.selected_route_id || tripData.chosen_route_id || "",
     selected_route: selectedRoute,
     booking_strategy: bookingStrategy,
     booking_ready: bookingReady,

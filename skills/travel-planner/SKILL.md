@@ -74,6 +74,25 @@ node {baseDir}/scripts/db.mjs --cmd=save_preferences --payload='{"departure_city
 
 ### 第三步：创建 trip 记录
 
+**硬守卫（不可跳过）**：在执行 `add_trip` 之前，必须先查询是否有进行中的行程：
+
+```bash
+node {baseDir}/scripts/db.mjs --cmd=get_active_trips
+```
+
+- 若返回 `active_trips` 为空数组：直接新建。
+- 若返回有 1 条或多条：**必须询问用户**，示例措辞：
+
+  > 我发现你有 [N] 个进行中的行程：
+  > 1. [destination_text]，[duration_days] 天，当前阶段：[stage]
+  > 2. ...
+  >
+  > 是继续规划其中某个，还是开始一个新的行程？
+
+  - 用户选择**继续**：记录对应 `trip_id`，跳过 `add_trip`，直接进入下一步。
+  - 用户选择**新建**：继续执行 `add_trip`。
+  - **不得在用户明确回答前自行判断或跳过此问**。
+
 尽快建档，允许字段不完整：
 
 ```bash
@@ -86,7 +105,7 @@ node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新
 
 #### 目标
 
-- 使用外部平台帮助用户做路线规划，平台包括：小红书（抄作业）、搜索。
+- 使用外部平台帮助用户做路线规划，平台包括：小红书、搜索。
 - 路线框定阶段以内容驱动为主（`xhs/search`），支持用户手动粘贴内容（如小红书图文链接/正文摘要/截图转文字）作为输入证据。
 - 始终输出 2-3 条带 `route_id` 的候选路线，并要求用户确认选择。
 
@@ -94,12 +113,12 @@ node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新
 
 先问用户：
 
-`你想用哪个平台来参考框定路线：小红书（抄作业）/ 搜索？`
+`你想用哪个平台来参考框定路线：小红书 / 搜索？`
 
-- 未指定时默认 `搜索`，默认使用Brave来搜索。
+**硬守卫（不可绕过）**：必须等用户回答后才能开始检索，无论用户是否"显然想往下走"，都不允许跳过这一问。唯一例外：用户在本轮消息中已明确说出"默认就行 / 你决定 / 按默认 / 用搜索 / 用小红书"等等效表达，方可直接采用对应平台。
+
+- 未指定时默认使用`搜索`（Brave）。
 - 如果小红书流程失败：必须提示用户二选一（`手动提供小红书内容` 或 `改用搜索`）。
-- 硬守卫：在用户未完成平台选择前，不得直接执行任意平台检索。
-- 仅当用户明确表示“默认就行/你决定/按默认”时，才可直接使用默认 `搜索`。
 - 当发生平台降级（`xhs -> search`）时，必须在回复中显式提示：`已从小红书降级到搜索`，并说明降级原因。
 
 #### 实现边界（强约束）
@@ -125,7 +144,7 @@ node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json_with_route_pla
 
 #### 必须顺序（不可跳步）
 
-1. 读取或设置 `route_source_preference`（`xhs`/`search`）。
+1. 确认用户已在本步骤中明确选择平台（`xhs` 或 `search`），不得自行设置默认值直接继续。
 2. 按当前平台拉取上游证据：
    - `search`：默认使用搜索获取路线证据；仅当用户明确指定其他搜索引擎时覆盖默认值。
    - `xhs`：调用 `@skills/xiaohongshu` 的 `search-feeds` 和 `get-feed-detail`。
@@ -216,37 +235,77 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 核心要点：
 - 必须先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
 - 给出 2-3 条 `route_id` 路线选项，每条 1 行权衡（时间成本/换乘压力/景观收益）
-- 最后必须发起确认问题（让用户选 `route_id`）
+- 最后必须发起确认问题（让用户选 `route_id`）, 同时说明下一步内容
 
 ### 第五步：调研交通和天气
 
 #### 必须顺序（不可跳步）
 
 1. 确认 `route_choice_confirmed=true` 且存在 `chosen_route_id`。
-2. 使用当前 `trip + selected_route + preferences` 运行一次 `route-validation.mjs` 获取 `tool_plan`（仅生成 `skill_action + skill_input` 计划，不执行外部技能）。
-3. 本步只做两类可行性核验：
-   - 交通可达性（仅在“需要跨城长途交通”时执行）；
-   - 天气窗口风险（始终执行）。
-4. 仅允许给风险提醒（如极端天气建议选取其他路线，旺季建议尽早锁房等）。
-5. 按 `tool_plan` 调用相关技能（`@skills/flyai`、`@skills/12306`、`@skills/amap-lbs-skill`、`@skills/weather`），不要跳过规划阶段直接乱调。
-6. 将原始结果交给 `booking-ready.mjs` 输出轻结论：`go(可行) / caution（慎重） / block（不可行）`。
-7. **必须向用户发起确认**（是否继续下一步）；未确认不得进入后续步骤。
+2. 从 `route_options` 取出 `chosen_route_id` 对应的路线，读取 `stops`。
 
-#### 兜底处理
-`{baseDir}/scripts/route-validation.mjs` 只生成检查计划，不会自动修复外部依赖故障。若调用失败：
+**交通核验**（出发城市 ≠ `stops[0]` 时执行）：
 
-1. 明确说明哪一项失败（`flyai`/`12306`/`amap-lbs-skill`/web）。
-2. 仍可给路线框定与骨架方案，但价格/余票/时刻必须标注为**未验证**。
-3. `booking_ready` 输入不完整时，不得宣称“可直接下单”。
-4. 若已有阶段性结果，优先写入 `db.mjs` 便于续跑。
+3. 从 `trip.departure_city` 或 `preferences.departure_city` 确定出发城市。
+4. 判断出行方式（分两段）：
+   - **进入段**（出发城市 → `stops[0]`）：无论 `trip.constraints` 是否包含「自驾」，若两地跨省或距离显著（> 500km），使用 `@skills/flyai search-flight` 查询航班；若同省或中短途（< 500km），使用 `@skills/amap-lbs-skill` 评估驾车/高铁可行性。
+   - **游览段**（`stops` 内部转场）：若 `trip.constraints` 包含「自驾」，用 `@skills/amap-lbs-skill` 查询关键相邻 stop 之间的驾车时长，评估单日转场是否现实（超过 4 小时需提醒）；否则说明以公共交通/包车为主，无需单独验证。
+5. 将原始结果写入 `route_validation.transport_result`，并记录 `status: ok / unavailable / not_required`。
 
+**天气核验**（始终执行）：
+
+6. 从 `stops` 中选取 2-3 个有代表性的地点（首站、中间高海拔/偏远站、末站）。
+7. 使用 `@skills/weather` 查询每个地点在 `trip.departure_date ~ trip.return_date` 内的天气预报。
+8. 将原始结果写入 `route_validation.weather_result`，并按以下规则裁决 `status`：
+   - `go`：无明显风险
+   - `caution`：2 天以上连续强降雨/大雪/风力预警，或极端高温/低温影响户外活动
+   - `block`：核心路段（如折多山、高原公路）因天气存在通行安全风险
+
+**裁决与持久化**（必须在向用户回复前完成）：
+
+9. 综合交通 + 天气结果，写入 `verdict: go / caution / block` 和 `verdict_reasons`。
+10. 持久化：
 
 ```bash
-# 仅构建验证计划（tool_plan），不直接执行外部 skill
-node {baseDir}/scripts/route-validation.mjs --trip='<trip_json>' --route='<route_json>' --preferences='<prefs_json>'
+node {baseDir}/scripts/db.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='{"route_validation": <route_validation_json>}'
 ```
 
+11. **必须向用户发起确认**：输出验证结论后，以「需要我总结当前的计划骨架行程吗？」收尾；未收到用户明确确认不得进入 Step 6。
+
+#### `route_validation` 写入结构
+
+```json
+{
+  "stage": "validated",
+  "transport_result": {
+    "required": true,
+    "mode": "flight",
+    "checked": true,
+    "raw": {},
+    "status": "ok"
+  },
+  "weather_result": {
+    "locations_checked": ["成都", "四姑娘山", "康定"],
+    "raw": {},
+    "status": "caution"
+  },
+  "verdict": "caution",
+  "verdict_reasons": ["5月初四姑娘山有降雪风险"],
+  "checked_at": ""
+}
+```
+
+#### 兜底处理
+
+若技能调用失败：
+1. 明确说明哪一项失败（`flyai` / `amap-lbs-skill` / `weather`）。
+2. 仍可给路线框定与骨架方案，但价格/时刻/天气必须标注为**未验证**。
+3. 有阶段性结果时优先写入 `db.mjs` 便于续跑，命令同步骤 10。
+
+
 ### 第六步：确认计划骨架
+
+**进入条件**：用户已对 Step 5 验证结论明确确认（如「需要」/ 「是」/ 「总结一下」等等效表达）。
 
 总结计划骨架，并二次确认：
 
@@ -281,8 +340,8 @@ node {baseDir}/scripts/plan-generator.mjs --trip-id=<id>
 必须满足：
 
 - `route_choice_confirmed === true`
-- `selected_route` 已存在
-- `light_validation_confirmed === true`（用户已确认 Step 5 结论）
+- `chosen_route_id` 已存在
+- 用户已确认 Step 6 结论
 - 本步仅生成“简要每日计划骨架”，不考虑机票/高铁/酒店选择。
 
 本步输出目标（仅简要每日计划）：
@@ -393,27 +452,13 @@ node {baseDir}/scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
 - Trips: `~/.openclaw/agents/travel-planner/trips.json`
 - CLI 统一入口：`node scripts/<script>.mjs --key=value`
 
-常用命令：
-
-```bash
-node {baseDir}/scripts/db.mjs --cmd=is_initialized
-node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='<json>' --list=current
-node {baseDir}/scripts/db.mjs --cmd=save_route_evidence --trip-id=<id> --platform=xhs --payload='<route_evidence_json>'
-node {baseDir}/scripts/db.mjs --cmd=get_route_evidence --trip-id=<id>
-node {baseDir}/scripts/db.mjs --cmd=get_preferences
-node {baseDir}/scripts/db.mjs --cmd=get_trips --status=current
-node {baseDir}/scripts/db.mjs --cmd=stats
-node {baseDir}/scripts/plan-generator.mjs --trip-id=<id> --output=plan.json
-node {baseDir}/scripts/db.mjs --cmd=export
-```
-
 ## 资源索引
 
 | Path | Role |
 |------|------|
 | `scripts/db.mjs` | 偏好、行程、预算摘要、导出（唯一状态存储层） |
 | `scripts/route-plan.mjs` | 路线候选结构化输出 |
-| `scripts/route-validation.mjs` | 校验计划与门限（不直接调用外部 API） |
+| `scripts/route-validation.mjs` | 对实时技能结果做可行性裁决（`go/caution/block`），不再生成 tool_plan |
 | `scripts/plan-generator.mjs` | 读取已持久化的 trip，输出骨架计划、每日卡片、打包建议（不主动调用其他计算模块） |
 | `scripts/xhs-evidence-builder.mjs` | 规范化小红书搜索结果，输出 `route_evidence` 对象（其中 `platform=xhs`，第四步 xhs 链路必走） |
 | `scripts/booking-ready.mjs` | 合并实时结果生成 booking-ready 包 |

@@ -54,10 +54,9 @@ const TRIP_DEFAULTS = {
   nice_to_have: [],
 
   // ---- route planning ----
-  // selected_route is the active route snapshot:
-  // - before confirm: current recommended route
-  // - after confirm: user-chosen route
-  selected_route: {},
+  // selected_route_id: id of the active route (resolved via route_options).
+  // selected_route is kept as a read-only computed accessor; do NOT write to it directly.
+  selected_route_id: "",
   route_source_preference: "auto",
   route_source_used: "",
   route_source_fallbacks: [],
@@ -100,15 +99,21 @@ function emptyRoutePlanning() {
 function emptyLiveValidation() {
   return {
     stage: "",
-    priority_checks: [],
-    tool_plan: {
-      flights: [],
-      pois: [],
-      transport: [],
+    transport_result: {
+      required: false,
+      mode: "",
+      checked: false,
+      raw: {},
+      status: "",
     },
-    decision_gates: [],
-    booking_ready_sections: [],
-    response_upgrade_rule: "",
+    weather_result: {
+      locations_checked: [],
+      raw: {},
+      status: "",
+    },
+    verdict: "",
+    verdict_reasons: [],
+    checked_at: "",
   };
 }
 
@@ -209,7 +214,8 @@ function normalizePlatformName(platform) {
     .toLowerCase();
   if (!text) return "search";
   if (text === "xiaohongshu" || text === "小红书") return "xhs";
-  if (text === "search" || text === "搜索" || text === "search_engine" || text === "搜索引擎") return "search";
+  if (text === "search" || text === "搜索" || text === "search_engine" || text === "搜索引擎")
+    return "search";
   return text;
 }
 
@@ -269,7 +275,8 @@ function normalizeEvidenceV1(platform, evidencePayload) {
     verification_status: normalizeVerificationStatus(payload.verification_status),
     generated_at: String(payload.generated_at || new Date().toISOString()),
     sources,
-    route_hints: payload.route_hints && typeof payload.route_hints === "object" ? payload.route_hints : {},
+    route_hints:
+      payload.route_hints && typeof payload.route_hints === "object" ? payload.route_hints : {},
     meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
   };
 }
@@ -313,12 +320,33 @@ export function normalizeTripRecord(trip) {
   // Open-phase schema cleanup: actively drop deprecated duplicated fields.
   delete trip.route_candidates;
   delete trip.source_reason;
+  // Migrate legacy selected_route object → selected_route_id string.
+  if (
+    trip.selected_route &&
+    typeof trip.selected_route === "object" &&
+    Object.keys(trip.selected_route).length
+  ) {
+    const legacyId = trip.selected_route.route_id || "";
+    if (legacyId && !trip.selected_route_id) trip.selected_route_id = legacyId;
+    delete trip.selected_route;
+  }
   if (!trip.route_plan) trip.route_plan = emptyRoutePlanning();
   if (!trip.route_evidence_meta) trip.route_evidence_meta = {};
   if (!trip.route_validation) trip.route_validation = emptyLiveValidation();
   if (!trip.live_results) trip.live_results = emptyLiveResults();
   if (!trip.booking_ready) trip.booking_ready = emptyBookingReady();
   return trip;
+}
+
+/**
+ * Resolve the selected route object from route_options by selected_route_id.
+ * Returns {} when not found, so callers can safely destructure.
+ */
+export function getSelectedRoute(trip) {
+  const id = trip.selected_route_id || trip.chosen_route_id || "";
+  if (!id) return {};
+  const options = Array.isArray(trip.route_options) ? trip.route_options : [];
+  return options.find((o) => o?.route_id === id) ?? {};
 }
 
 export function isInitialized() {
@@ -384,6 +412,27 @@ export function getTrips(status = "all") {
     return { [key]: trips[key] ?? [] };
   }
   return {};
+}
+
+const INACTIVE_STAGES = new Set(["done", "cancelled"]);
+
+/**
+ * 返回 current_trips 中尚未结束（stage 不为 done/cancelled）的行程摘要列表。
+ * 用于第三步前的防重检查：agent 先查是否有进行中的 trip，再决定新建还是续规划。
+ */
+export function getActiveTrips() {
+  const trips = loadJson(tripsFile());
+  const list = (trips.current_trips ?? []).filter((t) => !INACTIVE_STAGES.has(t.stage));
+  return list.map((t) => ({
+    id: t.id,
+    destination_text: t.destination_text,
+    stage: t.stage,
+    duration_days: t.duration_days,
+    departure_date: t.departure_date ?? "",
+    travelers: t.travelers,
+    created_at: t.created_at,
+    updated_at: t.updated_at ?? "",
+  }));
 }
 
 export function addTrip(trip, status = "current") {
@@ -463,7 +512,8 @@ export function saveRouteFramingWithSource(
   };
   const updates = {
     stage: "route_plan",
-    selected_route: recommendedRoute || {},
+    selected_route_id:
+      recommendedRoute && recommendedRoute.route_id ? recommendedRoute.route_id : "",
     route_options: routeOptions,
     route_choice_confirmed: false,
     chosen_route_id: "",
@@ -475,9 +525,11 @@ export function saveRouteFramingWithSource(
       fallback_count: Number.isFinite(Number(fallbackCount)) ? Number(fallbackCount) : 0,
       fallback_reason: fallbackReason || "",
       fallback_chain: normalizedFallbacks,
-      recommended_route: recommendedRoute,
-      alternatives: alternatives || [],
-      rejected_routes: rejectedRoutes || [],
+      // Only store ids here; resolve full objects via getSelectedRoute(trip) + route_options.
+      recommended_route_id:
+        recommendedRoute && recommendedRoute.route_id ? recommendedRoute.route_id : "",
+      alternative_ids: (alternatives || []).map((r) => r?.route_id).filter(Boolean),
+      rejected_route_ids: (rejectedRoutes || []).map((r) => r?.route_id).filter(Boolean),
       decision_summary: normalizedDecisionSummary,
     },
   };
@@ -492,7 +544,7 @@ export function confirmRouteChoice(tripId, routeId) {
   const chosen = options.find((option) => option?.route_id === routeId);
   if (!chosen) return false;
   return updateTrip(tripId, {
-    selected_route: chosen,
+    selected_route_id: routeId,
     route_choice_confirmed: true,
     chosen_route_id: routeId,
     stage: "plan_ready",
@@ -730,6 +782,7 @@ const CMD_FLAGS = {
   get_preferences: ["cmd"],
   get_trips: ["cmd", "status"],
   get_trip: ["cmd", "trip-id"],
+  get_active_trips: ["cmd"],
   add_trip: ["cmd", "payload", "list"],
   patch_trip: ["cmd", "trip-id", "payload"],
   update_trip: ["cmd", "trip-id", "payload"],
@@ -787,6 +840,8 @@ runScript({
     } else if (command === "get_trip") {
       const tripId = requireFlag(args, "trip-id");
       console.log(JSON.stringify(getTripById(tripId) || {}, null, 2));
+    } else if (command === "get_active_trips") {
+      console.log(JSON.stringify({ active_trips: getActiveTrips() }, null, 2));
     } else if (command === "add_trip") {
       const payload = readJsonFromCliValue("add_trip", args.payload, undefined);
       const listRaw = args.list && args.list !== "" ? args.list : "current";

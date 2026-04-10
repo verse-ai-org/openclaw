@@ -9,7 +9,8 @@ function normalizeText(value) {
 function normalizePlatform(value) {
   const text = normalizeText(value);
   if (text === "xhs" || text === "xiaohongshu" || text === "小红书") return "xhs";
-  if (text === "search" || text === "搜索" || text === "search_engine" || text === "搜索引擎") return "search";
+  if (text === "search" || text === "搜索" || text === "search_engine" || text === "搜索引擎")
+    return "search";
   if (text === "auto" || !text) return "search";
   return "search";
 }
@@ -152,7 +153,9 @@ function buildSearchCandidatesFromEvidence(searchEvidence) {
     .slice(0, 8);
 
   const loops = Array.isArray(searchEvidence?.route_hints?.popular_loops)
-    ? searchEvidence.route_hints.popular_loops.filter((item) => Array.isArray(item) && item.length > 1)
+    ? searchEvidence.route_hints.popular_loops.filter(
+        (item) => Array.isArray(item) && item.length > 1,
+      )
     : [];
   const keyDestinations = uniqueStops(searchEvidence?.route_hints?.key_destinations || []);
 
@@ -357,8 +360,7 @@ export function selectRouteCandidates(tripRequest) {
     next_action: candidates.ok
       ? ""
       : "Switch to the next platform in fallback chain: xhs -> search.",
-    planning_note:
-      "Single-platform route framing. Default xhs; if failed, fallback to search.",
+    planning_note: "Single-platform route framing. Default xhs; if failed, fallback to search.",
   };
 }
 
