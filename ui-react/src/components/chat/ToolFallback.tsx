@@ -27,7 +27,9 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { WeatherWidget } from "@/components/tool-ui/weather-widget/runtime";
 import { plainMdComponents } from "./markdown-components";
+import { tryParseWeatherWidgetPayload } from "./parse-weather-widget-payload";
 
 // ---------------------------------------------------------------------------
 // Tool type classification
@@ -414,6 +416,18 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
   if (process.env.NODE_ENV === "development") {
     // eslint-disable-next-line no-console
     console.log("[ToolFallback]", toolName, { result, resultStr, status, isError });
+  }
+
+  /** Rich weather card — `weather_widget` tool returns WeatherWidgetPayload JSON */
+  if (toolName === "weather_widget" && status?.type !== "running") {
+    const parsed = tryParseWeatherWidgetPayload(result ?? resultStr);
+    if (parsed) {
+      return (
+        <div className="my-2 w-full max-w-3xl overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm">
+          <WeatherWidget {...parsed} effects={{ enabled: true, quality: "medium" }} />
+        </div>
+      );
+    }
   }
 
   /**
