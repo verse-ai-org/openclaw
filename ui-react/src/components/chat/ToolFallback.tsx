@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import { WeatherWidget } from "@/components/tool-ui/weather-widget/runtime";
-import { plainMdComponents } from "./markdown-components";
+import { plainMdComponents } from "../assistant-ui/markdown-text";
 import { tryParseWeatherWidgetPayload } from "./parse-weather-widget-payload";
 
 // ---------------------------------------------------------------------------

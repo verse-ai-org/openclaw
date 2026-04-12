@@ -32,15 +32,28 @@
 - [ui-react/vite.config.ts](file://ui-react/vite.config.ts)
 - [ui-react/src/lib/utils.ts](file://ui-react/src/lib/utils.ts)
 - [ui-react/package.json](file://ui-react/package.json)
+- [ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx](file://ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx)
+- [ui-react/src/components/tool-ui/weather-widget/weather-data-overlay.tsx](file://ui-react/src/components/tool-ui/weather-widget/weather-data-overlay.tsx)
+- [ui-react/src/components/tool-ui/weather-widget/runtime.ts](file://ui-react/src/components/tool-ui/weather-widget/runtime.ts)
+- [ui-react/src/components/tool-ui/weather-widget/schema-runtime.ts](file://ui-react/src/components/tool-ui/weather-widget/schema-runtime.ts)
+- [ui-react/src/components/tool-ui/weather-widget/generated/weather-runtime-core.generated.ts](file://ui-react/src/components/tool-ui/weather-widget/generated/weather-runtime-core.generated.ts)
+- [ui-react/src/components/chat/ToolCallGroup.tsx](file://ui-react/src/components/chat/ToolCallGroup.tsx)
+- [ui-react/src/components/chat/ToolFallback.tsx](file://ui-react/src/components/chat/ToolFallback.tsx)
+- [ui-react/src/components/chat/markdown-components.tsx](file://ui-react/src/components/chat/markdown-components.tsx)
+- [ui-react/src/types/gateway.ts](file://ui-react/src/types/gateway.ts)
+- [ui-react/src/types/channels.ts](file://ui-react/src/types/channels.ts)
+- [ui-react/src/types/plugins.ts](file://ui-react/src/types/plugins.ts)
+- [ui-react/src/types/agents.ts](file://ui-react/src/types/agents.ts)
+- [ui-react/src/types/skills.ts](file://ui-react/src/types/skills.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增微信登录面板组件及其相关功能
-- 新增通道管理UI组件（CatalogCard、ChannelCard、ChannelDetail等）
-- 新增插件管理UI组件（PluginCard、PluginDetailDialog等）
-- 扩展通道状态管理和配置表单功能
-- 增强插件状态管理和安装功能
+- 新增天气小部件组件系统，包含 WebGL 动画效果和实时天气数据展示
+- 新增工具调用组件系统，支持工具分类、状态管理和详细信息展示
+- 新增类型定义系统，提供完整的 TypeScript 类型支持
+- 扩展聊天界面，增强工具调用的可视化和交互体验
+- 增强 Markdown 渲染组件，支持更丰富的文本格式化
 
 ## 目录
 1. [简介](#简介)
@@ -49,10 +62,13 @@
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
 6. [新增功能模块](#新增功能模块)
-7. [依赖关系分析](#依赖关系分析)
-8. [性能考虑](#性能考虑)
-9. [故障排除指南](#故障排除指南)
-10. [结论](#结论)
+7. [天气小部件系统](#天气小部件系统)
+8. [工具调用组件系统](#工具调用组件系统)
+9. [类型定义系统](#类型定义系统)
+10. [依赖关系分析](#依赖关系分析)
+11. [性能考虑](#性能考虑)
+12. [故障排除指南](#故障排除指南)
+13. [结论](#结论)
 
 ## 简介
 
@@ -60,7 +76,7 @@ React 控制界面是 OpenClaw 个人 AI 助手项目中的 React 控制界面�
 
 该控制界面基于 React 19 和 Vite 构建，使用 Zustand 进行状态管理，提供现代化的用户界面和流畅的用户体验。界面采用 shadcn/ui 设计系统，支持深色/浅色主题切换，并集成了完整的聊天功能。
 
-**更新** 新增了微信登录面板、通道管理和插件管理等核心功能模块，大幅增强了系统的可扩展性和用户体验。
+**更新** 新增了天气小部件组件系统、工具调用组件系统、WebGL 动画效果和完整的类型定义系统，大幅增强了系统的可视化能力和类型安全性。
 
 ## 项目结构
 
@@ -81,7 +97,8 @@ B --> B2[chat/]
 B --> B3[channels/]
 B --> B4[plugins/]
 B --> B5[setup-wizard/]
-B --> B6[ui/]
+B --> B6[tool-ui/]
+B --> B7[ui/]
 C --> C1[ChatPage]
 C --> C2[ChannelsPage]
 C --> C3[PluginsPage]
@@ -96,6 +113,19 @@ D --> D4[channels.store.ts]
 D --> D5[plugins.store.ts]
 D --> D6[skills.store.ts]
 D --> D7[logs.store.ts]
+F --> F1[gateway.ts]
+F --> F2[channels.ts]
+F --> F3[plugins.ts]
+F --> F4[agents.ts]
+F --> F5[skills.ts]
+end
+subgraph "工具UI组件"
+B6 --> B61[weather-widget/]
+B61 --> B611[weather-widget-container.tsx]
+B61 --> B612[weather-data-overlay.tsx]
+B61 --> B613[schema-runtime.ts]
+B61 --> B614[runtime.ts]
+B61 --> B615[generated/]
 end
 subgraph "配置文件"
 I[vite.config.ts]
@@ -209,40 +239,45 @@ A --> G[SetupWizard]
 B --> H[ThreadView]
 B --> I[Composer]
 B --> J[ChatSidebar]
-C --> K[ChannelCard]
-C --> L[CatalogCard]
-C --> M[ChannelDetail]
-C --> N[WeixinLoginPanel]
-D --> O[PluginCard]
-D --> P[PluginDetailDialog]
-E --> Q[ThreadView]
-F --> R[SkillCard]
+B --> K[ToolCallGroup]
+B --> L[ToolFallback]
+B --> M[WeatherWidget]
+C --> N[ChannelCard]
+C --> O[CatalogCard]
+C --> P[ChannelDetail]
+C --> Q[WeixinLoginPanel]
+D --> R[PluginCard]
+D --> S[PluginDetailDialog]
+E --> T[ThreadView]
+F --> U[SkillCard]
 end
 subgraph "状态管理层 (State Management)"
-S[Zustand Stores]
-S --> T[gateway.store]
-S --> U[settings.store]
-S --> V[chat.store]
-S --> W[channels.store]
-S --> X[plugins.store]
-S --> Y[skills.store]
+V[Zustand Stores]
+V --> W[gateway.store]
+V --> X[settings.store]
+V --> Y[chat.store]
+V --> Z[channels.store]
+V --> AA[plugins.store]
+V --> AB[skills.store]
 end
 subgraph "业务逻辑层 (Business Logic)"
-Z[useGateway Hook]
-Z --> AA[GatewayClient]
-Z --> AB[Device Identity]
-AC[useSessionManager] --> AD[Session Management]
-AE[useChatEventBridge] --> AF[Event Bridge]
-AG[useChannelsStore] --> AH[Channel Management]
-AI[usePluginsStore] --> AJ[Plugin Management]
+AC[useGateway Hook]
+AC --> AD[GatewayClient]
+AC --> AE[Device Identity]
+AF[useSessionManager] --> AG[Session Management]
+AH[useChatEventBridge] --> AI[Event Bridge]
+AJ[useChannelsStore] --> AK[Channel Management]
+AL[usePluginsStore] --> AM[Plugin Management]
 end
 subgraph "基础设施层 (Infrastructure)"
-AK[WebSocket Protocol]
-AL[LocalStorage]
-AM[SessionStorage]
-AN[Gateway RPC]
-AO[Plugin System]
-AP[Channel System]
+AN[WebSocket Protocol]
+AO[LocalStorage]
+AP[SessionStorage]
+AQ[Gateway RPC]
+AR[Plugin System]
+AS[Channel System]
+AT[WebGL Effects]
+AU[Tool Call System]
 ```
 
 **图表来源**
@@ -316,6 +351,9 @@ ChatPage --> Composer : 包含
 ChatPage --> ChatSidebar : 包含
 ThreadView --> AssistantMessage : 渲染
 ThreadView --> UserMessage : 渲染
+ThreadView --> ToolCallGroup : 渲染
+ThreadView --> ToolFallback : 渲染
+ThreadView --> WeatherWidget : 渲染
 ```
 
 **图表来源**
@@ -647,6 +685,439 @@ ChannelConfigForm --> JsonSchema : 使用
 **章节来源**
 - [ui-react/src/components/channels/shared/ChannelConfigForm.tsx:1-324](file://ui-react/src/components/channels/shared/ChannelConfigForm.tsx#L1-L324)
 
+## 天气小部件系统
+
+### WeatherWidget 组件
+
+WeatherWidget 是天气小部件的核心组件，提供完整的天气数据可视化和 WebGL 动画效果：
+
+```mermaid
+flowchart TD
+Start([WeatherWidget 初始化]) --> CheckReducedMotion[检查运动偏好]
+CheckReducedMotion --> SetupEffects[设置效果参数]
+SetupEffects --> ResolveTime[解析时间信息]
+ResolveTime --> GetCheckpoint[获取时间检查点]
+GetCheckpoint --> GetOverrides[获取效果覆盖]
+GetOverrides --> CalcBrightness[计算场景亮度]
+CalcBrightness --> GetTheme[获取天气主题]
+GetTheme --> RenderCard[渲染卡片容器]
+RenderCard --> CheckEffects[检查效果启用]
+CheckEffects --> RenderOverlay[渲染数据覆盖层]
+CheckEffects --> RenderCanvas[渲染WebGL画布]
+RenderOverlay --> End([完成])
+RenderCanvas --> End
+```
+
+**图表来源**
+- [ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx:20-145](file://ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx#L20-L145)
+
+**章节来源**
+- [ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx:1-145](file://ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx#L1-L145)
+
+### WeatherDataOverlay 组件
+
+WeatherDataOverlay 负责渲染天气数据的覆盖层，包含温度、湿度、风速等信息：
+
+```mermaid
+classDiagram
+class WeatherDataOverlay {
++location : string
++conditionCode : WeatherConditionCode
++temperature : number
++tempHigh : number
++tempLow : number
++forecast : ForecastDay[]
++unit : TemperatureUnit
++theme : WeatherTheme
++timeOfDay : number
++timestamp : string
++className : string
++reducedMotion : boolean
++glassParams : GlassEffectParams
++observeCardDimensions(element, onResize) Function
++getPeakIntensity(timeOfDay) number
++sineEasedGradient(x, y, radius, peakOpacity, steps) string
++WeatherDataOverlay(props) Component
+}
+class GlassEffectParams {
++enabled : boolean
++depth : number
++strength : number
++chromaticAberration : number
++blur : number
++brightness : number
++saturation : number
+}
+WeatherDataOverlay --> GlassEffectParams : 使用
+```
+
+**图表来源**
+- [ui-react/src/components/tool-ui/weather-widget/weather-data-overlay.tsx:88-110](file://ui-react/src/components/tool-ui/weather-widget/weather-data-overlay.tsx#L88-L110)
+
+**章节来源**
+- [ui-react/src/components/tool-ui/weather-widget/weather-data-overlay.tsx:1-587](file://ui-react/src/components/tool-ui/weather-widget/weather-data-overlay.tsx#L1-L587)
+
+### WebGL 动画系统
+
+WebGL 动画系统提供了丰富的天气效果渲染，包括天空、云彩、雨雪、闪电等效果：
+
+```mermaid
+graph TB
+subgraph "WebGL 效果层"
+A[EffectCompositorRuntime] --> B[SkyRenderer]
+A --> C[CloudRenderer]
+A --> D[RainRenderer]
+A --> E[LightningRenderer]
+A --> F[SnowRenderer]
+A --> G[PostProcessor]
+end
+subgraph "渲染管线"
+B --> H[Celestial Shader]
+C --> I[Cloud Shader]
+D --> J[Rain Shader]
+E --> K[Lightning Shader]
+F --> L[Snow Shader]
+G --> M[Post Processing Shader]
+end
+subgraph "效果配置"
+N[EffectSettings] --> O[Quality Settings]
+N --> P[Motion Settings]
+O --> Q[Low/Medium/High/Auto]
+P --> R[Reduced Motion Support]
+end
+```
+
+**图表来源**
+- [ui-react/src/components/tool-ui/weather-widget/generated/weather-runtime-core.generated.ts:1-29](file://ui-react/src/components/tool-ui/weather-widget/generated/weather-runtime-core.generated.ts#L1-L29)
+
+**章节来源**
+- [ui-react/src/components/tool-ui/weather-widget/generated/weather-runtime-core.generated.ts:1-66](file://ui-react/src/components/tool-ui/weather-widget/generated/weather-runtime-core.generated.ts#L1-L66)
+
+## 工具调用组件系统
+
+### ToolCallGroup 组件
+
+ToolCallGroup 负责将连续的工具调用组合成可折叠的组，提供统一的工具调用状态管理：
+
+```mermaid
+classDiagram
+class ToolCallGroup {
++startIndex : number
++endIndex : number
++children : ReactNode
++deriveGroupStatus(parts, messageIsRunning) GroupStatus
++buildIconStrip(toolNames, maxIcons) IconStrip
++ToolCallGroup(props) Component
+}
+class GroupStatus {
+<<enumeration>>
+RUNNING
+DONE
+FAILED
+}
+class ToolCallGroupInner {
++messageIsRunning : boolean
++toolParts : RawToolPart[]
++groupStatus : GroupStatus
++isExpanded : boolean
++userToggledRef : Ref
++handleToggle() void
+}
+ToolCallGroup --> GroupStatus : 使用
+ToolCallGroup --> ToolCallGroupInner : 包含
+```
+
+**图表来源**
+- [ui-react/src/components/chat/ToolCallGroup.tsx:142-145](file://ui-react/src/components/chat/ToolCallGroup.tsx#L142-L145)
+
+**章节来源**
+- [ui-react/src/components/chat/ToolCallGroup.tsx:1-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L274)
+
+### ToolFallback 组件
+
+ToolFallback 是工具调用的回退渲染组件，提供详细的工具调用信息展示：
+
+```mermaid
+flowchart TD
+Start([ToolFallback 初始化]) --> CheckToolName[检查工具名称]
+CheckToolName --> IsWeatherWidget{是否天气工具}
+IsWeatherWidget --> |是| ParsePayload[解析天气数据]
+ParsePayload --> RenderWeather[渲染天气小部件]
+IsWeatherWidget --> |否| CheckStatus[检查工具状态]
+CheckStatus --> ClassifyTool[分类工具类型]
+ClassifyTool --> BuildArgsPreview[构建参数预览]
+BuildArgsPreview --> RenderCard[渲染工具卡片]
+RenderCard --> SetupDrawer[设置详情抽屉]
+SetupDrawer --> End([完成])
+RenderWeather --> End
+```
+
+**图表来源**
+- [ui-react/src/components/chat/ToolFallback.tsx:405-579](file://ui-react/src/components/chat/ToolFallback.tsx#L405-L579)
+
+**章节来源**
+- [ui-react/src/components/chat/ToolFallback.tsx:1-579](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L579)
+
+### Markdown 渲染组件
+
+Markdown 渲染组件提供了统一的 Markdown 文本渲染样式，支持 assistant-ui 上下文和普通上下文：
+
+```mermaid
+classDiagram
+class MarkdownComponents {
++sharedElements : Components
++mdComponents : Components
++plainMdComponents : Components
++CodeWithContext(props) Component
++CodeWithClassName(props) Component
+}
+class SharedElements {
++h1 : Component
++h2 : Component
++h3 : Component
++h4 : Component
++h5 : Component
++h6 : Component
++p : Component
++a : Component
++blockquote : Component
++ul : Component
++ol : Component
++li : Component
++hr : Component
++table : Component
++th : Component
++td : Component
++tr : Component
++sup : Component
++pre : Component
++code : Component
+}
+MarkdownComponents --> SharedElements : 使用
+```
+
+**图表来源**
+- [ui-react/src/components/chat/markdown-components.tsx:19-128](file://ui-react/src/components/chat/markdown-components.tsx#L19-L128)
+
+**章节来源**
+- [ui-react/src/components/chat/markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
+
+## 类型定义系统
+
+### 网关类型定义
+
+网关类型定义系统提供了完整的 TypeScript 类型支持，涵盖设置、导航、协议等各个方面：
+
+```mermaid
+classDiagram
+class UiSettings {
++gatewayUrl : string
++token : string
++sessionKey : string
++lastActiveSessionKey : string
++theme : ThemeMode
++chatFocusMode : boolean
++chatShowThinking : boolean
++splitRatio : number
++navCollapsed : boolean
++navGroupsCollapsed : Record~string,boolean~
++locale : string
+}
+class Tab {
+<<enumeration>>
+AGENTS
+EMPLOYEES
+OVERVIEW
+CHANNELS
+INSTANCES
+SESSIONS
+USAGE
+CRON
+SKILLS
+PLUGINS
+NODES
+CHAT
+CONFIG
+SETTINGS
+DEBUG
+LOGS
+}
+class GatewayHelloOk {
++type : string
++protocol : number
++server : Server
++features : Features
++snapshot : unknown
++auth : Auth
++policy : Policy
+}
+UiSettings --> ThemeMode : 使用
+Tab --> TabGroup : 组合
+GatewayHelloOk --> PresenceEntry : 包含
+```
+
+**图表来源**
+- [ui-react/src/types/gateway.ts:10-22](file://ui-react/src/types/gateway.ts#L10-L22)
+- [ui-react/src/types/gateway.ts:25-41](file://ui-react/src/types/gateway.ts#L25-L41)
+- [ui-react/src/types/gateway.ts:75-88](file://ui-react/src/types/gateway.ts#L75-L88)
+
+**章节来源**
+- [ui-react/src/types/gateway.ts:1-121](file://ui-react/src/types/gateway.ts#L1-L121)
+
+### 通道类型定义
+
+通道类型定义涵盖了各种通信渠道的状态和配置信息：
+
+```mermaid
+classDiagram
+class ChannelAccountSnapshot {
++accountId : string
++name : string
++enabled : boolean
++configured : boolean
++linked : boolean
++running : boolean
++connected : boolean
++reconnectAttempts : number
++lastConnectedAt : number
++lastError : string
++mode : string
++dmPolicy : string
++allowFrom : string[]
++tokenSource : string
++appTokenSource : string
++credentialSource : string
++audienceType : string
++audience : string
++webhookPath : string
++webhookUrl : string
++baseUrl : string
++cliPath : string
++dbPath : string
++port : number
++probe : unknown
+}
+class ChannelCatalogEntry {
++id : string
++label : string
++detailLabel : string
++blurb : string
++systemImage : string
++docsPath : string
++installed : boolean
++npmSpec : string
++order : number
++pluginId : string
++pluginEnabled : boolean
+}
+ChannelAccountSnapshot --> ChannelUiMetaEntry : 使用
+ChannelCatalogEntry --> ChannelUiMetaEntry : 组合
+```
+
+**图表来源**
+- [ui-react/src/types/channels.ts:15-48](file://ui-react/src/types/channels.ts#L15-L48)
+- [ui-react/src/types/channels.ts:272-286](file://ui-react/src/types/channels.ts#L272-L286)
+
+**章节来源**
+- [ui-react/src/types/channels.ts:1-317](file://ui-react/src/types/channels.ts#L1-L317)
+
+### 插件类型定义
+
+插件类型定义提供了完整的插件生命周期和配置信息管理：
+
+```mermaid
+classDiagram
+class PluginRecord {
++id : string
++name : string
++version : string
++description : string
++kind : string
++source : string
++origin : string
++workspaceDir : string
++enabled : boolean
++status : PluginStatus
++error : string
++toolNames : string[]
++hookNames : string[]
++channelIds : string[]
++providerIds : string[]
++gatewayMethods : string[]
++cliCommands : string[]
++services : string[]
++commands : string[]
++httpRoutes : number
++hookCount : number
++configSchema : boolean
++configUiHints : Record~string,PluginConfigUiHint~
++configJsonSchema : Record~unknown,unknown~
+}
+class PluginConfigUiHint {
++label : string
++help : string
++tags : string[]
++advanced : boolean
++sensitive : boolean
++placeholder : string
+}
+PluginRecord --> PluginConfigUiHint : 使用
+```
+
+**图表来源**
+- [ui-react/src/types/plugins.ts:15-40](file://ui-react/src/types/plugins.ts#L15-L40)
+
+**章节来源**
+- [ui-react/src/types/plugins.ts:1-68](file://ui-react/src/types/plugins.ts#L1-L68)
+
+### 代理和技能类型定义
+
+代理和技能类型定义提供了智能体管理和技能系统的基础类型支持：
+
+```mermaid
+classDiagram
+class AgentSkillStatusEntry {
++name : string
++description : string
++source : string
++filePath : string
++baseDir : string
++skillKey : string
++bundled : boolean
++primaryEnv : string
++emoji : string
++homepage : string
++always : boolean
++disabled : boolean
++blockedByAllowlist : boolean
++eligible : boolean
++requirements : Requirements
++missing : Missing
++configChecks : SkillsStatusConfigCheck[]
++install : SkillInstallOption[]
+}
+class Requirements {
++bins : string[]
++env : string[]
++config : string[]
++os : string[]
+}
+class Missing {
++bins : string[]
++env : string[]
++config : string[]
++os : string[]
+}
+AgentSkillStatusEntry --> Requirements : 使用
+AgentSkillStatusEntry --> Missing : 使用
+```
+
+**图表来源**
+- [ui-react/src/types/agents.ts:130-159](file://ui-react/src/types/agents.ts#L130-L159)
+
+**章节来源**
+- [ui-react/src/types/agents.ts:1-292](file://ui-react/src/types/agents.ts#L1-L292)
+
 ## 依赖关系分析
 
 React 控制界面采用模块化依赖管理，主要依赖包括：
@@ -659,22 +1130,26 @@ B[react-router@7.1.1]
 C[lucide-react@0.469.0]
 D[zustand@5.0.3]
 E[qrcode@^1.0.0]
+F[@assistant-ui/react@*]
+G[react-markdown@^9.0.0]
+H[remark-gfm@^4.0.0]
 end
 subgraph "设计系统"
-F[radix-ui/react-*]
-G[class-variance-authority@0.7.1]
-H[tailwind-merge@2.6.0]
+I[radix-ui/react-*]
+J[class-variance-authority@0.7.1]
+K[tailwind-merge@2.6.0]
 end
 subgraph "工具库"
-I[@noble/ed25519@3.0.0]
-J[marked@17.0.4]
-K[dompurify@3.3.2]
-L[date-fns@^3.0.0]
+L[@noble/ed25519@3.0.0]
+M[marked@17.0.4]
+N[dompurify@3.3.2]
+O[date-fns@^3.0.0]
+P[assistant-ui/react-markdown@*]
 end
 subgraph "开发工具"
-M[@vitejs/plugin-react@4.3.4]
-N[tailwindcss@4.1.0]
-O[vitest@4.0.0]
+Q[@vitejs/plugin-react@4.3.4]
+R[tailwindcss@4.1.0]
+S[vitest@4.0.0]
 end
 App --> A
 App --> B
@@ -691,6 +1166,10 @@ App --> L
 App --> M
 App --> N
 App --> O
+App --> P
+App --> Q
+App --> R
+App --> S
 ```
 
 **图表来源**
@@ -723,10 +1202,12 @@ App --> O
 
 ### 新增功能的性能优化
 
-1. **组件懒加载**: 通道和插件相关组件按需加载，减少初始包大小
-2. **状态缓存**: 使用 Zustand 的高效状态管理，避免不必要的重渲染
-3. **异步操作**: 所有网络请求都采用异步处理，避免阻塞主线程
-4. **错误边界**: 新增组件都包含错误边界，提高应用稳定性
+1. **WebGL 效果优化**: 使用高效的着色器程序和纹理管理
+2. **组件懒加载**: 通道和插件相关组件按需加载，减少初始包大小
+3. **状态缓存**: 使用 Zustand 的高效状态管理，避免不必要的重渲染
+4. **异步操作**: 所有网络请求都采用异步处理，避免阻塞主线程
+5. **错误边界**: 新增组件都包含错误边界，提高应用稳定性
+6. **运动偏好检测**: 自动检测用户的运动偏好设置，优化动画效果
 
 ## 故障排除指南
 
@@ -748,6 +1229,24 @@ App --> O
 | 登录超时 | LOGIN_TIMEOUT | 网络延迟或服务端问题 | 重试登录或检查服务状态 |
 | 插件冲突 | PLUGIN_CONFLICT | 多个插件冲突 | 禁用冲突插件或升级版本 |
 
+### 天气小部件问题
+
+| 问题类型 | 错误代码 | 可能原因 | 解决方案 |
+|---------|---------|---------|---------|
+| WebGL 渲染失败 | WEBGL_NOT_SUPPORTED | 设备不支持 WebGL2 | 检查浏览器兼容性和硬件支持 |
+| 天气数据解析错误 | WEATHER_DATA_ERROR | 数据格式不正确 | 检查天气 API 返回格式 |
+| 动画卡顿 | ANIMATION_PERFORMANCE | GPU 性能不足 | 调整效果质量设置或禁用动画 |
+| 移动偏好检测失败 | REDUCED_MOTION_ERROR | 媒体查询不支持 | 检查浏览器兼容性 |
+
+### 工具调用问题
+
+| 问题类型 | 错误代码 | 可能原因 | 解决方案 |
+|---------|---------|---------|---------|
+| 工具调用失败 | TOOL_CALL_FAILED | 工具执行错误 | 检查工具配置和权限设置 |
+| 工具状态异常 | TOOL_STATUS_ERROR | 状态同步问题 | 刷新页面或重启工具调用 |
+| 参数解析错误 | TOOL_ARGS_ERROR | 参数格式不正确 | 检查工具参数格式和类型 |
+| 结果渲染失败 | TOOL_RESULT_ERROR | 结果格式不支持 | 检查结果数据格式和渲染组件 |
+
 ### 调试技巧
 
 1. **事件日志**: 查看调试页的事件日志了解连接状态变化
@@ -755,6 +1254,7 @@ App --> O
 3. **控制台日志**: 关注 GatewayClient 的连接状态日志
 4. **存储检查**: 检查 localStorage 和 sessionStorage 中的配置
 5. **状态检查**: 使用 React DevTools 检查组件状态变化
+6. **WebGL 调试**: 使用浏览器 WebGL 调试工具检查渲染状态
 
 **章节来源**
 - [ui-react/src/hooks/useGateway.ts:277-291](file://ui-react/src/hooks/useGateway.ts#L277-L291)
@@ -770,6 +1270,8 @@ React 控制界面为 OpenClaw 项目提供了现代化、响应式的用户界�
 4. **可维护性**: 类型安全的 TypeScript 实现和完善的测试覆盖
 5. **可扩展性**: 支持新增通道和插件的灵活架构
 
-**更新** 新增的微信登录面板、通道管理和插件管理功能大幅增强了系统的实用性和可扩展性。这些功能通过统一的状态管理和组件化设计，为用户提供了完整的通道和插件生命周期管理能力。
+**更新** 新增的天气小部件组件系统、工具调用组件系统、WebGL 动画效果和完整的类型定义系统大幅增强了系统的可视化能力、交互体验和类型安全性。这些功能通过统一的状态管理和组件化设计，为用户提供了完整的工具调用和天气信息展示能力。
 
-该界面成功地将复杂的 Gateway 协议抽象为易用的用户界面，为 OpenClaw 的多平台部署提供了统一的控制入口。未来可以进一步优化移动端体验和离线功能支持，同时考虑添加更多通道类型和插件生态系统的集成。
+天气小部件系统使用 WebGL 技术实现了逼真的天气效果渲染，包括天空渐变、云彩飘动、雨水效果、雪花飞舞和闪电特效等。工具调用组件系统提供了完整的工具调用状态管理和可视化展示，支持工具分类、状态跟踪和详细信息查看。类型定义系统确保了整个应用的类型安全性和开发体验。
+
+该界面成功地将复杂的 Gateway 协议抽象为易用的用户界面，为 OpenClaw 的多平台部署提供了统一的控制入口。未来可以进一步优化移动端体验和离线功能支持，同时考虑添加更多天气效果和工具类型的支持。

@@ -3,7 +3,10 @@ import {
   useExternalStoreRuntime,
   type ThreadMessageLike,
   type AppendMessage,
+  type CompleteAttachment,
 } from "@assistant-ui/react";
+import type { MessageAttachment } from "@/store/chat.store";
+import { createGatewayCompositeAttachmentAdapter } from "./gateway-attachment-adapter";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { normalizeRole } from "@/hooks/useChatEventBridge";
 import {
@@ -26,6 +29,101 @@ import { useSettingsStore } from "@/store/settings.store";
 const AGENT_COMPLETE_TAG_RE = /^\s*<(final|plan)>([\s\S]*?)<\/\1>\s*$/i;
 const AGENT_OPEN_TAG_RE = /^\s*<(?:final|plan)>\n?/i;
 const AGENT_CLOSE_TAG_RE = /\n?<\/(?:final|plan)>\s*$/i;
+
+/**
+ * Maps assistant-ui composer output to Gateway `chat.send` payloads and optimistic rows.
+ *
+ * Important: `BaseComposerRuntimeCore.send` puts the user's typed text in `message.content`
+ * as `{ type: "text" }` parts only. Completed files live under **`message.attachments`**
+ * (`CompleteAttachment[]` with `content` parts from `AttachmentAdapter.send`), not inline
+ * in `message.content`. Parsing only `content` misses PDFs/images — see
+ * `@assistant-ui/core` `base-composer-runtime-core.js` (`attachments: await attachments`).
+ */
+function parseGatewaySendPayload(message: AppendMessage): {
+  text: string;
+  gatewayAttachments: { content: string; mimeType: string; fileName: string }[];
+  displayAttachments: MessageAttachment[];
+} {
+  const textChunks: string[] = [];
+  const gatewayAttachments: { content: string; mimeType: string; fileName: string }[] = [];
+  const displayAttachments: MessageAttachment[] = [];
+
+  const consumePart = (
+    part:
+      | { type: "text"; text: string }
+      | { type: "image"; image: string; filename?: string }
+      | { type: "file"; data: string; mimeType: string; filename?: string },
+    meta?: Pick<CompleteAttachment, "name" | "contentType" | "file">,
+  ) => {
+    if (part.type === "text") {
+      textChunks.push(part.text);
+      return;
+    }
+    if (part.type === "image") {
+      const image = part.image;
+      const base64 = image.includes(",") ? image.slice(image.indexOf(",") + 1) : image;
+      const mimeMatch = image.match(/^data:([^;]+);/);
+      const mimeType = mimeMatch?.[1] ?? "image/png";
+      const fileName = part.filename ?? meta?.name ?? "image";
+      gatewayAttachments.push({ content: base64, mimeType, fileName });
+      displayAttachments.push({
+        fileName,
+        mimeType,
+        size: meta?.file?.size ?? 0,
+      });
+      return;
+    }
+    if (part.type === "file") {
+      const fileName = part.filename ?? meta?.name ?? "file";
+      const mimeType = part.mimeType || meta?.contentType || "application/octet-stream";
+      gatewayAttachments.push({
+        content: part.data,
+        mimeType,
+        fileName,
+      });
+      displayAttachments.push({
+        fileName,
+        mimeType,
+        size: meta?.file?.size ?? 0,
+      });
+    }
+  };
+
+  const raw = message.content;
+  const contentParts = typeof raw === "string" ? [{ type: "text" as const, text: raw }] : [...raw];
+  for (const part of contentParts) {
+    if (part.type === "text" || part.type === "image" || part.type === "file") {
+      consumePart(part, undefined);
+    }
+  }
+
+  const threadAttachments = (
+    message as AppendMessage & { attachments?: readonly CompleteAttachment[] }
+  ).attachments;
+  if (threadAttachments && threadAttachments.length > 0) {
+    for (const att of threadAttachments) {
+      if (att.status.type !== "complete") {
+        continue;
+      }
+      const meta = {
+        name: att.name,
+        contentType: att.contentType,
+        file: att.file,
+      };
+      for (const part of att.content) {
+        if (part.type === "text" || part.type === "image" || part.type === "file") {
+          consumePart(part, meta);
+        }
+      }
+    }
+  }
+
+  return {
+    text: textChunks.join("\n"),
+    gatewayAttachments,
+    displayAttachments,
+  };
+}
 
 function stripAgentWrapperTags(text: string): string {
   let result = text;
@@ -234,19 +332,11 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   // Handler: user sends a new message
   const onNew = useCallback(
     async (message: AppendMessage) => {
-      const textPart = message.content.find((p) => p.type === "text");
-      const text = textPart?.type === "text" ? textPart.text : "";
-      if (!text.trim() && message.content.length === 0) {
+      const { text, gatewayAttachments, displayAttachments } = parseGatewaySendPayload(message);
+
+      if (!text.trim() && gatewayAttachments.length === 0) {
         return;
       }
-
-      // Build attachments from pendingAttachments in the store
-      const pendingAttachments = useChatStore.getState().pendingAttachments;
-      const attachments = pendingAttachments.map((att) => ({
-        content: att.base64,
-        mimeType: att.mimeType,
-        fileName: att.fileName,
-      }));
 
       // Clear any previous error when user sends a new message
       useChatStore.getState().setLastError(null);
@@ -260,20 +350,10 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         role: "user" as const,
         content: text,
         ts: Date.now(),
-        attachments:
-          pendingAttachments.length > 0
-            ? pendingAttachments.map((a) => ({
-                fileName: a.fileName,
-                mimeType: a.mimeType,
-                size: a.size,
-              }))
-            : undefined,
+        attachments: displayAttachments.length > 0 ? displayAttachments : undefined,
       };
       useChatStore.getState().setMessages([...useChatStore.getState().messages, userMsg]);
       useChatStore.getState().setSending(true);
-
-      // Clear pending attachments after building
-      useChatStore.getState().clearPendingAttachments();
 
       const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
 
@@ -282,7 +362,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           message: text,
           sessionKey: activeSession,
           idempotencyKey: crypto.randomUUID(),
-          attachments: attachments.length > 0 ? attachments : undefined,
+          attachments: gatewayAttachments.length > 0 ? gatewayAttachments : undefined,
         });
       } catch (err) {
         console.error("[chat] send failed:", err);
@@ -359,6 +439,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     onNew,
     onEdit,
     onCancel,
+    adapters: {
+      attachments: createGatewayCompositeAttachmentAdapter(),
+    },
   });
 
   return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;

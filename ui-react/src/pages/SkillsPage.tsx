@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SkillCard } from "@/components/skills/SkillCard";
-import { plainMdComponents } from "@/components/chat/markdown-components";
+import { plainMdComponents } from "@/components/assistant-ui/markdown-text";
 import { SkillsToolbar } from "@/components/skills/SkillsToolbar";
 import { SkillCategoryPills } from "@/components/skills/SkillCategoryPills";
 import { Button } from "@/components/ui/button";

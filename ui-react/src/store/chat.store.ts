@@ -99,20 +99,6 @@ export interface ChatMessage {
   contentBlocks?: ContentBlock[];
 }
 
-/** A pending file attachment waiting to be sent with the next message. */
-export interface PendingAttachment {
-  /** Unique ID for UI keying */
-  id: string;
-  /** Original file name */
-  fileName: string;
-  /** MIME type */
-  mimeType: string;
-  /** File size in bytes */
-  size: number;
-  /** Base64 encoded file content (without data URL prefix) */
-  base64: string;
-}
-
 interface ChatState {
   // History (loaded from gateway)
   messages: ChatMessage[];
@@ -147,9 +133,6 @@ interface ChatState {
   // Last error message (shown inline in the thread)
   lastError: string | null;
 
-  // Pending file attachments (files selected but not yet sent)
-  pendingAttachments: PendingAttachment[];
-
   // Actions
   setSending: (v: boolean) => void;
   setMessages: (msgs: ChatMessage[]) => void;
@@ -167,12 +150,6 @@ interface ChatState {
   setPendingHistoryReloadKey: (key: string | null) => void;
   setLastError: (msg: string | null) => void;
   truncateMessagesAfter: (parentId: string | null) => void;
-  /** Add pending attachments (called when user selects files) */
-  addPendingAttachments: (attachments: PendingAttachment[]) => void;
-  /** Remove a single pending attachment by id */
-  removePendingAttachment: (id: string) => void;
-  /** Clear all pending attachments (called after send) */
-  clearPendingAttachments: () => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -187,7 +164,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   sessionKey: null,
   pendingHistoryReloadKey: null,
   lastError: null,
-  pendingAttachments: [],
 
   setSending: (v) => set({ sending: v }),
 
@@ -315,16 +291,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setPendingHistoryReloadKey: (key) => set({ pendingHistoryReloadKey: key }),
 
   setLastError: (msg) => set({ lastError: msg }),
-
-  addPendingAttachments: (attachments) =>
-    set((state) => ({ pendingAttachments: [...state.pendingAttachments, ...attachments] })),
-
-  removePendingAttachment: (id) =>
-    set((state) => ({
-      pendingAttachments: state.pendingAttachments.filter((a) => a.id !== id),
-    })),
-
-  clearPendingAttachments: () => set({ pendingAttachments: [] }),
 
   truncateMessagesAfter: (parentId) => {
     set((state) => {

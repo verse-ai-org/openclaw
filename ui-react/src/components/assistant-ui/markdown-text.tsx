@@ -1,7 +1,12 @@
+import { FC, memo } from "react";
 import {
+  type CodeHeaderProps,
+  MarkdownTextPrimitive,
   unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
   useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
+import remarkGfm from "remark-gfm";
+
 /**
  * Shared Markdown component definitions — shadcn typography styles.
  *
@@ -12,6 +17,46 @@ import {
  */
 import type { Components } from "react-markdown";
 import { cn } from "@/lib/utils";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard.ts";
+import { TooltipIconButton } from "./tooltip-icon-button.tsx";
+import { CheckIcon, CopyIcon } from "lucide-react";
+
+const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
+  const { isCopied, copyToClipboard } = useCopyToClipboard();
+  const onCopy = () => {
+    if (!code || isCopied) { return; }
+    copyToClipboard(code);
+  };
+  return (
+    <div className="aui-code-header-root mt-2.5 flex items-center justify-between rounded-t-lg border border-border/50 border-b-0 bg-muted/50 px-3 py-1.5 text-xs">
+      <span className="aui-code-header-language font-medium text-muted-foreground lowercase">
+        {language}
+      </span>
+      <TooltipIconButton tooltip="Copy" onClick={onCopy}>
+        {!isCopied && <CopyIcon />}
+        {isCopied && <CheckIcon />}
+      </TooltipIconButton>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// mdComponents — for MarkdownTextPrimitive (assistant-ui context required)
+// code component uses useIsMarkdownCodeBlock() hook.
+// ---------------------------------------------------------------------------
+function CodeWithContext({ className, ...props }: React.ComponentPropsWithoutRef<"code">) {
+  const isCodeBlock = useIsMarkdownCodeBlock();
+  return (
+    <code
+      className={cn(
+        !isCodeBlock &&
+          "relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Shared element styles (no hook usage)
@@ -55,13 +100,19 @@ const sharedElements: Components = {
   ),
   h5: ({ className, ...props }) => (
     <h5
-      className={cn("text-lg font-semibold tracking-tight mt-3 mb-1 first:mt-0", className)}
+      className={cn(
+        "text-lg font-semibold tracking-tight mt-3 mb-1 first:mt-0",
+        className,
+      )}
       {...props}
     />
   ),
   h6: ({ className, ...props }) => (
     <h6
-      className={cn("text-base font-semibold tracking-tight mt-3 mb-1 first:mt-0", className)}
+      className={cn(
+        "text-base font-semibold tracking-tight mt-3 mb-1 first:mt-0",
+        className,
+      )}
       {...props}
     />
   ),
@@ -70,20 +121,34 @@ const sharedElements: Components = {
   ),
   a: ({ className, ...props }) => (
     <a
-      className={cn("text-primary underline underline-offset-4 hover:text-primary/80", className)}
+      className={cn(
+        "text-primary underline underline-offset-4 hover:text-primary/80",
+        className,
+      )}
       {...props}
     />
   ),
   blockquote: ({ className, ...props }) => (
-    <blockquote className={cn("mt-6 border-l-2 pl-6 italic", className)} {...props} />
+    <blockquote
+      className={cn("mt-6 border-l-2 pl-6 italic", className)}
+      {...props}
+    />
   ),
   ul: ({ className, ...props }) => (
-    <ul className={cn("my-6 ml-6 list-disc [&>li]:mt-2", className)} {...props} />
+    <ul
+      className={cn("my-6 ml-6 list-disc [&>li]:mt-2", className)}
+      {...props}
+    />
   ),
   ol: ({ className, ...props }) => (
-    <ol className={cn("my-6 ml-6 list-decimal [&>li]:mt-2", className)} {...props} />
+    <ol
+      className={cn("my-6 ml-6 list-decimal [&>li]:mt-2", className)}
+      {...props}
+    />
   ),
-  li: ({ className, ...props }) => <li className={cn("leading-7", className)} {...props} />,
+  li: ({ className, ...props }) => (
+    <li className={cn("leading-7", className)} {...props} />
+  ),
   hr: ({ className, ...props }) => (
     <hr className={cn("my-4 border-border", className)} {...props} />
   ),
@@ -111,43 +176,48 @@ const sharedElements: Components = {
     />
   ),
   tr: ({ className, ...props }) => (
-    <tr className={cn("m-0 border-t p-0 even:bg-muted", className)} {...props} />
+    <tr
+      className={cn("m-0 border-t p-0 even:bg-muted", className)}
+      {...props}
+    />
   ),
   sup: ({ className, ...props }) => (
-    <sup className={cn("[&>a]:text-xs [&>a]:no-underline", className)} {...props} />
+    <sup
+      className={cn("[&>a]:text-xs [&>a]:no-underline", className)}
+      {...props}
+    />
   ),
   pre: ({ className, ...props }) => (
     <pre
       className={cn(
-        "my-4 overflow-x-auto rounded-lg border bg-muted/50 p-4 text-sm leading-relaxed",
+        "aui-md-pre overflow-x-auto rounded-t-none rounded-b-lg border border-border/50 border-t-0 bg-muted/30 p-3 text-xs leading-relaxed",
         className,
       )}
       {...props}
     />
   ),
+  code: function Code({ className, ...props }) {
+    const isCodeBlock = useIsMarkdownCodeBlock();
+    return (
+      <code
+        className={cn(
+          !isCodeBlock &&
+            "aui-md-inline-code rounded-md border border-border/50 bg-muted/50 px-1.5 py-0.5 font-mono text-[0.85em]",
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
 };
 
 // ---------------------------------------------------------------------------
-// mdComponents — for MarkdownTextPrimitive (assistant-ui context required)
-// code component uses useIsMarkdownCodeBlock() hook.
+// markdown shared common components 
 // ---------------------------------------------------------------------------
-function CodeWithContext({ className, ...props }: React.ComponentPropsWithoutRef<"code">) {
-  const isCodeBlock = useIsMarkdownCodeBlock();
-  return (
-    <code
-      className={cn(
-        !isCodeBlock &&
-          "relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
 export const mdComponents = memoizeMarkdownComponents({
   ...(sharedElements as Parameters<typeof memoizeMarkdownComponents>[0]),
   code: CodeWithContext,
+  CodeHeader,
 });
 
 // ---------------------------------------------------------------------------
@@ -171,3 +241,14 @@ export const plainMdComponents: Components = {
     );
   },
 };
+
+const MarkdownTextImpl = () => {
+  return (
+    <MarkdownTextPrimitive
+      remarkPlugins={[remarkGfm]}
+      className="aui-md"
+      components={mdComponents}
+    />
+  );
+};
+export const MarkdownText = memo(MarkdownTextImpl);

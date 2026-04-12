@@ -1,18 +1,10 @@
-import { MessagePrimitive, AuiIf, type TextMessagePartComponent } from "@assistant-ui/react";
-import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
-import { type FC, memo } from "react";
-import remarkGfm from "remark-gfm";
-import { mdComponents } from "./markdown-components";
+import { MessagePrimitive, ActionBarPrimitive, AuiIf } from "@assistant-ui/react";
+import { type FC } from "react";
+import { CheckIcon, CopyIcon, RefreshCwIcon } from "lucide-react";
+import { MarkdownText } from "../assistant-ui/markdown-text.tsx";
 import { ToolFallback } from "./ToolFallback";
 import { ToolCallGroup } from "./ToolCallGroup";
 
-// ---------------------------------------------------------------------------
-// MarkdownText — uses assistant-ui part context for streaming-aware rendering
-// ---------------------------------------------------------------------------
-const MarkdownTextImpl: FC = () => (
-  <MarkdownTextPrimitive remarkPlugins={[remarkGfm]} components={mdComponents} />
-);
-const MarkdownText = memo(MarkdownTextImpl) as unknown as TextMessagePartComponent;
 
 // ---------------------------------------------------------------------------
 // AssistantMessage
@@ -35,8 +27,7 @@ export const AssistantMessage: FC = () => {
             <span className="size-1.5 rounded-full bg-foreground/40 animate-bounce [animation-delay:300ms]" />
           </span>
         </AuiIf>
-        {/* ToolGroup wraps consecutive tool-call parts in a collapsible container.
-            Single tool (startIndex===endIndex) renders as-is without wrapper. */}
+
         <MessagePrimitive.Parts
           components={{
             Text: MarkdownText,
@@ -46,75 +37,21 @@ export const AssistantMessage: FC = () => {
         />
       </div>
 
-      {/* Footer: branch picker + action bar */}
-      {/* Commented out until needed
-      <div className="mt-1 ml-2 flex min-h-6 items-center gap-1">
-        <AssistantBranchPicker />
-        <AssistantActionBar />
-      </div>
-      */}
+      {/* Footer: action bar */}
+      <ActionBarPrimitive.Root
+        hideWhenRunning
+        // autohide="always"
+        autohideFloat="always"
+        className="flex gap-0.5 data-floating:opacity-0 data-floating:group-hover:opacity-100 data-floating:transition-opacity"
+      >
+        <ActionBarPrimitive.Copy className="group/copy flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
+          <CopyIcon className="size-4 group-data-copied/copy:hidden" />
+          <CheckIcon className="hidden size-4 group-data-copied/copy:block" />
+        </ActionBarPrimitive.Copy>
+        <ActionBarPrimitive.Reload className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
+          <RefreshCwIcon className="size-4" />
+        </ActionBarPrimitive.Reload>
+      </ActionBarPrimitive.Root>
     </MessagePrimitive.Root>
   );
 };
-
-/*
-// Commented out until needed
-const AssistantBranchPicker: FC = () => (
-  <BranchPickerPrimitive.Root
-    hideWhenSingleBranch
-    className="flex items-center gap-0.5 text-xs text-muted-foreground"
-  >
-    <BranchPickerPrimitive.Previous asChild>
-      <button
-        type="button"
-        className="rounded p-0.5 hover:bg-muted disabled:opacity-40"
-        aria-label="Previous branch"
-      >
-        ‹
-      </button>
-    </BranchPickerPrimitive.Previous>
-    <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
-    <BranchPickerPrimitive.Next asChild>
-      <button
-        type="button"
-        className="rounded p-0.5 hover:bg-muted disabled:opacity-40"
-        aria-label="Next branch"
-      >
-        ›
-      </button>
-    </BranchPickerPrimitive.Next>
-  </BranchPickerPrimitive.Root>
-);
-
-const AssistantActionBar: FC = () => (
-  <ActionBarPrimitive.Root
-    hideWhenRunning
-    autohide="not-last"
-    className="flex gap-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100"
-  >
-    <ActionBarPrimitive.Copy asChild>
-      <button
-        type="button"
-        className="rounded p-1 hover:bg-muted"
-        aria-label="Copy message"
-      >
-        <AuiIf condition={(s) => s.message.isCopied}>
-          <CheckIcon className="size-3.5" />
-        </AuiIf>
-        <AuiIf condition={(s) => !s.message.isCopied}>
-          <CopyIcon className="size-3.5" />
-        </AuiIf>
-      </button>
-    </ActionBarPrimitive.Copy>
-    <ActionBarPrimitive.Reload asChild>
-      <button
-        type="button"
-        className="rounded p-1 hover:bg-muted"
-        aria-label="Regenerate response"
-      >
-        <RefreshCwIcon className="size-3.5" />
-      </button>
-    </ActionBarPrimitive.Reload>
-  </ActionBarPrimitive.Root>
-);
-*/
