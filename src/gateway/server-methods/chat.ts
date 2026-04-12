@@ -31,7 +31,11 @@ import {
   isChatStopCommandText,
   resolveChatRunExpiresAtMs,
 } from "../chat-abort.js";
-import { type ChatImageContent, parseMessageWithAttachments } from "../chat-attachments.js";
+import {
+  type ChatImageContent,
+  parseMessageWithAttachments,
+  splitUserMessageForChatHistoryDisplay,
+} from "../chat-attachments.js";
 import { stripEnvelopeFromMessage, stripEnvelopeFromMessages } from "../chat-sanitize.js";
 import {
   GATEWAY_CLIENT_CAPS,
@@ -320,6 +324,7 @@ function sanitizeChatHistoryMessage(message: unknown): { message: unknown; chang
   }
   const entry = { ...(message as Record<string, unknown>) };
   let changed = false;
+  const isUserRole = entry.role === "user";
 
   if ("details" in entry) {
     delete entry.details;
@@ -336,25 +341,93 @@ function sanitizeChatHistoryMessage(message: unknown): { message: unknown; chang
 
   if (typeof entry.content === "string") {
     const stripped = stripInlineDirectiveTagsForDisplay(entry.content);
-    const res = truncateChatHistoryText(stripped.text);
+    let text = stripped.text;
+    changed ||= stripped.changed;
+    if (isUserRole) {
+      const { displayText, attachmentHints } = splitUserMessageForChatHistoryDisplay(text);
+      if (displayText !== text) {
+        text = displayText;
+        changed = true;
+      }
+      if (attachmentHints.length > 0) {
+        entry.attachments = attachmentHints;
+        changed = true;
+      }
+    }
+    const res = truncateChatHistoryText(text);
     entry.content = res.text;
-    changed ||= stripped.changed || res.truncated;
+    changed ||= res.truncated;
   } else if (Array.isArray(entry.content)) {
-    const updated = entry.content.map((block) => sanitizeChatHistoryContentBlock(block));
-    if (updated.some((item) => item.changed)) {
-      entry.content = updated.map((item) => item.block);
-      changed = true;
+    if (isUserRole) {
+      const joinedUserText = joinUserMessageTextBlocks(entry.content);
+      if (joinedUserText !== undefined) {
+        changed = true;
+        const stripped = stripInlineDirectiveTagsForDisplay(joinedUserText);
+        let text = stripped.text;
+        changed ||= stripped.changed;
+        const { displayText, attachmentHints } = splitUserMessageForChatHistoryDisplay(text);
+        if (displayText !== text) {
+          text = displayText;
+        }
+        if (attachmentHints.length > 0) {
+          entry.attachments = attachmentHints;
+        }
+        const res = truncateChatHistoryText(text);
+        entry.content = [{ type: "text", text: res.text }];
+        changed ||= res.truncated;
+      } else {
+        const updated = entry.content.map((block) => sanitizeChatHistoryContentBlock(block));
+        if (updated.some((item) => item.changed)) {
+          entry.content = updated.map((item) => item.block);
+          changed = true;
+        }
+      }
+    } else {
+      const updated = entry.content.map((block) => sanitizeChatHistoryContentBlock(block));
+      if (updated.some((item) => item.changed)) {
+        entry.content = updated.map((item) => item.block);
+        changed = true;
+      }
     }
   }
 
   if (typeof entry.text === "string") {
     const stripped = stripInlineDirectiveTagsForDisplay(entry.text);
-    const res = truncateChatHistoryText(stripped.text);
+    let text = stripped.text;
+    changed ||= stripped.changed;
+    if (isUserRole) {
+      const { displayText, attachmentHints } = splitUserMessageForChatHistoryDisplay(text);
+      if (displayText !== text) {
+        text = displayText;
+        changed = true;
+      }
+      if (attachmentHints.length > 0) {
+        entry.attachments = attachmentHints;
+        changed = true;
+      }
+    }
+    const res = truncateChatHistoryText(text);
     entry.text = res.text;
-    changed ||= stripped.changed || res.truncated;
+    changed ||= res.truncated;
   }
 
   return { message: changed ? entry : message, changed };
+}
+
+/** Join Pi-style user content blocks when every block is `{ type: "text", text }`. */
+function joinUserMessageTextBlocks(content: unknown[]): string | undefined {
+  const texts: string[] = [];
+  for (const block of content) {
+    if (!block || typeof block !== "object") {
+      return undefined;
+    }
+    const typed = block as Record<string, unknown>;
+    if (typed.type !== "text" || typeof typed.text !== "string") {
+      return undefined;
+    }
+    texts.push(typed.text);
+  }
+  return texts.length > 0 ? texts.join("\n") : undefined;
 }
 
 /**
@@ -1028,11 +1101,13 @@ export const chatHandlers: GatewayRequestHandlers = {
       };
       respond(true, ackPayload, undefined, { runId: clientRunId });
 
-      const trimmedMessage = parsedMessage.trim();
+      const trimmedInbound = inboundMessage.trim();
       const injectThinking = Boolean(
-        p.thinking && trimmedMessage && !trimmedMessage.startsWith("/"),
+        p.thinking && trimmedInbound && !trimmedInbound.startsWith("/"),
       );
-      const commandBody = injectThinking ? `/think ${p.thinking} ${parsedMessage}` : parsedMessage;
+      const commandBody = injectThinking
+        ? `/think ${p.thinking} ${parsedMessage}`
+        : inboundMessage;
       const messageForAgent = systemProvenanceReceipt
         ? [systemProvenanceReceipt, parsedMessage].filter(Boolean).join("\n\n")
         : parsedMessage;
@@ -1052,15 +1127,17 @@ export const chatHandlers: GatewayRequestHandlers = {
         sessionKey,
       });
       // Inject timestamp so agents know the current date/time.
-      // Only BodyForAgent gets the timestamp — Body stays raw for UI display.
+      // Body / RawBody / command fields use the short inbound text so slash commands and
+      // UI-facing paths are not broken by extracted PDF/document text. BodyForAgent carries
+      // the full parsed message (plus receipt) for the model.
       // See: https://github.com/moltbot/moltbot/issues/3658
       const stampedMessage = injectTimestamp(messageForAgent, timestampOptsFromConfig(cfg));
 
       const ctx: MsgContext = {
-        Body: messageForAgent,
+        Body: inboundMessage,
         BodyForAgent: stampedMessage,
         BodyForCommands: commandBody,
-        RawBody: parsedMessage,
+        RawBody: inboundMessage,
         CommandBody: commandBody,
         InputProvenance: systemInputProvenance,
         SessionKey: sessionKey,

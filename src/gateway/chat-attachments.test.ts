@@ -3,6 +3,8 @@ import {
   buildMessageWithAttachments,
   type ChatAttachment,
   parseMessageWithAttachments,
+  splitUserMessageForChatHistoryDisplay,
+  stripExtractedFileContentAppendix,
 } from "./chat-attachments.js";
 
 const PNG_1x1 =
@@ -176,5 +178,28 @@ describe("shared attachment validation", () => {
     } finally {
       fromSpy.mockRestore();
     }
+  });
+});
+
+describe("stripExtractedFileContentAppendix", () => {
+  it("removes content after the \\n\\n marker when user text exists", () => {
+    const prompt = "summarize this";
+    const appendix = "\n\n以下是上传文件的内容：\n\n[文件: a.pdf]\nlong text";
+    expect(stripExtractedFileContentAppendix(prompt + appendix)).toBe(prompt);
+  });
+
+  it("clears to empty when only extracted heading and blocks", () => {
+    expect(stripExtractedFileContentAppendix("以下是上传文件的内容：\n\n[文件: x.pdf]\nx")).toBe("");
+  });
+});
+
+describe("splitUserMessageForChatHistoryDisplay", () => {
+  it("returns attachment hints from the appendix region", () => {
+    const raw = ["hello", "", "以下是上传文件的内容：", "", "[文件: doc.pdf]", "body"].join("\n");
+    const { displayText, attachmentHints } = splitUserMessageForChatHistoryDisplay(raw);
+    expect(displayText).toBe("hello");
+    expect(attachmentHints).toEqual([
+      { fileName: "doc.pdf", mimeType: "application/pdf", size: 0 },
+    ]);
   });
 });

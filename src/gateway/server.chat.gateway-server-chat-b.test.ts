@@ -332,6 +332,47 @@ describe("gateway server chat", () => {
     });
   });
 
+  test("chat.history strips gateway-extracted document appendix from user string content", async () => {
+    await withGatewayChatHarness(async ({ ws, createSessionDir }) => {
+      await connectOk(ws);
+
+      const sessionDir = await createSessionDir();
+      await writeMainSessionStore();
+
+      const userLine = [
+        "hello",
+        "",
+        "以下是上传文件的内容：",
+        "",
+        "[文件: doc.pdf]",
+        "page one text".repeat(20),
+      ].join("\n");
+
+      const lines = [
+        JSON.stringify({
+          message: {
+            role: "user",
+            content: userLine,
+            timestamp: Date.now(),
+          },
+        }),
+      ];
+      await writeMainSessionTranscript(sessionDir, lines);
+      const messages = await fetchHistoryMessages(ws);
+      expect(messages.length).toBe(1);
+      const first = messages[0] as {
+        role?: string;
+        content?: string;
+        attachments?: Array<{ fileName?: string }>;
+      };
+      expect(first.role).toBe("user");
+      expect(first.content).toBe("hello");
+      expect(first.attachments?.map((a) => a.fileName)).toEqual(["doc.pdf"]);
+      const serialized = JSON.stringify(messages);
+      expect(serialized.includes("page one text")).toBe(false);
+    });
+  });
+
   test("smoke: supports abort and idempotent completion", async () => {
     await withGatewayChatHarness(async ({ ws, createSessionDir }) => {
       const spy = getReplyFromConfig;

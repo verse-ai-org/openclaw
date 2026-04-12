@@ -28,6 +28,8 @@ type RawMessage = {
   // content can be a plain string or an array of content blocks (e.g. [{type:"text",text:"..."}])
   content?: unknown;
   text?: string;
+  /** Gateway may attach file display hints when user content is shortened for history. */
+  attachments?: unknown;
   ts?: number;
   timestamp?: number;
   runId?: string;
@@ -85,6 +87,34 @@ export function stripAttachmentContent(raw: string): {
   }
 
   return { prompt, attachments };
+}
+
+/** Prefer gateway-provided attachment hints (after server-side content shortening). */
+export function normalizeHistoryAttachmentHints(raw: unknown): MessageAttachment[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return undefined;
+  }
+  const out: MessageAttachment[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const o = item as Record<string, unknown>;
+    const fileName =
+      typeof o.fileName === "string"
+        ? o.fileName
+        : typeof o.name === "string"
+          ? o.name
+          : "";
+    if (!fileName.trim()) {
+      continue;
+    }
+    const mimeType =
+      typeof o.mimeType === "string" && o.mimeType.trim() ? o.mimeType : "application/octet-stream";
+    const size = typeof o.size === "number" && Number.isFinite(o.size) ? o.size : 0;
+    out.push({ fileName: fileName.trim(), mimeType, size });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 /** Normalize a raw message content field to a plain string. */
@@ -761,12 +791,12 @@ export function useChatEventBridge() {
             let content = rawContent;
             let attachments: MessageAttachment[] | undefined;
             if (role === "user") {
+              const fromGateway = normalizeHistoryAttachmentHints(m.attachments);
               const stripped = stripAttachmentContent(rawContent);
               content = stripped.prompt;
               attachments =
-                stripped.attachments.length > 0
-                  ? stripped.attachments
-                  : undefined;
+                fromGateway ??
+                (stripped.attachments.length > 0 ? stripped.attachments : undefined);
             }
 
             return {

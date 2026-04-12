@@ -20,6 +20,106 @@ export type ParsedMessageWithImages = {
   images: ChatImageContent[];
 };
 
+/**
+ * Heading before extracted document text in {@link parseMessageWithAttachments}.
+ * Used to trim gateway-injected file content from Control UI / chat.history display.
+ */
+export const CHAT_UPLOADED_FILES_CONTENT_HEADING = "以下是上传文件的内容：";
+
+const GATEWAY_DOCUMENT_FILE_MARKER = /\[文件:\s*([^\]]+?)(?:\s*\([^)]*\))?\s*\]/g;
+
+/** Display metadata for uploaded files, aligned with Control UI `MessageAttachment`. */
+export type ChatHistoryAttachmentHint = {
+  fileName: string;
+  mimeType: string;
+  size: number;
+};
+
+function inferMimeFromFileNameForHistory(fileName: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf") {
+    return "application/pdf";
+  }
+  if (ext === "docx" || ext === "doc") {
+    return "application/msword";
+  }
+  if (ext === "xlsx" || ext === "xls") {
+    return "application/vnd.ms-excel";
+  }
+  if (ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp") {
+    return `image/${ext}`;
+  }
+  return "text/plain";
+}
+
+/**
+ * Split user text into display prefix vs appendix region (after the gateway heading).
+ * Used to trim history and to extract `[文件: name]` hints for the UI.
+ */
+export function splitUserMessageAndAppendixRegion(message: string): {
+  displayText: string;
+  appendixRegion: string;
+} {
+  const sep = `\n\n${CHAT_UPLOADED_FILES_CONTENT_HEADING}`;
+  const doubleNlIdx = message.indexOf(sep);
+  if (doubleNlIdx !== -1) {
+    return {
+      displayText: message.slice(0, doubleNlIdx),
+      appendixRegion: message.slice(doubleNlIdx + sep.length),
+    };
+  }
+  const headIdx = message.indexOf(CHAT_UPLOADED_FILES_CONTENT_HEADING);
+  if (headIdx !== -1) {
+    const afterHeading = message.slice(headIdx + CHAT_UPLOADED_FILES_CONTENT_HEADING.length);
+    return {
+      displayText: message.slice(0, headIdx).trimEnd(),
+      appendixRegion: afterHeading,
+    };
+  }
+  return { displayText: message, appendixRegion: "" };
+}
+
+export function extractFileAttachmentHintsFromAppendix(appendixRegion: string): ChatHistoryAttachmentHint[] {
+  const attachments: ChatHistoryAttachmentHint[] = [];
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+  GATEWAY_DOCUMENT_FILE_MARKER.lastIndex = 0;
+  while ((match = GATEWAY_DOCUMENT_FILE_MARKER.exec(appendixRegion)) !== null) {
+    const fileName = match[1]?.trim() ?? "";
+    if (fileName && !seen.has(fileName)) {
+      seen.add(fileName);
+      attachments.push({
+        fileName,
+        mimeType: inferMimeFromFileNameForHistory(fileName),
+        size: 0,
+      });
+    }
+  }
+  return attachments;
+}
+
+/**
+ * Shorten user transcript text for chat.history and recover file chips for the UI.
+ */
+export function splitUserMessageForChatHistoryDisplay(message: string): {
+  displayText: string;
+  attachmentHints: ChatHistoryAttachmentHint[];
+} {
+  const { displayText, appendixRegion } = splitUserMessageAndAppendixRegion(message);
+  return {
+    displayText,
+    attachmentHints: extractFileAttachmentHintsFromAppendix(appendixRegion),
+  };
+}
+
+/**
+ * Remove the appendix appended by {@link parseMessageWithAttachments} (extracted PDF/text),
+ * keeping only the user-typed portion for display.
+ */
+export function stripExtractedFileContentAppendix(message: string): string {
+  return splitUserMessageAndAppendixRegion(message).displayText;
+}
+
 /** MIME types treated as plain text – content read directly from base64. */
 const PLAIN_TEXT_MIMES = new Set([
   "text/plain",
@@ -295,7 +395,7 @@ export async function parseMessageWithAttachments(
   let finalMessage = message;
   if (docBlocks.length > 0) {
     const separator = finalMessage.trim().length > 0 ? "\n\n" : "";
-    finalMessage = `${finalMessage}${separator}以下是上传文件的内容：\n\n${docBlocks.join("\n\n")}`;
+    finalMessage = `${finalMessage}${separator}${CHAT_UPLOADED_FILES_CONTENT_HEADING}\n\n${docBlocks.join("\n\n")}`;
   }
 
   return { message: finalMessage, images };

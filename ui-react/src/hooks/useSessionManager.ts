@@ -6,6 +6,7 @@ import {
   extractContentBlocks,
   mergeToolResults,
   consolidateToolMessages,
+  normalizeHistoryAttachmentHints,
   stripAttachmentContent,
 } from "@/hooks/useChatEventBridge";
 import { useChatStore, type MessageAttachment } from "@/store/chat.store";
@@ -101,12 +102,12 @@ export function useSessionManager() {
             let content = rawContent;
             let attachments: MessageAttachment[] | undefined;
             if (role === "user") {
+              const fromGateway = normalizeHistoryAttachmentHints(msg.attachments);
               const stripped = stripAttachmentContent(rawContent);
               content = stripped.prompt;
               attachments =
-                stripped.attachments.length > 0
-                  ? stripped.attachments
-                  : undefined;
+                fromGateway ??
+                (stripped.attachments.length > 0 ? stripped.attachments : undefined);
             }
             return {
               id: (msg.id as string) ?? crypto.randomUUID(),
