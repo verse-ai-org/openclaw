@@ -1,6 +1,7 @@
 import { createHashRouter, Navigate } from "react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { ChatPage } from "@/pages/ChatPage";
+import { ScheduledTasksPage } from "@/pages/ScheduledTasksPage";
 import {
   AgentsPage,
   ChannelsPage,
@@ -26,6 +27,7 @@ export const router = createHashRouter([
       { path: "employees", element: <AgentsPage /> },
       { path: "skills", element: <SkillsPage /> },
       { path: "plugins", element: <PluginsPage /> },
+      { path: "scheduled-tasks", element: <ScheduledTasksPage /> },
       { path: "settings", element: <ConfigPage /> }
     ],
   },

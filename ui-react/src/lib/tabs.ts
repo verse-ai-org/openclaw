@@ -1,6 +1,7 @@
 import {
   BarChart,
   Bug,
+  CalendarClock,
   FileText,
   FolderOpen,
   Rss,
@@ -32,6 +33,8 @@ export function tabIcon(tab: Tab) {
       return BarChart;
     case "cron":
       return Loader;
+    case "scheduled-tasks":
+      return CalendarClock;
     case "agents":
       return FolderOpen;
     case "employees":
@@ -64,6 +67,7 @@ export function tabLabel(tab: Tab): string {
     sessions: "Sessions",
     usage: "Usage",
     cron: "Cron",
+    "scheduled-tasks": "Scheduled Tasks",
     agents: "Agents",
     employees: "Employees",
     plugins: "Plugins",

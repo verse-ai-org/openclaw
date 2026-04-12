@@ -244,6 +244,53 @@ export type CronJobsListResult = {
   nextOffset?: number | null;
 };
 
+// ── Scheduled Tasks UI types ──────────────────────────────────────────────────
+
+/** Form data for the New / Edit Scheduled Task modal. */
+export type ScheduledTaskFormData = {
+  name: string;
+  description?: string;
+  /**
+   * Schedule kind:
+   * - "daily" / "weekly" / "monthly": shortcuts (map to cron)
+   * - "every": repeat every N minutes/hours/days
+   * - "one-time": run once at a specific date/time
+   */
+  scheduleKind: "daily" | "weekly" | "monthly" | "every" | "one-time";
+  /** Preferred wall-clock time in "HH:mm" 24-hour format (used for daily/weekly/monthly). */
+  preferredTime: string;
+  /** For scheduleKind=="every": amount of units (as string for input binding). */
+  everyAmount: string;
+  /** For scheduleKind=="every": time unit. */
+  everyUnit: "minutes" | "hours" | "days";
+  /** For scheduleKind=="one-time": datetime-local value e.g. "2026-04-15T09:00". */
+  scheduleAt: string;
+  /** Delivery mode: "none" = run silently, "announce" = post result to channel. */
+  deliveryMode: "none" | "announce";
+  agentPrompt: string;
+};
+
+/** A single run-history record from cron.jobs.history. */
+export type CronRunRecord = {
+  id: string;
+  jobId: string;
+  jobName: string;
+  status: "running" | "success" | "failed";
+  /** Unix timestamp (ms) when the run started. */
+  executionTime: number;
+  durationMs?: number;
+  error?: string;
+  /** Session ID produced by this run (if available). */
+  sessionId?: string;
+  /** Session key produced by this run (if available). */
+  sessionKey?: string;
+};
+
+export type CronRunHistoryResult = {
+  records: CronRunRecord[];
+  total: number;
+};
+
 // ── Panel tabs ────────────────────────────────────────────────────────────────
 
 export type AgentsPanel =

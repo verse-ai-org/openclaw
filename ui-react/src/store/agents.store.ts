@@ -13,6 +13,8 @@ import type {
   AgentsPanel,
   AgentsCreateResult,
   AgentsDeleteResult,
+  ScheduledTaskFormData,
+  CronRunRecord,
 } from "@/types/agents";
 import type { ChannelsStatusSnapshot } from "@/types/channels";
 import { useGatewayStore } from "./gateway.store";
@@ -32,6 +34,57 @@ function getErrorMessage(err: unknown): string {
     return err.message;
   }
   return String(err);
+}
+
+/** Convert a ScheduledTaskFormData to a CronSchedule suitable for the Gateway. */
+function formDataToCronSchedule(
+  form: ScheduledTaskFormData,
+): import("@/types/agents").CronSchedule {
+  // scheduleKind === "one-time": run once at a specific datetime
+  if (form.scheduleKind === "one-time") {
+    // datetime-local value "YYYY-MM-DDTHH:mm" has no timezone info — treat as local time.
+    // Append the local UTC offset so the ISO string preserves the user's intended wall-clock time.
+    // e.g. UTC+8: "2026-04-12T21:12" → "2026-04-12T21:12:00+08:00"
+    let at: string;
+    if (form.scheduleAt) {
+      const d = new Date(form.scheduleAt);
+      if (!isNaN(d.getTime())) {
+        const offsetMin = -d.getTimezoneOffset(); // positive for UTC+N
+        const sign = offsetMin >= 0 ? "+" : "-";
+        const absMin = Math.abs(offsetMin);
+        const oh = String(Math.floor(absMin / 60)).padStart(2, "0");
+        const om = String(absMin % 60).padStart(2, "0");
+        // Build ISO with local offset to keep the wall-clock time exact
+        at = `${form.scheduleAt}:00${sign}${oh}:${om}`;
+      } else {
+        at = new Date(Date.now() + 60_000).toISOString();
+      }
+    } else {
+      at = new Date(Date.now() + 60_000).toISOString();
+    }
+    return { kind: "at", at };
+  }
+  // scheduleKind === "every": interval-based
+  if (form.scheduleKind === "every") {
+    const amount = Math.max(1, parseInt(form.everyAmount, 10) || 1);
+    const unit = form.everyUnit;
+    const mult = unit === "minutes" ? 60_000 : unit === "hours" ? 3_600_000 : 86_400_000;
+    return { kind: "every", everyMs: amount * mult };
+  }
+  // shortcut: daily / weekly / monthly
+  const [h, m] = form.preferredTime.split(":").map(Number);
+  const hh = isNaN(h) ? 8 : h;
+  const mm = isNaN(m) ? 0 : m;
+  switch (form.scheduleKind) {
+    case "daily":
+      return { kind: "cron", expr: `${mm} ${hh} * * *` };
+    case "weekly":
+      return { kind: "cron", expr: `${mm} ${hh} * * 1` }; // Every Monday
+    case "monthly":
+      return { kind: "cron", expr: `${mm} ${hh} 1 * *` }; // 1st of month
+    default:
+      return { kind: "cron", expr: `${mm} ${hh} * * *` };
+  }
 }
 
 function applyPatch(
@@ -111,6 +164,15 @@ interface AgentsState {
   cronStatus: CronStatus | null;
   cronJobs: CronJob[];
 
+  // Scheduled Tasks page state
+  scheduledTasksTab: "my-tasks" | "run-history";
+  cronRunHistory: CronRunRecord[];
+  cronRunHistoryTotal: number;
+  cronRunHistoryLoading: boolean;
+  cronRunHistoryError: string | null;
+  cronJobSaving: boolean;
+  cronJobSaveError: string | null;
+
   // Actions
   loadAgents: () => Promise<void>;
   selectAgent: (agentId: string) => void;
@@ -151,6 +213,8 @@ interface AgentsState {
   disableAllAgentSkills: (agentId: string) => void;
   loadChannelsStatus: () => Promise<void>;
   loadCronStatus: () => Promise<void>;
+  /** Load only the jobs list (faster than loadCronStatus). */
+  loadCronJobs: () => Promise<void>;
   /** Create a new agent and refresh the agents list */
   createAgent: (params: {
     name: string;
@@ -164,6 +228,15 @@ interface AgentsState {
     agentId: string,
     deleteFiles?: boolean,
   ) => Promise<AgentsDeleteResult | null>;
+
+  // Scheduled Tasks actions
+  setScheduledTasksTab: (tab: "my-tasks" | "run-history") => void;
+  loadCronRunHistory: (params?: { page?: number; status?: string; timeRange?: "day" | "week" | "month" }) => Promise<void>;
+  createCronJob: (form: ScheduledTaskFormData) => Promise<CronJob | null>;
+  updateCronJob: (jobId: string, form: ScheduledTaskFormData) => Promise<CronJob | null>;
+  deleteCronJob: (jobId: string) => Promise<void>;
+  toggleCronJobEnabled: (jobId: string, enabled: boolean) => Promise<void>;
+  rerunCronJob: (jobId: string) => Promise<void>;
 }
 
 // ── Store initial state ───────────────────────────────────────────────────────
@@ -205,9 +278,16 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   cronError: null,
   cronStatus: null,
   cronJobs: [],
+  scheduledTasksTab: "my-tasks",
+  cronRunHistory: [],
+  cronRunHistoryTotal: 0,
+  cronRunHistoryLoading: false,
+  cronRunHistoryError: null,
+  cronJobSaving: false,
+  cronJobSaveError: null,
   loadAgents: async () => {
     const client = getClient();
-    if (!client || !isConnected() || get().loading) return;
+    if (!client || !isConnected() || get().loading) { return; }
     set({ loading: true, error: null });
     try {
       const res = await client.request<AgentsListResult>("agents.list", {});
@@ -217,7 +297,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
         // Only auto-select if there was a previous selection and it's still valid
         const selectedAgentId = prev && known ? prev : null;
         set({ agentsList: res, selectedAgentId });
-        if (selectedAgentId) void get().loadAgentIdentity(selectedAgentId);
+        if (selectedAgentId) { void get().loadAgentIdentity(selectedAgentId); }
         void get().loadConfig();
       }
     } catch (err) {
@@ -228,7 +308,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   },
 
   selectAgent: (agentId) => {
-    if (get().selectedAgentId === agentId) return;
+    if (get().selectedAgentId === agentId) { return; }
     set({
       selectedAgentId: agentId,
       activePanel: "overview",
@@ -278,9 +358,11 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
         agentId,
       });
       if (res)
-        set((s) => ({
-          agentIdentityById: { ...s.agentIdentityById, [agentId]: res },
-        }));
+        {
+          set((s) => ({
+            agentIdentityById: { ...s.agentIdentityById, [agentId]: res },
+          }));
+        }
     } catch (err) {
       set({ agentIdentityError: getErrorMessage(err) });
     } finally {
@@ -384,11 +466,11 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
     const entry = { ...list[idx] };
     const ex = entry.model;
-    if (ex && typeof ex === "object")
+    if (ex && typeof ex === "object") {
       entry.model = { ...(ex as Record<string, unknown>), fallbacks };
-    else if (typeof ex === "string" && ex)
+    } else if (typeof ex === "string" && ex) {
       entry.model = { primary: ex, fallbacks };
-    else entry.model = { fallbacks };
+    } else { entry.model = { fallbacks }; }
     list[idx] = entry;
     set({
       configForm: applyPatch(form, ["agents", "list"], list),
@@ -408,9 +490,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       return;
     }
     const entry = { ...list[idx] };
-    const tools = { ...((entry.tools as Record<string, unknown>) ?? {}) };
-    if (profile) tools.profile = profile;
-    else delete tools.profile;
+    const tools = { ...(entry.tools as Record<string, unknown>) };
+    if (profile) { tools.profile = profile; }
+    else { delete tools.profile; }
     if (clearAllow) {
       delete tools.alsoAllow;
       delete tools.deny;
@@ -435,11 +517,11 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       return;
     }
     const entry = { ...list[idx] };
-    const tools = { ...((entry.tools as Record<string, unknown>) ?? {}) };
-    if (alsoAllow.length > 0) tools.alsoAllow = alsoAllow;
-    else delete tools.alsoAllow;
-    if (deny.length > 0) tools.deny = deny;
-    else delete tools.deny;
+    const tools = { ...(entry.tools as Record<string, unknown>) };
+    if (alsoAllow.length > 0) { tools.alsoAllow = alsoAllow; }
+    else { delete tools.alsoAllow; }
+    if (deny.length > 0) { tools.deny = deny; }
+    else { delete tools.deny; }
     entry.tools = tools;
     list[idx] = entry;
     set({
@@ -459,7 +541,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
         agentId,
         includePlugins: true,
       });
-      if (res) set({ toolsCatalogResult: res });
+      if (res) { set({ toolsCatalogResult: res }); }
     } catch (err) {
       set({ toolsCatalogError: getErrorMessage(err) });
     } finally {
@@ -477,7 +559,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
         "agents.files.list",
         { agentId },
       );
-      if (res) set({ agentFilesList: res });
+      if (res) { set({ agentFilesList: res }); }
     } catch (err) {
       set({ agentFilesError: getErrorMessage(err) });
     } finally {
@@ -577,7 +659,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
         "skills.status",
         { agentId },
       );
-      if (res) set({ agentSkillsReport: res });
+      if (res) { set({ agentSkillsReport: res }); }
     } catch (err) {
       set({ agentSkillsError: getErrorMessage(err) });
     } finally {
@@ -643,8 +725,9 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   },
 
   clearAgentSkills: (agentId) => {
-    if (get().agentSkillsAgentId === agentId)
+    if (get().agentSkillsAgentId === agentId) {
       set({ agentSkillsReport: null, agentSkillsAgentId: null });
+    }
   },
 
   disableAllAgentSkills: (_agentId?: string) => {
@@ -667,7 +750,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
         "channels.status",
         {},
       );
-      if (res) set({ channelsSnapshot: res, channelsLastSuccess: Date.now() });
+      if (res) { set({ channelsSnapshot: res, channelsLastSuccess: Date.now() }); }
     } catch (err) {
       set({ channelsError: getErrorMessage(err) });
     } finally {
@@ -684,13 +767,32 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     try {
       const statusRes = await client.request<CronStatus>("cron.status", {});
       const jobsRes = await client.request<{ jobs?: CronJob[] }>(
-        "cron.jobs.list",
-        {},
+        "cron.list",
+        { includeDisabled: true },
       );
       set({
         cronStatus: statusRes ?? null,
         cronJobs: jobsRes?.jobs ?? [],
       });
+    } catch (err) {
+      set({ cronError: getErrorMessage(err) });
+    } finally {
+      set({ cronLoading: false });
+    }
+  },
+
+  loadCronJobs: async () => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return;
+    }
+    set({ cronLoading: true, cronError: null });
+    try {
+      const res = await client.request<{ jobs?: CronJob[] }>(
+        "cron.list",
+        { includeDisabled: true },
+      );
+      set({ cronJobs: res?.jobs ?? [] });
     } catch (err) {
       set({ cronError: getErrorMessage(err) });
     } finally {
@@ -742,6 +844,183 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     } catch (err) {
       set({ error: getErrorMessage(err) });
       return null;
+    }
+  },
+
+  // ── Scheduled Tasks actions ──────────────────────────────────────────────
+
+  setScheduledTasksTab: (tab) => set({ scheduledTasksTab: tab }),
+
+  loadCronRunHistory: async (params) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return;
+    }
+    set({ cronRunHistoryLoading: true, cronRunHistoryError: null });
+    try {
+      // Fetch all entries from Gateway without server-side filtering;
+      // client-side filtering is applied in the UI (ScheduledTasksPage).
+      const res = await client.request<{
+        entries?: Array<{
+          ts: number;
+          jobId: string;
+          jobName?: string;
+          status?: "ok" | "error" | "skipped";
+          durationMs?: number;
+          error?: string;
+          sessionId?: string;
+          sessionKey?: string;
+        }>;
+        total?: number;
+      }>("cron.runs", {
+        scope: "all",
+        limit: 200,
+        offset: ((params?.page ?? 1) - 1) * 200,
+        sortDir: "desc",
+      });
+
+      const entries = res?.entries ?? [];
+      const records: CronRunRecord[] = entries.map((e) => ({
+        id: `${e.jobId}-${e.ts}`,
+        jobId: e.jobId,
+        // jobName may be absent when the job was deleted (e.g. deleteAfterRun tasks);
+        // fall back to a short UUID suffix so the table is still readable.
+        jobName: e.jobName && e.jobName.trim() ? e.jobName : `…${e.jobId.slice(-8)}`,
+        // Map Gateway status: ok→success, error/skipped/unknown→failed
+        status: e.status === "ok" ? "success" : e.status === "error" || e.status === "skipped" ? "failed" : "failed",
+        executionTime: e.ts,
+        durationMs: e.durationMs,
+        error: e.error,
+        sessionId: e.sessionId,
+        sessionKey: e.sessionKey,
+      }));
+
+      set({
+        cronRunHistory: records,
+        cronRunHistoryTotal: res?.total ?? records.length,
+      });
+    } catch (err) {
+      set({ cronRunHistoryError: getErrorMessage(err) });
+    } finally {
+      set({ cronRunHistoryLoading: false });
+    }
+  },
+
+  createCronJob: async (form) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return null;
+    }
+    set({ cronJobSaving: true, cronJobSaveError: null });
+    try {
+      // Convert ScheduledTaskFormData to CronSchedule
+      const schedule = formDataToCronSchedule(form);
+      const payload = { kind: "agentTurn" as const, message: form.agentPrompt };
+      const delivery = form.deliveryMode === "announce"
+        ? { mode: "announce" as const }
+        : { mode: "none" as const };
+      const res = await client.request<CronJob>("cron.add", {
+        name: form.name,
+        description: form.agentPrompt.slice(0, 120),
+        enabled: true,
+        // Explicitly set deleteAfterRun=false for one-time tasks;
+        // Gateway defaults to true for kind="at" which would remove the job after run.
+        deleteAfterRun: false,
+        schedule,
+        payload,
+        delivery,
+        sessionTarget: "isolated",
+        wakeMode: "next-heartbeat",
+      });
+      // Reload job list after create
+      await get().loadCronJobs();
+      return res ?? null;
+    } catch (err) {
+      set({ cronJobSaveError: getErrorMessage(err) });
+      return null;
+    } finally {
+      set({ cronJobSaving: false });
+    }
+  },
+
+  updateCronJob: async (jobId, form) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return null;
+    }
+    set({ cronJobSaving: true, cronJobSaveError: null });
+    try {
+      const schedule = formDataToCronSchedule(form);
+      const payload = { kind: "agentTurn" as const, message: form.agentPrompt };
+      const delivery = form.deliveryMode === "announce"
+        ? { mode: "announce" as const }
+        : { mode: "none" as const };
+      const res = await client.request<CronJob>("cron.update", {
+        id: jobId,
+        patch: {
+          name: form.name,
+          description: form.agentPrompt.slice(0, 120),
+          schedule,
+          payload,
+          delivery,
+        },
+      });
+      await get().loadCronJobs();
+      return res ?? null;
+    } catch (err) {
+      set({ cronJobSaveError: getErrorMessage(err) });
+      return null;
+    } finally {
+      set({ cronJobSaving: false });
+    }
+  },
+
+  deleteCronJob: async (jobId) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return;
+    }
+    try {
+      await client.request("cron.remove", { id: jobId });
+      await get().loadCronJobs();
+    } catch (err) {
+      set({ cronError: getErrorMessage(err) });
+    }
+  },
+
+  toggleCronJobEnabled: async (jobId, enabled) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return;
+    }
+    // Optimistic UI update
+    set((state) => ({
+      cronJobs: state.cronJobs.map((j) =>
+        j.id === jobId ? { ...j, enabled } : j,
+      ),
+    }));
+    try {
+      await client.request("cron.update", { id: jobId, patch: { enabled } });
+    } catch (err) {
+      // Revert on failure
+      set((state) => ({
+        cronJobs: state.cronJobs.map((j) =>
+          j.id === jobId ? { ...j, enabled: !enabled } : j,
+        ),
+        cronError: getErrorMessage(err),
+      }));
+    }
+  },
+
+  rerunCronJob: async (jobId) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return;
+    }
+    try {
+      await client.request("cron.run", { id: jobId, mode: "force" });
+    } catch (err) {
+      set({ cronError: getErrorMessage(err) });
     }
   },
 }));

@@ -5,6 +5,7 @@ export { OverviewPage } from "./OverviewPage";
 export { ChannelsPage } from "./ChannelsPage";
 export { AgentsPage } from "./AgentsPage";
 export { CronPage } from "./CronPage";
+export { ScheduledTasksPage } from "./ScheduledTasksPage";
 export { ConfigPage } from "./ConfigPage";
 export { DebugPage } from "./DebugPage";
 export { LogsPage } from "./LogsPage";

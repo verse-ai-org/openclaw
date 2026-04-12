@@ -25,7 +25,14 @@ function formatSchedule(job: CronJob): string {
     return `Every ${ms}ms`;
   }
   if (s.kind === "cron") {return `Cron: ${s.expr}`};
-  if (s.kind === "at") {return `At: ${s.at}`};
+  if (s.kind === "at") {
+    const d = new Date(s.at);
+    if (!isNaN(d.getTime())) {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `At: ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    return `At: ${s.at}`;
+  }
   return "Unknown";
 }
 
