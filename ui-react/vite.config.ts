@@ -8,6 +8,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
   return {
+    test: {
+      environment: "node",
+      setupFiles: [path.resolve(here, "./src/vitest-setup.ts")],
+      include: ["src/**/*.test.ts"],
+    },
     base: "./",
     plugins: [react(), tailwindcss()],
     // Serve public assets from ui-react/public (includes avatars and static resources)

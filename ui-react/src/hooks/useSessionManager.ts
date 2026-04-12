@@ -81,6 +81,11 @@ export function useSessionManager() {
       }
       if (!silent) {
         useChatStore.getState().clearMessages();
+        // Leaving a tab mid-generation: other sessions' WS events are ignored by
+        // useChatEventBridge, but sending must be cleared so the composer/runtime
+        // does not stay in "running" for the newly loaded session.
+        useChatStore.getState().setSending(false);
+        useChatStore.getState().setLastError(null);
       }
       useChatStore.getState().setMessagesLoading(true);
       try {

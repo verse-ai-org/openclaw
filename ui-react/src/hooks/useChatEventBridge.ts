@@ -13,6 +13,31 @@ import {
   registerChatDispatch,
   unregisterChatDispatch,
 } from "@/store/gateway.store";
+import { useSettingsStore } from "@/store/settings.store";
+
+// ---------------------------------------------------------------------------
+// Session scoping — Gateway broadcasts `chat` / `agent` to all WS clients; only
+// apply updates when the event targets the session the Control UI is viewing.
+// ---------------------------------------------------------------------------
+
+/** Active chat session key (matches GatewayChatRuntimeProvider / chat.send). */
+export function getActiveChatSessionKey(): string {
+  const chat = useChatStore.getState();
+  const settings = useSettingsStore.getState().settings;
+  const raw = chat.sessionKey ?? settings.sessionKey ?? "main";
+  return typeof raw === "string" && raw.trim() ? raw.trim() : "main";
+}
+
+/**
+ * True only when the gateway payload's `sessionKey` matches the active UI session.
+ * Missing or blank keys are rejected (strict) so cross-session runs cannot mutate the thread.
+ */
+export function isChatEventForActiveSession(eventSessionKey: string | undefined): boolean {
+  if (typeof eventSessionKey !== "string" || !eventSessionKey.trim()) {
+    return false;
+  }
+  return eventSessionKey.trim() === getActiveChatSessionKey();
+}
 
 // ---------------------------------------------------------------------------
 // useChatEventBridge
@@ -555,6 +580,22 @@ export function useChatEventBridge() {
               }
             | undefined;
           const state = chatPayload?.state;
+          const sk =
+            typeof chatPayload?.sessionKey === "string" && chatPayload.sessionKey.trim()
+              ? chatPayload.sessionKey.trim()
+              : "";
+          // Cross-session bookkeeping: gateway broadcasts to all clients; update pending
+          // generation even when this session is not focused so switch-back can resume UI.
+          if (sk) {
+            if (state === "final" || state === "error" || state === "aborted") {
+              useChatStore.getState().clearSessionGenerating(sk);
+            } else if (state === "delta") {
+              useChatStore.getState().markSessionGenerating(sk, chatPayload?.runId);
+            }
+          }
+          if (!isChatEventForActiveSession(chatPayload?.sessionKey)) {
+            break;
+          }
 
           if (state === "delta") {
             // Gateway sends cumulative text on each delta (not incremental chunks).
@@ -670,7 +711,22 @@ export function useChatEventBridge() {
         // Agent streaming events: tool calls and lifecycle
         // ----------------------------------------------------------------
         case "agent": {
-          const agentPayload = p;
+          const agentPayload = p as {
+            stream?: string;
+            sessionKey?: string;
+            runId?: string;
+            data?: unknown;
+          };
+          const agentSk =
+            typeof agentPayload.sessionKey === "string" && agentPayload.sessionKey.trim()
+              ? agentPayload.sessionKey.trim()
+              : "";
+          if (agentSk && agentPayload.stream === "tool") {
+            useChatStore.getState().markSessionGenerating(agentSk, agentPayload.runId);
+          }
+          if (!isChatEventForActiveSession(agentPayload?.sessionKey)) {
+            break;
+          }
           const stream = agentPayload?.stream as string | undefined;
           const data = agentPayload?.data as
             | Record<string, unknown>
@@ -738,6 +794,11 @@ export function useChatEventBridge() {
         // History: full message list loaded (e.g. on session switch)
         // ----------------------------------------------------------------
         case "chat.history": {
+          const historySessionKey =
+            typeof p?.sessionKey === "string" ? p.sessionKey : undefined;
+          if (!isChatEventForActiveSession(historySessionKey)) {
+            break;
+          }
           const msgs = (p?.messages ?? []) as RawMessage[];
 
           if (import.meta.env.DEV) {
@@ -865,6 +926,9 @@ export function useChatEventBridge() {
         // Stream lifecycle
         // ----------------------------------------------------------------
         case "chat.stream.start": {
+          if (!isChatEventForActiveSession(typeof p?.sessionKey === "string" ? p.sessionKey : undefined)) {
+            break;
+          }
           const runId = typeof p?.runId === "string" ? p.runId : null;
           useChatStore.getState().resetStream();
           useChatStore.getState().setRunId(runId);
@@ -893,6 +957,9 @@ export function useChatEventBridge() {
         }
 
         case "chat.stream.chunk": {
+          if (!isChatEventForActiveSession(typeof p?.sessionKey === "string" ? p.sessionKey : undefined)) {
+            break;
+          }
           const text = typeof p?.text === "string" ? p.text : "";
           if (text) {
             useChatStore.getState().appendStreamChunk(text);
@@ -901,18 +968,27 @@ export function useChatEventBridge() {
         }
 
         case "chat.stream.end": {
+          if (!isChatEventForActiveSession(typeof p?.sessionKey === "string" ? p.sessionKey : undefined)) {
+            break;
+          }
           useChatStore.getState().finalizeStream();
           useChatStore.getState().setSending(false);
           break;
         }
 
         case "chat.stream.abort": {
+          if (!isChatEventForActiveSession(typeof p?.sessionKey === "string" ? p.sessionKey : undefined)) {
+            break;
+          }
           useChatStore.getState().resetStream();
           useChatStore.getState().setSending(false);
           break;
         }
 
         case "chat.stream.error": {
+          if (!isChatEventForActiveSession(typeof p?.sessionKey === "string" ? p.sessionKey : undefined)) {
+            break;
+          }
           useChatStore.getState().resetStream();
           useChatStore.getState().setSending(false);
           useChatStore

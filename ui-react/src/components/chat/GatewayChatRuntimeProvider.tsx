@@ -255,8 +255,21 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   const client = useGatewayStore((s) => s.client);
   const settings = useSettingsStore((s) => s.settings);
 
-  // isRunning: true while waiting for a response or streaming
-  const isRunning = sending || stream !== null;
+  const activeSessionKey =
+    (typeof sessionKey === "string" && sessionKey.trim()
+      ? sessionKey.trim()
+      : typeof settings.sessionKey === "string" && settings.sessionKey.trim()
+        ? settings.sessionKey.trim()
+        : "main") || "main";
+  const pendingForActiveSession = useChatStore(
+    (s) => s.pendingGenerationBySession[activeSessionKey],
+  );
+  const effectiveRunId = runId ?? pendingForActiveSession?.runId ?? null;
+
+  // isRunning: local stream/sending, or a generation still running on the gateway for this session
+  // (e.g. user switched away and back before the turn finished).
+  const isRunning =
+    sending || stream !== null || pendingForActiveSession != null;
 
   // Append streaming assistant placeholder to the message list while active.
   // Builds contentBlocks from:
@@ -298,6 +311,11 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       contentBlocks.push({ type: "text", text: streamContent });
     }
 
+    // Resume-after-switch: show an assistant placeholder row while we wait for the next delta.
+    if (contentBlocks.length === 0 && isRunning) {
+      contentBlocks.push({ type: "text", text: "" });
+    }
+
     // Build flat toolCalls array for the backward-compat field
     const liveToolCalls = toolStreamOrder
       .map((id) => toolStreamById.get(id))
@@ -322,12 +340,20 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         role: "assistant" as const,
         content: streamContent,
         ts: Date.now(),
-        runId: runId ?? undefined,
+        runId: effectiveRunId ?? undefined,
         toolCalls: liveToolCalls.length > 0 ? liveToolCalls : undefined,
         contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
       },
     ];
-  }, [chatMessages, stream, runId, isRunning, committedBlocks, toolStreamById, toolStreamOrder]);
+  }, [
+    chatMessages,
+    stream,
+    effectiveRunId,
+    isRunning,
+    committedBlocks,
+    toolStreamById,
+    toolStreamOrder,
+  ]);
 
   // Handler: user sends a new message
   const onNew = useCallback(
@@ -356,6 +382,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setSending(true);
 
       const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
+      if (typeof activeSession === "string" && activeSession.trim()) {
+        useChatStore.getState().markSessionGenerating(activeSession.trim());
+      }
 
       try {
         await client?.request("chat.send", {
@@ -367,6 +396,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       } catch (err) {
         console.error("[chat] send failed:", err);
         useChatStore.getState().setSending(false);
+        if (typeof activeSession === "string" && activeSession.trim()) {
+          useChatStore.getState().clearSessionGenerating(activeSession.trim());
+        }
       }
       // Note: setSending(false) is called by the chat.stream.end event handler
       // in useChatEventBridge, ensuring proper timing.
@@ -376,9 +408,11 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
 
   // Handler: cancel ongoing generation
   const onCancel = useCallback(async () => {
-    const currentRunId = useChatStore.getState().runId;
-    const activeSession =
-      useChatStore.getState().sessionKey ?? settings.sessionKey ?? "main";
+    const st = useChatStore.getState();
+    const activeSession = st.sessionKey ?? settings.sessionKey ?? "main";
+    const ak = typeof activeSession === "string" && activeSession.trim() ? activeSession.trim() : "main";
+    const pendingRid = st.pendingGenerationBySession[ak]?.runId;
+    const currentRunId = st.runId ?? (typeof pendingRid === "string" ? pendingRid : null);
     try {
       await client?.request("chat.abort", {
         sessionKey: activeSession,
@@ -387,8 +421,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     } catch (err) {
       console.error("[chat] abort failed:", err);
     }
-    useChatStore.getState().resetStream();
-    useChatStore.getState().setSending(false);
+    st.resetStream();
+    st.setSending(false);
+    st.clearSessionGenerating(ak);
   }, [client, settings.sessionKey]);
 
   // Handler: user edits a past message and resubmits.
@@ -418,6 +453,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setSending(true);
 
       const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
+      if (typeof activeSession === "string" && activeSession.trim()) {
+        useChatStore.getState().markSessionGenerating(activeSession.trim());
+      }
       try {
         await client?.request("chat.send", {
           message: text,
@@ -427,6 +465,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       } catch (err) {
         console.error("[chat] edit send failed:", err);
         useChatStore.getState().setSending(false);
+        if (typeof activeSession === "string" && activeSession.trim()) {
+          useChatStore.getState().clearSessionGenerating(activeSession.trim());
+        }
       }
     },
     [client, sessionKey, settings.sessionKey],

@@ -133,6 +133,13 @@ interface ChatState {
   // Last error message (shown inline in the thread)
   lastError: string | null;
 
+  /**
+   * Sessions with an in-flight gateway generation (user switched away, or multi-tab).
+   * Updated from `chat` / `agent` events even when that session is not the active UI tab.
+   * Cleared on terminal `chat` (final/error/aborted) for that sessionKey.
+   */
+  pendingGenerationBySession: Record<string, { runId?: string | null }>;
+
   // Actions
   setSending: (v: boolean) => void;
   setMessages: (msgs: ChatMessage[]) => void;
@@ -150,6 +157,8 @@ interface ChatState {
   setPendingHistoryReloadKey: (key: string | null) => void;
   setLastError: (msg: string | null) => void;
   truncateMessagesAfter: (parentId: string | null) => void;
+  markSessionGenerating: (sessionKey: string, runId?: string | null) => void;
+  clearSessionGenerating: (sessionKey: string) => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -164,6 +173,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   sessionKey: null,
   pendingHistoryReloadKey: null,
   lastError: null,
+  pendingGenerationBySession: {},
 
   setSending: (v) => set({ sending: v }),
 
@@ -315,6 +325,38 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         toolStreamById: new Map(),
         toolStreamOrder: [],
       };
+    });
+  },
+
+  markSessionGenerating: (sessionKey, runId) => {
+    const k = sessionKey.trim();
+    if (!k) {
+      return;
+    }
+    set((state) => {
+      const prev = state.pendingGenerationBySession[k];
+      const nextRunId =
+        typeof runId === "string" && runId.trim() ? runId.trim() : prev?.runId;
+      return {
+        pendingGenerationBySession: {
+          ...state.pendingGenerationBySession,
+          [k]: { runId: nextRunId },
+        },
+      };
+    });
+  },
+
+  clearSessionGenerating: (sessionKey) => {
+    const k = sessionKey.trim();
+    if (!k) {
+      return;
+    }
+    set((state) => {
+      if (!(k in state.pendingGenerationBySession)) {
+        return {};
+      }
+      const { [k]: _removed, ...rest } = state.pendingGenerationBySession;
+      return { pendingGenerationBySession: rest };
     });
   },
 }));
