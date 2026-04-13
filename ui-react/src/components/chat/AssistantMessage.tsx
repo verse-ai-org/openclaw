@@ -1,57 +1,69 @@
-import { MessagePrimitive, ActionBarPrimitive, AuiIf } from "@assistant-ui/react";
-import { type FC } from "react";
-import { CheckIcon, CopyIcon, RefreshCwIcon } from "lucide-react";
-import { MarkdownText } from "../assistant-ui/markdown-text.tsx";
-import { ToolFallback } from "./ToolFallback";
-import { ToolCallGroup } from "./ToolCallGroup";
+import {
+  MessagePrimitive,
+  AuiIf,
+  useMessage,
+} from "@assistant-ui/react";
+import { type FC, useMemo } from "react";
+import {
+  AssistantMarkdownPart
+} from "../assistant-ui/markdown-text.tsx";
+import { AssistantLoadingIndicator } from "../assistant-ui/assistant-loading-indicator.tsx";
+import {
+  AssistantToolGroup,
+  type AssistantToolPart,
+} from "../assistant-ui/assistant-tool-group.tsx";
+import { InteractiveParts } from "./InteractiveParts";
 
+type AssistantContentPart =
+  | { type: "text"; text: string }
+  | ({ type: "tool-call" } & AssistantToolPart);
 
 // ---------------------------------------------------------------------------
 // AssistantMessage
 // ---------------------------------------------------------------------------
 export const AssistantMessage: FC = () => {
+  const message = useMessage();
+
+  const content = ((message as unknown as { content?: AssistantContentPart[] }).content ?? []) as
+    | AssistantContentPart[]
+    | undefined;
+  const textParts = useMemo(
+    () =>
+      (content ?? []).filter(
+        (part): part is Extract<AssistantContentPart, { type: "text" }> =>
+          part.type === "text",
+      ),
+    [content],
+  );
+  const toolParts = useMemo(
+    () =>
+      (content ?? []).filter(
+        (part): part is Extract<AssistantContentPart, { type: "tool-call" }> =>
+          part.type === "tool-call",
+      ),
+    [content],
+  );
+
   return (
     <MessagePrimitive.Root
       className="relative mx-auto w-full max-w-3xl data-[role=assistant]:animate-in data-[role=assistant]:fade-in data-[role=assistant]:slide-in-from-bottom-1"
       data-role="assistant"
     >
-      {/* Content */}
       <div className="wrap-break-word px-2 text-foreground leading-relaxed">
-        {/* Loading dots shown while this message is in-progress (no content yet) */}
         <AuiIf
           condition={(s) => s.message.status?.type === "running" && s.message.content.length === 0}
         >
-          <span className="inline-flex items-center gap-1 py-1">
-            <span className="size-1.5 rounded-full bg-foreground/40 animate-bounce [animation-delay:0ms]" />
-            <span className="size-1.5 rounded-full bg-foreground/40 animate-bounce [animation-delay:150ms]" />
-            <span className="size-1.5 rounded-full bg-foreground/40 animate-bounce [animation-delay:300ms]" />
-          </span>
+          <AssistantLoadingIndicator />
         </AuiIf>
 
-        <MessagePrimitive.Parts
-          components={{
-            Text: MarkdownText,
-            tools: { Fallback: ToolFallback },
-            ToolGroup: ToolCallGroup,
-          }}
-        />
-      </div>
+        {textParts.map((part, index) => (
+          <AssistantMarkdownPart key={`text-${index}`} text={part.text} />
+        ))}
 
-      {/* Footer: action bar */}
-      <ActionBarPrimitive.Root
-        hideWhenRunning
-        // autohide="always"
-        autohideFloat="always"
-        className="flex gap-0.5 data-floating:opacity-0 data-floating:group-hover:opacity-100 data-floating:transition-opacity"
-      >
-        <ActionBarPrimitive.Copy className="group/copy flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
-          <CopyIcon className="size-4 group-data-copied/copy:hidden" />
-          <CheckIcon className="hidden size-4 group-data-copied/copy:block" />
-        </ActionBarPrimitive.Copy>
-        <ActionBarPrimitive.Reload className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
-          <RefreshCwIcon className="size-4" />
-        </ActionBarPrimitive.Reload>
-      </ActionBarPrimitive.Root>
+        <AssistantToolGroup toolParts={toolParts} />
+
+        <InteractiveParts />
+      </div>
     </MessagePrimitive.Root>
   );
 };

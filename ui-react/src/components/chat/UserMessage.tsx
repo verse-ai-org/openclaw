@@ -5,7 +5,7 @@ import {
   useMessage,
 } from "@assistant-ui/react";
 import { PencilIcon, CheckIcon, XIcon, FileText, Image } from "lucide-react";
-import type { FC } from "react";
+import { type FC, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useChatStore, type MessageAttachment } from "@/store/chat.store";
 
@@ -13,6 +13,50 @@ import { useChatStore, type MessageAttachment } from "@/store/chat.store";
 // UserMessage — renders user bubbles with inline edit support
 // ---------------------------------------------------------------------------
 export const UserMessage: FC = () => {
+  const message = useMessage();
+  // Extract ID as a plain string during render — accessing the assistant-ui proxy
+  // object inside a Zustand selector callback (which runs outside the React render
+  // cycle) triggers tapClientLookup on a stale/rebuilding runtime state, causing
+  // "Index N out of bounds (length: 0)" crashes.
+  const messageId = message.id;
+
+  // When the user message directly follows an interactive tool (question_flow /
+  // option_list), its content is already shown in the QASummary card above.
+  // Render a subtle "submitted" badge instead of the full bubble.
+  const messages = useChatStore((s) => s.messages);
+  const isPrecededByInteractiveTool = useMemo(() => {
+    const idx = messages.findIndex((m) => m.id === messageId);
+    if (idx <= 0) {
+      return false;
+    }
+    // User reply may follow a *second* assistant bubble (e.g. <final> text after
+    // question_flow). Walk backward across consecutive assistant rows.
+    let j = idx - 1;
+    while (j >= 0 && messages[j]!.role === "assistant") {
+      if (
+        messages[j]!.contentBlocks?.some(
+          (b) => b.type === "interactive",
+        )
+      ) {
+        return true;
+      }
+      j--;
+    }
+    return false;
+  }, [messages, messageId]);
+
+  if (isPrecededByInteractiveTool) {
+    return (
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="flex justify-end py-1">
+          <span className="text-xs text-muted-foreground/60 italic px-2">
+            ✓ 已提交
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <MessagePrimitive.Root className="group/msg mx-auto w-full max-w-3xl py-2" data-role="user">
       {/* Normal view: shown when NOT in edit mode */}

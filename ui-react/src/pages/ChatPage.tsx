@@ -1,7 +1,7 @@
 import { GatewayChatRuntimeProvider } from "@/components/chat/GatewayChatRuntimeProvider";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ThreadView } from "@/components/chat/ThreadView";
-import { useChatEventBridge } from "@/hooks/useChatEventBridge";
+import { useChatEventBridge } from "@/hooks/chat-event-bridge";
 
 export function ChatPage() {
   useChatEventBridge();

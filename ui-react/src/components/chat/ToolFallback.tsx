@@ -1,4 +1,3 @@
-import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import {
   CheckIcon,
   LoaderIcon,
@@ -14,7 +13,7 @@ import {
   WrenchIcon,
   ChevronRightIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type FC } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
@@ -27,8 +26,19 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { Chart } from "@/components/tool-ui/chart";
+import { CodeBlock } from "@/components/tool-ui/code-block";
+import { LinkPreview } from "@/components/tool-ui/link-preview";
+import { StatsDisplay } from "@/components/tool-ui/stats-display";
+import { Terminal } from "@/components/tool-ui/terminal";
+import { safeParseSerializableChart } from "@/components/tool-ui/chart/schema";
+import { safeParseSerializableCodeBlock } from "@/components/tool-ui/code-block/schema";
+import { safeParseSerializableLinkPreview } from "@/components/tool-ui/link-preview/schema";
+import { safeParseSerializableStatsDisplay } from "@/components/tool-ui/stats-display/schema";
+import { safeParseSerializableTerminal } from "@/components/tool-ui/terminal/schema";
 import { WeatherWidget } from "@/components/tool-ui/weather-widget/runtime";
 import { plainMdComponents } from "../assistant-ui/markdown-text";
+import { parseToolUiPayload } from "./parse-tool-ui-payload";
 import { tryParseWeatherWidgetPayload } from "./parse-weather-widget-payload";
 
 // ---------------------------------------------------------------------------
@@ -400,9 +410,37 @@ function ToolDetailDrawer({
 }
 
 // ---------------------------------------------------------------------------
+// Interactive tools rendered by InteractiveCardArea — skip default card here
+// ---------------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------------
 // ToolFallback — main card component
 // ---------------------------------------------------------------------------
-const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, result, status, isError }) => {
+export type ToolFallbackJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ToolFallbackJsonValue[]
+  | ToolFallbackJsonObject;
+export type ToolFallbackJsonObject = { [key: string]: ToolFallbackJsonValue };
+
+export interface ToolFallbackPartProps {
+  toolName: string;
+  args: ToolFallbackJsonObject;
+  argsText?: string;
+  result?: string;
+  isError?: boolean;
+  status:
+    | { type: "running" }
+    | { type: "complete" }
+    | { type: "incomplete"; reason: "length" | "error" | "cancelled" | "other" | "content-filter"; error?: unknown };
+  addResult?: (result: unknown) => void;
+  resume?: (payload: unknown) => void;
+}
+
+const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({ toolName, argsText, result, status, isError }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Result string for display
@@ -413,20 +451,78 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
         ? JSON.stringify(result, null, 2)
         : undefined;
 
-  if (process.env.NODE_ENV === "development") {
+  if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
     console.log("[ToolFallback]", toolName, { result, resultStr, status, isError });
   }
 
-  /** Rich weather card — `weather_widget` tool returns WeatherWidgetPayload JSON */
-  if (toolName === "weather_widget" && status?.type !== "running") {
-    const parsed = tryParseWeatherWidgetPayload(result ?? resultStr);
-    if (parsed) {
-      return (
-        <div className="my-2 w-full max-w-3xl overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm">
-          <WeatherWidget {...parsed} effects={{ enabled: true, quality: "medium" }} />
-        </div>
-      );
+  const toolUiCardClass =
+    "my-2 w-full max-w-3xl overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm";
+
+  /** Tool UI passthrough tools — JSON parameters echoed as result; safe-parse then render */
+  if (status?.type !== "running") {
+    const payload = parseToolUiPayload(result, resultStr);
+    if (payload) {
+      if (toolName === "weather_widget") {
+        const parsed = tryParseWeatherWidgetPayload(result ?? resultStr);
+        if (parsed) {
+          return (
+            <div className={toolUiCardClass}>
+              <WeatherWidget {...parsed} effects={{ enabled: true, quality: "medium" }} />
+            </div>
+          );
+        }
+      }
+      if (toolName === "code_block") {
+        const parsed = safeParseSerializableCodeBlock(payload);
+        if (parsed) {
+          return (
+            <div className={toolUiCardClass}>
+              <CodeBlock {...parsed} />
+            </div>
+          );
+        }
+      }
+      if (toolName === "chart") {
+        const parsed = safeParseSerializableChart(payload);
+        if (parsed) {
+          return (
+            <div className={toolUiCardClass}>
+              <Chart {...parsed} />
+            </div>
+          );
+        }
+      }
+      if (toolName === "link_preview") {
+        const parsed = safeParseSerializableLinkPreview(payload);
+        if (parsed) {
+          return (
+            <div className={toolUiCardClass}>
+              <LinkPreview {...parsed} />
+            </div>
+          );
+        }
+      }
+      if (toolName === "stats_display") {
+        const parsed = safeParseSerializableStatsDisplay(payload);
+        if (parsed) {
+          return (
+            <div className={toolUiCardClass}>
+              <StatsDisplay {...parsed} />
+            </div>
+          );
+        }
+      }
+      if (toolName === "terminal_output") {
+        const parsed = safeParseSerializableTerminal(payload);
+        if (parsed) {
+          return (
+            <div className={toolUiCardClass}>
+              <Terminal {...parsed} />
+            </div>
+          );
+        }
+      }
     }
   }
 

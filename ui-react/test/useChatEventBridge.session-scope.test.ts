@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import {
   getActiveChatSessionKey,
   isChatEventForActiveSession,
-} from "@/hooks/useChatEventBridge";
+} from "@/hooks/chat-event-bridge";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
 

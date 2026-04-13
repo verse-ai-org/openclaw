@@ -139,7 +139,7 @@ function OptionItem({
     >
       <span
         className={cn(
-          "bg-primary/5 absolute inset-0 -mx-3 -my-0.5 rounded-xl opacity-0 transition-opacity group-hover:opacity-100",
+          "bg-muted/50 absolute inset-0 -mx-3 -my-0.5 rounded-xl opacity-0 transition-opacity group-hover:opacity-100",
         )}
       />
       <div className="relative flex items-start gap-3">
@@ -154,7 +154,7 @@ function OptionItem({
           <span className="flex h-6 items-center">{option.icon}</span>
         )}
         <div className="flex flex-col text-left">
-          <span className="leading-6 text-pretty">{option.label}</span>
+          <span className="leading-6 text-black text-pretty">{option.label}</span>
           {option.description && (
             <span className="text-muted-foreground text-sm font-normal text-pretty">
               {option.description}
@@ -174,7 +174,7 @@ function QuestionFlowReceipt({
   return (
     <div
       className={cn(
-        "@container/question-flow flex w-full min-w-80 max-w-md flex-col",
+        "@container/question-flow flex w-full min-w-80 flex-col",
         "text-foreground",
         "motion-safe:animate-in motion-safe:fade-in motion-safe:blur-in-sm motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out motion-safe:fill-mode-both",
         className,
@@ -187,7 +187,7 @@ function QuestionFlowReceipt({
     >
       <div
         className={cn(
-          "bg-card/60 flex w-full flex-col gap-3 rounded-2xl border px-5 py-4 shadow-xs",
+          "bg-card/60 flex w-full flex-col gap-3 rounded-lg border px-5 py-4 shadow-xs",
         )}
       >
         <div className="flex items-center justify-between gap-3">
@@ -481,7 +481,7 @@ function StepContent({
   return (
     <div
       className={cn(
-        "@container/question-flow flex w-full min-w-80 max-w-md flex-col gap-3",
+        "@container/question-flow flex w-full min-w-80 flex-col gap-3",
         "text-foreground",
         className,
       )}

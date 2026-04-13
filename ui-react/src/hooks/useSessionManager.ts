@@ -8,7 +8,7 @@ import {
   consolidateToolMessages,
   normalizeHistoryAttachmentHints,
   stripAttachmentContent,
-} from "@/hooks/useChatEventBridge";
+} from "@/hooks/chat-event-bridge";
 import { useChatStore, type MessageAttachment } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
@@ -145,7 +145,9 @@ export function useSessionManager() {
                     .map((b) =>
                       b.type === "tool-call"
                         ? `tool:${b.toolName}`
-                        : `text:${b.text.slice(0, 20)}`,
+                        : b.type === "interactive"
+                          ? `interactive:${b.kind}`
+                          : `text:${b.text.slice(0, 20)}`,
                     )
                     .join(", ")
                 : `[no blocks] content=${m.content.slice(0, 40)}`;

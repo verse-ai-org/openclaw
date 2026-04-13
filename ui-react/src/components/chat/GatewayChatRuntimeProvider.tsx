@@ -8,7 +8,7 @@ import {
 import type { MessageAttachment } from "@/store/chat.store";
 import { createGatewayCompositeAttachmentAdapter } from "./gateway-attachment-adapter";
 import { type ReactNode, useCallback, useMemo } from "react";
-import { normalizeRole } from "@/hooks/useChatEventBridge";
+import { normalizeRole } from "@/hooks/chat-event-bridge";
 import {
   useChatStore,
   toolStreamEntryToResultText,
@@ -17,6 +17,7 @@ import {
 } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
+import { ChatSendContext } from "./ChatSendContext";
 
 // ---------------------------------------------------------------------------
 // Strip agent instruction wrapper tags (e.g. <final>) from display text.
@@ -137,6 +138,10 @@ function stripAgentWrapperTags(text: string): string {
   result = result.replace(AGENT_OPEN_TAG_RE, "");
   // Strip partial close tag at end (edge case)
   result = result.replace(AGENT_CLOSE_TAG_RE, "");
+  // Half-written </final> or </plan> at EOF while streaming (e.g. "</" before "final>" arrives)
+  if (!/<\/(?:final|plan)>\s*$/iu.test(result)) {
+    result = result.replace(/<\/(?:final|plan)?$/iu, "");
+  }
   return result;
 }
 
@@ -158,13 +163,14 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
         isError?: boolean;
       };
   const parts: ContentPart[] = [];
+  const hasInteractiveBlocks = msg.contentBlocks?.some((block) => block.type === "interactive") ?? false;
 
   if (msg.contentBlocks && msg.contentBlocks.length > 0) {
     // Ordered interleaved blocks — preserves original text/tool order
     for (const block of msg.contentBlocks) {
       if (block.type === "text") {
         parts.push({ type: "text", text: stripAgentWrapperTags(block.text) });
-      } else {
+      } else if (block.type === "tool-call") {
         let parsedArgs: Record<string, unknown> = {};
         if (block.argsText) {
           try {
@@ -210,8 +216,8 @@ function convertMessage(msg: ChatMessage): ThreadMessageLike {
     }
   }
 
-  // Ensure there's always at least one part
-  if (parts.length === 0) {
+  // Ensure there's always at least one part for assistant-ui, except when this row is interactive-only.
+  if (parts.length === 0 && !hasInteractiveBlocks) {
     parts.push({ type: "text", text: "" });
   }
 
@@ -251,6 +257,8 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   const committedBlocks = useChatStore((s) => s.committedBlocks);
   const toolStreamById = useChatStore((s) => s.toolStreamById);
   const toolStreamOrder = useChatStore((s) => s.toolStreamOrder);
+  const interactiveStreamById = useChatStore((s) => s.interactiveStreamById);
+  const interactiveStreamOrder = useChatStore((s) => s.interactiveStreamOrder);
 
   const client = useGatewayStore((s) => s.client);
   const settings = useSettingsStore((s) => s.settings);
@@ -286,6 +294,15 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       // Already-frozen segments (text before previous tool calls)
       ...committedBlocks,
     ];
+
+    // In-flight interactive inputs come before normal tool cards.
+    for (const id of interactiveStreamOrder) {
+      const entry = interactiveStreamById.get(id);
+      if (!entry) {
+        continue;
+      }
+      contentBlocks.push(entry);
+    }
 
     // In-flight tool calls in arrival order — come AFTER committed text blocks
     for (const id of toolStreamOrder) {
@@ -353,30 +370,25 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     committedBlocks,
     toolStreamById,
     toolStreamOrder,
+    interactiveStreamById,
+    interactiveStreamOrder,
   ]);
 
-  // Handler: user sends a new message
-  const onNew = useCallback(
-    async (message: AppendMessage) => {
-      const { text, gatewayAttachments, displayAttachments } = parseGatewaySendPayload(message);
-
-      if (!text.trim() && gatewayAttachments.length === 0) {
-        return;
-      }
-
-      // Clear any previous error when user sends a new message
+  // Shared plain-text send — used by the composer (onNew) and InteractiveCardArea (HITL answers).
+  const sendMessage = useCallback(
+    async (text: string, opts?: { attachments?: { content: string; mimeType: string; fileName: string }[]; displayAttachments?: MessageAttachment[] }) => {
       useChatStore.getState().setLastError(null);
-      // Drop leftover stream + tool state from the prior turn so the placeholder row
-      // cannot reuse previous tool cards.
       useChatStore.getState().resetStream();
 
-      // Optimistically append the user message immediately so it shows in the thread
       const userMsg = {
         id: crypto.randomUUID(),
         role: "user" as const,
         content: text,
         ts: Date.now(),
-        attachments: displayAttachments.length > 0 ? displayAttachments : undefined,
+        attachments:
+          opts?.displayAttachments && opts.displayAttachments.length > 0
+            ? opts.displayAttachments
+            : undefined,
       };
       useChatStore.getState().setMessages([...useChatStore.getState().messages, userMsg]);
       useChatStore.getState().setSending(true);
@@ -391,7 +403,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           message: text,
           sessionKey: activeSession,
           idempotencyKey: crypto.randomUUID(),
-          attachments: gatewayAttachments.length > 0 ? gatewayAttachments : undefined,
+          ...(opts?.attachments && opts.attachments.length > 0
+            ? { attachments: opts.attachments }
+            : {}),
         });
       } catch (err) {
         console.error("[chat] send failed:", err);
@@ -400,10 +414,27 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           useChatStore.getState().clearSessionGenerating(activeSession.trim());
         }
       }
+    },
+    [client, sessionKey, settings.sessionKey],
+  );
+
+  // Handler: user sends a new message via the composer
+  const onNew = useCallback(
+    async (message: AppendMessage) => {
+      const { text, gatewayAttachments, displayAttachments } = parseGatewaySendPayload(message);
+
+      if (!text.trim() && gatewayAttachments.length === 0) {
+        return;
+      }
+
+      await sendMessage(text, {
+        attachments: gatewayAttachments,
+        displayAttachments,
+      });
       // Note: setSending(false) is called by the chat.stream.end event handler
       // in useChatEventBridge, ensuring proper timing.
     },
-    [client, sessionKey, settings.sessionKey],
+    [sendMessage],
   );
 
   // Handler: cancel ongoing generation
@@ -473,17 +504,34 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     [client, sessionKey, settings.sessionKey],
   );
 
-  const runtime = useExternalStoreRuntime<ChatMessage>({
-    isRunning,
-    messages,
-    convertMessage,
-    onNew,
-    onEdit,
-    onCancel,
-    adapters: {
-      attachments: createGatewayCompositeAttachmentAdapter(),
-    },
-  });
+  // assistant-ui's useExternalStoreRuntime runs setAdapter in a useEffect with no
+  // dependency array (every commit). A fresh inline adapter object each render makes
+  // ExternalStoreThreadRuntimeCore think the store changed and calls _notifySubscribers(),
+  // which can cascade into "Maximum update depth exceeded". Keep a stable reference
+  // when props are unchanged (same rule as React state deps).
+  const attachmentAdapter = useMemo(() => createGatewayCompositeAttachmentAdapter(), []);
+  const externalStoreAdapter = useMemo(
+    () => ({
+      isRunning,
+      messages,
+      convertMessage,
+      onNew,
+      onEdit,
+      onCancel,
+      adapters: {
+        attachments: attachmentAdapter,
+      },
+    }),
+    [isRunning, messages, onNew, onEdit, onCancel, attachmentAdapter],
+  );
 
-  return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
+  const runtime = useExternalStoreRuntime<ChatMessage>(externalStoreAdapter);
+
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <ChatSendContext.Provider value={{ sendMessage }}>
+        {children}
+      </ChatSendContext.Provider>
+    </AssistantRuntimeProvider>
+  );
 }

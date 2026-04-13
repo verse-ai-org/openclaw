@@ -24,6 +24,13 @@ import { createSessionsSpawnTool } from "./tools/sessions-spawn-tool.js";
 import { createSubagentsTool } from "./tools/subagents-tool.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 import { createWeatherWidgetTool } from "./tools/weather-widget-tool.js";
+import { createQuestionFlowTool } from "./tools/question-flow-tool.js";
+import { createOptionListTool } from "./tools/option-list-tool.js";
+import { createCodeBlockTool } from "./tools/code-block-tool.js";
+import { createChartTool } from "./tools/chart-tool.js";
+import { createLinkPreviewTool } from "./tools/link-preview-tool.js";
+import { createStatsDisplayTool } from "./tools/stats-display-tool.js";
+import { createTerminalOutputTool } from "./tools/terminal-output-tool.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/web-tools.js";
 import { resolveWorkspaceRoot } from "./workspace-dir.js";
 
@@ -166,6 +173,13 @@ export function createOpenClawTools(
       config: options?.config,
     }),
     createWeatherWidgetTool(),
+    createQuestionFlowTool(),
+    createOptionListTool(),
+    createCodeBlockTool(),
+    createChartTool(),
+    createLinkPreviewTool(),
+    createStatsDisplayTool(),
+    createTerminalOutputTool(),
     createAgentsListTool({
       agentSessionKey: options?.agentSessionKey,
       requesterAgentIdOverride: options?.requesterAgentIdOverride,

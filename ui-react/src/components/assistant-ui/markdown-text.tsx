@@ -1,4 +1,5 @@
 import { FC, memo } from "react";
+import ReactMarkdown from "react-markdown";
 import {
   type CodeHeaderProps,
   MarkdownTextPrimitive,
@@ -28,7 +29,7 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
     copyToClipboard(code);
   };
   return (
-    <div className="aui-code-header-root mt-2.5 flex items-center justify-between rounded-t-lg border border-border/50 border-b-0 bg-muted/50 px-3 py-1.5 text-xs">
+    <div className="aui-code-header-root mb-2 flex items-center justify-between p-0 text-xs">
       <span className="aui-code-header-language font-medium text-muted-foreground lowercase">
         {language}
       </span>
@@ -190,7 +191,7 @@ const sharedElements: Components = {
   pre: ({ className, ...props }) => (
     <pre
       className={cn(
-        "aui-md-pre overflow-x-auto rounded-t-none rounded-b-lg border border-border/50 border-t-0 bg-muted/30 p-3 text-xs leading-relaxed",
+        "aui-md-pre overflow-x-auto rounded-lg border border-border/50 bg-muted/30 p-3 text-xs leading-relaxed",
         className,
       )}
       {...props}
@@ -202,7 +203,7 @@ const sharedElements: Components = {
       <code
         className={cn(
           !isCodeBlock &&
-            "aui-md-inline-code rounded-md border border-border/50 bg-muted/50 px-1.5 py-0.5 font-mono text-[0.85em]",
+            "aui-md-inline-code rounded-md border border-border/50 bg-muted/50 px-1 py-1 font-mono text-sm",
           className,
         )}
         {...props}
@@ -227,20 +228,30 @@ export const mdComponents = memoizeMarkdownComponents({
 export const plainMdComponents: Components = {
   ...sharedElements,
   code: ({ className, ...props }: React.ComponentPropsWithoutRef<"code">) => {
-    // react-markdown passes language class like "language-js" for fenced code blocks
     const isBlock = Boolean(className?.startsWith("language-"));
     return (
+      <>
+      {isBlock && <CodeHeader language={className?.replace("language-", "")} code={props.children as string} />}
       <code
         className={cn(
           !isBlock &&
-            "relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold",
+            "relative rounded px-1 py-1 font-mono text-sm",
           className,
         )}
         {...props}
       />
+      </>
     );
-  },
+  }
 };
+
+export function AssistantMarkdownPart({ text }: { text: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={plainMdComponents}>
+      {text}
+    </ReactMarkdown>
+  );
+}
 
 const MarkdownTextImpl = () => {
   return (

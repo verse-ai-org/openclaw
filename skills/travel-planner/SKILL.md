@@ -53,16 +53,102 @@ node {baseDir}/scripts/db.mjs --cmd=is_initialized
 
 ### 第二步：轻量偏好采集
 
-**只问高影响项**,建议优先采集：
+**只问高影响项**。在 Control UI 会话中，**必须调用 `question_flow` 工具**（而非直接输出文字问答），让前端渲染交互式问卷卡片。
 
-- 预算档位（经济/中档/高端）
-- 节奏（轻松/适中/紧凑）
-- 同行结构（独行/情侣/家庭/多人）
-- 出发城市
-- 出发时间
-- 核心兴趣（风景/美食/人文/摄影/亲子等）
-- 交通偏好（自驾/包车/公共交通/短途航班可接受）
-- 步行耐受与行动限制
+#### Control UI：同一轮内不要拆成「两条助手消息」
+
+部分模型会在 **工具调用停一轮** 之后，再单独输出一条只含 `<final>…</final>` 说明文字的助手消息。这会导致问卷卡片与说明分成上下两条气泡，且用户容易只看到第二条、看不到问卷。
+
+**必须遵守**：
+
+1. **优先**在同一轮助手输出中完成：先写一两句面向用户的说明（可直接用自然语言，不必包在 `<final>` 里），**再**调用 `question_flow`；或说明与工具调用同回合连续完成，**避免**在 `question_flow` 的 tool result 之后**再单独起一条**仅含 `<final>` 的助手消息。
+2. 若运行时仍拆成两条助手消息：把必要说明放在 **调用 `question_flow` 之前**的那条里；**不要**在工具之后再发一条只有包装标签、重复引导的 `<final>` 纯文案。
+
+#### 执行方式：调用 `question_flow` 工具
+
+调用 `question_flow` 工具并返回以下 JSON 作为工具结果：
+
+```json
+{
+  "id": "travel-preference-intake",
+  "steps": [
+    {
+      "id": "departure_city",
+      "title": "出发城市",
+      "description": "你从哪里出发？",
+      "options": [
+        { "id": "beijing",   "label": "北京" },
+        { "id": "shanghai",  "label": "上海" },
+        { "id": "guangzhou", "label": "广州" },
+        { "id": "shenzhen",  "label": "深圳" },
+        { "id": "chengdu",   "label": "成都" },
+        { "id": "other",     "label": "其他城市（请在下一条消息中说明）" }
+      ],
+      "selectionMode": "single"
+    },
+    {
+      "id": "budget",
+      "title": "预算档位",
+      "options": [
+        { "id": "economy",   "label": "经济型（¥150-250/天）" },
+        { "id": "mid-range", "label": "中档（¥350-600/天）" },
+        { "id": "high-end",  "label": "高端（¥800+/天）" }
+      ],
+      "selectionMode": "single"
+    },
+    {
+      "id": "pace",
+      "title": "出行节奏",
+      "options": [
+        { "id": "relaxed",   "label": "轻松（每天1-2个景点）" },
+        { "id": "moderate",  "label": "适中（每天2-3个景点）" },
+        { "id": "intensive", "label": "紧凑（多景点快节奏）" }
+      ],
+      "selectionMode": "single"
+    },
+    {
+      "id": "companions",
+      "title": "同行结构",
+      "options": [
+        { "id": "solo",   "label": "独行" },
+        { "id": "couple", "label": "情侣/双人" },
+        { "id": "family", "label": "家庭（含老人/小孩）" },
+        { "id": "group",  "label": "多人朋友团" }
+      ],
+      "selectionMode": "single"
+    },
+    {
+      "id": "interests",
+      "title": "核心兴趣",
+      "description": "可多选",
+      "options": [
+        { "id": "nature",      "label": "🏔️ 自然风光（草原、雪山、沙漠、湖泊）" },
+        { "id": "culture",     "label": "🕌 人文历史（古城、丝绸之路遗迹）" },
+        { "id": "food",        "label": "🍜 美食探索" },
+        { "id": "photography", "label": "📸 摄影打卡" },
+        { "id": "shopping",    "label": "🛒 集市购物" }
+      ],
+      "selectionMode": "multi"
+    },
+    {
+      "id": "transport",
+      "title": "交通偏好",
+      "description": "可多选",
+      "options": [
+        { "id": "self_drive",    "label": "自驾" },
+        { "id": "private_car",   "label": "包车/司机" },
+        { "id": "public",        "label": "公共交通" },
+        { "id": "short_flight",  "label": "短途国内航班可接受" }
+      ],
+      "selectionMode": "multi"
+    }
+  ]
+}
+```
+
+#### 解析用户回答
+
+用户完成问卷后，回答以纯文本形式到达，每步一行，格式为 `步骤标题：选中选项标签`。从中提取字段，忽略空行。
 
 > 预算分配比例与节奏设计细则见 `references/travel_guidelines.md`。
 
@@ -111,9 +197,18 @@ node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新
 
 #### 平台选择
 
-先问用户：
+在 Control UI 会话中，**调用 `option_list` 工具**让用户选择平台（而非纯文字询问）：
 
-`你想用哪个平台来参考框定路线：小红书 / 搜索？`
+```json
+{
+  "id": "route-platform-choice",
+  "options": [
+    { "id": "search", "label": "搜索" },
+    { "id": "xhs",    "label": "小红书" }
+  ],
+  "selectionMode": "single"
+}
+```
 
 **硬守卫（不可绕过）**：必须等用户回答后才能开始检索，无论用户是否"显然想往下走"，都不允许跳过这一问。唯一例外：用户在本轮消息中已明确说出"默认就行 / 你决定 / 按默认 / 用搜索 / 用小红书"等等效表达，方可直接采用对应平台。
 
@@ -185,7 +280,23 @@ node scripts/db.mjs --cmd=save_route_evidence --trip-id=<trip_id> --platform=<xh
 node {baseDir}/scripts/db.mjs --cmd=save_route_plan --trip-id=<trip_id> --recommended-route='<recommended_route_json>' --alternatives='<alternatives_json>' --rejected-routes='<rejected_routes_json>' --decision-summary='<decision_summary_json>' --route-source-used=<xhs|search> --route-source-preference=<xhs|search> --route-source-fallbacks='<fallback_chain_json>'
 ```
 
-7. 展示 `route_options` 并要求用户明确选择 `route_id`。
+7. 通过 `option_list` 工具展示 `route_options`，让用户明确选择 `route_id`（而非纯文字让用户自由输入）。推荐结构如下：
+
+```json
+{
+  "id": "route-choice",
+  "options": [
+    { "id": "route-a", "label": "route-a｜成都 -> 四姑娘山 -> 丹巴 -> 新都桥" },
+    { "id": "route-b", "label": "route-b｜成都 -> 康定 -> 新都桥 -> 塔公" },
+    { "id": "route-c", "label": "route-c｜成都 -> 海螺沟 -> 康定 -> 折返" }
+  ],
+  "selectionMode": "single"
+}
+```
+
+- `options[].id` 必须直接使用真实的 `route_id`，不得另造映射 ID。
+- `options[].label` 可包含路线摘要与一句简短权衡，便于用户直接选。
+- 若本轮消息里用户已经明确点名某个 `route_id`，可直接采用，无需重复发起 `option_list`。
 8. 持久化用户选择：
 
 ```bash
@@ -224,7 +335,7 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 - 当 `used_platform in {xhs, search}` 时，若未先执行 `save_route_evidence` 或证据不足，不得执行 `save_route_plan`。
 - 当 `used_platform = search` 时，允许弱校验进入 `save_route_plan`。
 - 当 `route_options` 少于 2 条时，不得执行 `save_route_plan`，也不得执行 `confirm_route_choice`。
-- `confirm_route_choice` 只能在“展示候选路线 + 用户明确选中 route_id”后执行，不得提前写入确认态。
+- `confirm_route_choice` 只能在“通过 `option_list` 展示候选路线（或用户已直接明确给出 `route_id`）+ 用户明确选中 route_id”后执行，不得提前写入确认态。
 - 若 `save_route_plan` 返回失败，只能返回失败原因和下一步动作，不得伪造“已确认路线”。
 - 当 `xhs` 明确走“用户手动提供内容”分支时，必须在 `decision_summary` 和用户回复中同时标注：`evidence_source=user_input_xhs`、`verification_status=unverified_by_xhs_tool`。
 
@@ -235,7 +346,8 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 核心要点：
 - 必须先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
 - 给出 2-3 条 `route_id` 路线选项，每条 1 行权衡（时间成本/换乘压力/景观收益）
-- 最后必须发起确认问题（让用户选 `route_id`）, 同时说明下一步内容
+- 候选路线选择阶段必须优先使用 `option_list`，让用户点选具体 `route_id`
+- 最后明确说明下一步将进入交通与天气核验
 
 ### 第五步：调研交通和天气
 

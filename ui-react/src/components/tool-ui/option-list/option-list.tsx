@@ -122,7 +122,7 @@ function OptionItem({
     >
       <span
         className={cn(
-          "bg-primary/5 absolute inset-0 -mx-3 -my-0.5 rounded-xl opacity-0 transition-opacity group-hover:opacity-100",
+          "bg-muted/50 absolute inset-0 -mx-3 -my-0.5 rounded-lg opacity-0 transition-opacity group-hover:opacity-100",
         )}
       />
       <div className="relative flex items-start gap-3">
@@ -137,7 +137,7 @@ function OptionItem({
           <span className="flex h-6 items-center">{option.icon}</span>
         )}
         <div className="flex flex-col text-left">
-          <span className="leading-6 text-pretty">{option.label}</span>
+          <span className="leading-6 text-black text-pretty">{option.label}</span>
           {option.description && (
             <span className="text-muted-foreground text-sm font-normal text-pretty">
               {option.description}
@@ -167,7 +167,7 @@ function OptionListConfirmation({
   return (
     <div
       className={cn(
-        "@container/option-list flex w-full max-w-md min-w-80 flex-col",
+        "@container/option-list flex w-full min-w-80 flex-col",
         "text-foreground",
         "motion-safe:animate-in motion-safe:fade-in motion-safe:blur-in-sm motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)] motion-safe:fill-mode-both",
         className,
@@ -228,7 +228,7 @@ export function OptionList({
   onBeforeAction,
   className,
 }: OptionListProps) {
-  if (process.env["NODE_ENV"] !== "production") {
+  if (import.meta.env.DEV) {
     if (value !== undefined && defaultValue !== undefined) {
       console.warn(
         "[OptionList] Both `value` (controlled) and `defaultValue` (uncontrolled) were provided. `defaultValue` is ignored when `value` is set.",
@@ -559,7 +559,7 @@ export function OptionList({
       ) : (
         <div
           className={cn(
-            "@container/option-list flex w-full max-w-md min-w-80 flex-col gap-3",
+            "@container/option-list flex w-full min-w-80 flex-col gap-3",
             "text-foreground",
             className,
           )}

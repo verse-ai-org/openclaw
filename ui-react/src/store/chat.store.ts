@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import type { SerializableQuestionFlow } from "@/components/tool-ui/question-flow";
+import type { SerializableOptionList } from "@/components/tool-ui/option-list";
 
 // ---------------------------------------------------------------------------
 // History reload via Zustand state — set a pending key to trigger reload.
@@ -25,6 +27,7 @@ export interface ToolCallPart {
 }
 
 export type ToolStreamPhase = "start" | "running" | "result" | "error";
+export type InteractiveKind = "question_flow" | "option_list";
 
 export interface ToolStreamEntry {
   id: string;
@@ -68,7 +71,20 @@ export type ContentBlock =
       argsText?: string;
       result?: string;
       phase: "call" | "result" | "error";
+    }
+  | {
+      type: "interactive";
+      interactiveId: string;
+      kind: InteractiveKind;
+      payload: SerializableQuestionFlow | SerializableOptionList;
     };
+
+export type InteractiveContentBlock = Extract<ContentBlock, { type: "interactive" }>;
+
+export interface InteractiveSummaryPair {
+  question: string;
+  answer: string;
+}
 
 /** A sent file attachment stored with the message for display. */
 export interface MessageAttachment {
@@ -120,6 +136,11 @@ interface ChatState {
   toolStreamById: Map<string, ToolStreamEntry>;
   toolStreamOrder: string[];
 
+  // Interactive input streaming
+  interactiveStreamById: Map<string, InteractiveContentBlock>;
+  interactiveStreamOrder: string[];
+  interactiveSummaryById: Record<string, InteractiveSummaryPair[]>;
+
   // Input state
   sending: boolean;
 
@@ -161,6 +182,10 @@ interface ChatState {
   finalizeStream: () => void;
   upsertToolStream: (entry: ToolStreamEntry) => void;
   resetToolStream: () => void;
+  upsertInteractiveStream: (entry: InteractiveContentBlock) => void;
+  resetInteractiveStream: () => void;
+  setInteractiveSummary: (interactiveId: string, pairs: InteractiveSummaryPair[]) => void;
+  clearInteractiveSummary: (interactiveId: string) => void;
   setPendingHistoryReloadKey: (key: string | null) => void;
   setLastError: (msg: string | null) => void;
   truncateMessagesAfter: (parentId: string | null) => void;
@@ -176,6 +201,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   committedBlocks: [],
   toolStreamById: new Map(),
   toolStreamOrder: [],
+  interactiveStreamById: new Map(),
+  interactiveStreamOrder: [],
+  interactiveSummaryById: {},
   sending: false,
   sessionKey: null,
   pendingHistoryReloadKey: null,
@@ -195,6 +223,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       committedBlocks: [],
       toolStreamById: new Map(),
       toolStreamOrder: [],
+      interactiveStreamById: new Map(),
+      interactiveStreamOrder: [],
+      interactiveSummaryById: {},
     }),
   setSessionKey: (key) => set({ sessionKey: key }),
   setPendingDraftMessage: (msg) => set({ pendingDraftMessage: msg }),
@@ -223,13 +254,29 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 
   finalizeStream: () => {
-    const { stream, runId, committedBlocks, toolStreamById, toolStreamOrder } = get();
+    const {
+      stream,
+      runId,
+      committedBlocks,
+      toolStreamById,
+      toolStreamOrder,
+      interactiveStreamById,
+      interactiveStreamOrder,
+    } = get();
 
-    // Build ordered content blocks: committed text segments + current stream text + tool calls
+    // Build ordered content blocks: committed text segments + current stream text + interactive inputs + tool calls
     const contentBlocks: ContentBlock[] = [...committedBlocks];
 
     if (stream && stream.trim()) {
       contentBlocks.push({ type: "text", text: stream });
+    }
+
+    for (const id of interactiveStreamOrder) {
+      const entry = interactiveStreamById.get(id);
+      if (!entry) {
+        continue;
+      }
+      contentBlocks.push(entry);
     }
 
     for (const id of toolStreamOrder) {
@@ -255,6 +302,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         committedBlocks: [],
         toolStreamById: new Map(),
         toolStreamOrder: [],
+        interactiveStreamById: new Map(),
+        interactiveStreamOrder: [],
       });
       return;
     }
@@ -281,6 +330,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       committedBlocks: [],
       toolStreamById: new Map(),
       toolStreamOrder: [],
+      interactiveStreamById: new Map(),
+      interactiveStreamOrder: [],
     }));
   },
 
@@ -292,6 +343,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       committedBlocks: [],
       toolStreamById: new Map(),
       toolStreamOrder: [],
+      interactiveStreamById: new Map(),
+      interactiveStreamOrder: [],
     }),
 
   upsertToolStream: (entry) => {
@@ -307,6 +360,37 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   resetToolStream: () => set({ toolStreamById: new Map(), toolStreamOrder: [] }),
 
+  upsertInteractiveStream: (entry) => {
+    set((state) => {
+      const next = new Map(state.interactiveStreamById);
+      next.set(entry.interactiveId, entry);
+      const order = state.interactiveStreamOrder.includes(entry.interactiveId)
+        ? state.interactiveStreamOrder
+        : [...state.interactiveStreamOrder, entry.interactiveId];
+      return { interactiveStreamById: next, interactiveStreamOrder: order };
+    });
+  },
+
+  resetInteractiveStream: () =>
+    set({ interactiveStreamById: new Map(), interactiveStreamOrder: [] }),
+
+  setInteractiveSummary: (interactiveId, pairs) =>
+    set((state) => ({
+      interactiveSummaryById: {
+        ...state.interactiveSummaryById,
+        [interactiveId]: pairs,
+      },
+    })),
+
+  clearInteractiveSummary: (interactiveId) =>
+    set((state) => {
+      if (!(interactiveId in state.interactiveSummaryById)) {
+        return {};
+      }
+      const { [interactiveId]: _removed, ...rest } = state.interactiveSummaryById;
+      return { interactiveSummaryById: rest };
+    }),
+
   setPendingHistoryReloadKey: (key) => set({ pendingHistoryReloadKey: key }),
 
   setLastError: (msg) => set({ lastError: msg }),
@@ -320,6 +404,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           committedBlocks: [],
           toolStreamById: new Map(),
           toolStreamOrder: [],
+          interactiveStreamById: new Map(),
+          interactiveStreamOrder: [],
+          interactiveSummaryById: {},
         };
       }
       const idx = state.messages.findIndex((m) => m.id === parentId);
@@ -333,6 +420,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         committedBlocks: [],
         toolStreamById: new Map(),
         toolStreamOrder: [],
+        interactiveStreamById: new Map(),
+        interactiveStreamOrder: [],
       };
     });
   },

@@ -15,16 +15,19 @@
 - [通道管理页面](file://ui-react/src/pages/ChannelsPage.tsx)
 - [配置管理页面](file://ui-react/src/pages/ConfigPage.tsx)
 - [定时任务管理页面](file://ui-react/src/pages/CronPage.tsx)
+- [计划任务页面](file://ui-react/src/pages/ScheduledTasksPage.tsx)
 - [聊天运行时提供者](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx)
 - [线程视图](file://ui-react/src/components/chat/ThreadView.tsx)
 - [助手消息组件](file://ui-react/src/components/chat/AssistantMessage.tsx)
 - [用户消息组件](file://ui-react/src/components/chat/UserMessage.tsx)
 - [Composer组件](file://ui-react/src/components/chat/Composer.tsx)
 - [聊天事件桥接钩子](file://ui-react/src/hooks/useChatEventBridge.ts)
+- [会话作用域聊天事件桥接测试](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts)
 - [聊天存储](file://ui-react/src/store/chat.store.ts)
 - [网关存储](file://ui-react/src/store/gateway.store.ts)
 - [代理存储](file://ui-react/src/store/agents.store.ts)
 - [通道存储](file://ui-react/src/store/channels.store.ts)
+- [剪贴板复制钩子](file://ui-react/src/hooks/useCopyToClipboard.ts)
 - [网关连接钩子](file://ui-react/src/hooks/useGateway.ts)
 - [Vite构建配置](file://ui-react/vite.config.ts)
 - [UI包依赖定义](file://ui-react/package.json)
@@ -35,10 +38,10 @@
 
 ## 更新摘要
 **变更内容**
-- 新增代理管理页面（AgentsPage）功能说明
-- 新增通道管理页面（ChannelsPage）功能说明  
-- 新增配置管理页面（ConfigPage）功能说明
-- 新增定时任务管理页面（CronPage）功能说明
+- 新增计划任务管理页面（ScheduledTasksPage）功能说明
+- 新增会话作用域聊天事件桥接机制说明
+- 新增剪贴板复制功能说明
+- 更新聊天存储系统以支持增强的工具调用流式显示
 - 更新路由配置以支持新页面
 - 新增状态管理架构说明
 - 更新导航结构和侧边栏配置
@@ -58,14 +61,14 @@
 ## 简介
 本文件面向使用浏览器操作网关（Gateway）的用户与开发者，系统化介绍控制面板（Control UI）、仪表盘（Dashboard）与 WebChat 的使用方法、配置项与交互流程；同时覆盖界面定制、主题与响应式设计、开发与构建流程、API 接口与集成方式、浏览器兼容性、性能优化与安全注意事项。
 
-**更新** 本版本文档反映了UI React前端的全面重构，引入了全新的@assistant-ui/react库生态系统，包括AssistantMessage、Composer、GatewayChatRuntimeProvider等核心组件，以及useChatEventBridge钩子和增强的聊天存储系统。新增了代理管理、通道管理、配置管理、定时任务管理等核心功能页面。
+**更新** 本版本文档反映了UI React前端的全面重构，引入了全新的@assistant-ui/react库生态系统，包括AssistantMessage、Composer、GatewayChatRuntimeProvider等核心组件，以及useChatEventBridge钩子和增强的聊天存储系统。新增了代理管理、通道管理、配置管理、定时任务管理、计划任务管理等核心功能页面。新增的会话作用域聊天事件桥接机制确保跨会话通信的安全性和准确性，剪贴板复制功能提升了用户交互体验。
 
 ## 项目结构
 Web 界面由"文档指引 + React前端应用 + 状态管理 + 组件库"构成：
 - 文档层：提供使用说明、认证与暴露模式、远程访问与安全建议等
 - 前端层：基于React 19 + TypeScript，使用@assistant-ui/react组件库，通过WebSocket与网关交互
-- 状态管理层：采用Zustand状态管理，分离聊天状态、网关状态、代理状态和通道状态
-- 组件层：基于@assistant-ui/react的可组合UI组件，支持主题定制和响应式设计
+- 状态管理层：采用Zustand状态管理，分离聊天状态、网关状态、代理状态、通道状态和计划任务状态
+- 组件层：基于@assistant-ui-react的可组合UI组件，支持主题定制和响应式设计
 
 ```mermaid
 graph TB
@@ -86,6 +89,7 @@ AP["代理管理页面<br/>ui-react/src/pages/AgentsPage.tsx"]
 CNP["通道管理页面<br/>ui-react/src/pages/ChannelsPage.tsx"]
 CFP["配置管理页面<br/>ui-react/src/pages/ConfigPage.tsx"]
 CRP["定时任务管理页面<br/>ui-react/src/pages/CronPage.tsx"]
+STP["计划任务管理页面<br/>ui-react/src/pages/ScheduledTasksPage.tsx"]
 end
 subgraph "组件库与状态管理"
 GCR["GatewayChatRuntimeProvider<br/>聊天运行时提供者"]
@@ -94,10 +98,12 @@ AM["AssistantMessage<br/>助手消息组件"]
 UM["UserMessage<br/>用户消息组件"]
 CM["Composer<br/>Composer组件"]
 CEB["useChatEventBridge<br/>聊天事件桥接钩子"]
+CCB["useCopyToClipboard<br/>剪贴板复制钩子"]
 CS["chat.store<br/>聊天存储"]
 GS["gateway.store<br/>网关存储"]
 ATS["agents.store<br/>代理存储"]
 CHS["channels.store<br/>通道存储"]
+STS["scheduled-tasks.store<br/>计划任务存储"]
 UG["useGateway<br/>网关连接钩子"]
 end
 D1 --> A
@@ -112,6 +118,7 @@ AS --> AP
 AS --> CNP
 AS --> CFP
 AS --> CRP
+AS --> STP
 CP --> GCR
 GCR --> TV
 TV --> AM
@@ -122,6 +129,8 @@ CS --> GS
 AS --> UG
 AP --> ATS
 CNP --> CHS
+STP --> STS
+AS --> CCB
 ```
 
 **图表来源**
@@ -134,16 +143,18 @@ CNP --> CHS
 - [通道管理页面:1-355](file://ui-react/src/pages/ChannelsPage.tsx#L1-L355)
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
+- [计划任务管理页面:1-359](file://ui-react/src/pages/ScheduledTasksPage.tsx#L1-L359)
 - [聊天运行时提供者:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
 - [线程视图:1-33](file://ui-react/src/components/chat/ThreadView.tsx#L1-L33)
 - [助手消息组件:1-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L240)
 - [Composer组件:1-90](file://ui-react/src/components/chat/Composer.tsx#L1-L90)
-- [聊天事件桥接钩子:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
-- [聊天存储:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [聊天事件桥接钩子:1-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L1011)
+- [会话作用域聊天事件桥接测试:1-60](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts#L1-L60)
+- [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
+- [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
 - [通道存储:1-391](file://ui-react/src/store/channels.store.ts#L1-L391)
-- [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
 
 **章节来源**
 - [控制UI（浏览器）:1-269](file://docs/web/control-ui.md#L1-L269)
@@ -158,16 +169,18 @@ CNP --> CHS
 - [通道管理页面:1-355](file://ui-react/src/pages/ChannelsPage.tsx#L1-L355)
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
+- [计划任务管理页面:1-359](file://ui-react/src/pages/ScheduledTasksPage.tsx#L1-L359)
 - [聊天运行时提供者:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
 - [线程视图:1-33](file://ui-react/src/components/chat/ThreadView.tsx#L1-L33)
 - [助手消息组件:1-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L240)
 - [Composer组件:1-90](file://ui-react/src/components/chat/Composer.tsx#L1-L90)
-- [聊天事件桥接钩子:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
-- [聊天存储:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [聊天事件桥接钩子:1-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L1011)
+- [会话作用域聊天事件桥接测试:1-60](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts#L1-L60)
+- [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
+- [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
 - [通道存储:1-391](file://ui-react/src/store/channels.store.ts#L1-L391)
-- [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
 
 ## 核心组件
 - 控制面板（Control UI）
@@ -180,9 +193,10 @@ CNP --> CHS
   - 强调安全：仅在受信网络或 HTTPS 下开放
   - 提供一键打开、令牌管理与远程访问建议
 - WebChat
-  - 基于@assistant-ui/react的现代化聊天界面
+  - 基于@assistant-ui-react的现代化聊天界面
   - 支持流式响应、工具调用、Markdown渲染、附件上传
   - 行为与通道一致，历史从网关拉取，断开时只读
+  - 增强的会话作用域事件处理，确保跨会话通信安全性
 - 代理管理（Agents）
   - 全面的代理生命周期管理
   - 支持代理配置、技能管理、工具配置、文件管理
@@ -199,16 +213,21 @@ CNP --> CHS
   - 可视化定时任务管理
   - 支持多种调度模式（Cron表达式、固定间隔、一次性）
   - 实时任务状态监控和历史记录
+- 计划任务管理（Scheduled Tasks）
+  - 专门的计划任务管理界面
+  - 支持任务创建、编辑、删除、运行历史查看
+  - 内置任务表单和运行历史表格组件
 - 聊天（Chat）
   - 发送非阻塞、流式事件、停止命令、注入消息、部分输出保留
   - 历史上限保护，超大消息会被截断或替换占位
   - 增强的工具调用流式显示和状态管理
+  - 会话作用域事件桥接，防止跨会话数据污染
 - 日志（Logs）
   - 实时尾随网关文件日志，支持过滤与导出
 - 调试（Debug）
   - 快照状态、健康检查、模型列表、事件日志与手动 RPC 调用
 
-**更新** 新的React架构引入了@assistant-ui/react组件库，提供了更丰富的UI组件和更好的开发者体验。新增的代理管理、通道管理、配置管理和定时任务管理页面提供了完整的系统控制能力。
+**更新** 新的React架构引入了@assistant-ui-react组件库，提供了更丰富的UI组件和更好的开发者体验。新增的代理管理、通道管理、配置管理、定时任务管理和计划任务管理页面提供了完整的系统控制能力。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。
 
 **章节来源**
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)
@@ -218,15 +237,18 @@ CNP --> CHS
 - [通道管理页面:1-355](file://ui-react/src/pages/ChannelsPage.tsx#L1-L355)
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
+- [计划任务管理页面:1-359](file://ui-react/src/pages/ScheduledTasksPage.tsx#L1-L359)
 - [聊天运行时提供者:102-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L102-L237)
-- [聊天事件桥接钩子:12-472](file://ui-react/src/hooks/useChatEventBridge.ts#L12-L472)
-- [聊天存储:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [聊天事件桥接钩子:12-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L12-L1011)
+- [会话作用域聊天事件桥接测试:1-60](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts#L1-L60)
+- [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
+- [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
 - [通道存储:1-391](file://ui-react/src/store/channels.store.ts#L1-L391)
 
 ## 架构总览
-前端通过React组件树与@assistant-ui-react生态系统的协作，实现与网关的WebSocket通信；应用外壳统一管理连接状态，聊天运行时提供者桥接Zustand状态与@assistant-ui的外部存储运行时；组件层基于@assistant-ui的可组合组件实现丰富的聊天功能。新增的页面通过统一的状态管理架构实现数据共享和状态同步。
+前端通过React组件树与@assistant-ui-react生态系统的协作，实现与网关的WebSocket通信；应用外壳统一管理连接状态，聊天运行时提供者桥接Zustand状态与@assistant-ui的外部存储运行时；组件层基于@assistant-ui的可组合组件实现丰富的聊天功能。新增的页面通过统一的状态管理架构实现数据共享和状态同步。会话作用域事件桥接机制确保只有匹配当前活动会话的事件才会更新UI状态。
 
 ```mermaid
 sequenceDiagram
@@ -237,6 +259,7 @@ participant Sidebar as "侧边栏<br/>Sidebar.tsx"
 participant Router as "路由配置<br/>router.tsx"
 participant Page as "功能页面"
 participant Store as "状态管理<br/>Zustand Store"
+participant EventBridge as "聊天事件桥接<br/>useChatEventBridge"
 participant Runtime as "聊天运行时提供者<br/>GatewayChatRuntimeProvider.tsx"
 participant Provider as "AssistantRuntimeProvider"
 participant WS as "网关 WebSocket"
@@ -249,6 +272,9 @@ Page->>Store : 访问状态数据
 Store->>WS : 发送API请求
 WS-->>Store : 返回数据响应
 Store-->>Page : 更新页面状态
+Page->>EventBridge : 注册事件处理器
+EventBridge->>EventBridge : 检查会话作用域
+EventBridge->>Store : 条件性更新状态
 Page->>Runtime : 提供消息和事件处理
 Runtime->>Provider : 消息转换和事件桥接
 Provider-->>Browser : 渲染功能界面
@@ -260,6 +286,7 @@ Provider-->>Browser : 渲染功能界面
 - [侧边栏:22-129](file://ui-react/src/components/layout/Sidebar.tsx#L22-L129)
 - [路由配置:20-39](file://ui-react/src/router.tsx#L20-L39)
 - [聊天运行时提供者:112-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L112-L237)
+- [聊天事件桥接钩子:23-40](file://ui-react/src/hooks/useChatEventBridge.ts#L23-L40)
 
 ## 详细组件分析
 
@@ -310,22 +337,24 @@ Provider-->>Browser : 渲染功能界面
 
 ### WebChat（网关 WebSocket UI）
 - 行为特性
-  - 基于@assistant-ui/react的现代化聊天界面
+  - 基于@assistant-ui-react的现代化聊天界面
   - 支持流式响应、工具调用、Markdown渲染、附件上传
   - 直连网关 WebSocket，使用相同会话与路由规则
   - 历史来自网关，断线时只读
   - 注入消息与停止命令、部分输出保留
+  - 会话作用域事件处理，防止跨会话数据污染
 - 组件架构
   - GatewayChatRuntimeProvider：桥接Zustand状态与@assistant-ui运行时
   - ThreadView：主聊天线程布局，包含消息列表和Composer
   - AssistantMessage：助手消息渲染，支持Markdown和工具调用
   - UserMessage：用户消息渲染
   - Composer：消息输入组件，支持附件上传和发送控制
+  - useChatEventBridge：会话作用域事件桥接，确保事件只影响当前会话
 - 远程使用
   - 通过 SSH/Tailscale 隧道转发网关 WebSocket
   - 无需单独部署 WebChat 服务器
 
-**更新** WebChat完全重构为基于@assistant-ui-react的现代化架构，提供了更好的用户体验和开发体验。
+**更新** WebChat完全重构为基于@assistant-ui-react的现代化架构，提供了更好的用户体验和开发体验。新增的会话作用域事件桥接机制确保了跨会话通信的安全性。
 
 **章节来源**
 - [WebChat（网关WebSocket UI）:8-62](file://docs/web/webchat.md#L8-L62)
@@ -333,6 +362,7 @@ Provider-->>Browser : 渲染功能界面
 - [线程视图:9-33](file://ui-react/src/components/chat/ThreadView.tsx#L9-L33)
 - [助手消息组件:153-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L153-L240)
 - [Composer组件:6-90](file://ui-react/src/components/chat/Composer.tsx#L6-L90)
+- [聊天事件桥接钩子:31-40](file://ui-react/src/hooks/useChatEventBridge.ts#L31-L40)
 
 ### 代理管理（Agents）页面
 - 功能特性
@@ -448,6 +478,29 @@ SaveFile --> UpdateList["更新文件列表"]
 - [代理存储:455-468](file://ui-react/src/store/agents.store.ts#L455-L468)
 - [代理类型定义:147-200](file://ui-react/src/types/agents.ts#L147-L200)
 
+### 计划任务管理（Scheduled Tasks）页面
+- 功能特性
+  - 任务管理：支持计划任务的创建、编辑、删除、启用/禁用
+  - 运行历史：查看任务执行历史，支持状态和时间过滤
+  - 任务表单：内置任务创建和编辑表单，支持多种调度模式
+  - 实时监控：显示任务状态和执行统计
+  - 会话关联：支持跳转到相关会话查看执行详情
+- 页面架构
+  - 标签页：任务列表和运行历史两个标签页
+  - 任务卡片：显示任务基本信息和操作按钮
+  - 任务表单：模态框形式的任务创建和编辑界面
+  - 运行历史表格：显示任务执行记录和操作按钮
+- 调度模式
+  - 每日/每周/每月：支持周期性任务
+  - 固定间隔：支持分钟、小时、天级间隔
+  - 一次性：支持指定时间执行的任务
+  - 通告模式：支持任务执行后的通告设置
+
+**更新** 新增的计划任务管理页面提供了专门的计划任务管理界面，支持任务的全生命周期管理。
+
+**章节来源**
+- [计划任务管理页面:1-359](file://ui-react/src/pages/ScheduledTasksPage.tsx#L1-L359)
+
 ### 聊天（Chat）交互与行为
 - 发送与停止
   - 发送非阻塞，立即返回运行标识并以事件流回传结果
@@ -464,8 +517,12 @@ SaveFile --> UpdateList["更新文件列表"]
   - 流式工具调用状态显示
   - 工具调用参数和结果的可视化展示
   - 工具调用错误处理和重试机制
+- 会话作用域事件处理
+  - 严格检查事件的 sessionKey 是否匹配当前活动会话
+  - 缺失或空白的会话键会被拒绝，防止跨会话数据污染
+  - 支持设置会话键的优先级：聊天存储 > 设置存储 > 默认值
 
-**更新** 新的聊天架构引入了增强的工具调用支持和更好的流式处理能力。
+**更新** 新的聊天架构引入了增强的工具调用支持和更好的流式处理能力。新增的会话作用域事件桥接机制确保了跨会话通信的安全性。
 
 ```mermaid
 flowchart TD
@@ -488,12 +545,56 @@ WaitFlush --> SendNow
 
 **图表来源**
 - [聊天运行时提供者:166-213](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L166-L213)
-- [聊天事件桥接钩子:273-472](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L472)
+- [聊天事件桥接钩子:273-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L1011)
 
 **章节来源**
 - [聊天运行时提供者:102-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L102-L237)
-- [聊天事件桥接钩子:12-472](file://ui-react/src/hooks/useChatEventBridge.ts#L12-L472)
-- [聊天存储:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [聊天事件桥接钩子:12-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L12-L1011)
+- [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
+
+### 会话作用域聊天事件桥接
+- 会话键确定
+  - 优先使用聊天存储中的 sessionKey
+  - 如果为空则使用设置存储中的 sessionKey
+  - 最终回退到默认值 "main"
+- 事件过滤
+  - 严格检查事件的 sessionKey 是否匹配当前活动会话
+  - 缺失或空白的会话键会被拒绝（严格模式）
+  - 防止跨会话运行的数据污染 UI 线程
+- 待处理生成状态
+  - 跨会话跟踪：即使会话不在前台也会更新待处理生成状态
+  - 支持会话切换后恢复 UI 状态
+  - 在终端事件（final/error/aborted）时清除状态
+- 测试验证
+  - 单元测试验证会话键优先级逻辑
+  - 测试跨会话事件过滤机制
+  - 验证待处理生成状态的生命周期管理
+
+**更新** 新增的会话作用域事件桥接机制确保了跨会话通信的安全性和准确性，防止不同会话之间的数据相互干扰。
+
+**章节来源**
+- [聊天事件桥接钩子:23-40](file://ui-react/src/hooks/useChatEventBridge.ts#L23-L40)
+- [聊天事件桥接钩子:562-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L562-L1011)
+- [会话作用域聊天事件桥接测试:1-60](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts#L1-L60)
+
+### 剪贴板复制功能
+- 功能概述
+  - 提供简洁的剪贴板复制钩子，支持文本复制到系统剪贴板
+  - 自动处理复制成功和失败的情况
+  - 支持自定义复制持续时间
+- 使用方式
+  - 导入 useCopyToClipboard 钩子
+  - 调用 copyToClipboard 函数传入要复制的文本
+  - 监听 isCopied 状态变化
+- 错误处理
+  - 空值检查：空文本不会触发复制
+  - 浏览器兼容性：自动处理不同浏览器的剪贴板 API
+  - 用户反馈：复制成功后自动恢复状态
+
+**更新** 新增的剪贴板复制功能提升了用户交互体验，简化了文本复制操作。
+
+**章节来源**
+- [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
 
 ### 网关连接与事件处理
 - 连接建立
@@ -578,6 +679,7 @@ App-->>App : 显示错误或自动重连
 - 测试
   - Vitest测试框架配置
   - 支持单元测试和组件测试
+  - 新增会话作用域事件桥接测试
 
 **更新** 新的构建配置提供了更好的开发体验和性能优化。
 
@@ -611,7 +713,7 @@ App-->>App : 显示错误或自动重连
 
 **章节来源**
 - [控制UI（浏览器）:72-102](file://docs/web/control-ui.md#L72-L102)
-- [聊天事件桥接钩子:273-472](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L472)
+- [聊天事件桥接钩子:273-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L1011)
 - [网关存储:12-27](file://ui-react/src/store/gateway.store.ts#L12-L27)
 
 ## 依赖关系分析
@@ -620,6 +722,7 @@ App-->>App : 显示错误或自动重连
   - 聊天运行时提供者与@assistant-ui生态系统的深度集成
   - 状态管理采用Zustand，避免复杂的组件间通信
   - 新增页面通过统一的状态管理架构实现数据共享
+  - 会话作用域事件桥接确保事件处理的准确性
 - 外部依赖
   - @assistant-ui-react：现代化聊天UI组件库
   - React 19 + TypeScript：现代前端开发栈
@@ -631,7 +734,7 @@ App-->>App : 显示错误或自动重连
   - Lucide React：图标库
   - React Router 7：路由管理
 
-**更新** 新的依赖关系体现了现代化的前端技术栈和组件化架构，新增页面通过统一的状态管理实现更好的数据一致性。
+**更新** 新的依赖关系体现了现代化的前端技术栈和组件化架构，新增页面通过统一的状态管理实现更好的数据一致性。会话作用域事件桥接机制确保了跨会话通信的安全性。
 
 ```mermaid
 graph LR
@@ -643,6 +746,7 @@ Shell --> AgentsPage["代理管理页面<br/>AgentsPage.tsx"]
 Shell --> ChannelsPage["通道管理页面<br/>ChannelsPage.tsx"]
 Shell --> ConfigPage["配置管理页面<br/>ConfigPage.tsx"]
 Shell --> CronPage["定时任务管理页面<br/>CronPage.tsx"]
+Shell --> ScheduledTasksPage["计划任务管理页面<br/>ScheduledTasksPage.tsx"]
 ChatPage --> Runtime["聊天运行时提供者<br/>GatewayChatRuntimeProvider.tsx"]
 Runtime --> ThreadView["线程视图<br/>ThreadView.tsx"]
 ThreadView --> AssistantMessage["助手消息<br/>AssistantMessage.tsx"]
@@ -662,6 +766,8 @@ Zustand --> ChannelsStore
 AssistantMessage --> Markdown["@assistant-ui-react-markdown"]
 AssistantMessage --> Lucide["Lucide React 图标"]
 Composer --> RadixUI["@radix-ui-react-* 组件"]
+useChatEventBridge["会话作用域事件桥接<br/>useChatEventBridge"] --> ChatStore
+useCopyToClipboard["剪贴板复制<br/>useCopyToClipboard"] --> App
 ```
 
 **图表来源**
@@ -674,15 +780,18 @@ Composer --> RadixUI["@radix-ui-react-* 组件"]
 - [通道管理页面:1-355](file://ui-react/src/pages/ChannelsPage.tsx#L1-L355)
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
+- [计划任务管理页面:1-359](file://ui-react/src/pages/ScheduledTasksPage.tsx#L1-L359)
 - [聊天运行时提供者:1-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L237)
 - [线程视图:1-33](file://ui-react/src/components/chat/ThreadView.tsx#L1-L33)
 - [助手消息组件:1-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L240)
 - [Composer组件:1-90](file://ui-react/src/components/chat/Composer.tsx#L1-L90)
-- [聊天存储:1-230](file://ui-react/src/store/chat.store.ts#L1-L230)
+- [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
 - [通道存储:1-391](file://ui-react/src/store/channels.store.ts#L1-L391)
 - [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
+- [聊天事件桥接钩子:1-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L1011)
+- [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
 
 **章节来源**
 - [UI包依赖定义:1-57](file://ui-react/package.json#L1-L57)
@@ -695,22 +804,24 @@ Composer --> RadixUI["@radix-ui-react-* 组件"]
   - 历史大小受限，工具结果后重载以避免截断片段
   - 事件间隙检测与断线提示，避免长时间无响应
   - 流式工具调用的优化处理
+  - 会话作用域事件过滤减少不必要的状态更新
 - 状态管理
   - Zustand的轻量级状态管理，避免不必要的重新渲染
-  - 分离的聊天状态、网关状态、代理状态和通道状态
+  - 分离的聊天状态、网关状态、代理状态、通道状态和计划任务状态
   - 新增页面通过统一的状态管理实现更好的性能
 - 组件优化
   - @assistant-ui-react的虚拟化和优化支持
   - Memo化的消息组件和工具调用组件
+  - 会话作用域事件桥接减少事件处理开销
 - 主题与布局
   - Tailwind CSS的原子化类名，减少CSS体积
   - 响应式设计的媒体查询优化
 
-**更新** 新的架构在性能方面有了显著提升，特别是在状态管理和组件渲染方面。新增页面通过统一的状态管理实现了更好的数据共享和性能优化。
+**更新** 新的架构在性能方面有了显著提升，特别是在状态管理和组件渲染方面。新增页面通过统一的状态管理实现了更好的数据共享和性能优化。会话作用域事件桥接机制减少了不必要的状态更新，提升了整体性能。
 
 **章节来源**
 - [Vite构建配置:21-28](file://ui-react/vite.config.ts#L21-L28)
-- [聊天存储:135-230](file://ui-react/src/store/chat.store.ts#L135-L230)
+- [聊天存储:135-363](file://ui-react/src/store/chat.store.ts#L135-L363)
 - [网关存储:72-184](file://ui-react/src/store/gateway.store.ts#L72-L184)
 - [代理存储:134-170](file://ui-react/src/store/agents.store.ts#L134-L170)
 - [通道存储:89-111](file://ui-react/src/store/channels.store.ts#L89-L111)
@@ -740,17 +851,27 @@ Composer --> RadixUI["@radix-ui-react-* 组件"]
   - 检查路由配置是否正确
   - 验证状态管理store的初始化
   - 确认WebSocket连接状态
+- 会话作用域事件问题
+  - 检查 getActiveChatSessionKey 的返回值
+  - 验证 isChatEventForActiveSession 的过滤逻辑
+  - 确认会话键的优先级顺序
+- 剪贴板复制问题
+  - 检查浏览器权限设置
+  - 验证 navigator.clipboard API 的可用性
+  - 确认复制文本的有效性
 
-**更新** 新的故障排查指南涵盖了React架构特有的问题和解决方案，包括新增页面的故障排查。
+**更新** 新的故障排查指南涵盖了React架构特有的问题和解决方案，包括新增页面、会话作用域事件桥接和剪贴板复制功能的故障排查。
 
 **章节来源**
 - [仪表盘（浏览器）:45-55](file://docs/web/dashboard.md#L45-L55)
 - [控制UI（浏览器）:33-62](file://docs/web/control-ui.md#L33-L62)
 - [网关连接钩子:276-291](file://ui-react/src/hooks/useGateway.ts#L276-L291)
-- [聊天事件桥接钩子:461-472](file://ui-react/src/hooks/useChatEventBridge.ts#L461-L472)
+- [聊天事件桥接钩子:988-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L988-L1011)
+- [会话作用域聊天事件桥接测试:1-60](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts#L1-L60)
+- [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
 
 ## 结论
-该 Web 界面以轻量、安全与易用为目标：通过React 19 + @assistant-ui-react的现代化架构，提供完整的控制与调试能力；配合响应式布局与主题系统，适配多终端场景；完善的认证与安全策略确保管理员面的安全边界。新的架构引入了更好的组件化设计、状态管理和开发体验，为未来的功能扩展奠定了坚实的基础。新增的代理管理、通道管理、配置管理和定时任务管理页面提供了完整的系统控制能力，支持多渠道通信、代理生命周期管理和自动化任务调度。对于开发者，清晰的模块划分与现代化的技术栈便于二次开发与集成。
+该 Web 界面以轻量、安全与易用为目标：通过React 19 + @assistant-ui-react的现代化架构，提供完整的控制与调试能力；配合响应式布局与主题系统，适配多终端场景；完善的认证与安全策略确保管理员面的安全边界。新的架构引入了更好的组件化设计、状态管理和开发体验，为未来的功能扩展奠定了坚实的基础。新增的代理管理、通道管理、配置管理、定时任务管理、计划任务管理页面提供了完整的系统控制能力，支持多渠道通信、代理生命周期管理、自动化任务调度和会话作用域事件处理。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。对于开发者，清晰的模块划分与现代化的技术栈便于二次开发与集成。
 
 ## 附录
 - 快速链接
@@ -762,6 +883,8 @@ Composer --> RadixUI["@radix-ui-react-* 组件"]
   - @assistant-ui组件的正确使用和配置
   - Zustand状态管理的最佳实践
   - 新增页面的故障排查和解决方案
+  - 会话作用域事件桥接的配置和使用
+  - 剪贴板复制功能的兼容性处理
 
 **章节来源**
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)

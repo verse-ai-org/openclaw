@@ -4,6 +4,12 @@
 **本文档引用的文件**
 - [ToolFallback.tsx](file://ui-react/src/components/chat/ToolFallback.tsx)
 - [ToolCallGroup.tsx](file://ui-react/src/components/chat/ToolCallGroup.tsx)
+- [OptionList.tsx](file://ui-react/src/components/tool-ui/option-list/option-list.tsx)
+- [OptionListSchema.ts](file://ui-react/src/components/tool-ui/option-list/schema.ts)
+- [QuestionFlow.tsx](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx)
+- [QuestionFlowSchema.ts](file://ui-react/src/components/tool-ui/question-flow/schema.ts)
+- [ActionButtons.tsx](file://ui-react/src/components/tool-ui/shared/action-buttons.tsx)
+- [useActionButtons.tsx](file://ui-react/src/components/tool-ui/shared/use-action-buttons.tsx)
 - [weather-widget-container.tsx](file://ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx)
 - [runtime.ts](file://ui-react/src/components/tool-ui/weather-widget/runtime.ts)
 - [tool-cards.ts](file://ui/src/ui/chat/tool-cards.ts)
@@ -14,7 +20,18 @@
 - [utils.ts](file://ui-react/src/lib/utils.ts)
 - [window.ts](file://apps/electron/src/main/window.ts)
 - [control-ui-assets.ts](file://src/infra/control-ui-assets.ts)
+- [markdown-text.tsx](file://ui-react/src/components/assistant-ui/markdown-text.tsx)
+- [AssistantMessage.tsx](file://ui-react/src/components/chat/AssistantMessage.tsx)
+- [SkillsPage.tsx](file://ui-react/src/pages/SkillsPage.tsx)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 新增OptionList和QuestionFlow复杂工具UI组件系统
+- 添加了600+行的OptionList实现和700+行的QuestionFlow实现
+- 引入了全新的工具UI交互模式，支持单选/多选和步骤化流程
+- 更新了依赖关系分析，反映新增的共享组件系统
+- 新增了ActionButtons和useActionButtons共享组件
 
 ## 目录
 1. [简介](#简介)
@@ -31,11 +48,13 @@
 
 工具UI组件是OpenClaw项目中用于展示和交互AI工具调用结果的核心界面组件。该组件系统提供了统一的工具调用可视化、状态管理和用户交互功能，支持多种工具类型（读取、写入、执行、搜索、网络请求等）的分类显示和详细查看。
 
+**更新** 新增了强大的OptionList和QuestionFlow组件，支持复杂的工具UI交互，包含600+行的OptionList实现和700+行的QuestionFlow实现。
+
 该组件系统采用现代化的React设计，结合Tailwind CSS样式系统，为用户提供直观的工具调用体验。组件支持响应式设计，在桌面端和移动端都能提供良好的用户体验。
 
 ## 项目结构
 
-OpenClaw项目的工具UI组件主要分布在两个前端框架中：
+OpenClaw项目的工具UI组件主要分布在两个前端框架中，现已扩展到包含新的OptionList和QuestionFlow系统：
 
 ```mermaid
 graph TB
@@ -44,6 +63,10 @@ RF1[ToolFallback 组件]
 RF2[ToolCallGroup 组件]
 RF3[天气小部件]
 RF4[UI基础组件]
+RF5[Markdown文本组件]
+RF6[OptionList 组件]
+RF7[QuestionFlow 组件]
+RF8[ActionButtons 组件]
 end
 subgraph "Lit前端 (ui)"
 LF1[工具卡片渲染]
@@ -54,9 +77,21 @@ subgraph "应用集成"
 A1[Electron窗口管理]
 A2[控制UI资源解析]
 end
+subgraph "共享组件系统"
+SC1[ActionButtons]
+SC2[useActionButtons]
+SC3[Contract定义]
+SC4[Schema验证]
+end
 RF1 --> RF4
 RF2 --> RF4
 RF3 --> RF4
+RF5 --> RF1
+RF6 --> SC1
+RF7 --> SC1
+RF8 --> SC2
+SC1 --> SC2
+SC3 --> SC4
 LF1 --> LF2
 LF2 --> LF3
 A1 --> RF1
@@ -65,13 +100,16 @@ A2 --> RF1
 
 **图表来源**
 - [ToolFallback.tsx:1-579](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L579)
+- [OptionList.tsx:1-626](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L1-L626)
+- [QuestionFlow.tsx:1-794](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L1-L794)
+- [ActionButtons.tsx:1-101](file://ui-react/src/components/tool-ui/shared/action-buttons.tsx#L1-L101)
 - [tool-cards.ts:1-157](file://ui/src/ui/chat/tool-cards.ts#L1-L157)
-- [window.ts:127-164](file://apps/electron/src/main/window.ts#L127-L164)
 
 **章节来源**
 - [ToolFallback.tsx:1-579](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L579)
+- [OptionList.tsx:1-626](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L1-L626)
+- [QuestionFlow.tsx:1-794](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L1-L794)
 - [tool-cards.ts:1-157](file://ui/src/ui/chat/tool-cards.ts#L1-L157)
-- [window.ts:127-164](file://apps/electron/src/main/window.ts#L127-L164)
 
 ## 核心组件
 
@@ -92,6 +130,24 @@ A2 --> RF1
 | function | FunctionSquareIcon | 靛蓝色 | Call | 函数调用 |
 | default | WrenchIcon | 灰色 | Tool | 其他工具 |
 
+### 新增的OptionList组件
+**更新** OptionList组件提供了强大的选项列表选择功能：
+
+- **单选/多选模式**：支持单选和多选两种模式
+- **动态验证**：支持最小/最大选择数量限制
+- **受控/非受控模式**：支持受控和非受控两种使用方式
+- **无障碍支持**：完整的键盘导航和ARIA支持
+- **确认视图**：支持选择确认和收据模式
+
+### 新增的QuestionFlow组件
+**更新** QuestionFlow组件实现了复杂的步骤化交互流程：
+
+- **三种模式**：渐进式、前置式和收据模式
+- **步骤导航**：支持前进/后退的步骤导航
+- **过渡动画**：平滑的步骤切换动画效果
+- **进度指示**：清晰的进度条和步骤指示器
+- **键盘导航**：完整的键盘交互支持
+
 ### 状态管理系统
 工具调用状态分为三种：
 - **running**: 工具正在执行中
@@ -101,10 +157,12 @@ A2 --> RF1
 **章节来源**
 - [ToolFallback.tsx:78-154](file://ui-react/src/components/chat/ToolFallback.tsx#L78-L154)
 - [ToolFallback.tsx:160-190](file://ui-react/src/components/chat/ToolFallback.tsx#L160-L190)
+- [OptionList.tsx:216-230](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L216-L230)
+- [QuestionFlow.tsx:781-793](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L781-L793)
 
 ## 架构概览
 
-工具UI组件系统采用分层架构设计，确保组件间的松耦合和高内聚：
+工具UI组件系统采用分层架构设计，现已扩展包含新的OptionList和QuestionFlow系统：
 
 ```mermaid
 graph TD
@@ -115,28 +173,65 @@ B --> D[状态徽章<br/>StatusBadge]
 A --> E[图标条<br/>Icon Strip]
 A --> F[状态徽章<br/>GroupStatusBadge]
 end
+subgraph "新增OptionList系统"
+OL[OptionList<br/>选项列表组件] --> AB[ActionButtons<br/>动作按钮]
+OL --> SL[Selection Logic<br/>选择逻辑]
+OL --> RV[Receipt View<br/>收据视图]
+end
+subgraph "新增QuestionFlow系统"
+QF[QuestionFlow<br/>问题流程组件] --> PF[Progressive Mode<br/>渐进式模式]
+QF --> UF[Upfront Mode<br/>前置式模式]
+QF --> RF[Receipt Mode<br/>收据模式]
+QF --> PB[Progress Bar<br/>进度条]
+QF --> KB[Keyboard Navigation<br/>键盘导航]
+end
+subgraph "共享组件系统"
+AB --> UAB[useActionButtons<br/>动作按钮钩子]
+SC[Schema Contract<br/>模式契约] --> PV[Parse Validation<br/>解析验证]
+end
 subgraph "辅助组件"
 G[分类配置<br/>TOOL_CATEGORY_CONFIG]
 H[工具分类<br/>classifyTool]
 I[参数预览<br/>buildArgsPreview]
 J[格式化工具标签<br/>formatToolLabel]
+K[Markdown组件共享<br/>plainMdComponents]
 end
 subgraph "外部集成"
-K[Assistant UI<br/>React组件库]
-L[Electron窗口<br/>静态服务器]
-M[Lit前端<br/>传统UI]
+L[Assistant UI<br/>React组件库]
+M[Electron窗口<br/>静态服务器]
+N[Lit前端<br/>传统UI]
+O[ReactMarkdown<br/>Markdown渲染]
+P[RemarkGfm<br/>GitHub风格标记]
+Q[Zod Schema<br/>Zod模式验证]
+R[Lucide Icons<br/>图标库]
 end
-A --> K
-B --> K
-C --> K
 A --> L
 B --> L
-M --> B
+C --> L
+B --> K
+K --> O
+O --> P
+OL --> AB
+OL --> SC
+QF --> PB
+QF --> KB
+AB --> UAB
+SC --> PV
+AB --> R
+QF --> R
+OL --> R
+A --> M
+B --> M
+N --> B
 ```
 
 **图表来源**
 - [ToolCallGroup.tsx:147-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L147-L274)
 - [ToolFallback.tsx:405-579](file://ui-react/src/components/chat/ToolFallback.tsx#L405-L579)
+- [OptionList.tsx:1-626](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L1-L626)
+- [QuestionFlow.tsx:1-794](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L1-L794)
+- [ActionButtons.tsx:1-101](file://ui-react/src/components/tool-ui/shared/action-buttons.tsx#L1-L101)
+- [useActionButtons.tsx:1-154](file://ui-react/src/components/tool-ui/shared/use-action-buttons.tsx#L1-L154)
 
 ## 详细组件分析
 
@@ -287,9 +382,132 @@ WeatherWidget --> EffectCompositorRuntime : "可选包含"
 **章节来源**
 - [weather-widget-container.tsx:75-96](file://ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx#L75-L96)
 
+### OptionList 组件系统
+
+**更新** OptionList组件提供了强大的选项列表选择功能：
+
+```mermaid
+classDiagram
+class OptionList {
++OptionListProps props
++Set selectedIds
++Array optionStates
++Number activeIndex
++handleToggle() void
++updateSelection() void
++toggleSelection() void
++handleCancel() void
+}
+class OptionItem {
++OptionListOption option
++Boolean isSelected
++Boolean isDisabled
++SelectionIndicator indicator
++render() JSX.Element
+}
+class ActionButtons {
++Action[] actions
++runAction() void
++confirmAction() void
+}
+class SelectionIndicator {
++String mode
++Boolean isSelected
++Boolean disabled
++render() JSX.Element
+}
+OptionList --> OptionItem : "渲染"
+OptionList --> ActionButtons : "使用"
+OptionItem --> SelectionIndicator : "包含"
+```
+
+**图表来源**
+- [OptionList.tsx:216-626](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L216-L626)
+- [OptionList.tsx:77-150](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L77-L150)
+- [ActionButtons.tsx:16-101](file://ui-react/src/components/tool-ui/shared/action-buttons.tsx#L16-L101)
+
+#### 核心功能特性
+
+1. **单选/多选支持**: 支持单选和多选两种模式
+2. **动态验证**: 支持最小/最大选择数量限制
+3. **键盘导航**: 完整的键盘交互支持（上下箭头、Home、End、Enter、Space）
+4. **无障碍支持**: ARIA标签和角色定义
+5. **动画效果**: 平滑的选择状态切换动画
+6. **确认视图**: 支持选择确认和收据模式
+
+**章节来源**
+- [OptionList.tsx:216-230](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L216-L230)
+- [OptionList.tsx:352-378](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L352-L378)
+- [OptionList.tsx:456-518](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L456-L518)
+
+### QuestionFlow 组件系统
+
+**更新** QuestionFlow组件实现了复杂的步骤化交互流程：
+
+```mermaid
+classDiagram
+class QuestionFlow {
++QuestionFlowProps props
++Union mode
++render() JSX.Element
+}
+class QuestionFlowProgressive {
++Number step
++Set selectedIds
++handleToggle() void
++handleNext() void
+}
+class QuestionFlowUpfront {
++Array steps
++Number currentStepIndex
++Object answers
++handleToggle() void
++handleNext() void
++handleBack() void
+}
+class StepContent {
++Number step
++Number totalSteps
++String title
++String description
++Array options
++Set selectedIds
++render() JSX.Element
+}
+class ProgressBar {
++Number current
++Number total
++render() JSX.Element
+}
+QuestionFlow --> QuestionFlowProgressive : "渐进式模式"
+QuestionFlow --> QuestionFlowUpfront : "前置式模式"
+QuestionFlowUpfront --> StepContent : "渲染步骤"
+StepContent --> ProgressBar : "显示进度"
+```
+
+**图表来源**
+- [QuestionFlow.tsx:781-793](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L781-L793)
+- [QuestionFlow.tsx:573-636](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L573-L636)
+- [QuestionFlow.tsx:638-779](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L638-L779)
+- [QuestionFlow.tsx:33-58](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L33-L58)
+
+#### 核心功能特性
+
+1. **三种模式支持**: 渐进式、前置式和收据模式
+2. **步骤导航**: 支持前进/后退的步骤导航
+3. **过渡动画**: 平滑的步骤切换动画效果
+4. **进度指示**: 清晰的进度条和步骤指示器
+5. **键盘导航**: 完整的键盘交互支持
+6. **状态管理**: 复杂的状态管理和数据持久化
+
+**章节来源**
+- [QuestionFlow.tsx:781-793](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L781-L793)
+- [QuestionFlow.tsx:638-779](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L638-L779)
+- [QuestionFlow.tsx:257-447](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L257-L447)
+
 ## 依赖关系分析
 
-工具UI组件系统的依赖关系如下：
+工具UI组件系统的依赖关系已大幅扩展，包含新的OptionList和QuestionFlow系统：
 
 ```mermaid
 graph TB
@@ -302,61 +520,152 @@ F[ToolCallGroup] --> G[GroupStatusBadge]
 F --> H[图标条]
 I[天气小部件] --> J[效果合成器]
 I --> K[天气数据覆盖层]
+L[Markdown文本组件] --> M[plainMdComponents]
+A --> L
+end
+subgraph "新增OptionList系统"
+OL[OptionList] --> AB[ActionButtons]
+OL --> SL[Selection Logic]
+OL --> RV[Receipt View]
+OL --> SC[Schema Contract]
+end
+subgraph "新增QuestionFlow系统"
+QF[QuestionFlow] --> PF[Progressive Mode]
+QF --> UF[Upfront Mode]
+QF --> RF[Receipt Mode]
+QF --> PB[Progress Bar]
+QF --> KB[Keyboard Navigation]
+QF --> SC
+end
+subgraph "共享组件系统"
+AB --> UAB[useActionButtons]
+SC --> PC[Parse Contract]
+SC --> SV[Schema Validation]
 end
 subgraph "样式和工具"
-L[Tailwind CSS]
-M[工具函数]
-N[类型定义]
+N[Tailwind CSS]
+O[工具函数]
+P[类型定义]
 end
 subgraph "外部库"
-O[Assistant UI]
-P[lucide-react]
-Q[react-markdown]
-R[vaul]
+Q[Assistant UI]
+R[lucide-react]
+S[react-markdown]
+T[vaul]
+U[remark-gfm]
+V[@assistant-ui/react-markdown]
+W[Zod Schema]
+X[React Hooks]
+Y[FRamer Motion]
 end
-A --> L
-F --> L
-I --> L
-A --> M
-F --> M
-I --> M
 A --> N
 F --> N
 I --> N
+OL --> N
+QF --> N
+AB --> X
+QF --> Y
+OL --> Y
 A --> O
 F --> O
+I --> O
+OL --> O
+QF --> O
 A --> P
 F --> P
+I --> P
+OL --> P
+QF --> P
 A --> Q
+F --> Q
+OL --> Q
+QF --> Q
 A --> R
+OL --> R
+QF --> R
+A --> S
+A --> T
+S --> U
+L --> V
+SC --> W
+AB --> UAB
 ```
+
+**更新** 新增了OptionList和QuestionFlow系统的完整依赖关系，包括共享的ActionButtons、useActionButtons、Schema Contract和Zod验证系统
 
 **图表来源**
 - [ToolFallback.tsx:1-32](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L32)
-- [ToolCallGroup.tsx:1-12](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L12)
+- [OptionList.tsx:1-26](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L1-L26)
+- [QuestionFlow.tsx:1-21](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L1-L21)
+- [ActionButtons.tsx:1-6](file://ui-react/src/components/tool-ui/shared/action-buttons.tsx#L1-L6)
+- [useActionButtons.tsx:1-5](file://ui-react/src/components/tool-ui/shared/use-action-buttons.tsx#L1-L5)
 
 **章节来源**
 - [button.tsx:1-56](file://ui-react/src/components/ui/button.tsx#L1-L56)
 - [drawer.tsx:1-121](file://ui-react/src/components/ui/drawer.tsx#L1-L121)
 - [utils.ts:1-7](file://ui-react/src/lib/utils.ts#L1-L7)
 
+### Markdown组件共享机制
+
+工具UI组件系统采用了共享的Markdown组件机制，通过`plainMdComponents`实现跨组件的一致性渲染：
+
+- **共享组件定义**: 在`markdown-text.tsx`中定义了`plainMdComponents`，为所有需要独立Markdown渲染的场景提供统一的组件配置
+- **组件复用**: ToolFallback组件直接导入并使用这个共享的组件配置，避免了重复定义和维护成本
+- **样式一致性**: 所有使用plain ReactMarkdown的组件都继承了相同的样式和行为规范
+
+**章节来源**
+- [markdown-text.tsx:223-243](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L223-L243)
+- [ToolFallback.tsx:30-31](file://ui-react/src/components/chat/ToolFallback.tsx#L30-L31)
+
+### 新增共享组件系统
+
+**更新** 新增了完整的共享组件系统，为OptionList和QuestionFlow提供统一的基础功能：
+
+#### ActionButtons组件
+- **统一动作按钮**: 提供一致的动作按钮渲染和交互逻辑
+- **确认机制**: 支持二次确认和加载状态显示
+- **对齐选项**: 支持左对齐、居中和右对齐
+- **无障碍支持**: 完整的键盘导航和ARIA支持
+
+#### useActionButtons钩子
+- **状态管理**: 管理动作按钮的确认、执行和加载状态
+- **并发控制**: 防止同时执行多个动作
+- **超时处理**: 支持确认超时和ESC取消
+- **回调处理**: 统一的动作回调处理机制
+
+#### Schema Contract系统
+- **类型安全**: 使用Zod提供运行时类型验证
+- **契约定义**: 定义工具UI组件的标准接口
+- **序列化支持**: 支持工具调用参数的序列化和反序列化
+- **错误处理**: 统一的错误处理和调试支持
+
+**章节来源**
+- [ActionButtons.tsx:16-101](file://ui-react/src/components/tool-ui/shared/action-buttons.tsx#L16-L101)
+- [useActionButtons.tsx:48-153](file://ui-react/src/components/tool-ui/shared/use-action-buttons.tsx#L48-L153)
+- [contract.ts:10-19](file://ui-react/src/components/tool-ui/shared/contract.ts#L10-L19)
+
 ## 性能考虑
 
-工具UI组件系统在设计时充分考虑了性能优化：
+工具UI组件系统在设计时充分考虑了性能优化，新增的OptionList和QuestionFlow系统也遵循了同样的原则：
 
 ### 渲染优化
 1. **条件渲染**: 只在需要时渲染详细信息
 2. **状态缓存**: 使用React状态管理避免不必要的重渲染
 3. **懒加载**: 抽屉组件按需加载
+4. **虚拟滚动**: OptionList支持大量选项的虚拟滚动优化
+5. **动画优化**: 使用CSS动画而非JavaScript动画
 
 ### 内存管理
 1. **事件监听器清理**: 自动清理媒体查询监听器
 2. **状态清理**: 组件卸载时清理所有订阅
+3. **引用管理**: 使用useRef管理DOM引用，避免闭包陷阱
+4. **记忆化**: 使用useMemo和useCallback优化重渲染
 
 ### 用户体验优化
 1. **无障碍访问**: 完整的键盘导航支持
 2. **响应式设计**: 适配不同屏幕尺寸
 3. **动画优化**: 减少运动偏好用户的视觉干扰
+4. **加载状态**: 提供清晰的加载和执行状态反馈
 
 ## 故障排除指南
 
@@ -383,18 +692,68 @@ A --> R
 2. 验证事件处理器绑定
 3. 确认DOM元素存在
 
+#### Markdown渲染问题
+**问题**: 工具结果中的Markdown不正确渲染
+**解决方案**:
+1. 确认使用了正确的组件配置（plainMdComponents）
+2. 检查remarkGfm插件的正确引入
+3. 验证frontmatter解析逻辑
+
+#### OptionList选择问题
+**更新** 新增OptionList相关问题解决：
+**问题**: 选项无法正确选择或状态异常
+**解决方案**:
+1. 检查选项ID的唯一性
+2. 验证selectionMode配置
+3. 确认最小/最大选择数量限制
+4. 检查disabled状态设置
+
+#### QuestionFlow导航问题
+**更新** 新增QuestionFlow相关问题解决：
+**问题**: 步骤间导航异常或状态丢失
+**解决方案**:
+1. 检查步骤ID的唯一性
+2. 验证步骤顺序和依赖关系
+3. 确认答案数据的正确存储
+4. 检查过渡动画的配置
+
+#### 动作按钮冲突
+**更新** 新增共享组件相关问题解决：
+**问题**: 动作按钮点击冲突或状态异常
+**解决方案**:
+1. 检查动作ID的唯一性
+2. 验证确认机制配置
+3. 确认并发执行控制
+4. 检查回调函数的正确绑定
+
 **章节来源**
 - [ToolFallback.tsx:454-488](file://ui-react/src/components/chat/ToolFallback.tsx#L454-L488)
 - [ToolFallback.tsx:490-513](file://ui-react/src/components/chat/ToolFallback.tsx#L490-L513)
+- [OptionList.tsx:352-378](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L352-L378)
+- [QuestionFlow.tsx:691-714](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L691-L714)
 
 ## 结论
 
 工具UI组件系统为OpenClaw项目提供了强大而灵活的工具调用可视化解决方案。通过模块化的组件设计、智能的状态管理和丰富的用户交互功能，该系统能够有效提升用户对AI工具调用的理解和控制能力。
 
-系统的主要优势包括：
+**更新** 本次更新大幅增强了组件系统的功能，新增的OptionList和QuestionFlow组件提供了复杂的工具UI交互能力：
+
+### 主要优势包括：
 - **高度可扩展**: 支持新的工具类型和分类
 - **用户体验优秀**: 直观的界面设计和流畅的交互
 - **技术架构先进**: 基于现代React技术和最佳实践
 - **性能优化完善**: 充分考虑了渲染性能和内存使用
+- **代码复用高效**: 通过共享组件减少重复代码和维护成本
+- **复杂交互支持**: 新增的OptionList和QuestionFlow支持复杂的用户交互流程
+- **类型安全**: 使用Zod提供完整的运行时类型验证
+- **无障碍友好**: 完整的键盘导航和ARIA支持
 
-未来可以考虑的功能增强包括：更多的工具类型支持、自定义主题选项、批量工具操作等功能。
+### 新增功能特性：
+- **OptionList组件**: 支持单选/多选的选项列表，包含动态验证和确认视图
+- **QuestionFlow组件**: 实现步骤化的问题流程，支持渐进式和前置式交互
+- **共享组件系统**: ActionButtons、useActionButtons和Schema Contract提供统一的基础功能
+- **增强的工具UI**: 为复杂的工具调用提供更好的用户体验
+
+未来可以考虑的功能增强包括：更多的工具类型支持、自定义主题选项、批量工具操作、更复杂的交互模式等功能。
+
+**更新** 本次更新反映了新增的OptionList和QuestionFlow系统，体现了工具UI组件向更复杂、更专业的方向发展，为OpenClaw项目提供了更加强大和灵活的工具调用可视化解决方案。

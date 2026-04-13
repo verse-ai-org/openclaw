@@ -250,8 +250,8 @@ function buildRouteCandidatesFromInput(tripRequest, platform) {
  *
  * Decision strategy:
  * 1) single platform only
- * 2) default platform: xhs
- * 3) when preference=auto, follow xhs -> search
+ * 2) default platform: search
+ * 3) when preference=auto, follow search by default; only use xhs when explicitly selected
  *
  * @param {object} tripRequest
  * @returns {{
@@ -281,11 +281,11 @@ export function selectRouteCandidates(tripRequest) {
     tripRequest.route_source_preference ||
     tripRequest.route_source_used ||
     tripRequest.route_evidence?.platform ||
-    "xhs";
+    "search";
   const preference = normalizePlatform(inferredPreference);
   const policy = String(tripRequest.recommendation_source_policy || "").trim();
-  // xhs_first policy: 若无上游证据则需要 agent 先走 xhs 检索链路
-  const isXhsFirst = policy === "xhs_first" || preference === "xhs";
+  // Only explicit xhs selection should trigger the xhs evidence gate.
+  const isXhsFirst = preference === "xhs";
   const hasXhsEvidence =
     isXhsFirst &&
     tripRequest.route_evidence != null &&
@@ -296,7 +296,7 @@ export function selectRouteCandidates(tripRequest) {
     // 还没有小红书证据：要求 agent 先走第四步 xhs 检索链路
     return {
       destination_key: "generic",
-      recommendation_source: policy || "xhs_first",
+      recommendation_source: policy || "search",
       requires_route_evidence: true,
       requires_platform_evidence: true,
       required_evidence_platform: "xhs",
@@ -327,7 +327,7 @@ export function selectRouteCandidates(tripRequest) {
     ? tripRequest.route_source_fallbacks
     : [];
   const usedPlatform = normalizePlatform(
-    tripRequest.route_source_used || (preference === "auto" ? "xhs" : preference),
+    tripRequest.route_source_used || (preference === "auto" ? "search" : preference),
   );
   const candidates = buildRouteCandidatesFromInput(tripRequest, usedPlatform);
   const sourceReason = "";
@@ -359,8 +359,9 @@ export function selectRouteCandidates(tripRequest) {
     })),
     next_action: candidates.ok
       ? ""
-      : "Switch to the next platform in fallback chain: xhs -> search.",
-    planning_note: "Single-platform route framing. Default xhs; if failed, fallback to search.",
+      : "Switch to the next platform in fallback chain if the user explicitly approves it.",
+    planning_note:
+      "Single-platform route framing. Default search; use xhs only when the user explicitly selects it.",
   };
 }
 
