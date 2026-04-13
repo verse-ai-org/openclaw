@@ -141,6 +141,8 @@ interface AgentSessionListProps {
   onNewSession: (agentId: string) => void;
   onDeleteSession: (key: string) => Promise<void>;
   isConnected: boolean;
+  /** Optional: called when the user clicks the agent avatar or name to view its profile */
+  onViewProfile?: (agentId: string) => void;
 }
 
 export function AgentSessionList({
@@ -154,6 +156,7 @@ export function AgentSessionList({
   onNewSession,
   onDeleteSession,
   isConnected,
+  onViewProfile,
 }: AgentSessionListProps) {
   const agentPrefix = `agent:${agent.id}:`;
   const agentSessions = sessions.filter((s) => s.key.startsWith(agentPrefix));
@@ -168,6 +171,7 @@ export function AgentSessionList({
 
   const emoji = resolveAgentEmoji(agent);
   const name = resolveAgentDisplayName(agent);
+  const avatarUrl = agent.identity?.avatarUrl;
 
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -183,14 +187,29 @@ export function AgentSessionList({
           <span className="font-medium">Agents</span>
         </button>
 
-        {/* Agent identity block — prominent emoji + name */}
+        {/* Agent identity block — avatar/emoji + name (clickable to open profile drawer) */}
         <div className="flex items-center gap-3 px-1">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[rgb(243,244,246)] text-[22px]">
-            {emoji}
-          </span>
-          <span className="flex-1 min-w-0 truncate text-[15px] font-bold text-foreground">
+          <button
+            type="button"
+            onClick={() => onViewProfile?.(agent.id)}
+            disabled={!onViewProfile}
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[rgb(243,244,246)] text-[22px] overflow-hidden transition-opacity hover:opacity-80 disabled:cursor-default disabled:hover:opacity-100"
+            title={onViewProfile ? `View ${name} profile` : undefined}
+          >
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={name} className="size-full object-contain rounded-xl" />
+            ) : (
+              emoji
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewProfile?.(agent.id)}
+            disabled={!onViewProfile}
+            className="flex-1 min-w-0 truncate text-[15px] font-bold text-foreground text-left transition-colors hover:text-primary disabled:cursor-default disabled:hover:text-foreground"
+          >
             {name}
-          </span>
+          </button>
         </div>
       </div>
 

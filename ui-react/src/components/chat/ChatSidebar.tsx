@@ -5,6 +5,7 @@ import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { cn } from "@/lib/utils";
 import type { GatewayAgentRow } from "@/types/agents";
+import { AgentDetailDrawer } from "@/components/agents/detail-drawer";
 import { AgentList } from "./AgentList";
 import { AgentSessionList } from "./AgentSessionList";
 
@@ -32,6 +33,11 @@ export function ChatSidebar() {
   const [activeAgent, setActiveAgent] = useState<GatewayAgentRow | null>(null);
   // Shared search query — placeholder switches with the active view
   const [search, setSearch] = useState("");
+  // Profile drawer state
+  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  const [profileAgentId, setProfileAgentId] = useState<string | null>(null);
+
+  const defaultAgentId = agentsList?.defaultId ?? "main";
 
   // Auto-restore the sessions view when the current sessionKey already belongs
   // to a known agent (e.g. returning to Chat after navigating away).
@@ -64,6 +70,28 @@ export function ChatSidebar() {
   function handleBack() {
     setView("agents");
     setSearch(""); // Clear search when going back to agents
+  }
+
+  function handleViewProfile(agentId: string) {
+    setProfileAgentId(agentId);
+    setProfileDrawerOpen(true);
+  }
+
+  /** Called when the user clicks Chat inside the profile drawer.
+   *  Closes the drawer, switches to the resolved session, and shows the sessions view. */
+  function handleDrawerChatClick(targetSessionKey: string) {
+    setProfileDrawerOpen(false);
+    void switchSession(targetSessionKey);
+    // Ensure the sessions panel is visible for the correct agent
+    const agentMatch = /^agent:([^:]+):/.exec(targetSessionKey);
+    if (agentMatch) {
+      const agents = agentsList?.agents ?? [];
+      const found = agents.find((a) => a.id === agentMatch[1]);
+      if (found) {
+        setActiveAgent(found);
+        setView("sessions");
+      }
+    }
   }
 
   return (
@@ -120,11 +148,21 @@ export function ChatSidebar() {
                 onNewSession={(agentId) => void newSession(agentId)}
                 onDeleteSession={(key) => deleteSession(key).then(() => {})}
                 isConnected={isConnected}
+                onViewProfile={handleViewProfile}
               />
             )}
           </div>
         </div>
       </div>
+
+      {/* Agent profile drawer — rendered at sidebar level so it overlays the full page */}
+      <AgentDetailDrawer
+        open={profileDrawerOpen}
+        onOpenChange={setProfileDrawerOpen}
+        agentId={profileAgentId}
+        defaultAgentId={defaultAgentId}
+        onChatClick={handleDrawerChatClick}
+      />
     </div>
   );
 }

@@ -4,6 +4,8 @@ export type GatewayAgentIdentity = {
   emoji?: string;
   avatar?: string;
   avatarUrl?: string;
+  /** Showcase video URL. Optional — forwarded from IdentityConfig.video. */
+  video?: string;
 };
 
 export type GatewayAgentRow = {

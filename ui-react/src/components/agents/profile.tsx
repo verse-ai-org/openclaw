@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Dialog,
@@ -109,7 +109,40 @@ function upsertIdentityMarkdown(content: string, identity: ParsedIdentity): stri
   return nextLines.join("\n");
 }
 
-export function ProfileHeroSection({ agentId }: { agentId: string }) {
+/** Auto-plays once on mount, no controls or overlay. Only rendered when videoUrl is provided. */
+function VideoShowcase({ videoUrl }: { videoUrl: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    // Auto-play once when the component mounts
+    void videoRef.current?.play();
+  }, []);
+
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden shadow-lg"
+      style={{ width: 260, aspectRatio: "3/4", flexShrink: 0 }}
+    >
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        muted
+        playsInline
+        preload="auto"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+    </div>
+  );
+}
+
+export function ProfileHeroSection({
+  agentId,
+  onChatClick,
+}: {
+  agentId: string;
+  /** If provided, overrides the default navigate-to-chat behavior (used when inside a drawer on the Chat page) */
+  onChatClick?: (sessionKey: string) => void;
+}) {
   const agentsList = useAgentsStore((s) => s.agentsList);
   const identity = useAgentsStore((s) => s.agentIdentityById[agentId]);
   const agentFileContents = useAgentsStore((s) => s.agentFileContents);
@@ -140,6 +173,7 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
   const name = identityMd.name ?? identity?.name ?? ident?.name ?? row?.name ?? agentId;
   const emoji = identityMd.emoji ?? ident?.emoji ?? "🤖";
   const avatar = ident?.avatarUrl;
+  const video = ident?.video;
   const creature = identityMd.creature ?? "AI Agent";
   const vibe = identityMd.vibe ?? ident?.description ?? "";
   const initials = name.slice(0, 2).toUpperCase();
@@ -182,11 +216,16 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
         // fallback to main session
       }
     }
-    useChatStore.getState().setSessionKey(targetKey);
-    useSettingsStore
-      .getState()
-      .updateSettings({ sessionKey: targetKey, lastActiveSessionKey: targetKey });
-    void navigate("/chat");
+    if (onChatClick) {
+      // Caller handles navigation (e.g. closing a drawer on the Chat page)
+      onChatClick(targetKey);
+    } else {
+      useChatStore.getState().setSessionKey(targetKey);
+      useSettingsStore
+        .getState()
+        .updateSettings({ sessionKey: targetKey, lastActiveSessionKey: targetKey });
+      void navigate("/chat");
+    }
   };
 
   const handleSaveIdentity = async () => {
@@ -205,60 +244,70 @@ export function ProfileHeroSection({ agentId }: { agentId: string }) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-0 pb-2">
-      <div className="relative mb-6">
-        <div className="size-42.5 rounded-full bg-[#F9FAFB] p-1 flex items-center justify-center shadow-sm">
-          <div className="size-40 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-inner">
-            {avatar ? (
-              <img src={avatar ?? emoji} alt={name} className="size-full object-contain rounded-full" />
-            ) : (
-              <div className="size-full rounded-full flex flex-col items-center justify-center gap-2 bg-[#F9FAFB]">
-                <span className="text-5xl font-extrabold text-gray-300 select-none">{initials}</span>
-              </div>
-            )}
+    <div className={`flex pb-2 ${
+      video ? "flex-row items-start justify-center gap-10" : "flex-col items-center gap-0"
+    }`}>
+      {/* Left: video showcase — only rendered when a video URL is configured */}
+      {video && <VideoShowcase videoUrl={video} />}
+
+      {/* Right: avatar + info */}
+      <div className={`flex flex-col items-center gap-0 ${
+        video ? "w-[340px] shrink-0" : ""
+      }`}>
+        <div className="relative mb-6">
+          <div className="size-42.5 rounded-full bg-[#F9FAFB] p-1 flex items-center justify-center shadow-sm">
+            <div className="size-40 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-inner">
+              {avatar ? (
+                <img src={avatar ?? emoji} alt={name} className="size-full object-contain rounded-full" />
+              ) : (
+                <div className="size-full rounded-full flex flex-col items-center justify-center gap-2 bg-[#F9FAFB]">
+                  <span className="text-5xl font-extrabold text-gray-300 select-none">{initials}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-[#10B981] rounded-full px-2 py-0.5">
+            <span className="size-1.5 rounded-full bg-white shrink-0" />
+            <span className="text-[10px] font-bold text-white tracking-wide">ONLINE</span>
           </div>
         </div>
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-[#10B981] rounded-full px-2 py-0.5">
-          <span className="size-1.5 rounded-full bg-white shrink-0" />
-          <span className="text-[10px] font-bold text-white tracking-wide">ONLINE</span>
-        </div>
-      </div>
 
-      <div className="flex flex-col items-center gap-3 mb-1">
-        <h1 className="text-[36px] font-extrabold text-black leading-none flex items-center gap-2">
-          <span>{emoji}</span>
-          <span>{name}</span>
-          <Button
+        <div className="flex flex-col items-center gap-3 mb-1">
+          <h1 className="text-[36px] font-extrabold text-black leading-none flex items-center gap-2 whitespace-nowrap">
+            <span>{emoji}</span>
+            <span>{name}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 rounded-full"
+              onClick={startEdit}
+            >
+              <Pencil className="size-4 text-black" />
+            </Button>
+          </h1>
+          <button
             type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0 rounded-full"
-            onClick={startEdit}
+            title="Start chatting"
+            onClick={() => void handleGoToChat()}
+            className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#BA0034] text-white text-[13px] font-bold shadow-[0_2px_8px_rgba(186,0,52,0.25)] hover:bg-[#9b0029] hover:shadow-[0_4px_14px_rgba(186,0,52,0.35)] active:scale-95 transition-all duration-150 select-none"
           >
-            <Pencil className="size-4 text-black" />
-          </Button>
-        </h1>
-        <button
-          type="button"
-          title="Start chatting"
-          onClick={() => void handleGoToChat()}
-          className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#BA0034] text-white text-[13px] font-bold shadow-[0_2px_8px_rgba(186,0,52,0.25)] hover:bg-[#9b0029] hover:shadow-[0_4px_14px_rgba(186,0,52,0.35)] active:scale-95 transition-all duration-150 select-none"
-        >
-          <MessageSquare className="size-4 shrink-0" />
-          <span>Chat</span>
-        </button>
-        <span className="px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#8E8E93] text-[10px] font-bold uppercase">
-          {creature}
-        </span>
+            <MessageSquare className="size-4 shrink-0" />
+            <span>Chat</span>
+          </button>
+          <span className="px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#8E8E93] text-[10px] font-bold uppercase">
+            {creature}
+          </span>
+        </div>
+
+        {/* <p className="text-[11px] font-bold text-[#BA0034] font-mono mb-3">{agentId}</p> */}
+
+        {vibe && (
+          <p className="text-lg font-medium text-muted-foreground text-center max-w-xl leading-snug mb-5">
+            "{vibe}"
+          </p>
+        )}
       </div>
-
-      {/* <p className="text-[11px] font-bold text-[#BA0034] font-mono mb-3">{agentId}</p> */}
-
-      {vibe && (
-        <p className="text-lg font-medium text-muted-foreground text-center max-w-xl leading-snug mb-5">
-          "{vibe}"
-        </p>
-      )}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-xl">

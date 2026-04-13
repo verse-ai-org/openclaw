@@ -26,6 +26,7 @@ function AgentItem({
 }) {
   const emoji = resolveAgentEmoji(agent);
   const name = resolveAgentDisplayName(agent);
+  const avatarUrl = agent.identity?.avatarUrl;
 
   return (
     <button
@@ -37,9 +38,13 @@ function AgentItem({
         "hover:bg-[rgb(243,244,246)]",
       )}
     >
-      {/* Emoji avatar */}
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[rgb(243,244,246)] text-[18px]">
-        {emoji}
+      {/* Avatar: image if available, else emoji */}
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[rgb(243,244,246)] text-[18px] overflow-hidden">
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={name} className="size-full object-contain rounded-lg" />
+        ) : (
+          emoji
+        )}
       </span>
 
       {/* Name */}

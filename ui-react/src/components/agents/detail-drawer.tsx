@@ -27,6 +27,10 @@ interface AgentDetailDrawerProps {
   onOpenChange: (open: boolean) => void;
   agentId: string | null;
   defaultAgentId: string;
+  /** Optional: called when Chat button is clicked; receives the resolved session key.
+   *  When provided the component does NOT navigate — the caller is responsible
+   *  (e.g. closing the drawer and switching the active session on the Chat page). */
+  onChatClick?: (sessionKey: string) => void;
 }
 
 export function AgentDetailDrawer({
@@ -34,6 +38,7 @@ export function AgentDetailDrawer({
   onOpenChange,
   agentId,
   defaultAgentId,
+  onChatClick,
 }: AgentDetailDrawerProps) {
   const agentsList = useAgentsStore((s) => s.agentsList);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -119,7 +124,7 @@ export function AgentDetailDrawer({
           <div className="flex-1 overflow-hidden">
             <ScrollArea className="h-[calc(100vh-100px)]">
               <div className="p-6 max-w-5xl mx-auto flex flex-col gap-8">
-                <ProfileHeroSection agentId={agentId} />
+                <ProfileHeroSection agentId={agentId} onChatClick={onChatClick} />
                 <SoulSection agentId={agentId} />
                 <CoreSkillsSection agentId={agentId} />
                 <ToolsSection agentId={agentId} />

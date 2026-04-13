@@ -3,6 +3,7 @@ import {
   findAgentEntryIndex,
 } from "../commands/agents.config.js";
 import type { OpenClawConfig } from "../config/config.js";
+import type { IdentityConfig } from "../config/types.base.js";
 import type { ToolProfileId } from "../config/types.tools.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import { listAgentEntries } from "./agent-scope.js";
@@ -32,6 +33,11 @@ type BuiltinAgentDef = {
     readonly profile?: ToolProfileId;
     readonly deny?: readonly string[];
   };
+  /**
+   * Default identity for first-time creation, and backfilled on upgrade when
+   * the existing config entry has no identity fields set.
+   */
+  readonly identity?: IdentityConfig;
 };
 
 export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
@@ -53,6 +59,12 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
       "weather",
     ],
     tools: { profile: "full", deny: [] },
+    identity: {
+      name: "Travel Planner",
+      emoji: "✈️",
+      avatar: "https://files.aiverser.com/bossim/images/travel-planner.webp",
+      video: "https://files.aiverser.com/bossim/vedio/kling_20260331_%E4%BD%9C%E5%93%81_%E4%B8%80%E5%8F%AA%E6%A9%98%E8%89%B2%E8%99%8E%E6%96%91%E7%8C%AB_%E5%8D%A1%E5%85%B6_5614_0.mp4",
+    },
   },
   {
     id: "my-office-helper",
@@ -66,6 +78,10 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
       "office-document-specialist-suite",
     ],
     tools: { profile: "full", deny: [] },
+    identity: {
+      name: "Office Helper",
+      emoji: "💼",
+    },
   },
 ] as const;
 
@@ -90,7 +106,22 @@ export async function ensureBuiltinAgents(
   for (const builtin of BUILTIN_AGENTS) {
     const id = normalizeAgentId(builtin.id);
     if (existingIds.has(id)) {
-      // Already present — check whether we need to initialize its workspace files.
+      // Already present — backfill identity if the config entry has none set yet
+      // (covers upgrades where the entry existed before identity was added).
+      if (builtin.identity) {
+        const entry = existingList[findAgentEntryIndex(existingList, id)];
+        const noIdentity = !entry?.identity?.name && !entry?.identity?.emoji && !entry?.identity?.avatar;
+        // Also backfill individual fields added in later releases (e.g. video).
+        const missingVideo = builtin.identity.video && !entry?.identity?.video;
+        if (noIdentity || missingVideo) {
+          next = applyAgentConfig(next, { agentId: id, identity: {
+            // Preserve existing fields; only fill in what is missing.
+            ...entry?.identity,
+            ...(noIdentity ? builtin.identity : { video: builtin.identity.video }),
+          } });
+          dirty = true;
+        }
+      }
       // For non-main agents, still ensure workspace bootstrap files exist even if
       // the config entry was already there (e.g. after an upgrade).
       if (builtin.workspace) {
@@ -119,6 +150,7 @@ export async function ensureBuiltinAgents(
             },
           }
         : {}),
+      ...(builtin.identity ? { identity: builtin.identity } : {}),
     });
     dirty = true;
 

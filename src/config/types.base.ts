@@ -235,4 +235,6 @@ export type IdentityConfig = {
   emoji?: string;
   /** Avatar image: workspace-relative path, http(s) URL, or data URI. */
   avatar?: string;
+  /** Showcase video: http(s) URL. Optional — rendered in the agent detail page when present. */
+  video?: string;
 };

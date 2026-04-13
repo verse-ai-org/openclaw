@@ -280,6 +280,8 @@ export const IdentitySchema = z
     theme: z.string().optional(),
     emoji: z.string().optional(),
     avatar: z.string().optional(),
+    /** Showcase video URL. Optional — rendered in the agent detail page when present. */
+    video: z.string().optional(),
   })
   .strict()
   .optional();

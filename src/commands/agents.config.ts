@@ -12,6 +12,7 @@ import {
 } from "../agents/identity-file.js";
 import { listRouteBindings } from "../config/bindings.js";
 import type { OpenClawConfig } from "../config/config.js";
+import type { IdentityConfig } from "../config/types.base.js";
 import type { AgentToolsConfig } from "../config/types.tools.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 
@@ -144,6 +145,8 @@ export function applyAgentConfig(
     skills?: string[];
     /** Tool restrictions; undefined = leave unchanged */
     tools?: Pick<AgentToolsConfig, "profile" | "deny">;
+    /** Identity fields; undefined = leave unchanged, merges with existing identity */
+    identity?: IdentityConfig;
   },
 ): OpenClawConfig {
   const agentId = normalizeAgentId(params.agentId);
@@ -162,6 +165,10 @@ export function applyAgentConfig(
       ? { skills: params.skills.length > 0 ? params.skills : undefined }
       : {}),
     ...(params.tools !== undefined ? { tools: params.tools } : {}),
+    // identity: merges with existing identity fields; undefined = leave unchanged
+    ...(params.identity !== undefined
+      ? { identity: { ...base.identity, ...params.identity } }
+      : {}),
   };
   const nextList = [...list];
   if (index >= 0) {

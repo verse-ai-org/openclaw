@@ -17,6 +17,8 @@ export type GatewayAgentRow = {
     description?: string;
     bio?: string;
     summary?: string;
+    /** Showcase video URL. Optional — rendered in the agent detail page when present. */
+    video?: string;
   };
   [key: string]: unknown;
 };
