@@ -10,6 +10,7 @@ import {
 import { AssistantLoadingIndicator } from "../assistant-ui/assistant-loading-indicator.tsx";
 import {
   AssistantToolGroup,
+  PromotedToolResult,
   type AssistantToolPart,
 } from "../assistant-ui/assistant-tool-group.tsx";
 import { InteractiveParts } from "./InteractiveParts";
@@ -44,6 +45,11 @@ export const AssistantMessage: FC = () => {
     [content],
   );
 
+  const textContent = useMemo(
+    () => textParts.map((part) => part.text).join("\n\n").trim(),
+    [textParts],
+  );
+
   return (
     <MessagePrimitive.Root
       className="relative mx-auto w-full max-w-3xl data-[role=assistant]:animate-in data-[role=assistant]:fade-in data-[role=assistant]:slide-in-from-bottom-1"
@@ -59,6 +65,8 @@ export const AssistantMessage: FC = () => {
         {textParts.map((part, index) => (
           <AssistantMarkdownPart key={`text-${index}`} text={part.text} />
         ))}
+
+        <PromotedToolResult toolParts={toolParts} textContent={textContent} />
 
         <AssistantToolGroup toolParts={toolParts} />
 

@@ -266,8 +266,19 @@ const ToolCallGroupInner: FC<
         </span>
       </button>
 
-      {/* ── Expanded card list ── */}
-      {isExpanded && <div className="border-t px-2 pb-2 pt-1">{children}</div>}
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-out",
+          isExpanded
+            ? "max-h-[332px] opacity-100"
+            : "max-h-0 opacity-0",
+        )}
+        aria-hidden={!isExpanded}
+      >
+        <div className="border-t px-2 pb-2 pt-1 max-h-[300px] overflow-y-auto overscroll-contain pr-1">
+          {children}
+        </div>
+      </div>
     </div>
   );
 };
