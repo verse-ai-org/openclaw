@@ -1,4 +1,3 @@
-import { ChevronRightIcon } from "lucide-react";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
@@ -48,12 +47,9 @@ function AgentItem({
       </span>
 
       {/* Name */}
-      <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-foreground">
+      <span className="flex-1 min-w-0 truncate text-sm font-semibold text-foreground">
         {name}
       </span>
-
-      {/* Chevron */}
-      <ChevronRightIcon className="size-3.5 shrink-0 text-[rgb(142,142,147)]" />
     </button>
   );
 }

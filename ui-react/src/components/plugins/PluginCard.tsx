@@ -3,7 +3,6 @@ import {
   CheckCircle2Icon,
   InfoIcon,
   Loader2Icon,
-  PackageIcon,
   XCircleIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -106,18 +105,6 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
       >
         {/* Main row */}
         <div className="flex items-center gap-4">
-          {/* Icon */}
-          <div
-            className={cn(
-              "relative flex size-[52px] shrink-0 items-center justify-center rounded-2xl text-xl",
-              isDisabled ? "bg-[#F0F0F0]" : "bg-primary/5",
-            )}
-          >
-            <PackageIcon
-              className={cn("size-5 text-[#8E8E93]", isDisabled && "opacity-30")}
-            />
-          </div>
-
           {/* Name + meta + description */}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-0.5">

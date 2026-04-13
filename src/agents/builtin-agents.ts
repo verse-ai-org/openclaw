@@ -57,6 +57,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
       "amap-lbs-skill",
       "12306",
       "weather",
+      "openclaw-tool-ui"
     ],
     tools: { profile: "full", deny: [] },
     identity: {

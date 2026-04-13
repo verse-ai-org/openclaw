@@ -245,13 +245,15 @@ export const plainMdComponents: Components = {
   }
 };
 
-export function AssistantMarkdownPart({ text }: { text: string }) {
+export const AssistantMarkdown: FC<{ text: string }> = ({ text }) => {
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={plainMdComponents}>
       {text}
     </ReactMarkdown>
   );
 }
+
+export const AssistantMarkdownPart = memo(AssistantMarkdown);
 
 const MarkdownTextImpl = () => {
   return (
