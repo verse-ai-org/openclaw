@@ -1,11 +1,12 @@
-import { ComposerPrimitive, AuiIf } from "@assistant-ui/react";
+import { ComposerPrimitive, AuiIf, useComposerRuntime } from "@assistant-ui/react";
 import { SendHorizonal, Square } from "lucide-react";
-import type { FC } from "react";
+import { useEffect, type FC } from "react";
 import { cn } from "@/lib/utils";
 import {
   ComposerAddAttachment,
   ComposerAttachments,
 } from "@/components/assistant-ui/attachment";
+import { useChatStore } from "@/store/chat.store";
 
 // ---------------------------------------------------------------------------
 // Composer
@@ -14,6 +15,20 @@ import {
 // + `adapters.attachments` in `GatewayChatRuntimeProvider` (see `gateway-attachment-adapter.ts`).
 // ---------------------------------------------------------------------------
 export const Composer: FC = () => {
+  const composerRuntime = useComposerRuntime();
+
+  // Consume pendingDraftMessage once on mount to pre-fill the input.
+  // Clears the store entry immediately so it only fires once.
+  useEffect(() => {
+    const draft = useChatStore.getState().pendingDraftMessage;
+    if (draft) {
+      composerRuntime.setText(draft);
+      useChatStore.getState().setPendingDraftMessage(null);
+    }
+  // composerRuntime identity is stable within a session; run only on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <ComposerPrimitive.Root className="relative w-full">
       <ComposerPrimitive.AttachmentDropzone

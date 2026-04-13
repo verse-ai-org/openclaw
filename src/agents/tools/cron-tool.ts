@@ -403,6 +403,41 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
                   ...delivery,
                   ...inferred,
                 } satisfies CronDelivery;
+              } else {
+                // Session key carries no channel info (e.g. agent:main:<uuid>).
+                // 2-A: auto-pick the first available channel from channels.status.
+                // 2-C: if no channels configured, downgrade delivery to none so
+                //      cron.add succeeds instead of erroring at runtime.
+                let fallbackChannelId: string | null = null;
+                try {
+                  const channelsRes = await callGateway<{
+                    channelOrder?: string[];
+                    channelAccounts?: Record<string, unknown[]>;
+                  }>("channels.status", gatewayOpts, {});
+                  if (channelsRes?.channelOrder && channelsRes.channelAccounts) {
+                    for (const chId of channelsRes.channelOrder) {
+                      const accounts = channelsRes.channelAccounts[chId];
+                      if (Array.isArray(accounts) && accounts.length > 0) {
+                        fallbackChannelId = chId;
+                        break;
+                      }
+                    }
+                  }
+                } catch {
+                  // channels.status is best-effort; failure is non-fatal
+                }
+                if (fallbackChannelId) {
+                  (job as { delivery?: unknown }).delivery = {
+                    ...delivery,
+                    mode: "announce",
+                    channel: fallbackChannelId,
+                  } satisfies CronDelivery;
+                } else {
+                  // No channels available — downgrade to none to avoid runtime error
+                  (job as { delivery?: unknown }).delivery = {
+                    mode: "none",
+                  } satisfies CronDelivery;
+                }
               }
             }
           }
@@ -431,6 +466,29 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
               }
             }
           }
+          // Ensure jobs created via chat are never auto-deleted after running,
+          // so they remain visible on the Scheduled Tasks page.
+          // LLMs occasionally set deleteAfterRun:true for one-shot tasks;
+          // force it off so the task stays in the list (just disabled) after execution.
+          if (job && typeof job === "object") {
+            (job as { deleteAfterRun?: boolean }).deleteAfterRun = false;
+          }
+
+          // Auto-generate a name from the agent message when the LLM omits it,
+          // so Run History shows a readable title instead of a UUID fragment.
+          if (job && typeof job === "object" && !(job as { name?: unknown }).name) {
+            const msgSource =
+              (job as { payload?: { message?: unknown } }).payload?.message ??
+              (job as { message?: unknown }).message ??
+              (job as { text?: unknown }).text;
+            if (typeof msgSource === "string" && msgSource.trim()) {
+              // Take up to the first 30 chars and trim at a word boundary when possible.
+              const raw = msgSource.trim().slice(0, 30);
+              const truncated = raw.length < msgSource.trim().length ? `${raw.replace(/\s+\S*$/, "")}…` : raw;
+              (job as { name?: string }).name = truncated || undefined;
+            }
+          }
+
           return jsonResult(await callGateway("cron.add", gatewayOpts, job));
         }
         case "update": {

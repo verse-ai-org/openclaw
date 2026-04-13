@@ -66,7 +66,7 @@ export function TaskCard({ job, onEdit, onDelete, onToggleEnabled, onRunNow }: T
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onRunNow(job.id)}>Run now</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { onRunNow(job.id); toast("Task started", { duration: 2000 }); }}>Run now</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"

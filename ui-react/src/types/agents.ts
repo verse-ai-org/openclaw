@@ -226,6 +226,7 @@ export type CronJob = {
   delivery?: CronDelivery;
   failureAlert?: CronFailureAlert | false;
   state?: CronJobState;
+  createdAtMs?: number;
   updatedAtMs?: number;
 };
 

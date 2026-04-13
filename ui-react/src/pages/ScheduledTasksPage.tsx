@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
+import { useChatStore } from "@/store/chat.store";
 import { TaskCard } from "@/components/scheduled-tasks/TaskCard";
 import { NewTaskCard } from "@/components/scheduled-tasks/NewTaskCard";
 import { RunHistoryTable } from "@/components/scheduled-tasks/RunHistoryTable";
@@ -24,7 +25,7 @@ import type { CronJob, CronRunRecord, ScheduledTaskFormData } from "@/types/agen
 // ---------------------------------------------------------------------------
 type PageTab = "my-tasks" | "run-history";
 
-type SortBy = "name" | "next-run" | "last-run";
+type SortBy = "created-desc" | "created-asc";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -38,9 +39,18 @@ export function ScheduledTasksPage() {
   // ── Cron state ──────────────────────────────────────────────────────────
   const cronLoading = useAgentsStore((s) => s.cronLoading);
   const cronError = useAgentsStore((s) => s.cronError);
-  const cronStatus = useAgentsStore((s) => s.cronStatus);
   const cronJobs = useAgentsStore((s) => s.cronJobs);
   const loadCronStatus = useAgentsStore((s) => s.loadCronStatus);
+
+  // ── Channels state (for delivery channel resolution) ────────────────────
+  const channelsSnapshot = useAgentsStore((s) => s.channelsSnapshot);
+  const loadChannelsStatus = useAgentsStore((s) => s.loadChannelsStatus);
+  // Whether any messaging channel is available (used for announce-mode warning in modal)
+  const hasChannel = (
+    channelsSnapshot?.channelOrder.some(
+      (id) => (channelsSnapshot.channelAccounts[id]?.length ?? 0) > 0,
+    ) ?? false
+  );
 
   // ── Scheduled Tasks store slice ─────────────────────────────────────────
   const cronRunHistory = useAgentsStore((s) => s.cronRunHistory);
@@ -56,7 +66,7 @@ export function ScheduledTasksPage() {
 
   // ── Local UI state ──────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<PageTab>("my-tasks");
-  const [sortBy, setSortBy] = useState<SortBy>("name");
+  const [sortBy, setSortBy] = useState<SortBy>("created-desc");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<CronJob | null>(null);
   // Client-side filters for Run History
@@ -64,17 +74,26 @@ export function ScheduledTasksPage() {
   const [historyTimeFilter, setHistoryTimeFilter] = useState<"day" | "week" | "month">("week");
 
   // ── Initial data load ───────────────────────────────────────────────────
+  // Always refresh on mount so tasks created in Chat are visible immediately.
   useEffect(() => {
-    if (isConnected && !cronStatus) {
+    if (isConnected) {
       void loadCronStatus();
     }
-  }, [isConnected, cronStatus, loadCronStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected]);
 
   useEffect(() => {
     if (isConnected && activeTab === "run-history") {
       void loadCronRunHistory();
     }
   }, [isConnected, activeTab, loadCronRunHistory]);
+
+  // Load channels status for delivery channel resolution
+  useEffect(() => {
+    if (isConnected && !channelsSnapshot) {
+      void loadChannelsStatus();
+    }
+  }, [isConnected, channelsSnapshot, loadChannelsStatus]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
   function handleOpenNew() {
@@ -90,6 +109,20 @@ export function ScheduledTasksPage() {
   function handleModalClose() {
     setModalOpen(false);
     setEditingJob(null);
+  }
+
+  /**
+   * Open a fresh chat session on the default agent with a pre-filled draft
+   * that guides the user to describe their scheduled task.
+   */
+  function handleCreateWithChat() {
+    const agentId = useAgentsStore.getState().agentsList?.defaultId ?? "main";
+    const newKey = `agent:${agentId}:${crypto.randomUUID().slice(0, 8)}`;
+    useChatStore.getState().setSessionKey(newKey);
+    useChatStore.getState().setPendingDraftMessage(
+      "I'd like to create a scheduled task. Please help me set it up — describe what you'd like the agent to do and how often it should run.",
+    );
+    void navigate("/chat");
   }
 
   async function handleSave(form: ScheduledTaskFormData) {
@@ -153,14 +186,11 @@ export function ScheduledTasksPage() {
 
   // ── Sort jobs ────────────────────────────────────────────────────────────
   const sortedJobs: CronJob[] = cronJobs.toSorted((a: CronJob, b: CronJob) => {
-    if (sortBy === "name") {
-      return a.name.localeCompare(b.name);
+    if (sortBy === "created-asc") {
+      return (a.createdAtMs ?? 0) - (b.createdAtMs ?? 0);
     }
-    if (sortBy === "next-run") {
-      return (a.state?.nextRunAtMs ?? 0) - (b.state?.nextRunAtMs ?? 0);
-    }
-    // last-run
-    return (b.state?.lastRunAtMs ?? 0) - (a.state?.lastRunAtMs ?? 0);
+    // created-desc (default)
+    return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
   });
 
   // ── Build form initial data from editing job ─────────────────────────────
@@ -236,7 +266,7 @@ export function ScheduledTasksPage() {
                   <RefreshCwIcon className={cn("size-3.5", cronLoading && "animate-spin")} />
                   Refresh
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => void navigate("/chat")} className="gap-1.5">
+                <Button variant="outline" size="sm" onClick={handleCreateWithChat} className="gap-1.5">
                   <MessageSquareIcon className="size-3.5" />
                   Create With Chat
                 </Button>
@@ -285,9 +315,8 @@ export function ScheduledTasksPage() {
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as SortBy)}
                   >
-                    <option value="name">Name</option>
-                    <option value="next-run">Next Run</option>
-                    <option value="last-run">Last Run</option>
+                    <option value="created-desc">Newest First</option>
+                    <option value="created-asc">Oldest First</option>
                   </select>
                 </div>
               )}
@@ -350,6 +379,7 @@ export function ScheduledTasksPage() {
         mode={editingJob ? "edit" : "new"}
         initialData={initialData}
         saving={cronJobSaving}
+        hasChannel={hasChannel}
         onSave={(form) => void handleSave(form)}
         onClose={handleModalClose}
       />

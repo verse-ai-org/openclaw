@@ -16,13 +16,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { CronRunRecord } from "@/types/agents";
 
 // ---------------------------------------------------------------------------
@@ -136,18 +129,18 @@ export function RunHistoryTable({
   return (
     <div className="flex flex-col gap-4">
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Day / Week / Month toggle group */}
-        <div className="flex items-center rounded-lg border p-0.5">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Day / Week / Month toggle group — matches TabsList style */}
+        <div className="inline-flex h-auto gap-1 rounded-2xl bg-[#F6F6F6] p-1">
           {TIME_FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               type="button"
               onClick={() => handleTimeFilter(opt.value)}
               className={
-                "rounded-md px-3 py-1 text-sm transition-colors" +
+                "rounded-[14px] px-5 py-2 text-[13px] font-semibold transition-all" +
                 (timeFilter === opt.value
-                  ? " bg-primary text-primary-foreground"
+                  ? " bg-white text-foreground shadow-sm"
                   : " text-muted-foreground hover:text-foreground")
               }
             >
@@ -156,18 +149,24 @@ export function RunHistoryTable({
           ))}
         </div>
 
-        {/* Status filter */}
-        <Select value={statusFilter} onValueChange={(v) => handleStatusFilter(v as StatusFilter)}>
-          <SelectTrigger className="h-8 w-[140px] text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="running">Running</SelectItem>
-            <SelectItem value="success">Success</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Status filter — same pill style */}
+        <div className="inline-flex h-auto gap-1 rounded-2xl bg-[#F6F6F6] p-1">
+          {(["all", "success", "failed", "running"] as const).map((val) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => handleStatusFilter(val)}
+              className={
+                "rounded-[14px] px-5 py-2 text-[13px] font-semibold transition-all" +
+                (statusFilter === val
+                  ? " bg-white text-foreground shadow-sm"
+                  : " text-muted-foreground hover:text-foreground")
+              }
+            >
+              {val === "all" ? "All" : val.charAt(0).toUpperCase() + val.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Table */}

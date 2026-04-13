@@ -134,6 +134,12 @@ interface ChatState {
   lastError: string | null;
 
   /**
+   * Pre-filled draft message for the composer — consumed once on mount and cleared.
+   * Used by "Create With Chat" on the Scheduled Tasks page to seed the input.
+   */
+  pendingDraftMessage: string | null;
+
+  /**
    * Sessions with an in-flight gateway generation (user switched away, or multi-tab).
    * Updated from `chat` / `agent` events even when that session is not the active UI tab.
    * Cleared on terminal `chat` (final/error/aborted) for that sessionKey.
@@ -146,6 +152,7 @@ interface ChatState {
   setMessagesLoading: (v: boolean) => void;
   clearMessages: () => void;
   setSessionKey: (key: string | null) => void;
+  setPendingDraftMessage: (msg: string | null) => void;
   appendStreamChunk: (text: string) => void;
   setStream: (text: string) => void;
   setRunId: (id: string | null) => void;
@@ -173,6 +180,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   sessionKey: null,
   pendingHistoryReloadKey: null,
   lastError: null,
+  pendingDraftMessage: null,
   pendingGenerationBySession: {},
 
   setSending: (v) => set({ sending: v }),
@@ -189,6 +197,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       toolStreamOrder: [],
     }),
   setSessionKey: (key) => set({ sessionKey: key }),
+  setPendingDraftMessage: (msg) => set({ pendingDraftMessage: msg }),
 
   appendStreamChunk: (text) => {
     set((state) => ({

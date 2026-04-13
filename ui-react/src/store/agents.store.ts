@@ -36,6 +36,22 @@ function getErrorMessage(err: unknown): string {
   return String(err);
 }
 
+/**
+ * Find the first usable channel ID from the channels snapshot.
+ * Returns null if no channels are configured/connected.
+ */
+function getDefaultChannelId(snapshot: ChannelsStatusSnapshot | null): string | null {
+  if (!snapshot) { return null; }
+  // channelOrder lists channels in priority order; pick first one that has at least one account
+  for (const channelId of snapshot.channelOrder) {
+    const accounts = snapshot.channelAccounts[channelId];
+    if (Array.isArray(accounts) && accounts.length > 0) {
+      return channelId;
+    }
+  }
+  return null;
+}
+
 /** Convert a ScheduledTaskFormData to a CronSchedule suitable for the Gateway. */
 function formDataToCronSchedule(
   form: ScheduledTaskFormData,
@@ -916,9 +932,19 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       // Convert ScheduledTaskFormData to CronSchedule
       const schedule = formDataToCronSchedule(form);
       const payload = { kind: "agentTurn" as const, message: form.agentPrompt };
-      const delivery = form.deliveryMode === "announce"
-        ? { mode: "announce" as const }
-        : { mode: "none" as const };
+      // Resolve delivery: if announce, auto-pick default channel; fallback to none if missing.
+      let delivery: { mode: "announce" | "none"; channel?: string };
+      if (form.deliveryMode === "announce") {
+        const channelId = getDefaultChannelId(get().channelsSnapshot);
+        if (channelId) {
+          delivery = { mode: "announce" as const, channel: channelId };
+        } else {
+          // No channel available — silently downgrade to none to avoid runtime error
+          delivery = { mode: "none" as const };
+        }
+      } else {
+        delivery = { mode: "none" as const };
+      }
       const res = await client.request<CronJob>("cron.add", {
         name: form.name,
         description: form.agentPrompt.slice(0, 120),
@@ -932,7 +958,11 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
         sessionTarget: "isolated",
         wakeMode: "next-heartbeat",
       });
-      // Reload job list after create
+      // Optimistically prepend the new job so the UI reflects it immediately,
+      // then reload from server to sync authoritative state.
+      if (res) {
+        set((state) => ({ cronJobs: [res, ...state.cronJobs] }));
+      }
       await get().loadCronJobs();
       return res ?? null;
     } catch (err) {
@@ -952,9 +982,18 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     try {
       const schedule = formDataToCronSchedule(form);
       const payload = { kind: "agentTurn" as const, message: form.agentPrompt };
-      const delivery = form.deliveryMode === "announce"
-        ? { mode: "announce" as const }
-        : { mode: "none" as const };
+      // Resolve delivery: if announce, auto-pick default channel; fallback to none if missing.
+      let delivery: { mode: "announce" | "none"; channel?: string };
+      if (form.deliveryMode === "announce") {
+        const channelId = getDefaultChannelId(get().channelsSnapshot);
+        if (channelId) {
+          delivery = { mode: "announce" as const, channel: channelId };
+        } else {
+          delivery = { mode: "none" as const };
+        }
+      } else {
+        delivery = { mode: "none" as const };
+      }
       const res = await client.request<CronJob>("cron.update", {
         id: jobId,
         patch: {

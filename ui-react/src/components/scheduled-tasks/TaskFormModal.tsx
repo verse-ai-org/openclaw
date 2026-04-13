@@ -74,6 +74,8 @@ interface TaskFormModalProps {
   mode: "new" | "edit";
   initialData?: Partial<ScheduledTaskFormData>;
   saving?: boolean;
+  /** Whether at least one messaging channel is configured. Used to warn when announce mode is selected. */
+  hasChannel?: boolean;
   onSave: (form: ScheduledTaskFormData) => void;
   onClose: () => void;
 }
@@ -86,6 +88,7 @@ export function TaskFormModal({
   mode,
   initialData,
   saving = false,
+  hasChannel = true,
   onSave,
   onClose,
 }: TaskFormModalProps) {
@@ -461,8 +464,13 @@ export function TaskFormModal({
               </SelectContent>
             </Select>
             {form.deliveryMode === "announce" && (
-              <p className="text-xs text-muted-foreground">
-                Requires at least one messaging channel (e.g. Telegram, Discord) to be configured.
+              <p className={cn(
+                "text-xs",
+                hasChannel ? "text-muted-foreground" : "text-destructive font-medium",
+              )}>
+                {hasChannel
+                  ? "Requires at least one messaging channel (e.g. Telegram, Discord) to be configured."
+                  : "⚠️ No messaging channel detected. The task will still be created but delivery will be silently downgraded to None until a channel is connected."}
               </p>
             )}
           </div>
