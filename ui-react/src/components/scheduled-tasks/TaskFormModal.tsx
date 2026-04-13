@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Loader2Icon } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarIcon, Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -10,24 +12,48 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import type { ScheduledTaskFormData } from "@/types/agents";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** HOURS options 00–23 */
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+/** MINUTES options: 00–59 */
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+
+/**
+ * Build a timezone-aware ISO string from a Date + HH + mm.
+ * e.g. "2026-04-12T21:12:00+08:00" for Asia/Shanghai.
+ */
+function buildLocalIso(date: Date, hh: string, mm: string): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const offsetMin = -date.getTimezoneOffset(); // +480 for UTC+8
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const oh = pad(Math.floor(Math.abs(offsetMin) / 60));
+  const om = pad(Math.abs(offsetMin) % 60);
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${hh}:${mm}:00${sign}${oh}:${om}`
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Default form state
 // ---------------------------------------------------------------------------
-
-/** Returns a default datetime-local value 1 hour from now ("YYYY-MM-DDTHH:mm"). */
-function defaultScheduleAt(): string {
-  const d = new Date(Date.now() + 3_600_000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 const DEFAULT_FORM: ScheduledTaskFormData = {
   name: "",
@@ -35,7 +61,7 @@ const DEFAULT_FORM: ScheduledTaskFormData = {
   preferredTime: "08:00",
   everyAmount: "1",
   everyUnit: "hours",
-  scheduleAt: defaultScheduleAt(),
+  scheduleAt: "",           // populated from oneTimeDate + oneTimeHour + oneTimeMinute
   deliveryMode: "none",
   agentPrompt: "",
 };
@@ -68,29 +94,113 @@ export function TaskFormModal({
     ...initialData,
   });
 
+  // ── Preferred time: split into hour + minute selects ────────────────────
+  const [preferredHour, setPreferredHour] = useState<string>(
+    () => (initialData?.preferredTime ?? "08:00").split(":")[0],
+  );
+  const [preferredMinute, setPreferredMinute] = useState<string>(
+    () => (initialData?.preferredTime ?? "08:00").split(":")[1] ?? "00",
+  );
+
+  // ── One-time: Calendar date + hour/minute selects ───────────────────────
+  const [oneTimeDate, setOneTimeDate] = useState<Date | undefined>(() => {
+    // If editing an existing one-time job, try to restore the date
+    if (initialData?.scheduleAt) {
+      const d = new Date(initialData.scheduleAt);
+      return isNaN(d.getTime()) ? new Date(Date.now() + 3_600_000) : d;
+    }
+    return new Date(Date.now() + 3_600_000);
+  });
+  const [oneTimeHour, setOneTimeHour] = useState<string>(() => {
+    if (initialData?.scheduleAt) {
+      const d = new Date(initialData.scheduleAt);
+      return isNaN(d.getTime()) ? "09" : String(d.getHours()).padStart(2, "0");
+    }
+    return "09";
+  });
+  const [oneTimeMinute, setOneTimeMinute] = useState<string>(() => {
+    if (initialData?.scheduleAt) {
+      const d = new Date(initialData.scheduleAt);
+      return isNaN(d.getTime()) ? "00" : String(d.getMinutes()).padStart(2, "0");
+    }
+    return "00";
+  });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
   // Reset form when dialog opens with new initialData
   useEffect(() => {
     if (open) {
       setForm({ ...DEFAULT_FORM, ...initialData });
+      const pt = initialData?.preferredTime ?? "08:00";
+      setPreferredHour(pt.split(":")[0]);
+      setPreferredMinute(pt.split(":")[1] ?? "00");
+      if (initialData?.scheduleAt) {
+        const d = new Date(initialData.scheduleAt);
+        if (!isNaN(d.getTime())) {
+          setOneTimeDate(d);
+          setOneTimeHour(String(d.getHours()).padStart(2, "0"));
+          setOneTimeMinute(String(d.getMinutes()).padStart(2, "0"));
+        }
+      } else {
+        const d = new Date(Date.now() + 3_600_000);
+        setOneTimeDate(d);
+        setOneTimeHour(String(d.getHours()).padStart(2, "0"));
+        setOneTimeMinute(String(d.getMinutes()).padStart(2, "0"));
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  /** Sync preferredTime string into form whenever hour/minute change */
+  function handlePreferredHourChange(h: string) {
+    setPreferredHour(h);
+    setForm((f) => ({ ...f, preferredTime: `${h}:${preferredMinute}` }));
+  }
+  function handlePreferredMinuteChange(m: string) {
+    setPreferredMinute(m);
+    setForm((f) => ({ ...f, preferredTime: `${preferredHour}:${m}` }));
+  }
+
+  /** Build scheduleAt (timezone-aware ISO string) from Calendar date + selects */
+  function buildScheduleAt(date: Date | undefined, h: string, m: string): string {
+    if (!date) { return ""; }
+    return buildLocalIso(date, h, m);
+  }
+
+  function handleOneTimeDateSelect(d: Date | undefined) {
+    setOneTimeDate(d);
+    setForm((f) => ({ ...f, scheduleAt: buildScheduleAt(d, oneTimeHour, oneTimeMinute) }));
+    // Keep picker open so user can also set time
+    if (d) { setDatePickerOpen(false); }
+  }
+  function handleOneTimeHourChange(h: string) {
+    setOneTimeHour(h);
+    setForm((f) => ({ ...f, scheduleAt: buildScheduleAt(oneTimeDate, h, oneTimeMinute) }));
+  }
+  function handleOneTimeMinuteChange(m: string) {
+    setOneTimeMinute(m);
+    setForm((f) => ({ ...f, scheduleAt: buildScheduleAt(oneTimeDate, oneTimeHour, m) }));
+  }
 
   function handleSave() {
     if (!form.name.trim() || !form.agentPrompt.trim()) {
       return;
     }
-    if (form.scheduleKind === "one-time" && !form.scheduleAt) {
+    if (form.scheduleKind === "one-time" && !oneTimeDate) {
       return;
     }
     if (form.scheduleKind === "every" && !(parseInt(form.everyAmount, 10) > 0)) {
       return;
     }
-    onSave(form);
+    // Ensure scheduleAt is up to date before saving
+    const finalForm: ScheduledTaskFormData =
+      form.scheduleKind === "one-time"
+        ? { ...form, scheduleAt: buildScheduleAt(oneTimeDate, oneTimeHour, oneTimeMinute) }
+        : { ...form, preferredTime: `${preferredHour}:${preferredMinute}` };
+    onSave(finalForm);
   }
 
-  const isOneTimeValid =
-    form.scheduleKind !== "one-time" || Boolean(form.scheduleAt);
+  const isOneTimeValid = form.scheduleKind !== "one-time" || Boolean(oneTimeDate);
   const isEveryValid =
     form.scheduleKind !== "every" || parseInt(form.everyAmount, 10) > 0;
   const isValid =
@@ -106,11 +216,13 @@ export function TaskFormModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); } }}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px]" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Tasks run automatically on schedule and can be triggered manually anytime.
+            The task will run automatically as scheduled, or it can be triggered manually at any
+            time. Please describe the operation you want to perform periodically. Also you can
+            create one quickly via chat.
           </p>
         </DialogHeader>
 
@@ -129,8 +241,9 @@ export function TaskFormModal({
             />
           </div>
 
-          {/* Schedule Kind */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Schedule Kind row — always visible */}
+          <div className="flex flex-wrap items-end gap-4">
+            {/* Schedule Type */}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="task-schedule-kind" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Schedule Type
@@ -142,7 +255,7 @@ export function TaskFormModal({
                 }
                 disabled={saving}
               >
-                <SelectTrigger id="task-schedule-kind">
+                <SelectTrigger id="task-schedule-kind" className="w-52">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -155,19 +268,115 @@ export function TaskFormModal({
               </Select>
             </div>
 
-            {/* Preferred time (daily/weekly/monthly) */}
+            {/* Preferred Time (daily/weekly/monthly) — inline, right of Schedule Type */}
             {showTimePicker && (
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="task-time" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Preferred Time
                 </Label>
-                <Input
-                  id="task-time"
-                  type="time"
-                  value={form.preferredTime}
-                  onChange={(e) => setForm((f) => ({ ...f, preferredTime: e.target.value }))}
-                  disabled={saving}
-                />
+                <div className="flex items-center gap-1.5">
+                  <Select
+                    value={preferredHour}
+                    onValueChange={handlePreferredHourChange}
+                    disabled={saving}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue placeholder="HH" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="h-44 overflow-y-auto">
+                      {HOURS.map((h) => (
+                        <SelectItem key={h} value={h}>{h}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-muted-foreground font-medium">:</span>
+                  <Select
+                    value={preferredMinute}
+                    onValueChange={handlePreferredMinuteChange}
+                    disabled={saving}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue placeholder="MM" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="h-44 overflow-y-auto">
+                      {MINUTES.map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {/* One-time: Run At — inline, right of Schedule Type */}
+            {showOneTimeField && (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Run At
+                </Label>
+                <div className="flex items-center gap-2">
+                  {/* Date picker */}
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        disabled={saving}
+                        className={cn(
+                          "w-40 justify-start text-left font-normal",
+                          !oneTimeDate && "text-muted-foreground",
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 size-4 shrink-0" />
+                        {oneTimeDate
+                          ? format(oneTimeDate, "MMM d, yyyy")
+                          : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={oneTimeDate}
+                        onSelect={handleOneTimeDateSelect}
+                        disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Hour select */}
+                  <Select
+                    value={oneTimeHour}
+                    onValueChange={handleOneTimeHourChange}
+                    disabled={saving}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue placeholder="HH" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="h-44 overflow-y-auto">
+                      {HOURS.map((h) => (
+                        <SelectItem key={h} value={h}>{h}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <span className="text-muted-foreground font-medium">:</span>
+
+                  {/* Minute select */}
+                  <Select
+                    value={oneTimeMinute}
+                    onValueChange={handleOneTimeMinuteChange}
+                    disabled={saving}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue placeholder="MM" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="h-44 overflow-y-auto">
+                      {MINUTES.map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
           </div>
@@ -213,21 +422,7 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* One-time: date + time picker */}
-          {showOneTimeField && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="task-schedule-at" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Run At
-              </Label>
-              <Input
-                id="task-schedule-at"
-                type="datetime-local"
-                value={form.scheduleAt}
-                onChange={(e) => setForm((f) => ({ ...f, scheduleAt: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-          )}
+          {/* One-time Run At block removed — now inline with Schedule Type above */}
 
           {/* Agent Prompt */}
           <div className="flex flex-col gap-1.5">

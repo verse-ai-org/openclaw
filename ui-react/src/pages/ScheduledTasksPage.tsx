@@ -8,6 +8,8 @@ import {
   RefreshCwIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
@@ -213,125 +215,123 @@ export function ScheduledTasksPage() {
   }
 
   return (
-    <div className="relative flex flex-col gap-6 p-6 max-w-5xl mx-auto w-full pb-20">
-      {/* ── Page header ──────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Scheduled Tasks</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage and automate your editorial workflows.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={cronLoading}
-            onClick={() => void loadCronStatus()}
-            title="Refresh"
-          >
-            <RefreshCwIcon className={cn("size-3.5", cronLoading && "animate-spin")} />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void navigate("/chat")}>
-            <MessageSquareIcon className="size-3.5 mr-1.5" />
-            Create With Chat
-          </Button>
-          <Button size="sm" onClick={handleOpenNew}>
-            <PlusIcon className="size-3.5 mr-1.5" />
-            New Scheduled Task
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Error banner ─────────────────────────────────────────────── */}
-      {(cronError ?? cronJobSaveError) && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {cronJobSaveError ?? cronError}
-        </div>
-      )}
-
-      {/* ── Tab bar ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b">
-        <div className="flex">
-          {(
-            [
-              { id: "my-tasks", label: "My Scheduled Task" },
-              { id: "run-history", label: "Run History" },
-            ] as { id: PageTab; label: string }[]
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "px-4 py-2 text-sm font-medium transition-colors",
-                activeTab === tab.id
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Right controls */}
-        {activeTab === "my-tasks" && cronJobs.length > 0 && (
-          <div className="flex items-center gap-2 pb-1">
-            <span className="text-xs text-muted-foreground">Sort by</span>
-            <select
-              className="h-7 rounded-md border bg-background px-2 text-xs text-foreground"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-            >
-              <option value="name">Name</option>
-              <option value="next-run">Next Run</option>
-              <option value="last-run">Last Run</option>
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* ── Tab content ──────────────────────────────────────────────── */}
-      {activeTab === "my-tasks" && (
-        <>
-          {cronLoading && cronJobs.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-              <Loader2Icon className="size-4 animate-spin" />
-              <span className="text-sm">Loading tasks…</span>
+    <>
+      <ScrollArea className="h-full">
+        <div className="flex flex-col gap-10 p-8 max-w-4xl mx-auto w-full pb-20">
+          {/* ── Header ──────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-[48px] font-extrabold leading-tight tracking-tight text-foreground">
+                Scheduled Tasks
+              </h2>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={cronLoading}
+                  onClick={() => void loadCronStatus()}
+                  title="Refresh"
+                  className="gap-1.5"
+                >
+                  <RefreshCwIcon className={cn("size-3.5", cronLoading && "animate-spin")} />
+                  Refresh
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => void navigate("/chat")} className="gap-1.5">
+                  <MessageSquareIcon className="size-3.5" />
+                  Create With Chat
+                </Button>
+                <Button size="sm" onClick={handleOpenNew} className="gap-1.5">
+                  <PlusIcon className="size-3.5" />
+                  New Scheduled Task
+                </Button>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {sortedJobs.map((job) => (
-                <TaskCard
-                  key={job.id}
-                  job={job}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onToggleEnabled={toggleCronJobEnabled}
-                  onRunNow={handleRerun}
-                />
-              ))}
-              {/* New task placeholder card */}
-              <NewTaskCard onClick={handleOpenNew} />
+            <p className="text-base text-muted-foreground max-w-xl">
+              The task will run automatically as scheduled, or it can be triggered manually at any time.
+            </p>
+          </div>
+
+          {/* ── Error banner ─────────────────────────────────────────────── */}
+          {(cronError ?? cronJobSaveError) && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {cronJobSaveError ?? cronError}
             </div>
           )}
-        </>
-      )}
 
-      {activeTab === "run-history" && (
-        <RunHistoryTable
-          records={filteredRunHistory}
-          total={filteredRunHistory.length}
-          loading={cronRunHistoryLoading}
-          onRerun={handleRerun}
-          onViewInChat={handleViewInChat}
-          onFilterChange={(p) => {
-            setHistoryStatusFilter(p.statusFilter);
-            setHistoryTimeFilter(p.timeFilter);
-          }}
-        />
-      )}
+          {/* ── Tabs ─────────────────────────────────────────────────── */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PageTab)}>
+            <div className="flex items-center justify-between gap-3">
+              <TabsList className="inline-flex h-auto gap-1 rounded-2xl bg-[#F6F6F6] p-1">
+                <TabsTrigger
+                  value="my-tasks"
+                  className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                >
+                  My Scheduled Task
+                </TabsTrigger>
+                <TabsTrigger
+                  value="run-history"
+                  className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                >
+                  Run History
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Sort control */}
+              {activeTab === "my-tasks" && cronJobs.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Sort by</span>
+                  <select
+                    className="h-7 rounded-md border bg-background px-2 text-xs text-foreground"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortBy)}
+                  >
+                    <option value="name">Name</option>
+                    <option value="next-run">Next Run</option>
+                    <option value="last-run">Last Run</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <TabsContent value="my-tasks" className="mt-6">
+              {cronLoading && cronJobs.length === 0 ? (
+                <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+                  <Loader2Icon className="size-4 animate-spin" />
+                  <span className="text-sm">Loading tasks…</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {sortedJobs.map((job) => (
+                    <TaskCard
+                      key={job.id}
+                      job={job}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onToggleEnabled={toggleCronJobEnabled}
+                      onRunNow={handleRerun}
+                    />
+                  ))}
+                  <NewTaskCard onClick={handleOpenNew} />
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="run-history" className="mt-6">
+              <RunHistoryTable
+                records={filteredRunHistory}
+                total={filteredRunHistory.length}
+                loading={cronRunHistoryLoading}
+                onRerun={handleRerun}
+                onViewInChat={handleViewInChat}
+                onFilterChange={(p) => {
+                  setHistoryStatusFilter(p.statusFilter);
+                  setHistoryTimeFilter(p.timeFilter);
+                }}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </ScrollArea>
 
       {/* ── Floating action button ────────────────────────────────────── */}
       <button
@@ -353,6 +353,6 @@ export function ScheduledTasksPage() {
         onSave={(form) => void handleSave(form)}
         onClose={handleModalClose}
       />
-    </div>
+    </>
   );
 }

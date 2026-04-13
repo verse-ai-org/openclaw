@@ -5,13 +5,13 @@
  */
 import type { CronJob, CronSchedule } from "@/types/agents";
 
-const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-const ORDINAL = ["", "1ST", "2ND", "3RD", "4TH", "5TH",
-  "6TH", "7TH", "8TH", "9TH", "10TH",
-  "11TH", "12TH", "13TH", "14TH", "15TH",
-  "16TH", "17TH", "18TH", "19TH", "20TH",
-  "21ST", "22ND", "23RD", "24TH", "25TH",
-  "26TH", "27TH", "28TH", "29TH", "30TH", "31ST"];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const ORDINAL = ["", "1st", "2nd", "3rd", "4th", "5th",
+  "6th", "7th", "8th", "9th", "10th",
+  "11th", "12th", "13th", "14th", "15th",
+  "16th", "17th", "18th", "19th", "20th",
+  "21st", "22nd", "23rd", "24th", "25th",
+  "26th", "27th", "28th", "29th", "30th", "31st"];
 
 /** Format a wall-clock hour/minute pair as "08:30 AM" style. */
 function formatTime(hour: number, minute: number): string {
@@ -36,23 +36,23 @@ function parseCronExpr(expr: string): string | null {
   const min = parseInt(minStr, 10);
   const validTime = !isNaN(hour) && !isNaN(min);
 
-  // Every day at HH:mm  →  "DAILY, 08:30 AM"
+  // Every day at HH:mm  →  "Daily, 08:30 AM"
   if (dowStr === "*" && domStr === "*" && validTime) {
-    return `DAILY, ${formatTime(hour, min)}`;
+    return `Daily, ${formatTime(hour, min)}`;
   }
 
-  // Specific day-of-week  →  "EVERY MONDAY, 09:00 AM"
+  // Specific day-of-week  →  "Every Monday, 09:00 AM"
   if (dowStr !== "*" && domStr === "*" && validTime) {
     const dow = parseInt(dowStr, 10);
-    const dayLabel = !isNaN(dow) && dow >= 0 && dow <= 6 ? DAY_NAMES[dow] : dowStr.toUpperCase();
-    return `EVERY ${dayLabel}, ${formatTime(hour, min)}`;
+    const dayLabel = !isNaN(dow) && dow >= 0 && dow <= 6 ? DAY_NAMES[dow] : dowStr;
+    return `Every ${dayLabel}, ${formatTime(hour, min)}`;
   }
 
-  // Specific day-of-month  →  "1ST OF MONTH, 02:00 AM"
+  // Specific day-of-month  →  "1st of Month, 02:00 AM"
   if (domStr !== "*" && dowStr === "*" && validTime) {
     const dom = parseInt(domStr, 10);
-    const ordinal = !isNaN(dom) && dom >= 1 && dom <= 31 ? ORDINAL[dom] : `${domStr}TH`;
-    return `${ordinal} OF MONTH, ${formatTime(hour, min)}`;
+    const ordinal = !isNaN(dom) && dom >= 1 && dom <= 31 ? ORDINAL[dom] : `${domStr}th`;
+    return `${ordinal} of Month, ${formatTime(hour, min)}`;
   }
 
   return null;
@@ -64,33 +64,33 @@ export function formatCronSchedule(schedule: CronSchedule): string {
     const ms = schedule.everyMs;
     if (ms % 3_600_000 === 0) {
       const h = ms / 3_600_000;
-      return h === 1 ? "EVERY HOUR" : `EVERY ${h} HOURS`;
+      return h === 1 ? "Every Hour" : `Every ${h} Hours`;
     }
     if (ms % 60_000 === 0) {
       const m = ms / 60_000;
-      return `EVERY ${m} MINUTES`;
+      return `Every ${m} Minutes`;
     }
-    return `EVERY ${ms}MS`;
+    return `Every ${ms}ms`;
   }
 
   if (schedule.kind === "cron") {
     const label = parseCronExpr(schedule.expr);
-    return label ?? `CRON: ${schedule.expr}`;
+    return label ?? `Cron: ${schedule.expr}`;
   }
 
   if (schedule.kind === "at") {
     const d = new Date(schedule.at);
     if (isNaN(d.getTime())) {
-      return `AT: ${schedule.at}`;
+      return `One-time: ${schedule.at}`;
     }
     // Display in local time so it matches what the user selected
     const pad = (n: number) => String(n).padStart(2, "0");
     const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    return `ONE-TIME, ${dateStr} ${timeStr}`;
+    return `One-time, ${dateStr} ${timeStr}`;
   }
 
-  return "UNKNOWN";
+  return "Unknown";
 }
 
 /** Convenience wrapper that accepts a full CronJob. */

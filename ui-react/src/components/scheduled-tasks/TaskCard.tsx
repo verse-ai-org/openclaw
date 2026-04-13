@@ -89,7 +89,7 @@ export function TaskCard({ job, onEdit, onDelete, onToggleEnabled, onRunNow }: T
       {/* Schedule label */}
       <div className="mt-auto flex items-center gap-1.5 text-xs text-muted-foreground">
         <ClockIcon className="size-3.5 shrink-0" />
-        <span className="uppercase tracking-wide">{formatJobSchedule(job)}</span>
+        <span className="text-xs">{formatJobSchedule(job)}</span>
       </div>
 
       {/* Last run status indicator */}
