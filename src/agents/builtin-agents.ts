@@ -83,6 +83,8 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     identity: {
       name: "Office Helper",
       emoji: "💼",
+      avatar: "https://files.aiverser.com/bossim/images/cat_office.png",
+      video: "https://files.aiverser.com/bossim/vedio/cat_office.mp4",
       bio: "Create, edit, and convert Word, Excel, and PDF files with a simple description.\nComplex formatting, formulas, and multi-page layouts handled automatically.\nExport polished, ready-to-share documents in any format you need.\n💬 Try: \"Create a project proposal in Word with a budget table\"",
     },
   },
@@ -114,17 +116,19 @@ export async function ensureBuiltinAgents(
       if (builtin.identity) {
         const entry = existingList[findAgentEntryIndex(existingList, id)];
         const noIdentity = !entry?.identity?.name && !entry?.identity?.emoji && !entry?.identity?.avatar;
-        // Also backfill individual fields added in later releases (e.g. video, bio).
+        // Also backfill individual fields added in later releases (e.g. avatar, video, bio).
+        const missingAvatar = builtin.identity.avatar && !entry?.identity?.avatar;
         const missingVideo = builtin.identity.video && !entry?.identity?.video;
         // bio is always overwritten to keep it in sync with the built-in definition
         // (it is not user-editable, so overwriting is safe and ensures updates propagate).
         const bioDiffers = builtin.identity.bio && entry?.identity?.bio !== builtin.identity.bio;
         const missingBio = builtin.identity.bio && !entry?.identity?.bio;
-        if (noIdentity || missingVideo || missingBio || bioDiffers) {
+        if (noIdentity || missingAvatar || missingVideo || missingBio || bioDiffers) {
           next = applyAgentConfig(next, { agentId: id, identity: {
             // Preserve existing fields; only fill in what is missing.
             ...entry?.identity,
             ...(noIdentity ? builtin.identity : {
+              ...(missingAvatar ? { avatar: builtin.identity.avatar } : {}),
               ...(missingVideo ? { video: builtin.identity.video } : {}),
               ...((missingBio || bioDiffers) ? { bio: builtin.identity.bio } : {}),
             }),
