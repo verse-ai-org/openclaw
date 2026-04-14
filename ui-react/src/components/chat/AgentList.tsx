@@ -87,7 +87,7 @@ export function AgentList({ onSelectAgent, search = "" }: AgentListProps) {
     <div className="flex flex-1 min-h-0 flex-col overflow-y-auto px-2 py-4">
       {/* Section heading */}
       <div className="px-3 mb-3">
-        <span className="text-[17px] font-bold leading-tight text-foreground">Agents</span>
+        <span className="text-[17px] font-bold leading-tight text-foreground">Employees</span>
       </div>
 
       {/* List */}
@@ -97,7 +97,7 @@ export function AgentList({ onSelectAgent, search = "" }: AgentListProps) {
         )}
         {!loading && agents.length === 0 && (
           <p className="px-3 py-2 text-[13px] text-[rgb(142,142,147)]">
-            {search ? "No results" : "No agents found"}
+            {search ? "No results" : "No employees found"}
           </p>
         )}
         {agents.map((agent) => (

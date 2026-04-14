@@ -14,6 +14,7 @@ import { jsonUtf8Bytes } from "../infra/json-utf8-bytes.js";
 import { hasInterSessionUserProvenance } from "../sessions/input-provenance.js";
 import { stripInlineDirectiveTagsForDisplay } from "../utils/directive-tags.js";
 import { extractToolCallNames, hasToolCall } from "../utils/transcript-tools.js";
+import { stripInboundMetadata } from "../auto-reply/reply/strip-inbound-meta.js";
 import { stripEnvelope } from "./chat-sanitize.js";
 import type { SessionPreviewItem } from "./session-utils.types.js";
 
@@ -364,10 +365,35 @@ export function readSessionTitleFieldsFromTranscript(
   }
 }
 
+/**
+ * Strip channel metadata noise injected by the gateway before returning
+ * a clean preview string.
+ *
+ * Two kinds of noise are removed:
+ *   1. Envelope prefix: "Discord 2024-01-01 SenderName: " prepended by channels.
+ *   2. Untrusted-content block appended for LLM context safety:
+ *      "<<<EXTERNAL_UNTRUSTED_CONTENT id=\"...\">>>> ... <<<END_...>>>"
+ *      and the preceding "Untrusted context (metadata, ...)" header line.
+ */
+function cleanTranscriptText(raw: string): string {
+  // 1. Strip injected inbound metadata prefix blocks:
+  //    "Sender (untrusted metadata): ...json..."
+  //    "Conversation info (untrusted metadata): ...json..."
+  //    and trailing "Untrusted context (metadata, ...)" channel metadata suffix.
+  let s = stripInboundMetadata(raw);
+  // 2. Strip envelope prefix (e.g. "Discord 2024-01-01T... SenderName: ")
+  s = stripEnvelope(s);
+  // 3. Cut everything from the EXTERNAL_UNTRUSTED_CONTENT fence onward (belt-and-suspenders)
+  const fenceIdx = s.indexOf("<<<EXTERNAL_UNTRUSTED_CONTENT");
+  if (fenceIdx >= 0) {
+    s = s.slice(0, fenceIdx);
+  }
+  return stripInlineDirectiveTagsForDisplay(s).text.trim();
+}
+
 function extractTextFromContent(content: TranscriptMessage["content"]): string | null {
   if (typeof content === "string") {
-    const normalized = stripInlineDirectiveTagsForDisplay(content).text.trim();
-    return normalized || null;
+    return cleanTranscriptText(content) || null;
   }
   if (!Array.isArray(content)) {
     return null;
@@ -377,7 +403,7 @@ function extractTextFromContent(content: TranscriptMessage["content"]): string |
       continue;
     }
     if (part.type === "text" || part.type === "output_text" || part.type === "input_text") {
-      const normalized = stripInlineDirectiveTagsForDisplay(part.text).text.trim();
+      const normalized = cleanTranscriptText(part.text);
       if (normalized) {
         return normalized;
       }

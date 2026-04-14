@@ -65,17 +65,12 @@ function SessionItem({
           className="w-full px-4 py-2 text-left flex items-start gap-3"
         >
           <div className="flex flex-1 min-w-0 flex-col gap-0.5 pr-6">
-            <span className="truncate text-[13px] font-semibold leading-5 text-foreground">
-              {session.lastMessagePreview && (
-                <span
-                  className={cn(
-                    "truncate text-[12px] leading-4 font-medium",
-                    isActive ? "text-[rgb(186,0,52)]" : "font-normal",
-                  )}
-                >
-                  {session.lastMessagePreview}
-                </span>
+            <span
+              className={cn(
+                "truncate text-[13px] font-semibold leading-5",
+                isActive ? "text-[rgb(186,0,52)]" : "text-foreground",
               )}
+            >
               {label}
             </span>
             <span className="truncate text-[rgb(142,142,147)] text-[12px] leading-4 font-medium">
@@ -184,7 +179,7 @@ export function AgentSessionList({
           className="flex items-center gap-1 px-1 mb-2 text-[12px] text-[rgb(142,142,147)] hover:text-foreground transition-colors"
         >
           <ArrowLeftIcon className="size-3 shrink-0" />
-          <span className="font-medium">Agents</span>
+          <span className="font-medium">Employees</span>
         </button>
 
         {/* Agent identity block — avatar/emoji + name (clickable to open profile drawer) */}

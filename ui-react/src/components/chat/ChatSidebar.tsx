@@ -102,7 +102,7 @@ export function ChatSidebar() {
           <SearchIcon className="absolute left-3 size-3.5 text-[rgb(142,142,147)] pointer-events-none" />
           <input
             type="text"
-            placeholder={view === "agents" ? "Search agents" : "Search sessions"}
+            placeholder={view === "agents" ? "Search employees" : "Search sessions"}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={cn(

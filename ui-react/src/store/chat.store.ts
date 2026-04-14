@@ -151,6 +151,10 @@ interface ChatState {
   // useSessionManager watches this and calls loadHistory when non-null.
   pendingHistoryReloadKey: string | null;
 
+  // Monotonic counter bumped after each completed generation to signal
+  // useSessionManager to re-fetch the session list (so derivedTitle updates).
+  pendingSessionsReloadSeq: number;
+
   // Last error message (shown inline in the thread)
   lastError: string | null;
 
@@ -187,6 +191,7 @@ interface ChatState {
   setInteractiveSummary: (interactiveId: string, pairs: InteractiveSummaryPair[]) => void;
   clearInteractiveSummary: (interactiveId: string) => void;
   setPendingHistoryReloadKey: (key: string | null) => void;
+  triggerSessionsReload: () => void;
   setLastError: (msg: string | null) => void;
   truncateMessagesAfter: (parentId: string | null) => void;
   markSessionGenerating: (sessionKey: string, runId?: string | null) => void;
@@ -207,6 +212,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   sending: false,
   sessionKey: null,
   pendingHistoryReloadKey: null,
+  pendingSessionsReloadSeq: 0,
   lastError: null,
   pendingDraftMessage: null,
   pendingGenerationBySession: {},
@@ -392,6 +398,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }),
 
   setPendingHistoryReloadKey: (key) => set({ pendingHistoryReloadKey: key }),
+  triggerSessionsReload: () => set((state) => ({ pendingSessionsReloadSeq: state.pendingSessionsReloadSeq + 1 })),
 
   setLastError: (msg) => set({ lastError: msg }),
 

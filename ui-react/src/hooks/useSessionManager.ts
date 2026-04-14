@@ -27,13 +27,41 @@ export interface SessionEntry {
 }
 
 /**
+ * Strip internal tags (<final>, <cron:...>, etc.), Markdown bold/italic/heading
+ * noise from a raw session text string, then collapse whitespace.
+ */
+export function cleanSessionText(raw: string): string {
+  return raw
+    // Fallback: strip <<<EXTERNAL_UNTRUSTED_CONTENT ...>>> blocks and everything after
+    .replace(/<<<EXTERNAL_UNTRUSTED_CONTENT[\s\S]*/, "")
+    // Drop "Untrusted context (metadata, ...)" header lines
+    .replace(/^Untrusted context \(metadata[^\n]*/gim, "")
+    // Drop inbound metadata prefix blocks: "Sender (untrusted metadata):", json fence, closing ```
+    .replace(
+      /^(?:Sender|Conversation info|Thread starter|Replied message|Forwarded message context|Chat history since last reply)\s*\([^)]*untrusted[^)]*\):[\s\S]*?```\s*$/gim,
+      "",
+    )
+    // Remove XML-like tags: <final>, <cron:7d1b...>, etc.
+    .replace(/<[^>]*>/g, "")
+    // Remove Markdown bold/italic markers ** * __ _
+    .replace(/\*{1,2}|_{1,2}/g, "")
+    // Remove Markdown heading prefixes # ## ###
+    .replace(/^#{1,6}\s*/gm, "")
+    // Collapse whitespace
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Resolve the best human-readable display name for a session.
- * Priority: displayName > derivedTitle > label > key
+ * Priority: displayName > derivedTitle > label > key (tail segment)
  */
 export function resolveSessionDisplayName(session: SessionEntry): string {
-  return (
-    session.displayName ?? session.derivedTitle ?? session.label ?? session.key
-  );
+  const best = session.displayName ?? session.derivedTitle ?? session.label;
+  if (best) { return cleanSessionText(best); }
+  // Key fallback: take the last colon-separated segment.
+  // e.g. "agent:abc123:8a3f1b2c" → "8a3f1b2c"
+  return session.key.split(":").at(-1) ?? session.key;
 }
 
 export function useSessionManager() {
@@ -50,6 +78,7 @@ export function useSessionManager() {
   // Using Zustand state instead of a global mutable function avoids
   // the single-registration limitation of the old _reloadHistory pattern.
   const pendingReloadKey = useChatStore((s) => s.pendingHistoryReloadKey);
+  const pendingSessionsReloadSeq = useChatStore((s) => s.pendingSessionsReloadSeq);
 
   // Load session list from gateway
   const loadSessions = useCallback(async () => {
@@ -226,11 +255,20 @@ export function useSessionManager() {
       const newKey = agentId
         ? `agent:${agentId}:${crypto.randomUUID().slice(0, 8)}`
         : crypto.randomUUID().slice(0, 8);
-      setSessions((prev) => [{ key: newKey }, ...prev]);
+      setSessions((prev) => [{ key: newKey, label: "New Session" }, ...prev]);
       await switchSession(newKey);
     },
     [client, switchSession],
   );
+
+  // Re-fetch session list when a generation completes so derivedTitle
+  // (session title in the sidebar) updates without requiring a page refresh.
+  useEffect(() => {
+    if (pendingSessionsReloadSeq > 0) {
+      void loadSessions();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSessionsReloadSeq]);
 
   // Load sessions & history when connected
   useEffect(() => {

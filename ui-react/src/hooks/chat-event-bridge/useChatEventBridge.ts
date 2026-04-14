@@ -146,6 +146,9 @@ export function useChatEventBridge() {
             }
             useChatStore.getState().setSending(false);
             useChatStore.getState().setRunId(null);
+            // Bump seq so useSessionManager re-fetches the session list
+            // and derivedTitle (session title) reflects the new message.
+            useChatStore.getState().triggerSessionsReload();
           } else if (state === "aborted" || state === "error") {
             useChatStore.getState().resetStream();
             useChatStore.getState().setSending(false);
