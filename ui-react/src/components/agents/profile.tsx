@@ -376,3 +376,107 @@ export function ProfessionalSummarySection({ agentId }: { agentId: string }) {
     </div>
   );
 }
+
+/** Compact intro card: numbered key points + a "Try:" usage hint for this agent. */
+export function IntroSection({
+  agentId,
+  onChatClick,
+}: {
+  agentId: string;
+  /** If provided, overrides the default navigate-to-chat behavior (used inside a drawer on the Chat page) */
+  onChatClick?: (sessionKey: string) => void;
+}) {
+  const agentsList = useAgentsStore((s) => s.agentsList);
+  const row = agentsList?.agents.find((a) => a.id === agentId);
+  const bio = row?.identity?.bio;
+  const navigate = useNavigate();
+  const client = useGatewayStore((s) => s.client);
+
+  if (!bio) { return null; }
+
+  // Lines starting with 💬 are rendered as a "Try:" usage hint, others are numbered points
+  const allLines = bio.split(/\n/).map((s) => s.trim()).filter(Boolean);
+  const tryLine = allLines.find((l) => l.startsWith("💬"));
+  const points = allLines.filter((l) => !l.startsWith("💬"));
+
+  // Strip the emoji prefix and surrounding quotes to get clean message text
+  const tryText = tryLine
+    ? tryLine.replace(/^💬\s*(Try:\s*)?/i, "").replace(/^[""]|[""]$/g, "").trim()
+    : null;
+
+  const handleTryClick = async () => {
+    if (!tryText) { return; }
+    // Prefill the chat input with the Try text
+    useChatStore.getState().setPendingDraftMessage(tryText);
+
+    // Navigate to chat — same logic as ProfileHeroSection.handleGoToChat
+    const agentPrefix = `agent:${agentId}:`;
+    let targetKey = `${agentPrefix}main`;
+    if (client?.connected) {
+      try {
+        const result = await client.request<{ sessions?: Array<{ key: string; updatedAt?: number }> }>(
+          "sessions.list",
+          { includeDerivedTitles: true, includeLastMessage: true },
+        );
+        const agentSessions = (result?.sessions ?? []).filter((s) => s.key.startsWith(agentPrefix));
+        if (agentSessions.length > 0) {
+          const latest = agentSessions.reduce((a, b) => ((b.updatedAt ?? 0) > (a.updatedAt ?? 0) ? b : a));
+          targetKey = latest.key;
+        }
+      } catch {
+        // fallback to main session
+      }
+    }
+    if (onChatClick) {
+      onChatClick(targetKey);
+    } else {
+      useChatStore.getState().setSessionKey(targetKey);
+      useSettingsStore
+        .getState()
+        .updateSettings({ sessionKey: targetKey, lastActiveSessionKey: targetKey });
+      void navigate("/chat");
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-[#F0F0F0] shadow-sm px-6 py-5">
+      <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">What I Do</p>
+
+      {points.length > 1 ? (
+        <ol className="flex flex-col gap-2.5 mb-0">
+          {points.map((point, i) => (
+            <li key={i} className="flex items-start gap-3">
+              {/* Numbered badge */}
+              <span className="shrink-0 mt-[1px] size-[18px] rounded-full bg-[#EBEBEB] text-[#6B7280] text-[10px] font-bold flex items-center justify-center">
+                {i + 1}
+              </span>
+              <span className="text-[13px] text-[#1A1A1A] leading-snug">{point}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-[13px] text-[#1A1A1A] leading-relaxed mb-0">{points[0] ?? bio}</p>
+      )}
+
+      {tryLine && tryText && (
+        <button
+          type="button"
+          onClick={() => { void handleTryClick(); }}
+          className="mt-4 w-full text-left flex items-start gap-2 rounded-xl bg-[#F0F4FF] border border-[#D8E4FF] px-4 py-3 hover:bg-[#E4ECFF] hover:border-[#B8CCFF] active:scale-[0.98] transition-all duration-150 cursor-pointer group"
+          title="Click to try this in chat"
+        >
+          <span className="text-[15px] leading-none mt-[1px] group-hover:scale-110 transition-transform duration-150">💬</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] text-[#3B5BDB] leading-snug font-medium">
+              {tryLine.replace(/^💬\s*/, "")}
+            </p>
+            {/* Subtle "click to try" hint */}
+            <p className="text-[10px] text-[#7C9FE0] mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              Click to start chatting with this prompt →
+            </p>
+          </div>
+        </button>
+      )}
+    </div>
+  );
+}

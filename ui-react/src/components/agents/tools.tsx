@@ -445,7 +445,7 @@ export function ToolsSection({ agentId }: { agentId: string }) {
   return (
     <SectionCard>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-3">
         <SectionLabel>Tools & Capabilities</SectionLabel>
         <span className="text-[11px] text-[#8E8E93] font-semibold">{activeCount} / {allCatalogTools.length} active</span>
       </div>

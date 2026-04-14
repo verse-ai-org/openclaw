@@ -65,6 +65,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
       emoji: "✈️",
       avatar: "https://files.aiverser.com/bossim/images/travel-planner.webp",
       video: "https://files.aiverser.com/bossim/vedio/kling_20260331_%E4%BD%9C%E5%93%81_%E4%B8%80%E5%8F%AA%E6%A9%98%E8%89%B2%E8%99%8E%E6%96%91%E7%8C%AB_%E5%8D%A1%E5%85%B6_5614_0.mp4",
+      bio: "Plan complete trips — flights, hotels, transport, and local activities in one go.\nReal-time search so you always get current availability and accurate pricing.\nDay-by-day itineraries tailored to your destination, pace, and interests.\n💬 Try: \"Plan a 5-day trip to Shanghai in October, budget $2,000\"",
     },
   },
   {
@@ -82,6 +83,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     identity: {
       name: "Office Helper",
       emoji: "💼",
+      bio: "Create, edit, and convert Word, Excel, and PDF files with a simple description.\nComplex formatting, formulas, and multi-page layouts handled automatically.\nExport polished, ready-to-share documents in any format you need.\n💬 Try: \"Create a project proposal in Word with a budget table\"",
     },
   },
 ] as const;
@@ -112,13 +114,20 @@ export async function ensureBuiltinAgents(
       if (builtin.identity) {
         const entry = existingList[findAgentEntryIndex(existingList, id)];
         const noIdentity = !entry?.identity?.name && !entry?.identity?.emoji && !entry?.identity?.avatar;
-        // Also backfill individual fields added in later releases (e.g. video).
+        // Also backfill individual fields added in later releases (e.g. video, bio).
         const missingVideo = builtin.identity.video && !entry?.identity?.video;
-        if (noIdentity || missingVideo) {
+        // bio is always overwritten to keep it in sync with the built-in definition
+        // (it is not user-editable, so overwriting is safe and ensures updates propagate).
+        const bioDiffers = builtin.identity.bio && entry?.identity?.bio !== builtin.identity.bio;
+        const missingBio = builtin.identity.bio && !entry?.identity?.bio;
+        if (noIdentity || missingVideo || missingBio || bioDiffers) {
           next = applyAgentConfig(next, { agentId: id, identity: {
             // Preserve existing fields; only fill in what is missing.
             ...entry?.identity,
-            ...(noIdentity ? builtin.identity : { video: builtin.identity.video }),
+            ...(noIdentity ? builtin.identity : {
+              ...(missingVideo ? { video: builtin.identity.video } : {}),
+              ...((missingBio || bioDiffers) ? { bio: builtin.identity.bio } : {}),
+            }),
           } });
           dirty = true;
         }

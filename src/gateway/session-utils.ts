@@ -393,6 +393,8 @@ export function listAgentsForGateway(cfg: OpenClawConfig): {
           ),
           // Forward video URL from config identity to the agent row
           video: entry.identity.video?.trim() || undefined,
+          // Forward bio text from config identity to the agent row
+          bio: entry.identity.bio?.trim() || undefined,
         }
       : undefined;
 
@@ -410,6 +412,8 @@ export function listAgentsForGateway(cfg: OpenClawConfig): {
               resolveIdentityAvatarUrl(cfg, agentId, resolved.avatar),
             // Preserve video from config identity (not available from IDENTITY.md)
             video: identity?.video,
+            // Preserve bio from config identity (not available from IDENTITY.md)
+            bio: identity?.bio,
           };
         }
       } catch {

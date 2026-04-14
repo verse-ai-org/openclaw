@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2Icon, PlusIcon, XIcon } from "lucide-react";
+import { Loader2Icon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -170,6 +170,9 @@ function AddSkillsDialog({
   );
 }
 
+/** Built-in agents whose skills are locked (no removal allowed). */
+const LOCKED_SKILL_AGENT_IDS = new Set(["travel-planner", "my-office-helper"]);
+
 export function CoreSkillsSection({ agentId }: { agentId: string }) {
   const agentsList = useAgentsStore((s) => s.agentsList);
   const agentSkillsReport = useAgentsStore((s) => s.agentSkillsReport);
@@ -259,20 +262,9 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
 
   return (
     <SectionCard>
-      <div className="flex items-center justify-between mb-6">
-        <SectionLabel>Bound Skills</SectionLabel>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-[#8E8E93] font-semibold">{boundSkills.length} bound</span>
-          <Button
-            size="sm"
-            className="gap-1.5 bg-[#BA0034] text-white hover:bg-[#9b0029]"
-            onClick={() => setDialogOpen(true)}
-            disabled={agentSkillsLoading || updating}
-          >
-            {updating ? <Loader2Icon className="size-3.5 animate-spin" /> : <PlusIcon className="size-3.5" />}
-            Add Skill
-          </Button>
-        </div>
+      <div className="flex items-center justify-between mb-3">
+        <SectionLabel>Skills</SectionLabel>
+        <span className="text-[11px] text-[#8E8E93] font-semibold">{boundSkills.length} bound</span>
       </div>
 
       {agentSkillsLoading && !agentSkillsReport && (
@@ -287,47 +279,61 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
 
       {!hasExplicitSkillsList && !agentSkillsLoading && boundSkills.length > 0 && (
         <p className="text-[11px] text-[#8E8E93] mb-3">
-          No restrictions — all active skills are available. Add a skill to create an explicit allowlist.
+          No restrictions — all active skills are available.
         </p>
       )}
 
       {boundSkills.length > 0 ? (
-        <div className="grid grid-cols-3 gap-3">
-          {boundSkills.map((skill) => (
-            <div key={skill.id} className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-black truncate">{skill.label}</p>
-                  {skill.description && (
-                    <p className="text-[11px] text-[#8E8E93] line-clamp-2 mt-1">{skill.description}</p>
-                  )}
-                  {skill.missingFromCatalog && (
-                    <p className="text-[11px] text-amber-600 mt-1">Missing from current skills catalog</p>
+        <div className="max-h-[240px] overflow-y-auto">
+          <div className="grid grid-cols-3 gap-3 pr-1">
+            {boundSkills.map((skill) => (
+              <div key={skill.id} className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-black truncate">{skill.label}</p>
+                    {skill.description && (
+                      <p className="text-[11px] text-[#8E8E93] line-clamp-2 mt-1">{skill.description}</p>
+                    )}
+                    {skill.missingFromCatalog && (
+                      <p className="text-[11px] text-amber-600 mt-1">Missing from current skills catalog</p>
+                    )}
+                  </div>
+                  {!LOCKED_SKILL_AGENT_IDS.has(agentId) && (
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-full p-1 text-[#8E8E93] hover:text-[#BA0034] hover:bg-[#FFF3F7]"
+                      onClick={() => void handleRemove(skill.id)}
+                      disabled={updating}
+                      aria-label={`Remove ${skill.label}`}
+                      title="Remove"
+                    >
+                      <XIcon className="size-3.5" />
+                    </button>
                   )}
                 </div>
-                {hasExplicitSkillsList && (
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-full p-1 text-[#8E8E93] hover:text-[#BA0034] hover:bg-[#FFF3F7]"
-                    onClick={() => void handleRemove(skill.id)}
-                    disabled={updating}
-                    aria-label={`Remove ${skill.label}`}
-                    title="Remove"
-                  >
-                    <XIcon className="size-3.5" />
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ) : (
         !agentSkillsLoading && (
           <div className="rounded-2xl border border-dashed border-[#E5E7EB] p-6 text-center">
-            <p className="text-sm text-[#8E8E93]">No bound skills yet. Add skills to this agent.</p>
+            <p className="text-sm text-[#8E8E93]">No bound skills yet.</p>
           </div>
         )
       )}
+
+      {/* Advanced button — mirrors ToolsSection style: right-aligned red text */}
+      <div className="flex justify-end mt-4">
+        <button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          disabled={agentSkillsLoading || updating}
+          className="text-[12px] font-semibold text-[#BA0034] hover:underline disabled:opacity-40"
+        >
+          Advanced →
+        </button>
+      </div>
 
       <AddSkillsDialog
         open={dialogOpen}

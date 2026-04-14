@@ -29,6 +29,20 @@ export const Composer: FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Also handle the case where Composer is already mounted when pendingDraftMessage
+  // is set (e.g. navigating to /chat from the agent profile page while chat is open).
+  useEffect(() => {
+    return useChatStore.subscribe((s) => {
+      const msg = s.pendingDraftMessage;
+      if (msg) {
+        composerRuntime.setText(msg);
+        useChatStore.getState().setPendingDraftMessage(null);
+      }
+    });
+  // composerRuntime is stable; subscribe once for the lifetime of the component
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <ComposerPrimitive.Root className="relative w-full">
       <ComposerPrimitive.AttachmentDropzone

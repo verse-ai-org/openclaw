@@ -282,6 +282,8 @@ export const IdentitySchema = z
     avatar: z.string().optional(),
     /** Showcase video URL. Optional — rendered in the agent detail page when present. */
     video: z.string().optional(),
+    /** Short bio / introduction text shown in the agent detail page. */
+    bio: z.string().optional(),
   })
   .strict()
   .optional();

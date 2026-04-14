@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2Icon, Trash2Icon, XIcon } from "lucide-react";
 import {
   Drawer,
@@ -17,10 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAgentsStore } from "@/store/agents.store";
-import { ProfileHeroSection } from "./profile";
+import { ProfileHeroSection, IntroSection } from "./profile";
 import { CoreSkillsSection } from "./skills";
 import { ToolsSection } from "./tools";
 import { SoulSection  } from "./soul";
+
+/** Built-in agents that cannot be deleted from the profile page. */
+const LOCKED_AGENT_IDS = new Set(["travel-planner", "my-office-helper"]);
 
 interface AgentDetailDrawerProps {
   open: boolean;
@@ -41,7 +44,17 @@ export function AgentDetailDrawer({
   onChatClick,
 }: AgentDetailDrawerProps) {
   const agentsList = useAgentsStore((s) => s.agentsList);
+  const selectAgent = useAgentsStore((s) => s.selectAgent);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // Sync store's selectedAgentId with the drawer's agentId so that
+  // agentFileContents, agentSkillsReport etc. are correctly reset/reloaded
+  // when switching between different agents.
+  useEffect(() => {
+    if (open && agentId) {
+      selectAgent(agentId);
+    }
+  }, [open, agentId, selectAgent]);
 
   const agents = agentsList?.agents ?? [];
   const selectedAgent = agents.find((a) => a.id === agentId);
@@ -97,12 +110,12 @@ export function AgentDetailDrawer({
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-        <DrawerContent className="h-full w-[80vw] bg-white" style={{ maxWidth: "80vw" }}>
-          <DrawerHeader className="px-8 py-4">
+        <DrawerContent className="h-full w-[80vw] bg-[#F7F7F7]" style={{ maxWidth: "80vw" }}>
+          <DrawerHeader className="px-8 py-3 bg-[#F7F7F7] border-b border-[#EFEFEF]">
             <DialogTitle className="hidden">{selectedName}</DialogTitle>
             <div className="flex items-start justify-end gap-4">
               <div className="flex items-center gap-2">
-                {agentId !== defaultAgentId && (
+                {agentId !== defaultAgentId && !LOCKED_AGENT_IDS.has(agentId) && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -123,11 +136,12 @@ export function AgentDetailDrawer({
 
           <div className="flex-1 overflow-hidden">
             <ScrollArea className="h-[calc(100vh-100px)]">
-              <div className="p-6 max-w-5xl mx-auto flex flex-col gap-8">
+              <div className="px-6 pt-2 pb-10 max-w-3xl mx-auto flex flex-col gap-4">
                 <ProfileHeroSection agentId={agentId} onChatClick={onChatClick} />
-                <SoulSection agentId={agentId} />
+                <IntroSection agentId={agentId} onChatClick={onChatClick} />
                 <CoreSkillsSection agentId={agentId} />
                 <ToolsSection agentId={agentId} />
+                <SoulSection agentId={agentId} />
               </div>
             </ScrollArea>
           </div>

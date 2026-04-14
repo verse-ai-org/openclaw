@@ -237,4 +237,6 @@ export type IdentityConfig = {
   avatar?: string;
   /** Showcase video: http(s) URL. Optional — rendered in the agent detail page when present. */
   video?: string;
+  /** Short bio / introduction text shown in the agent detail page. */
+  bio?: string;
 };
