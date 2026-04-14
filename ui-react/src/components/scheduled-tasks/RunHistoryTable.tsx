@@ -83,7 +83,7 @@ interface RunHistoryTableProps {
   records: CronRunRecord[];
   total: number;
   loading?: boolean;
-  onRerun: (jobId: string) => void;
+  onRerun: (jobId: string, jobName?: string) => void;
   onViewInChat?: (record: CronRunRecord) => void;
   onPageChange?: (page: number) => void;
   onFilterChange?: (params: { timeFilter: TimeFilter; statusFilter: StatusFilter }) => void;
@@ -199,9 +199,17 @@ export function RunHistoryTable({
               </tr>
             )}
             {!loading &&
-              records.map((record) => (
+              records.map((record) => {
+                // jobName starting with "…" means the original job was deleted (fallback id suffix)
+                const jobDeleted = record.jobName.startsWith("\u2026");
+                return (
                 <tr key={record.id} className="border-b last:border-0 hover:bg-muted/20">
-                  <td className="px-4 py-3 font-medium">{record.jobName}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {record.jobName}
+                    {jobDeleted && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">(deleted)</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={record.status} />
                   </td>
@@ -220,11 +228,17 @@ export function RunHistoryTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onRerun(record.jobId)}>
+                        <DropdownMenuItem
+                          disabled={jobDeleted}
+                          onClick={() => !jobDeleted && onRerun(record.jobId, record.jobName)}
+                        >
                           <RefreshCwIcon className="mr-2 size-3.5" />
                           Rerun
+                          {jobDeleted && (
+                            <span className="ml-1 text-xs text-muted-foreground">(unavailable)</span>
+                          )}
                         </DropdownMenuItem>
-                        {onViewInChat && (
+                        {onViewInChat && record.sessionKey && (
                           <DropdownMenuItem onClick={() => onViewInChat(record)}>
                             <MessageSquareIcon className="mr-2 size-3.5" />
                             View in chat
@@ -234,7 +248,8 @@ export function RunHistoryTable({
                     </DropdownMenu>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
           </tbody>
         </table>
       </div>

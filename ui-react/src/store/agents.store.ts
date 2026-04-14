@@ -58,20 +58,16 @@ function formDataToCronSchedule(
 ): import("@/types/agents").CronSchedule {
   // scheduleKind === "one-time": run once at a specific datetime
   if (form.scheduleKind === "one-time") {
-    // datetime-local value "YYYY-MM-DDTHH:mm" has no timezone info — treat as local time.
-    // Append the local UTC offset so the ISO string preserves the user's intended wall-clock time.
-    // e.g. UTC+8: "2026-04-12T21:12" → "2026-04-12T21:12:00+08:00"
+    // TaskFormModal.buildLocalIso already produces a timezone-aware ISO string
+    // (e.g. "2026-04-12T21:12:00+08:00"). Use it directly if it parses as a
+    // valid date — no further offset appending needed.
+    // Fallback: treat as bare datetime-local "YYYY-MM-DDTHH:mm" and append offset.
     let at: string;
     if (form.scheduleAt) {
       const d = new Date(form.scheduleAt);
       if (!isNaN(d.getTime())) {
-        const offsetMin = -d.getTimezoneOffset(); // positive for UTC+N
-        const sign = offsetMin >= 0 ? "+" : "-";
-        const absMin = Math.abs(offsetMin);
-        const oh = String(Math.floor(absMin / 60)).padStart(2, "0");
-        const om = String(absMin % 60).padStart(2, "0");
-        // Build ISO with local offset to keep the wall-clock time exact
-        at = `${form.scheduleAt}:00${sign}${oh}:${om}`;
+        // Already a valid ISO string (with or without offset) — use as-is.
+        at = form.scheduleAt;
       } else {
         at = new Date(Date.now() + 60_000).toISOString();
       }
@@ -252,7 +248,7 @@ interface AgentsState {
   updateCronJob: (jobId: string, form: ScheduledTaskFormData) => Promise<CronJob | null>;
   deleteCronJob: (jobId: string) => Promise<void>;
   toggleCronJobEnabled: (jobId: string, enabled: boolean) => Promise<void>;
-  rerunCronJob: (jobId: string) => Promise<void>;
+  rerunCronJob: (jobId: string) => Promise<boolean>;
 }
 
 // ── Store initial state ───────────────────────────────────────────────────────
@@ -1054,12 +1050,14 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   rerunCronJob: async (jobId) => {
     const client = getClient();
     if (!client || !isConnected()) {
-      return;
+      return false;
     }
     try {
       await client.request("cron.run", { id: jobId, mode: "force" });
+      return true;
     } catch (err) {
       set({ cronError: getErrorMessage(err) });
+      return false;
     }
   },
 }));

@@ -39,22 +39,23 @@ export function ChatSidebar() {
 
   const defaultAgentId = agentsList?.defaultId ?? "main";
 
-  // Auto-restore the sessions view when the current sessionKey already belongs
-  // to a known agent (e.g. returning to Chat after navigating away).
+  // Sync sidebar to the active sessionKey whenever it changes.
+  // This handles all cases: initial load, returning from another page,
+  // and "View in chat" navigation from Scheduled Tasks (which sets sessionKey
+  // externally before navigating here).
+  // We intentionally do NOT guard on activeAgent so that external sessionKey
+  // changes (e.g. View in chat) always win and override the current view.
   useEffect(() => {
     const agents = agentsList?.agents ?? [];
     if (agents.length === 0) { return; }
-    // Only restore once; don't override a user-initiated view change
-    if (activeAgent !== null) { return; }
     const match = /^agent:([^:]+):/.exec(sessionKey);
     if (!match) { return; }
     const found = agents.find((a) => a.id === match[1]);
     if (found) {
-      // Silently restore — the chat area is already on the correct session
       setActiveAgent(found);
       setView("sessions");
     }
-  }, [agentsList, sessionKey, activeAgent]);
+  }, [agentsList, sessionKey]);
 
   function handleSelectAgent(agent: GatewayAgentRow) {
     setActiveAgent(agent);

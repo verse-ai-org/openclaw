@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import {
   PlusIcon,
   MessageSquareIcon,
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useChatStore } from "@/store/chat.store";
+import { useSettingsStore } from "@/store/settings.store";
 import { TaskCard } from "@/components/scheduled-tasks/TaskCard";
 import { NewTaskCard } from "@/components/scheduled-tasks/NewTaskCard";
 import { RunHistoryTable } from "@/components/scheduled-tasks/RunHistoryTable";
@@ -144,22 +146,36 @@ export function ScheduledTasksPage() {
     void deleteCronJob(jobId);
   }
 
-  function handleRerun(jobId: string) {
-    void rerunCronJob(jobId);
+  async function handleRerun(jobId: string, jobName?: string) {
+    // If job no longer exists (deleted), show a warning instead of firing a
+    // silent request that will fail on the gateway side.
+    const jobExists = useAgentsStore.getState().cronJobs.some((j) => j.id === jobId);
+    if (!jobExists) {
+      toast.warning(`Task no longer exists and cannot be rerun.`, { duration: 3000 });
+      return;
+    }
+    const label = jobName ?? "Task";
+    const ok = await rerunCronJob(jobId);
+    if (ok) {
+      toast.success(`"${label}" started`, { duration: 2500 });
+      // Refresh run history so the new entry appears immediately
+      void loadCronRunHistory();
+    } else {
+      toast.error(`Failed to start "${label}"`, { duration: 3000 });
+    }
   }
 
   function handleViewInChat(record: CronRunRecord) {
     if (record.sessionKey) {
-      // Lazy-import to avoid adding useChatStore as a hook at top level;
-      // setSessionKey works outside React render via zustand's getState().
-      import("@/store/chat.store").then(({ useChatStore }) => {
-        useChatStore.getState().setSessionKey(record.sessionKey!);
-        void navigate("/chat");
+      // Set the active session key so the chat area loads the correct history
+      // and ChatSidebar's useEffect auto-syncs to the right agent + sessions view.
+      useChatStore.getState().setSessionKey(record.sessionKey);
+      useSettingsStore.getState().updateSettings({
+        sessionKey: record.sessionKey,
+        lastActiveSessionKey: record.sessionKey,
       });
-    } else {
-      // No session info: just go to chat
-      void navigate("/chat");
     }
+    void navigate("/chat");
   }
 
   // ── Client-side filtering for run history ──────────────────────────────
@@ -218,8 +234,27 @@ export function ScheduledTasksPage() {
         base.everyUnit = "minutes";
       }
     } else if (sched.kind === "cron") {
-      // Map cron back to daily (best effort; cron exprs created via UI use daily/weekly/monthly)
-      base.scheduleKind = "daily";
+      // Parse the cron expr to restore the original scheduleKind and preferredTime.
+      // UI-created cron exprs follow the pattern: "MM HH <day> <month> <dow>"
+      // daily:   "MM HH * * *"      (day=*, month=*, dow=*)
+      // weekly:  "MM HH * * 1"      (day=*, month=*, dow=1)
+      // monthly: "MM HH 1 * *"      (day=1, month=*, dow=*)
+      const parts = sched.expr.trim().split(/\s+/);
+      if (parts.length === 5) {
+        const [cronMin, cronHour, cronDay, , cronDow] = parts;
+        const hh = String(parseInt(cronHour, 10) || 0).padStart(2, "0");
+        const mm = String(parseInt(cronMin, 10) || 0).padStart(2, "0");
+        base.preferredTime = `${hh}:${mm}`;
+        if (cronDow !== "*") {
+          base.scheduleKind = "weekly";
+        } else if (cronDay !== "*") {
+          base.scheduleKind = "monthly";
+        } else {
+          base.scheduleKind = "daily";
+        }
+      } else {
+        base.scheduleKind = "daily";
+      }
     } else {
       // "at" schedule → one-time
       base.scheduleKind = "one-time";
