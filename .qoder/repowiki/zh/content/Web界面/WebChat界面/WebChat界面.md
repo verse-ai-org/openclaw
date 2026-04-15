@@ -11,7 +11,10 @@
 - [layout.css](file://ui/src/styles/chat/layout.css)
 - [ChatPage.tsx](file://ui-react/src/pages/ChatPage.tsx)
 - [ChatSidebar.tsx](file://ui-react/src/components/chat/ChatSidebar.tsx)
+- [AgentSessionList.tsx](file://ui-react/src/components/chat/AgentSessionList.tsx)
+- [AgentList.tsx](file://ui-react/src/components/chat/AgentList.tsx)
 - [markdown-components.tsx](file://ui-react/src/components/chat/markdown-components.tsx)
+- [markdown-text.tsx](file://ui-react/src/components/assistant-ui/markdown-text.tsx)
 - [chat.store.ts](file://ui-react/src/store/chat.store.ts)
 - [useChatEventBridge.ts](file://ui-react/src/hooks/useChatEventBridge.ts)
 - [useSessionManager.ts](file://ui-react/src/hooks/useSessionManager.ts)
@@ -22,8 +25,12 @@
 - [AssistantMessage.tsx](file://ui-react/src/components/chat/AssistantMessage.tsx)
 - [UserMessage.tsx](file://ui-react/src/components/chat/UserMessage.tsx)
 - [ToolFallback.tsx](file://ui-react/src/components/chat/ToolFallback.tsx)
+- [AgentDetailDrawer.tsx](file://ui-react/src/components/agents/detail-drawer.tsx)
+- [ProfileHeroSection.tsx](file://ui-react/src/components/agents/profile.tsx)
+- [CoreSkillsSection.tsx](file://ui-react/src/components/agents/skills.tsx)
 - [gateway.store.ts](file://ui-react/src/store/gateway.store.ts)
 - [settings.store.ts](file://ui-react/src/store/settings.store.ts)
+- [agents.store.ts](file://ui-react/src/store/agents.store.ts)
 - [router.tsx](file://ui-react/src/router.tsx)
 - [vite.config.ts](file://ui-react/vite.config.ts)
 - [package.json](file://ui-react/package.json)
@@ -42,11 +49,11 @@
 
 ## 更新摘要
 **所做更改**
-- 新增Composer组件的拖拽上传、实时预览、文件类型验证等重大改进功能
-- 更新UserMessage组件对附件的改进显示功能
-- 新增文件大小限制、数量限制和MIME类型验证的详细说明
-- 更新附件预览组件的实时删除和错误处理功能
-- 新增拖拽上传状态指示和视觉反馈机制
+- ChatSidebar组件完全重写实现自动同步功能，能够根据sessionKey自动切换到对应的代理和会话
+- AgentList和AgentSessionList组件的UI文本从"Employees"更新为"Agents"
+- 会话管理钩子增强，增加自动同步逻辑和会话标题更新功能
+- 新增代理详情抽屉的完整集成，提供代理配置和管理功能
+- 增强的会话列表过滤和搜索功能
 
 ## 目录
 1. [简介](#简介)
@@ -63,7 +70,7 @@
 ## 简介
 本文件系统性阐述WebChat界面的设计与实现，覆盖实时聊天、消息收发、界面布局、消息历史、输入框功能、多媒体消息、文件传输、表情反应、聊天室与群组管理、隐私策略以及WebSocket连接、消息同步与离线处理等主题。文档基于仓库中的UI实现、网关协议、通道适配层与平台集成进行综合分析，帮助开发者与运维人员快速理解并部署WebChat。
 
-**更新** 本版本重点反映了聊天组件的重大改进，包括Composer组件的拖拽上传、实时预览、文件类型验证等功能，以及UserMessage组件对附件的改进显示。
+**更新** 本版本重点反映了聊天界面的重大增强，包括ChatSidebar组件完全重写实现自动同步功能、AgentList和AgentSessionList组件的UI文本更新、会话管理钩子的增强，以及代理详情抽屉的完整集成。
 
 ## 项目结构
 WebChat界面现已迁移到React架构，由前端UI、网关客户端、通道适配层与平台集成四部分组成：
@@ -76,8 +83,10 @@ WebChat界面现已迁移到React架构，由前端UI、网关客户端、通道
 graph TB
 subgraph "React前端UI"
 React_ChatPage["ChatPage.tsx<br/>聊天页面入口"]
-React_ChatSidebar["ChatSidebar.tsx<br/>现代化侧边栏"]
-React_Markdown["markdown-components.tsx<br/>Markdown组件系统"]
+React_ChatSidebar["ChatSidebar.tsx<br/>现代化侧边栏(完全重写)"]
+React_AgentSessionList["AgentSessionList.tsx<br/>代理会话列表(UI文本更新)"]
+React_AgentList["AgentList.tsx<br/>代理列表(UI文本更新)"]
+React_Markdown["markdown-text.tsx<br/>重构的Markdown组件"]
 React_ThreadView["ThreadView.tsx<br/>线程视图"]
 React_Session["SessionSelector.tsx<br/>会话选择器(兼容)"]
 React_Composer["Composer.tsx<br/>增强的消息composer"]
@@ -87,6 +96,7 @@ subgraph "状态管理"
 Zustand_Chat["chat.store.ts<br/>聊天状态管理"]
 Zustand_Settings["settings.store.ts<br/>设置状态管理"]
 Zustand_Gateway["gateway.store.ts<br/>网关状态管理"]
+Zustand_Agents["agents.store.ts<br/>代理状态管理"]
 end
 subgraph "消息渲染组件"
 React_Assistant["AssistantMessage.tsx<br/>助手消息"]
@@ -94,7 +104,7 @@ React_User["UserMessage.tsx<br/>用户消息(附件改进)"]
 React_Tool["ToolFallback.tsx<br/>工具降级组件"]
 end
 subgraph "会话管理钩子"
-Hook_SessionManager["useSessionManager.ts<br/>会话管理钩子"]
+Hook_SessionManager["useSessionManager.ts<br/>会话管理钩子(增强)"]
 end
 subgraph "网关客户端"
 GW_Client["client.ts<br/>WebSocket客户端"]
@@ -111,19 +121,22 @@ Android_UI["ChatMessageViews.kt<br/>Android聊天视图"]
 Android_Session["SessionFilters.kt<br/>会话名称过滤"]
 end
 React_ChatPage --> React_ChatSidebar
-React_ChatSidebar --> Hook_SessionManager
+React_ChatSidebar --> React_AgentSessionList
+React_ChatSidebar --> React_AgentList
+React_AgentSessionList --> React_AgentDetailDrawer["AgentDetailDrawer.tsx<br/>代理详情抽屉"]
+React_Markdown --> React_Assistant
+React_Markdown --> React_User
 React_ChatPage --> React_ThreadView
 React_ThreadView --> React_Runtime
 React_Session --> Hook_SessionManager
 React_Composer --> React_Runtime
 React_Runtime --> Zustand_Chat
 React_Runtime --> Zustand_Gateway
-React_Markdown --> React_Assistant
-React_Markdown --> React_User
 React_Assistant --> React_Tool
 React_User --> React_Tool
 Zustand_Chat --> GW_Client
 Zustand_Settings --> GW_Client
+Zustand_Agents --> GW_Client
 GW_Client --> GW_Server
 React_ChatPage --> Web_Channel
 Web_Channel --> Media_Send
@@ -134,43 +147,46 @@ Android_Session --> Hook_SessionManager
 ```
 
 **图表来源**
-- [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
-- [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
-- [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
-- [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
-- [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
-- [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
-- [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
+- [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
+- [AgentSessionList.tsx:1-258](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L258)
+- [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
+- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 
 **章节来源**
-- [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
-- [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
-- [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
-- [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
-- [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
+- [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
+- [AgentSessionList.tsx:1-258](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L258)
+- [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
+- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 
 ## 核心组件
 - **React聊天页面**：ChatPage作为根组件，整合会话选择器和线程视图，提供完整的聊天界面。
-- **现代化侧边栏**：ChatSidebar提供品牌标识、会话列表管理和网关状态指示，替代传统的SessionSelector组件。
-- **Markdown组件系统**：markdown-components.tsx提供共享的Markdown组件定义，支持assistant-ui上下文和独立使用两种模式。
-- **会话管理钩子**：useSessionManager集中管理会话列表、历史加载、会话切换和新会话创建功能。
-- **状态管理系统**：使用Zustand管理聊天状态、网关连接状态和设置状态，避免组件间复杂的数据传递。
+- **现代化侧边栏**：ChatSidebar提供品牌标识、会话列表管理和网关状态指示，替代传统的SessionSelector组件，并集成了AgentDetailDrawer用于代理管理。**更新** 完全重写实现自动同步功能，能够根据sessionKey自动切换到对应的代理和会话。
+- **增强的代理会话列表**：AgentSessionList组件支持代理头像和名称点击，允许用户查看代理详细信息，UI文本从"Employees"更新为"Agents"。**更新** 增强支持代理头像和名称点击，允许用户查看代理详细信息。
+- **增强的代理列表**：AgentList组件UI文本从"Employees"更新为"Agents"，支持代理搜索和过滤功能。**更新** UI文本更新为"Agents"，增强代理搜索和过滤功能。
+- **重构的Markdown组件**：markdown-text.tsx重构了AssistantMarkdown组件，提升渲染性能，支持更好的代码块复制和样式。
+- **会话管理钩子**：useSessionManager集中管理会话列表、历史加载、会话切换和新会话创建功能，**更新** 增加自动同步逻辑和会话标题更新功能。
+- **状态管理系统**：使用Zustand管理聊天状态、网关连接状态、设置状态和代理状态，避免组件间复杂的数据传递。
 - **消息渲染组件**：AssistantMessage、UserMessage和ToolFallback提供丰富的消息渲染能力，支持Markdown、工具调用和附件。
 - **运行时提供者**：GatewayChatRuntimeProvider桥接Zustand状态与Assistant UI组件库，实现消息转换和事件处理。
 - **事件桥接**：useChatEventBridge将网关事件转换为Zustand状态更新，保持组件解耦。
 - **Composer组件**：提供富文本输入、附件上传和发送控制功能，支持拖拽上传、实时预览和文件类型验证。
 - **增强的UserMessage组件**：改进的附件显示功能，支持文件标签和预览。
 - **工具降级组件**：ToolFallback展示工具调用的分类、状态和详细信息。
+- **代理详情抽屉**：AgentDetailDrawer提供完整的代理配置界面，包括在线状态、聊天按钮、技能管理和工具配置。
 
 **章节来源**
-- [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
-- [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
-- [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
-- [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
+- [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
+- [AgentSessionList.tsx:1-258](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L258)
+- [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
+- [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
+- [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 - [Composer.tsx:1-334](file://ui-react/src/components/chat/Composer.tsx#L1-L334)
 - [UserMessage.tsx:1-152](file://ui-react/src/components/chat/UserMessage.tsx#L1-L152)
+- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
 
 ## 架构总览
 WebChat采用"React前端 + Zustand状态管理 + Assistant UI组件库"的现代化架构，通过GatewayChatRuntimeProvider桥接网关事件与React组件。前端通过WebSocket与网关通信，使用标准方法如chat.history、chat.send、chat.inject进行消息同步与交互。群组策略与提及门禁在通道层统一处理，确保跨渠道一致性。
@@ -179,6 +195,7 @@ WebChat采用"React前端 + Zustand状态管理 + Assistant UI组件库"的现�
 sequenceDiagram
 participant UI as "React组件(ChatPage)"
 participant Sidebar as "ChatSidebar"
+participant AgentDetail as "AgentDetailDrawer"
 participant SessionManager as "useSessionManager"
 participant Runtime as "运行时提供者(GatewayChatRuntimeProvider)"
 participant Store as "Zustand状态管理"
@@ -187,6 +204,8 @@ participant Gateway as "网关服务"
 participant Channel as "通道适配(channel-web.ts)"
 UI->>Runtime : 初始化运行时
 Sidebar->>SessionManager : 获取会话数据
+Sidebar->>AgentDetail : 打开代理详情抽屉
+AgentDetail->>Store : 加载代理配置
 SessionManager->>Client : chat.sessions.list
 Client-->>SessionManager : 会话列表
 SessionManager->>Store : 设置会话状态
@@ -204,19 +223,140 @@ Runtime-->>UI : 重新渲染组件
 ```
 
 **图表来源**
-- [ChatPage.tsx:9-12](file://ui-react/src/pages/ChatPage.tsx#L9-L12)
-- [ChatSidebar.tsx:19-22](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L22)
-- [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
+- [ChatSidebar.tsx:48-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L48-L58)
+- [AgentDetailDrawer.tsx:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
+- [useSessionManager.ts:266-271](file://ui-react/src/hooks/useSessionManager.ts#L266-L271)
 - [GatewayChatRuntimeProvider.tsx:112-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L112-L270)
 
 **章节来源**
 - [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
-- [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
-- [ChatSidebar.tsx:1-117](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L117)
-- [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
+- [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
+- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 
 ## 详细组件分析
+
+### ChatSidebar组件完全重写
+**更新** ChatSidebar组件现已完全重写，实现自动同步功能，能够根据sessionKey自动切换到对应的代理和会话。
+
+- **自动同步功能**：通过useEffect监听sessionKey变化，自动解析代理ID并切换到对应的会话视图。**新增** 实现了完全的自动同步逻辑。
+- **代理详情抽屉集成**：在侧边栏底部集成AgentDetailDrawer，支持代理配置、在线状态、聊天按钮和技能管理。
+- **代理头像和名称点击**：AgentSessionList组件支持代理头像和名称点击，允许用户查看代理详细信息。
+- **滑动面板设计**：采用双面板滑动设计，左侧为代理列表，右侧为会话列表，支持平滑过渡动画。
+- **搜索功能**：支持代理和会话的搜索功能，提升用户体验。
+- **状态管理**：集成Zustand状态管理，支持代理状态和会话状态的实时更新。
+
+```mermaid
+flowchart TD
+ChatSidebar["ChatSidebar组件(完全重写)"] --> AutoSync["自动同步逻辑<br/>useEffect监听sessionKey"]
+AutoSync --> ParseAgent["解析代理ID<br/>/^agent:([^:]+):/"]
+ParseAgent --> SetActiveAgent["设置活动代理<br/>setActiveAgent"]
+SetActiveAgent --> SwitchView["切换到会话视图<br/>setView('sessions')"]
+ChatSidebar --> SearchBar["固定搜索栏<br/>跨视图共享"]
+ChatSidebar --> SlidingTrack["滑动轨道<br/>双面板布局"]
+SlidingTrack --> AgentList["代理列表面板<br/>左侧面板"]
+SlidingTrack --> SessionList["会话列表面板<br/>右侧面板"]
+AgentList --> AgentItems["代理项<br/>头像 + 名称"]
+SessionList --> SessionItems["会话项<br/>最后消息 + 时间"]
+ChatSidebar --> AgentDetailDrawer["代理详情抽屉<br/>全屏覆盖"]
+AgentDetailDrawer --> ProfileSection["个人资料<br/>在线状态 + 聊天按钮"]
+AgentDetailDrawer --> SkillsSection["技能管理<br/>绑定技能 + 添加技能"]
+AgentDetailDrawer --> ToolsSection["工具配置<br/>工具列表 + 配置"]
+```
+
+**图表来源**
+- [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
+- [ChatSidebar.tsx:104-106](file://ui-react/src/components/chat/ChatSidebar.tsx#L104-L106)
+- [AgentDetailDrawer.tsx:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
+
+**章节来源**
+- [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
+- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+
+### AgentSessionList组件UI文本更新
+**更新** AgentSessionList组件的UI文本从"Employees"更新为"Agents"。
+
+- **代理头像显示**：支持代理头像URL和emoji显示，提供更丰富的视觉标识。
+- **代理名称点击**：代理名称支持点击事件，允许用户查看代理详细信息。
+- **会话列表优化**：支持会话搜索、删除确认和状态显示。
+- **时间格式化**：智能时间格式化，显示相对时间而非绝对时间。
+- **交互状态管理**：支持会话切换、新建会话和删除会话操作。
+- **UI文本更新**：标题从"Employees"更新为"Agents"，会话标题从"Sessions"更新为"Agents"。
+
+```mermaid
+flowchart TD
+AgentSessionList["AgentSessionList组件(UI文本更新)"] --> Header["头部区域<br/>返回按钮 + 代理信息"]
+Header --> BackButton["返回按钮<br/>ArrowLeftIcon"]
+Header --> AgentInfo["代理信息<br/>头像 + 名称 + 点击事件"]
+AgentSessionList --> Content["内容区域<br/>会话列表 + 新建按钮"]
+Content --> NewSession["新建会话按钮<br/>PlusIcon"]
+Content --> SessionList["会话列表<br/>滚动容器"]
+SessionList --> SessionItem["会话项<br/>最后消息 + 时间 + 删除按钮"]
+SessionItem --> DeleteConfirm["删除确认对话框<br/>AlertDialog"]
+```
+
+**图表来源**
+- [AgentSessionList.tsx:182](file://ui-react/src/components/chat/AgentSessionList.tsx#L182)
+- [AgentSessionList.tsx:215](file://ui-react/src/components/chat/AgentSessionList.tsx#L215)
+
+**章节来源**
+- [AgentSessionList.tsx:1-258](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L258)
+
+### AgentList组件UI文本更新
+**更新** AgentList组件的UI文本从"Employees"更新为"Agents"。
+
+- **代理头像显示**：支持代理头像URL和emoji显示，提供更丰富的视觉标识。
+- **代理名称显示**：显示代理的友好名称或ID，支持代理搜索和过滤。
+- **代理搜索功能**：支持按名称和ID搜索代理，提升用户体验。
+- **加载状态管理**：支持代理列表的加载状态显示。
+- **UI文本更新**：标题从"Employees"更新为"Agents"。
+
+```mermaid
+flowchart TD
+AgentList["AgentList组件(UI文本更新)"] --> Header["头部区域<br/>Agents标题"]
+Header --> AgentsTitle["Agents标题<br/>字体粗体 + 文本颜色"]
+AgentList --> Content["内容区域<br/>代理列表"]
+Content --> AgentItem["代理项<br/>头像 + 名称 + 点击事件"]
+AgentItem --> Avatar["头像<br/>图片或emoji"]
+AgentItem --> Name["名称<br/>裁剪显示"]
+```
+
+**图表来源**
+- [AgentList.tsx:89-91](file://ui-react/src/components/chat/AgentList.tsx#L89-L91)
+- [AgentList.tsx:103-105](file://ui-react/src/components/chat/AgentList.tsx#L103-L105)
+
+**章节来源**
+- [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
+
+### AssistantMarkdown组件重构
+**更新** AssistantMarkdown组件已重构以提升性能和功能。
+
+- **memoized组件系统**：使用unstable_memoizeMarkdownComponents优化组件渲染性能。
+- **代码块增强**：支持代码块复制功能，提供更好的开发体验。
+- **样式优化**：统一的Markdown样式系统，支持响应式设计和主题适配。
+- **GFM支持**：完整的GitHub Flavored Markdown支持，包括表格、任务列表等。
+- **性能提升**：通过memoization和优化的渲染策略提升渲染性能。
+
+```mermaid
+flowchart TD
+AssistantMarkdown["AssistantMarkdown组件"] --> MemoizedComponents["memoizedComponents<br/>性能优化"]
+AssistantMarkdown --> PlainComponents["plainMdComponents<br/>独立使用"]
+MemoizedComponents --> CodeWithContext["CodeWithContext<br/>代码块 + 复制"]
+PlainComponents --> CodeHeader["CodeHeader<br/>代码块头部"]
+MemoizedComponents --> Typography["Typography<br/>标题 + 段落 + 列表"]
+PlainComponents --> Typography
+CodeWithContext --> CopyButton["复制按钮<br/>TooltipIconButton"]
+CodeHeader --> CopyButton
+Typography --> GFMPlugins["GFM插件<br/>表格 + 任务列表"]
+```
+
+**图表来源**
+- [markdown-text.tsx:248-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L248-L268)
+- [markdown-text.tsx:218-246](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L218-L246)
+
+**章节来源**
+- [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
 
 ### 增强的Composer组件
 **更新** Composer组件现已实现拖拽上传、实时预览、文件类型验证等重大改进功能。
@@ -344,6 +484,7 @@ CancelHandler --> StateReset["状态重置<br/>流状态 + 发送状态清理"]
 - **聊天状态管理**：chat.store.ts管理消息列表、流式输出、工具调用流和输入状态。
 - **设置状态管理**：settings.store.ts管理用户偏好设置、网关配置和主题设置。
 - **网关状态管理**：gateway.store.ts管理连接状态、事件日志和客户端实例。
+- **代理状态管理**：agents.store.ts管理代理列表、代理身份、配置和技能状态。
 - **状态同步**：通过useChatEventBridge将网关事件转换为状态更新，保持组件解耦。
 - **工具流管理**：支持工具调用的完整生命周期，包括开始、运行、结果和错误状态。
 
@@ -360,6 +501,13 @@ Idle --> Loading : setMessagesLoading
 Loading --> Loaded : setMessages
 Loaded --> Sending : setSending
 Sending --> Idle : finalizeStream/resetStream
+}
+state AgentState {
+[*] --> Idle
+Idle --> Loading : loadAgents
+Loading --> Loaded : agentsList
+Loaded --> Editing : selectAgent
+Editing --> Saved : saveConfig
 }
 state ToolStreamState {
 [*] --> Start
@@ -379,12 +527,14 @@ Custom --> Default : resetDefaults
 **图表来源**
 - [gateway.store.ts:72-183](file://ui-react/src/store/gateway.store.ts#L72-L183)
 - [chat.store.ts:135-229](file://ui-react/src/store/chat.store.ts#L135-L229)
+- [agents.store.ts:304-324](file://ui-react/src/store/agents.store.ts#L304-L324)
 - [settings.store.ts:193-222](file://ui-react/src/store/settings.store.ts#L193-L222)
 
 **章节来源**
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [agents.store.ts:1-1066](file://ui-react/src/store/agents.store.ts#L1-L1066)
 
 ### 增强的消息渲染能力
 - **内容块系统**：支持交错的文本和工具调用渲染，保持原始消息顺序。
@@ -441,11 +591,15 @@ Preview --> Detail["详细模式"]
 **章节来源**
 - [ToolFallback.tsx:1-451](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L451)
 
-### 会话管理
+### 会话管理增强
+**更新** 会话管理钩子现已增强，增加自动同步逻辑和会话标题更新功能。
+
+- **自动同步功能**：useEffect监听sessionKey变化，自动解析代理ID并切换到对应的会话视图。**新增** 实现了完全的自动同步逻辑。
 - **会话列表**：通过chat.sessions.list获取会话列表，支持动态刷新。
 - **会话切换**：切换会话时自动加载对应的历史消息。
 - **新会话创建**：支持创建新会话并自动切换到新会话。
 - **历史加载**：支持按会话键加载历史消息，处理同步和异步响应。
+- **会话标题更新**：生成会话标题时优先使用displayName，然后是derivedTitle，最后是label。
 
 ```mermaid
 sequenceDiagram
@@ -466,6 +620,7 @@ Note over UI,Store : 支持silent模式避免闪烁
 
 **章节来源**
 - [SessionSelector.tsx:1-212](file://ui-react/src/components/chat/SessionSelector.tsx#L1-L212)
+- [useSessionManager.ts:266-271](file://ui-react/src/hooks/useSessionManager.ts#L266-L271)
 
 ### WebSocket连接、消息同步与离线处理
 - **连接管理**：gateway.store.ts管理连接状态、事件处理和错误恢复。
@@ -496,6 +651,37 @@ Note over Store,Gateway : 支持断线重连和事件缓冲
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [useChatEventBridge.ts:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
 
+### 代理管理功能
+**更新** 新增完整的代理管理功能，包括代理配置、技能管理和工具配置。
+
+- **代理详情抽屉**：AgentDetailDrawer提供完整的代理配置界面，支持在线状态、聊天按钮和技能管理。
+- **代理头像和名称**：支持代理头像URL和emoji显示，提供更丰富的视觉标识。
+- **技能管理**：CoreSkillsSection支持代理技能的添加、删除和管理。
+- **工具配置**：ToolsSection展示代理可用的工具和配置选项。
+- **代理创建和删除**：支持代理的创建、编辑和删除功能。
+
+```mermaid
+flowchart TD
+AgentDetailDrawer["AgentDetailDrawer组件"] --> Header["头部区域<br/>关闭按钮 + 删除按钮"]
+AgentDetailDrawer --> Content["内容区域<br/>滚动容器"]
+Content --> ProfileHero["个人资料英雄区<br/>头像 + 在线状态 + 聊天按钮"]
+Content --> SoulSection["灵魂配置<br/>代理核心设置"]
+Content --> SkillsSection["技能管理<br/>绑定技能 + 添加技能"]
+Content --> ToolsSection["工具配置<br/>工具列表 + 配置"]
+ProfileHero --> ChatButton["聊天按钮<br/>MessageSquare"]
+SkillsSection --> AddSkillsDialog["添加技能对话框<br/>搜索 + 分类 + 选择"]
+```
+
+**图表来源**
+- [AgentDetailDrawer.tsx:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
+- [ProfileHeroSection.tsx:138-354](file://ui-react/src/components/agents/profile.tsx#L138-L354)
+- [CoreSkillsSection.tsx:173-342](file://ui-react/src/components/agents/skills.tsx#L173-L342)
+
+**章节来源**
+- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [ProfileHeroSection.tsx:1-379](file://ui-react/src/components/agents/profile.tsx#L1-L379)
+- [CoreSkillsSection.tsx:1-342](file://ui-react/src/components/agents/skills.tsx#L1-L342)
+
 ## 依赖关系分析
 - **React组件依赖**：所有React组件通过GatewayChatRuntimeProvider访问状态管理，避免直接导入Zustand。
 - **状态管理解耦**：useChatEventBridge通过回调函数注册机制避免循环依赖，保持模块边界清晰。
@@ -503,6 +689,7 @@ Note over Store,Gateway : 支持断线重连和事件缓冲
 - **Tailwind CSS**：使用Tailwind 4.x提供现代化的样式系统，支持响应式设计。
 - **组件系统集成**：ChatSidebar替代SessionSelector，提供更丰富的会话管理功能。
 - **文件上传依赖**：Composer组件依赖FileReader API进行文件读取和Base64编码。
+- **代理管理集成**：AgentDetailDrawer集成到ChatSidebar，提供完整的代理管理功能。
 
 ```mermaid
 graph LR
@@ -511,30 +698,41 @@ Runtime --> Zustand["Zustand状态管理"]
 Zustand --> GatewayStore["gateway.store.ts"]
 Zustand --> ChatStore["chat.store.ts"]
 Zustand --> SettingsStore["settings.store.ts"]
+Zustand --> AgentsStore["agents.store.ts"]
 GatewayStore --> Client["client.ts"]
 ChatStore --> Events["useChatEventBridge.ts"]
 SettingsStore --> SessionManager["useSessionManager.ts"]
+AgentsStore --> AgentDetailDrawer["AgentDetailDrawer.tsx"]
+AgentDetailDrawer --> ProfileHero["ProfileHeroSection.tsx"]
+AgentDetailDrawer --> CoreSkills["CoreSkillsSection.tsx"]
 Events --> AssistantUI["@assistant-ui/react"]
 AssistantUI --> Components["UI组件库"]
-MarkdownComponents["markdown-components.tsx"] --> AssistantUI
-ChatSidebar["ChatSidebar.tsx"] --> SessionManager
+MarkdownComponents["markdown-text.tsx"] --> AssistantUI
+ChatSidebar["ChatSidebar.tsx"] --> AgentDetailDrawer
+ChatSidebar --> AgentSessionList["AgentSessionList.tsx"]
 Composer["Composer.tsx"] --> FileReader["FileReader API"]
 UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 ```
 
 **图表来源**
-- [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
+- [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
+- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [agents.store.ts:1-1066](file://ui-react/src/store/agents.store.ts#L1-L1066)
 
 **章节来源**
-- [ChatPage.tsx:1-96](file://ui-react/src/pages/ChatPage.tsx#L1-L96)
+- [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
+- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
 - [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [agents.store.ts:1-1066](file://ui-react/src/store/agents.store.ts#L1-L1066)
 
 ## 性能考虑
 - **状态管理优化**：使用Zustand替代Redux，减少不必要的状态更新和组件重渲染。
@@ -546,6 +744,9 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - **会话管理缓存**：useSessionManager实现会话列表缓存，避免频繁的API调用。
 - **文件上传优化**：Composer组件使用Base64编码，避免大文件阻塞UI线程。
 - **实时预览优化**：AttachmentPreview组件使用虚拟化列表，支持大量文件的高效渲染。
+- **Markdown渲染优化**：AssistantMarkdown组件使用memoization优化渲染性能。
+- **代理状态缓存**：agents.store.ts实现代理状态缓存，避免频繁的API调用。
+- **自动同步优化**：ChatSidebar的自动同步功能通过useEffect优化，避免不必要的重渲染。
 
 **章节来源**
 - [vite.config.ts:13-14](file://ui-react/vite.config.ts#L13-L14)
@@ -553,6 +754,9 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - [GatewayChatRuntimeProvider.tsx:132-197](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L132-L197)
 - [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
 - [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
+- [markdown-text.tsx:218-222](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L218-L222)
+- [agents.store.ts:304-324](file://ui-react/src/store/agents.store.ts#L304-L324)
+- [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
 
 ## 故障排除指南
 - **连接失败**：检查网关端口与认证配置，确认WebSocket握手成功，查看gateway.store的错误状态。
@@ -564,6 +768,11 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - **侧边栏显示问题**：确认ChatSidebar的依赖注入正常，检查useSessionManager钩子的状态返回。
 - **文件上传失败**：检查文件大小限制、MIME类型验证和Base64编码过程，确认FileReader API正常工作。
 - **拖拽上传无效**：检查ComposerPrimitive.AttachmentDropzone的CSS类和data-[dragging]状态，确认拖拽事件处理正常。
+- **代理详情抽屉问题**：检查AgentDetailDrawer的open状态和agentId参数，确认代理配置加载正常。
+- **Markdown渲染异常**：检查AssistantMarkdown组件的memoization配置，确认代码块复制功能正常。
+- **代理技能管理问题**：检查agents.store的技能状态管理，确认技能添加和删除操作正常。
+- **自动同步问题**：检查ChatSidebar的useEffect依赖和sessionKey解析逻辑，确认代理ID正确提取。
+- **UI文本显示问题**：检查AgentList和AgentSessionList的UI文本更新，确认从"Employees"更新为"Agents"。
 
 **章节来源**
 - [gateway.store.ts:115-126](file://ui-react/src/store/gateway.store.ts#L115-L126)
@@ -572,13 +781,17 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
 - [ChatSidebar.tsx:19-22](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L22)
 - [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
+- [AgentDetailDrawer.tsx:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
+- [markdown-text.tsx:248-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L248-L268)
+- [agents.store.ts:688-741](file://ui-react/src/store/agents.store.ts#L688-L741)
+- [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
 
 ## 结论
 WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，采用"React + Zustand + Assistant UI"的技术栈实现了更加现代化和可维护的聊天体验。新的架构通过组件化设计、状态管理和事件桥接机制，提供了更好的开发体验和用户体验。
 
-**更新** 本次更新重点反映了聊天组件的重大改进，包括Composer组件的拖拽上传、实时预览、文件类型验证等功能，以及UserMessage组件对附件的改进显示。这些改进显著提升了文件上传的用户体验，提供了更直观的文件管理界面和更严格的文件验证机制。
+**更新** 本次更新重点反映了聊天界面的重大增强，包括ChatSidebar组件完全重写实现自动同步功能、AgentList和AgentSessionList组件的UI文本更新、会话管理钩子的增强，以及代理详情抽屉的完整集成。这些改进显著提升了代理管理能力和Markdown渲染性能，提供了更丰富的用户体验和更高效的界面交互。
 
-通过新增的ChatSidebar组件、增强的useSessionManager钩子、markdown-components.tsx组件系统，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为未来的功能扩展奠定了坚实的基础。
+通过新增的ChatSidebar组件、增强的useSessionManager钩子、markdown-text.tsx组件系统，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为未来的功能扩展奠定了坚实的基础。
 
 ## 附录
 - **配置参考**：WebChat使用网关端点与认证参数，React构建配置独立于传统UI，输出到独立的dist目录。
@@ -586,6 +799,10 @@ WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，�
 - **生产部署**：构建输出到dist/control-ui-react目录，避免与现有Lit UI冲突。
 - **组件兼容性**：SessionSelector组件保留向后兼容性，但不再作为独立组件使用。
 - **文件上传限制**：单文件5MB，总文件20MB，最多10个文件，支持多种文件类型验证。
+- **代理管理功能**：支持代理头像、名称、描述、技能和工具的完整管理功能。
+- **Markdown性能优化**：使用memoization优化渲染性能，支持代码块复制和GFM语法。
+- **自动同步功能**：ChatSidebar实现完全的自动同步逻辑，根据sessionKey自动切换代理和会话。
+- **UI文本更新**：AgentList和AgentSessionList的UI文本从"Employees"更新为"Agents"。
 
 **章节来源**
 - [vite.config.ts:21-28](file://ui-react/vite.config.ts#L21-L28)
@@ -593,3 +810,8 @@ WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，�
 - [router.tsx:19-41](file://ui-react/src/router.tsx#L19-L41)
 - [SessionSelector.tsx:1-7](file://ui-react/src/components/chat/SessionSelector.tsx#L1-L7)
 - [Composer.tsx:12-39](file://ui-react/src/components/chat/Composer.tsx#L12-L39)
+- [AgentDetailDrawer.tsx:25-34](file://ui-react/src/components/agents/detail-drawer.tsx#L25-L34)
+- [markdown-text.tsx:218-222](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L218-L222)
+- [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
+- [AgentList.tsx:89-91](file://ui-react/src/components/chat/AgentList.tsx#L89-L91)
+- [AgentSessionList.tsx:182](file://ui-react/src/components/chat/AgentSessionList.tsx#L182)

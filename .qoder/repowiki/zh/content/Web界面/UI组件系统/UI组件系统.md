@@ -28,6 +28,8 @@
 - [sheet.tsx](file://ui-react/src/components/ui/sheet.tsx)
 - [switch.tsx](file://ui-react/src/components/ui/switch.tsx)
 - [sonner.tsx](file://ui-react/src/components/ui/sonner.tsx)
+- [button.tsx](file://ui-react/src/components/ui/button.tsx)
+- [calendar.tsx](file://ui-react/src/components/ui/calendar.tsx)
 - [use-mobile.ts](file://ui-react/src/hooks/use-mobile.ts)
 - [useSessionManager.ts](file://ui-react/src/hooks/useSessionManager.ts)
 - [components.json](file://ui-react/components.json)
@@ -64,18 +66,29 @@
 - [ToolCallGroup.tsx](file://ui-react/src/components/chat/ToolCallGroup.tsx)
 - [ToolFallback.tsx](file://ui-react/src/components/chat/ToolFallback.tsx)
 - [markdown-components.tsx](file://ui-react/src/components/chat/markdown-components.tsx)
+- [PluginCard.tsx](file://ui-react/src/components/plugins/PluginCard.tsx)
+- [PluginDetailDialog.tsx](file://ui-react/src/components/plugins/PluginDetailDialog.tsx)
+- [PluginsPage.tsx](file://ui-react/src/pages/PluginsPage.tsx)
 - [xhs_evidence_builder.mjs](file://skills/travel-planner/scripts/xhs_evidence_builder.mjs)
 - [route_selector.mjs](file://skills/travel-planner/scripts/route_selector.mjs)
 - [travel-planner-skill.test.ts](file://test/travel-planner-skill.test.ts)
+- [shared.tsx](file://ui-react/src/components/agents/shared.tsx)
+- [card.tsx](file://ui-react/src/components/agents/card.tsx)
+- [detail-drawer.tsx](file://ui-react/src/components/agents/detail-drawer.tsx)
+- [profile.tsx](file://ui-react/src/components/agents/profile.tsx)
+- [skills.tsx](file://ui-react/src/components/agents/skills.tsx)
+- [tools.tsx](file://ui-react/src/components/agents/tools.tsx)
+- [soul.tsx](file://ui-react/src/components/agents/soul.tsx)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增ToolCallGroup和ToolFallback组件，专门用于处理Xiaohongshu证据收集和路由确认步骤的工具调用
-- 增强聊天界面的工具调用可视化，提供分组显示和详细状态跟踪
-- 优化旅行规划技能的工具调用展示，支持Xiaohongshu证据收集和路由确认流程
-- 新增工具分类系统，支持9种不同类型的工具识别和可视化
-- 增强工具调用的错误处理和状态反馈机制
+- 新增SectionCard组件样式改进，提供统一的卡片容器样式
+- 优化AppleToggle组件，实现苹果风格的开关控件
+- 增强Agent管理界面的组件系统，包括AgentCard、ProfileHeroSection等
+- 优化Skills和Tools组件的样式一致性
+- 新增AgentDetailDrawer组件，提供完整的代理详情展示
+- 改进SoulSection组件的编辑和预览功能
 
 ## 目录
 1. [简介](#简介)
@@ -101,6 +114,12 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **优化的聊天事件桥接**：支持复杂的工具调用和流式处理
 - **新增相对时间格式化系统**：提供本地化的相对时间显示，支持多语言环境
 - **新增ToolCallGroup和ToolFallback组件**：专门用于处理Xiaohongshu证据收集和路由确认步骤的工具调用可视化
+- **简化组件库结构**：删除button.tsx和calendar.tsx组件，移除不常用的日期选择功能
+- **插件系统UI简化**：移除PluginCard中的PackageIcon，优化插件管理界面
+- **新增SectionCard组件**：提供统一的卡片容器样式，支持自定义类名
+- **优化AppleToggle组件**：实现苹果风格的开关控件，支持禁用状态和动画效果
+- **增强Agent管理界面**：新增AgentCard、ProfileHeroSection、AgentDetailDrawer等组件
+- **改进Skills和Tools组件**：统一样式设计，提升用户体验一致性
 
 该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。现代化的架构显著提升了用户体验和开发效率。
 
@@ -133,23 +152,65 @@ I --> T[hooks/ - 自定义Hook]
 P --> U[layout/ - 布局组件]
 P --> V[chat/ - 聊天组件]
 P --> W[skills/ - 技能组件]
-P --> X[ui/ - shadcn/ui组件库]
-P --> Y[sonner.tsx - Sonner通知系统]
-P --> Z[relative-time.ts - 相对时间格式化]
-P --> AA[ToolCallGroup.tsx - 工具调用分组组件]
-P --> BB[ToolFallback.tsx - 工具调用回退组件]
+P --> X[plugins/ - 插件组件]
+P --> Y[ui/ - shadcn/ui组件库]
+P --> Z[sonner.tsx - Sonner通知系统]
+P --> AA[relative-time.ts - 相对时间格式化]
+P --> BB[ToolCallGroup.tsx - 工具调用分组组件]
+P --> CC[ToolFallback.tsx - 工具调用回退组件]
+P --> DD[agents/ - 代理管理组件]
 V --> SS[ThreadView.tsx - 聊天线程]
 V --> TT[Composer.tsx - 消息Composer]
 V --> UU[UserMessage.tsx - 用户消息]
 V --> VV[AssistantMessage.tsx - 助手消息]
 V --> WW[AgentSessionList.tsx - 代理会话列表]
-V --> AA[ToolCallGroup.tsx - 工具调用分组]
-V --> BB[ToolFallback.tsx - 工具调用回退]
+V --> BB[ToolCallGroup.tsx - 工具调用分组]
+V --> CC[ToolFallback.tsx - 工具调用回退]
 W --> XX[SkillCard.tsx - 技能卡片]
 W --> YY[SkillsToolbar.tsx - 技能工具栏]
 W --> ZZ[AddSkillDialog.tsx - 技能导入对话框]
-Z --> AAA[formatDistanceToNow - 相对时间格式化]
-Z --> BBB[relativeTime - 时间显示函数]
+X --> DD[PluginCard.tsx - 插件卡片]
+X --> EE[PluginDetailDialog.tsx - 插件详情对话框]
+X --> FF[PluginsPage.tsx - 插件页面]
+Y --> GG[accordion.tsx - 手风琴组件]
+Y --> HH[alert-dialog.tsx - 警告对话框]
+Y --> II[alert.tsx - 警告组件]
+Y --> JJ[avatar.tsx - 头像组件]
+Y --> KK[badge.tsx - 徽章组件]
+Y --> LL[button.tsx - 按钮组件]
+Y --> MM[card.tsx - 卡片组件]
+Y --> NN[chart.tsx - 图表组件]
+Y --> OO[checkbox.tsx - 复选框组件]
+Y --> PP[collapsible.tsx - 可折叠组件]
+Y --> QQ[dialog.tsx - 对话框组件]
+Y --> RR[drawer.tsx - 抽屉组件]
+Y --> SS[dropdown-menu.tsx - 下拉菜单]
+Y --> TT[input.tsx - 输入框组件]
+Y --> UU[label.tsx - 标签组件]
+Y --> VV[popover.tsx - 弹出框组件]
+Y --> WW[scroll-area.tsx - 滚动区域]
+Y --> XX[select.tsx - 选择器组件]
+Y --> YY[separator.tsx - 分隔符组件]
+Y --> ZZ[sheet.tsx - 表格组件]
+Y --> AA[sidebar.tsx - 侧边栏组件]
+Y --> BB[skeleton.tsx - 骨架屏组件]
+Y --> CC[sonner.tsx - 通知组件]
+Y --> DD[switch.tsx - 开关组件]
+Y --> EE[tabs.tsx - 标签页组件]
+Y --> FF[tooltip.tsx - 工具提示组件]
+DD --> GG[shared.tsx - 通用组件]
+DD --> HH[card.tsx - 代理卡片]
+DD --> II[detail-drawer.tsx - 代理详情抽屉]
+DD --> JJ[profile.tsx - 代理档案]
+DD --> KK[skills.tsx - 技能管理]
+DD --> LL[tools.tsx - 工具管理]
+DD --> MM[soul.tsx - 灵魂管理]
+GG --> NN[SectionCard - 卡片容器]
+GG --> OO[AppleToggle - 苹果开关]
+GG --> PP[DialogSearchInput - 搜索输入]
+GG --> QQ[CategoryPills - 分类标签]
+ZZ --> AAA[formatDistanceToNow - 相对时间格式化]
+ZZ --> BBB[relativeTime - 时间显示函数]
 ```
 
 **图表来源**
@@ -177,6 +238,16 @@ Z --> BBB[relativeTime - 时间显示函数]
 - [CronPage.tsx:1-184](file://ui-react/src/pages/CronPage.tsx#L1-L184)
 - [ToolCallGroup.tsx:1-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L274)
 - [ToolFallback.tsx:1-532](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L532)
+- [PluginCard.tsx:1-231](file://ui-react/src/components/plugins/PluginCard.tsx#L1-L231)
+- [PluginDetailDialog.tsx:1-185](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L1-L185)
+- [PluginsPage.tsx:1-109](file://ui-react/src/pages/PluginsPage.tsx#L1-L109)
+- [shared.tsx:1-103](file://ui-react/src/components/agents/shared.tsx#L1-L103)
+- [card.tsx:1-59](file://ui-react/src/components/agents/card.tsx#L1-L59)
+- [detail-drawer.tsx:1-156](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L156)
+- [profile.tsx:1-483](file://ui-react/src/components/agents/profile.tsx#L1-L483)
+- [skills.tsx:1-348](file://ui-react/src/components/agents/skills.tsx#L1-L348)
+- [tools.tsx:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
+- [soul.tsx:1-168](file://ui-react/src/components/agents/soul.tsx#L1-L168)
 
 **章节来源**
 - [README.md:185-212](file://README.md#L185-L212)
@@ -342,10 +413,8 @@ class Sidebar {
 class SidebarProvider {
 +defaultOpen : boolean
 +open : boolean
-+onOpenChange : Function
-+children : ReactNode
-+state : "expanded" | "collapsed"
 +openMobile : boolean
++state : "expanded" | "collapsed"
 +togglSidebar() void
 }
 class SidebarTrigger {
@@ -821,6 +890,282 @@ M --> AB[WrenchIcon]
 - [ToolCallGroup.tsx:1-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L274)
 - [ToolFallback.tsx:1-532](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L532)
 
+### 现代化的插格系统组件
+
+**更新** 插格系统UI经过简化，移除了PluginCard中的PackageIcon，优化了插格管理界面：
+
+```mermaid
+classDiagram
+class PluginCard {
++plugin : PluginRecord
++detailOpen : boolean
++confirmOpen : boolean
++pendingEnable : boolean
++isToggling : boolean
++toggleErrMsg : string
++canToggle : boolean
++isDisabled : boolean
++hasRealError : boolean
++handleToggleClick() void
++handleConfirm() void
++render() ReactNode
+}
+class PluginDetailDialog {
++plugin : PluginRecord
++open : boolean
++onOpenChange : Function
++docsUrl : string
++hasRealError : boolean
++disabledReason : string
++capabilities : string[]
++render() ReactNode
+}
+class PluginsPage {
++isConnected : boolean
++allPlugins : PluginRecord[]
++plugins : PluginRecord[]
++loading : boolean
++lastError : string
++diagnostics : Diagnostic[]
++fetchPlugins : Function
++render() ReactNode
+}
+PluginCard --> PluginDetailDialog : 打开详情
+PluginsPage --> PluginCard : 渲染插格
+```
+
+**图表来源**
+- [PluginCard.tsx:55-230](file://ui-react/src/components/plugins/PluginCard.tsx#L55-L230)
+- [PluginDetailDialog.tsx:40-184](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L40-L184)
+- [PluginsPage.tsx:9-108](file://ui-react/src/pages/PluginsPage.tsx#L9-L108)
+
+#### 插格管理简化流程
+
+```mermaid
+flowchart TD
+A[插格管理界面] --> B[插格列表显示]
+B --> C[插格卡片渲染]
+C --> D[移除PackageIcon]
+D --> E[简化状态显示]
+E --> F[优化交互元素]
+F --> G[PluginDetailDialog简化]
+G --> H[移除PackageIcon]
+H --> I[保留核心信息]
+I --> J[优化布局结构]
+J --> K[提升用户体验]
+```
+
+**图表来源**
+- [PluginCard.tsx:107-198](file://ui-react/src/components/plugins/PluginCard.tsx#L107-L198)
+- [PluginDetailDialog.tsx:84-113](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L84-L113)
+- [PluginsPage.tsx:89-96](file://ui-react/src/pages/PluginsPage.tsx#L89-L96)
+
+**章节来源**
+- [PluginCard.tsx:55-230](file://ui-react/src/components/plugins/PluginCard.tsx#L55-L230)
+- [PluginDetailDialog.tsx:40-184](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L40-L184)
+- [PluginsPage.tsx:9-108](file://ui-react/src/pages/PluginsPage.tsx#L9-L108)
+
+### 现代化的Agent管理组件系统
+
+**新增** 完整的Agent管理组件系统，提供现代化的代理管理和配置功能：
+
+```mermaid
+classDiagram
+class SectionCard {
++children : ReactNode
++className : string
++render() ReactNode
+}
+class AppleToggle {
++checked : boolean
++disabled : boolean
++onChange : Function
++render() ReactNode
+}
+class AgentCard {
++id : string
++name : string
++emoji : string
++avatar : string
++isSelected : boolean
++onClick : Function
++render() ReactNode
+}
+class AgentDetailDrawer {
++open : boolean
++onOpenChange : Function
++agentId : string
++defaultAgentId : string
++onChatClick : Function
++render() ReactNode
+}
+class ProfileHeroSection {
++agentId : string
++onChatClick : Function
++render() ReactNode
+}
+class CoreSkillsSection {
++agentId : string
++render() ReactNode
+}
+class ToolsSection {
++agentId : string
++render() ReactNode
+}
+class SoulSection {
++agentId : string
++render() ReactNode
+}
+SectionCard --> AgentCard : 包含
+AgentDetailDrawer --> ProfileHeroSection : 包含
+AgentDetailDrawer --> CoreSkillsSection : 包含
+AgentDetailDrawer --> ToolsSection : 包含
+AgentDetailDrawer --> SoulSection : 包含
+```
+
+**图表来源**
+- [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
+- [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
+- [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
+- [profile.tsx:138-353](file://ui-react/src/components/agents/profile.tsx#L138-L353)
+- [skills.tsx:176-347](file://ui-react/src/components/agents/skills.tsx#L176-L347)
+- [tools.tsx:349-553](file://ui-react/src/components/agents/tools.tsx#L349-L553)
+- [soul.tsx:15-167](file://ui-react/src/components/agents/soul.tsx#L15-L167)
+
+#### SectionCard组件样式改进
+
+**新增** SectionCard组件提供了统一的卡片容器样式，支持自定义类名扩展：
+
+```mermaid
+flowchart TD
+A[SectionCard组件] --> B[圆角设计]
+A --> C[边框样式]
+A --> D[阴影效果]
+A --> E[内边距设置]
+B --> F[rounded-3xl圆角]
+C --> G[border border-[#F0F0F0]边框]
+D --> H[shadow-sm阴影]
+E --> I[px-6 py-5内边距]
+F --> J[统一视觉风格]
+G --> J
+H --> J
+I --> J
+J --> K[可扩展的className参数]
+```
+
+**图表来源**
+- [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
+
+#### AppleToggle组件优化
+
+**新增** AppleToggle组件实现了苹果风格的开关控件，提供流畅的动画效果和禁用状态支持：
+
+```mermaid
+flowchart TD
+A[AppleToggle组件] --> B[尺寸规格]
+A --> C[颜色状态]
+A --> D[动画效果]
+A --> E[交互状态]
+B --> F[h-5 w-9尺寸]
+C --> G[checked状态红色]
+C --> H[unchecked状态灰色]
+D --> I[transition-colors 200ms动画]
+D --> J[translate变换动画]
+E --> K[disabled禁用状态]
+E --> L[aria-checked语义化]
+F --> M[圆角设计]
+G --> N[bg-[#BA0034]红色]
+H --> O[bg-[#E9E9EA]灰色]
+I --> P[平滑过渡效果]
+J --> Q[translate-x位置变换]
+K --> R[opacity-40透明度]
+L --> S[可访问性支持]
+M --> T[视觉一致性]
+N --> T
+O --> T
+P --> T
+Q --> T
+R --> T
+S --> T
+```
+
+**图表来源**
+- [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
+
+#### AgentCard组件样式优化
+
+**新增** AgentCard组件提供了现代化的代理卡片设计，支持选中状态和悬停效果：
+
+```mermaid
+flowchart TD
+A[AgentCard组件] --> B[选中状态]
+A --> C[悬停效果]
+A --> D[头像显示]
+A --> E[选中指示器]
+B --> F[边框-[#BA0034]红色]
+B --> G[背景-[#BA0034]/10半透明]
+B --> H[shadow-md阴影]
+C --> I[hover:border-[#BA0034]/30]
+C --> J[hover:bg-[#BA0034]/5]
+C --> K[hover:shadow-lg]
+D --> L[圆角2xl背景]
+D --> M[溢出隐藏]
+E --> N[绝对定位右上角]
+E --> O[红色圆点指示器]
+F --> P[视觉反馈]
+G --> P
+H --> P
+I --> P
+J --> P
+K --> P
+L --> P
+M --> P
+N --> P
+O --> P
+```
+
+**图表来源**
+- [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+
+#### AgentDetailDrawer组件功能增强
+
+**新增** AgentDetailDrawer组件提供了完整的代理详情展示界面，支持抽屉式布局和滚动区域：
+
+```mermaid
+flowchart TD
+A[AgentDetailDrawer组件] --> B[抽屉布局]
+A --> C[滚动区域]
+A --> D[删除确认]
+A --> E[侧边操作]
+B --> F[right方向]
+B --> G[w-[80vw]最大宽度]
+C --> H[ScrollArea滚动]
+C --> I[h-[calc(100vh-100px)]高度]
+D --> J[Dialog确认框]
+D --> K[删除目标状态]
+E --> L[删除按钮]
+E --> M[关闭按钮]
+F --> N[响应式设计]
+G --> N
+H --> N
+I --> N
+J --> N
+K --> N
+L --> N
+M --> N
+N --> O[完整的代理管理界面]
+```
+
+**图表来源**
+- [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
+
+**章节来源**
+- [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
+- [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
+- [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
+
 ## 架构概览
 
 UI组件系统采用现代化的分层架构设计，实现了清晰的关注点分离：
@@ -873,6 +1218,31 @@ YY[ToolFallback组件] --> BB[分类系统]
 CC[markdown-components] --> DD[Markdown渲染]
 CC[markdown-components] --> EE[代码块样式]
 CC[markdown-components] --> FF[表格样式]
+DD[xhs_evidence_builder.mjs] --> QQ[Xiaohongshu证据收集]
+DD[xhs_evidence_builder.mjs] --> RR[搜索查询构建]
+DD[xhs_evidence_builder.mjs] --> SS[证据质量评估]
+HH[route_selector.mjs] --> UU[路由候选生成]
+HH[route_selector.mjs] --> VV[证据质量判断]
+HH[route_selector.mjs] --> WW[下一步行动建议]
+XX[travel-planner-skill.test.ts] --> YY[测试用例验证]
+XX[travel-planner-skill.test.ts] --> ZZ[Xiaohongshu证据需求]
+AA[PluginCard组件] --> BB[插格管理]
+AA[PluginCard组件] --> CC[状态显示]
+AA[PluginCard组件] --> DD[交互元素]
+EE[PluginDetailDialog组件] --> FF[插格详情]
+EE[PluginDetailDialog组件] --> GG[核心信息]
+EE[PluginDetailDialog组件] --> HH[简化布局]
+II[PluginsPage组件] --> JJ[插格列表]
+II[PluginsPage组件] --> KK[空状态显示]
+II[PluginsPage组件] --> LL[诊断信息]
+MM[Agent管理组件] --> NN[SectionCard卡片容器]
+MM[Agent管理组件] --> OO[AppleToggle开关控件]
+MM[Agent管理组件] --> PP[AgentCard代理卡片]
+MM[Agent管理组件] --> QQ[AgentDetailDrawer详情抽屉]
+MM[Agent管理组件] --> RR[ProfileHeroSection档案展示]
+MM[Agent管理组件] --> SS[CoreSkillsSection技能管理]
+MM[Agent管理组件] --> TT[ToolsSection工具管理]
+MM[Agent管理组件] --> UU[SoulSection灵魂管理]
 ```
 
 **图表来源**
@@ -888,7 +1258,17 @@ CC[markdown-components] --> FF[表格样式]
 - [CronPage.tsx:1-184](file://ui-react/src/pages/CronPage.tsx#L1-L184)
 - [ToolCallGroup.tsx:1-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L274)
 - [ToolFallback.tsx:1-532](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L532)
+- [PluginCard.tsx:1-231](file://ui-react/src/components/plugins/PluginCard.tsx#L1-L231)
+- [PluginDetailDialog.tsx:1-185](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L1-L185)
+- [PluginsPage.tsx:1-109](file://ui-react/src/pages/PluginsPage.tsx#L1-L109)
 - [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
+- [shared.tsx:1-103](file://ui-react/src/components/agents/shared.tsx#L1-L103)
+- [card.tsx:1-59](file://ui-react/src/components/agents/card.tsx#L1-L59)
+- [detail-drawer.tsx:1-156](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L156)
+- [profile.tsx:1-483](file://ui-react/src/components/agents/profile.tsx#L1-L483)
+- [skills.tsx:1-348](file://ui-react/src/components/agents/skills.tsx#L1-L348)
+- [tools.tsx:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
+- [soul.tsx:1-168](file://ui-react/src/components/agents/soul.tsx#L1-L168)
 
 ## 详细组件分析
 
@@ -1574,7 +1954,7 @@ class ToolCallGroup {
 }
 class GroupStatusBadge {
 +status : GroupStatus
-+failCount : number
++failCount : int
 +render() ReactNode
 }
 class ToolCallGroupInner {
@@ -1584,9 +1964,9 @@ class ToolCallGroupInner {
 +messageIsRunning : boolean
 +toolParts : RawToolPart[]
 +groupStatus : GroupStatus
-+failCount : number
++failCount : int
 +iconConfigs : IconConfig[]
-+overflow : number
++overflow : int
 +render() ReactNode
 }
 ToolCallGroup --> ToolCallGroupInner : 包装
@@ -1693,6 +2073,271 @@ Q --> U
 - [ToolCallGroup.tsx:1-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L274)
 - [ToolFallback.tsx:1-532](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L532)
 
+### 现代化的插格系统组件
+
+#### PluginCard组件
+
+**更新** PluginCard组件经过简化，移除了PackageIcon，优化了插格管理界面：
+
+```mermaid
+classDiagram
+class PluginCard {
++plugin : PluginRecord
++detailOpen : boolean
++confirmOpen : boolean
++pendingEnable : boolean
++isToggling : boolean
++toggleErrMsg : string
++canToggle : boolean
++isDisabled : boolean
++hasRealError : boolean
++handleToggleClick() void
++handleConfirm() void
++render() ReactNode
+}
+class StatusBadge {
++status : PluginRecord["status"]
++render() ReactNode
+}
+class OriginPill {
++origin : string
++render() ReactNode
+}
+class PluginDetailDialog {
++plugin : PluginRecord
++open : boolean
++onOpenChange : Function
++docsUrl : string
++hasRealError : boolean
++disabledReason : string
++capabilities : string[]
++render() ReactNode
+}
+PluginCard --> StatusBadge : 使用
+PluginCard --> OriginPill : 使用
+PluginCard --> PluginDetailDialog : 打开
+```
+
+**图表来源**
+- [PluginCard.tsx:14-34](file://ui-react/src/components/plugins/PluginCard.tsx#L14-L34)
+- [PluginCard.tsx:36-53](file://ui-react/src/components/plugins/PluginCard.tsx#L36-L53)
+- [PluginCard.tsx:55-230](file://ui-react/src/components/plugins/PluginCard.tsx#L55-L230)
+- [PluginDetailDialog.tsx:40-184](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L40-L184)
+
+#### 插格详情对话框简化
+
+**更新** PluginDetailDialog组件移除了PackageIcon，保留了核心功能：
+
+```mermaid
+classDiagram
+class PluginDetailDialog {
++plugin : PluginRecord
++open : boolean
++onOpenChange : Function
++docsUrl : string
++hasRealError : boolean
++disabledReason : string
++capabilities : string[]
++render() ReactNode
+}
+class InfoRow {
++label : string
++value : string
++render() ReactNode
+}
+class TagPill {
++label : string
++render() ReactNode
+}
+class Section {
++title : string
++children : React.ReactNode
++render() ReactNode
+}
+PluginDetailDialog --> InfoRow : 使用
+PluginDetailDialog --> TagPill : 使用
+PluginDetailDialog --> Section : 使用
+```
+
+**图表来源**
+- [PluginDetailDialog.tsx:12-21](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L12-L21)
+- [PluginDetailDialog.tsx:23-29](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L23-L29)
+- [PluginDetailDialog.tsx:31-38](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L31-L38)
+- [PluginDetailDialog.tsx:40-184](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L40-L184)
+
+#### 插格页面优化
+
+**更新** PluginsPage组件移除了PackageIcon的使用：
+
+```mermaid
+flowchart TD
+A[PluginsPage组件] --> B[插格列表渲染]
+A --> C[空状态显示]
+A --> D[诊断信息展示]
+B --> E[PluginCard组件]
+C --> F[简化空状态]
+D --> G[诊断信息样式]
+E --> H[移除PackageIcon]
+F --> I[简化布局]
+G --> J[优化样式]
+```
+
+**图表来源**
+- [PluginsPage.tsx:89-96](file://ui-react/src/pages/PluginsPage.tsx#L89-L96)
+- [PluginsPage.tsx:98-104](file://ui-react/src/pages/PluginsPage.tsx#L98-L104)
+
+**章节来源**
+- [PluginCard.tsx:14-34](file://ui-react/src/components/plugins/PluginCard.tsx#L14-L34)
+- [PluginCard.tsx:36-53](file://ui-react/src/components/plugins/PluginCard.tsx#L36-L53)
+- [PluginCard.tsx:55-230](file://ui-react/src/components/plugins/PluginCard.tsx#L55-L230)
+- [PluginDetailDialog.tsx:12-21](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L12-L21)
+- [PluginDetailDialog.tsx:23-29](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L23-L29)
+- [PluginDetailDialog.tsx:31-38](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L31-L38)
+- [PluginDetailDialog.tsx:40-184](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L40-L184)
+- [PluginsPage.tsx:89-96](file://ui-react/src/pages/PluginsPage.tsx#L89-L96)
+- [PluginsPage.tsx:98-104](file://ui-react/src/pages/PluginsPage.tsx#L98-L104)
+
+### 现代化的Agent管理组件系统
+
+#### SectionCard组件样式改进
+
+**新增** SectionCard组件提供了统一的卡片容器样式，支持自定义类名扩展：
+
+```mermaid
+classDiagram
+class SectionCard {
++children : ReactNode
++className : string
++render() ReactNode
+}
+class SectionLabel {
++children : ReactNode
++render() ReactNode
+}
+SectionCard --> SectionLabel : 包含
+```
+
+**图表来源**
+- [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
+- [shared.tsx:12-16](file://ui-react/src/components/agents/shared.tsx#L12-L16)
+
+#### AppleToggle组件优化
+
+**新增** AppleToggle组件实现了苹果风格的开关控件，提供流畅的动画效果和禁用状态支持：
+
+```mermaid
+classDiagram
+class AppleToggle {
++checked : boolean
++disabled : boolean
++onChange : Function
++render() ReactNode
+}
+class ToggleState {
++checked : boolean
++disabled : boolean
+}
+class ToggleAnimation {
++transition : "transition-colors duration-200"
++transform : "transform transition-transform duration-200"
+}
+class ToggleColors {
++checkedColor : "bg-[#BA0034]"
++uncheckedColor : "bg-[#E9E9EA]"
+}
+AppleToggle --> ToggleState : 使用
+AppleToggle --> ToggleAnimation : 使用
+AppleToggle --> ToggleColors : 使用
+```
+
+**图表来源**
+- [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
+
+#### AgentCard组件样式优化
+
+**新增** AgentCard组件提供了现代化的代理卡片设计，支持选中状态和悬停效果：
+
+```mermaid
+classDiagram
+class AgentCard {
++id : string
++name : string
++emoji : string
++avatar : string
++isSelected : boolean
++onClick : Function
++render() ReactNode
+}
+class CardState {
++isSelected : boolean
+}
+class CardHover {
++hoverEffect : "hover : border-[#BA0034]/30 hover : bg-[#BA0034]/5 hover : shadow-lg"
+}
+class CardSelected {
++selectedBorder : "border-[#BA0034]"
++selectedBackground : "bg-[#BA0034]/10"
++selectedShadow : "shadow-md"
+}
+class CardAvatar {
++avatarSize : "size-24"
++avatarTransition : "transition-transform group-hover : scale-110"
+}
+AgentCard --> CardState : 使用
+AgentCard --> CardHover : 使用
+AgentCard --> CardSelected : 使用
+AgentCard --> CardAvatar : 使用
+```
+
+**图表来源**
+- [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+
+#### AgentDetailDrawer组件功能增强
+
+**新增** AgentDetailDrawer组件提供了完整的代理详情展示界面，支持抽屉式布局和滚动区域：
+
+```mermaid
+classDiagram
+class AgentDetailDrawer {
++open : boolean
++onOpenChange : Function
++agentId : string
++defaultAgentId : string
++onChatClick : Function
++render() ReactNode
+}
+class DrawerLayout {
++direction : "right"
++width : "w-[80vw]"
++maxWidth : "max-w-[80vw]"
+}
+class DrawerHeader {
++backgroundColor : "bg-[#F7F7F7]"
++borderColor : "border-[#EFEFEF]"
+}
+class DrawerContent {
++scrollArea : "h-[calc(100vh-100px)]"
++contentWidth : "max-w-3xl"
+}
+class DrawerActions {
++deleteButton : "text-destructive border-destructive/30"
++closeButton : "size-10"
+}
+AgentDetailDrawer --> DrawerLayout : 使用
+AgentDetailDrawer --> DrawerHeader : 使用
+AgentDetailDrawer --> DrawerContent : 使用
+AgentDetailDrawer --> DrawerActions : 使用
+```
+
+**图表来源**
+- [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
+
+**章节来源**
+- [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
+- [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
+- [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
+
 ## 依赖关系分析
 
 ### 现代化依赖图谱
@@ -1753,6 +2398,30 @@ TT[route_selector.mjs] --> VV[证据质量判断]
 TT[route_selector.mjs] --> WW[下一步行动建议]
 XX[travel-planner-skill.test.ts] --> YY[测试用例验证]
 XX[travel-planner-skill.test.ts] --> ZZ[Xiaohongshu证据需求]
+BB[PluginCard组件] --> CC[插格管理]
+BB[PluginCard组件] --> DD[状态显示]
+BB[PluginCard组件] --> EE[交互元素]
+HH[PluginDetailDialog组件] --> II[插格详情]
+HH[PluginDetailDialog组件] --> JJ[核心信息]
+HH[PluginDetailDialog组件] --> KK[简化布局]
+MM[PluginsPage组件] --> NN[插格列表]
+MM[PluginsPage组件] --> OO[空状态显示]
+MM[PluginsPage组件] --> PP[诊断信息]
+QQ[SectionCard组件] --> RR[卡片容器]
+QQ[SectionCard组件] --> SS[统一样式]
+QQ[SectionCard组件] --> TT[自定义扩展]
+UU[AppleToggle组件] --> VV[开关控件]
+UU[AppleToggle组件] --> WW[动画效果]
+UU[AppleToggle组件] --> XX[禁用状态]
+YY[AgentCard组件] --> ZZ[代理卡片]
+YY[AgentCard组件] --> AA[选中状态]
+YY[AgentCard组件] --> BB[悬停效果]
+CC[AgentDetailDrawer组件] --> DD[详情抽屉]
+CC[AgentDetailDrawer组件] --> EE[抽屉布局]
+CC[AgentDetailDrawer组件] --> FF[滚动区域]
+GG[ProfileHeroSection组件] --> HH[档案展示]
+GG[ProfileHeroSection组件] --> II[头像显示]
+GG[ProfileHeroSection组件] --> JJ[在线状态]
 ```
 
 **图表来源**
@@ -1775,7 +2444,14 @@ XX[travel-planner-skill.test.ts] --> ZZ[Xiaohongshu证据需求]
 - [CronPage.tsx:1-184](file://ui-react/src/pages/CronPage.tsx#L1-L184)
 - [ToolCallGroup.tsx:1-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L274)
 - [ToolFallback.tsx:1-532](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L532)
+- [PluginCard.tsx:1-231](file://ui-react/src/components/plugins/PluginCard.tsx#L1-L231)
+- [PluginDetailDialog.tsx:1-185](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L1-L185)
+- [PluginsPage.tsx:1-109](file://ui-react/src/pages/PluginsPage.tsx#L1-L109)
 - [markdown-components.tsx:1-174](file://ui-react/src/components/chat/markdown-components.tsx#L1-L174)
+- [shared.tsx:1-103](file://ui-react/src/components/agents/shared.tsx#L1-L103)
+- [card.tsx:1-59](file://ui-react/src/components/agents/card.tsx#L1-L59)
+- [detail-drawer.tsx:1-156](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L156)
+- [profile.tsx:1-483](file://ui-react/src/components/agents/profile.tsx#L1-L483)
 - [xhs_evidence_builder.mjs:90-155](file://skills/travel-planner/scripts/xhs_evidence_builder.mjs#L90-L155)
 - [route_selector.mjs:44-214](file://skills/travel-planner/scripts/route_selector.mjs#L44-L214)
 - [travel-planner-skill.test.ts:41-57](file://test/travel-planner-skill.test.ts#L41-L57)
@@ -1803,6 +2479,11 @@ XX[travel-planner-skill.test.ts] --> ZZ[Xiaohongshu证据需求]
 | 相对时间格式化 | ❌ 不支持 | ✅ **全新实现** | ✅ **本地化时间显示** | ✅ **完全现代化** |
 | **工具调用组件** | ❌ 不支持 | ✅ **全新实现** | ✅ **Xiaohongshu证据收集** | ✅ **完全现代化** |
 | **旅行规划技能** | ❌ 不支持 | ✅ **增强支持** | ✅ **路由确认步骤** | ✅ **部分现代化** |
+| **插格系统简化** | ❌ 不支持 | ✅ **全新实现** | ✅ **移除PackageIcon** | ✅ **完全现代化** |
+| **Agent管理组件** | ❌ 不支持 | ✅ **全新实现** | ✅ **SectionCard样式改进** | ✅ **完全现代化** |
+| **AppleToggle优化** | ❌ 不支持 | ✅ **全新实现** | ✅ **苹果风格开关** | ✅ **完全现代化** |
+| **AgentCard样式优化** | ❌ 不支持 | ✅ **全新实现** | ✅ **现代化卡片设计** | ✅ **完全现代化** |
+| **AgentDetailDrawer增强** | ❌ 不支持 | ✅ **全新实现** | ✅ **完整详情界面** | ✅ **完全现代化** |
 
 **章节来源**
 - [package.json:11-26](file://ui/package.json#L11-L26)
@@ -1821,6 +2502,13 @@ XX[travel-planner-skill.test.ts] --> ZZ[Xiaohongshu证据需求]
 - [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
 - [ToolCallGroup.tsx:1-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L274)
 - [ToolFallback.tsx:1-532](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L532)
+- [PluginCard.tsx:1-231](file://ui-react/src/components/plugins/PluginCard.tsx#L1-L231)
+- [PluginDetailDialog.tsx:1-185](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L1-L185)
+- [PluginsPage.tsx:1-109](file://ui-react/src/pages/PluginsPage.tsx#L1-L109)
+- [shared.tsx:1-103](file://ui-react/src/components/agents/shared.tsx#L1-L103)
+- [card.tsx:1-59](file://ui-react/src/components/agents/card.tsx#L1-L59)
+- [detail-drawer.tsx:1-156](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L156)
+- [profile.tsx:1-483](file://ui-react/src/components/agents/profile.tsx#L1-L483)
 - [xhs_evidence_builder.mjs:90-155](file://skills/travel-planner/scripts/xhs_evidence_builder.mjs#L90-L155)
 - [route_selector.mjs:44-214](file://skills/travel-planner/scripts/route_selector.mjs#L44-L214)
 - [travel-planner-skill.test.ts:41-57](file://test/travel-planner-skill.test.ts#L41-L57)
@@ -1847,6 +2535,13 @@ XX[travel-planner-skill.test.ts] --> ZZ[Xiaohongshu证据需求]
 16. **工具调用组件优化**：ToolCallGroup和ToolFallback使用高效的工具分类和状态管理
 17. **Markdown渲染优化**：markdown-components使用memoization提升渲染性能
 18. **旅行规划技能优化**：Xiaohongshu证据收集和路由确认流程的性能优化
+19. **插格系统优化**：移除PackageIcon后减少了图标渲染开销
+20. **组件库精简**：删除button.tsx和calendar.tsx组件，减少包体积和加载时间
+21. **SectionCard样式优化**：统一的卡片容器样式，减少重复的样式计算
+22. **AppleToggle动画优化**：使用CSS transition和transform，提供流畅的动画效果
+23. **AgentCard悬停优化**：使用CSS hover伪类，避免JavaScript事件监听
+24. **AgentDetailDrawer滚动优化**：使用CSS height和overflow，提供更好的滚动性能
+25. **ProfileHeroSection头像优化**：使用CSS background和overflow，提升图片渲染性能
 
 ### 现代化内存管理
 
@@ -1895,6 +2590,46 @@ UU --> |高| VV[清理工具详情缓存]
 UU --> |正常| WW[保持工具详情状态]
 VV --> XX[重置工具详情配置]
 WW --> YY[继续渲染]
+AA[PluginCard组件] --> BB[内存占用]
+BB --> |高| CC[清理插格状态缓存]
+BB --> |正常| DD[保持插格状态]
+CC --> EE[重置插格配置]
+DD --> FF[继续渲染]
+GG[PluginDetailDialog组件] --> HH[内存占用]
+HH --> |高| II[清理对话框缓存]
+HH --> |正常| JJ[保持对话框状态]
+II --> KK[重置对话框配置]
+JJ --> LL[继续渲染]
+MM[PluginsPage组件] --> NN[内存占用]
+NN --> |高| OO[清理插格列表缓存]
+NN --> |正常| PP[保持插格列表]
+OO --> QQ[重置插格列表配置]
+PP --> RR[继续渲染]
+SS[SectionCard组件] --> TT[内存占用]
+TT --> |高| UU[清理卡片缓存]
+TT --> |正常| VV[保持卡片状态]
+UU --> WW[重置卡片配置]
+VV --> XX[继续渲染]
+YY[AppleToggle组件] --> AA[内存占用]
+AA --> |高| BB[清理切换状态缓存]
+AA --> |正常| CC[保持切换状态]
+BB --> DD[重置切换配置]
+CC --> EE[继续渲染]
+FF[AgentCard组件] --> GG[内存占用]
+GG --> |高| HH[清理卡片状态缓存]
+GG --> |正常| II[保持卡片状态]
+HH --> JJ[重置卡片配置]
+II --> KK[继续渲染]
+LL[AgentDetailDrawer组件] --> MM[内存占用]
+MM --> |高| NN[清理抽屉状态缓存]
+MM --> |正常| OO[保持抽屉状态]
+NN --> PP[重置抽屉配置]
+OO --> QQ[继续渲染]
+RR[ProfileHeroSection组件] --> SS[内存占用]
+SS --> |高| TT[清理档案状态缓存]
+SS --> |正常| UU[保持档案状态]
+TT --> VV[重置档案配置]
+UU --> WW[继续渲染]
 ```
 
 ### 现代化网络优化
@@ -1917,6 +2652,13 @@ WW --> YY[继续渲染]
 - **工具调用组件缓存**：ToolCallGroup和ToolFallback的状态和配置进行缓存
 - **Markdown渲染缓存**：markdown-components使用memoization减少重新渲染
 - **旅行规划技能缓存**：Xiaohongshu证据收集和路由确认结果进行缓存
+- **插格系统缓存**：PluginCard和PluginDetailDialog的状态进行缓存
+- **插格页面缓存**：PluginsPage的插格列表和诊断信息进行缓存
+- **SectionCard样式缓存**：卡片容器样式进行缓存，提升渲染性能
+- **AppleToggle动画缓存**：切换动画状态进行缓存，避免重复计算
+- **AgentCard悬停缓存**：悬停状态进行缓存，提升交互性能
+- **AgentDetailDrawer滚动缓存**：滚动位置进行缓存，提升用户体验
+- **ProfileHeroSection头像缓存**：头像资源进行缓存，提升加载速度
 
 ## 故障排除指南
 
@@ -1934,6 +2676,9 @@ WW --> YY[继续渲染]
    - 确认JavaScript执行环境
    - **验证assistant-ui/react框架是否正确加载**
    - **检查ToolCallGroup和ToolFallback组件是否正确渲染**
+   - **验证PluginCard组件是否正确渲染**
+   - **检查SectionCard组件样式是否正确应用**
+   - **验证AppleToggle组件动画是否正常**
 
 3. **性能问题**
    - 监控内存使用情况
@@ -1941,6 +2686,10 @@ WW --> YY[继续渲染]
    - 分析网络请求时间
    - **检查Zustand状态管理的性能**
    - **验证工具调用组件的渲染性能**
+   - **检查插格系统渲染性能**
+   - **验证SectionCard组件的样式性能**
+   - **检查AppleToggle组件的动画性能**
+   - **验证AgentCard组件的交互性能**
 
 4. **技能管理问题**
    - 检查技能API密钥是否正确
@@ -1971,6 +2720,7 @@ WW --> YY[继续渲染]
    - **检查聊天状态是否正确更新**
    - **确认技能状态是否正确同步**
    - **验证网关连接状态**
+   - **检查Agent管理状态**
 
 9. **assistant-ui/react问题**
    - **检查聊天框架是否正确初始化**
@@ -1978,6 +2728,8 @@ WW --> YY[继续渲染]
    - **确认消息渲染是否正确**
    - **检查流式响应处理**
    - **验证工具调用组件的渲染**
+   - **验证插格系统组件的渲染**
+   - **验证Agent管理组件的渲染**
 
 10. **Hook系统问题**
     - **验证自定义Hook是否正确使用**
@@ -1985,6 +2737,8 @@ WW --> YY[继续渲染]
     - **确认useSessionManager会话管理**
     - **验证useMobile移动端检测**
     - **检查工具调用组件的Hook使用**
+    - **验证插格系统组件的Hook使用**
+    - **验证Agent管理组件的Hook使用**
 
 11. **国际化问题**
     - **验证翻译文件加载**
@@ -1997,6 +2751,7 @@ WW --> YY[继续渲染]
     - **验证文件上传功能**
     - **确认Markdown渲染效果**
     - **检查国际化翻译是否正确**
+    - **验证ProfileHeroSection头像显示**
 
 13. **邀请码验证问题**
     - **检查邀请码格式验证是否正确**
@@ -2026,6 +2781,7 @@ WW --> YY[继续渲染]
     - **确认工具调用状态显示是否正确**
     - **检查工具详情抽屉的功能**
     - **验证工具调用的错误处理**
+    - **检查SectionCard组件的工具调用显示**
 
 17. **旅行规划技能问题**
     - **检查Xiaohongshu证据收集是否正常**
@@ -2033,6 +2789,24 @@ WW --> YY[继续渲染]
     - **确认工具调用的Xiaohongshu支持**
     - **检查测试用例的验证结果**
     - **验证旅行规划技能的完整流程**
+
+18. **插格系统问题**
+    - **检查PluginCard组件是否正确渲染**
+    - **验证PluginDetailDialog组件是否正常工作**
+    - **确认插格状态显示是否正确**
+    - **检查插格管理功能**
+    - **验证插格系统UI简化后的功能**
+    - **确认PackageIcon移除后的显示效果**
+    - **检查SectionCard组件的插格显示**
+
+19. **Agent管理组件问题**
+    - **检查SectionCard组件是否正确渲染**
+    - **验证AppleToggle组件是否正常工作**
+    - **确认SectionLabel组件的样式**
+    - **检查AgentCard组件的样式**
+    - **验证AgentDetailDrawer组件的功能**
+    - **确认ProfileHeroSection组件的显示**
+    - **检查Skills和Tools组件的样式一致性**
 
 ### 现代化调试工具
 
@@ -2060,56 +2834,82 @@ U[assistant-ui/react调试] --> V[聊天框架检查]
 U[assistant-ui/react调试] --> W[事件桥接检查]
 U[assistant-ui/react调试] --> X[消息渲染检查]
 U[assistant-ui/react调试] --> Y[工具调用组件检查]
-Z[Hook系统调试] --> AA[useChatEventBridge检查]
-Z[Hook系统调试] --> BB[useSessionManager检查]
-Z[Hook系统调试] --> CC[useMobile检查]
-DD[Profile调试] --> EE[模板加载检查]
-DD[Profile调试] --> FF[文件上传检查]
-DD[Profile调试] --> GG[Markdown渲染检查]
-HH[国际化调试] --> II[翻译文件检查]
-HH[国际化调试] --> JJ[语言切换检查]
-HH[国际化调试] --> KK[动态翻译检查]
-LL[邀请码验证调试] --> MM[InviteCodeClient检查]
-LL[邀请码验证调试] --> NN[verifyInviteCode函数检查]
-LL[邀请码验证调试] --> OO[handleInviteCodeVerify函数检查]
-MM --> PP[签名生成检查]
-MM --> QQ[格式验证检查]
-NN --> RR[请求头检查]
-NN --> SS[响应处理检查]
-OO --> TT[状态更新检查]
-OO --> UU[错误处理检查]
-VV[Sonner调试] --> WW[Toaster组件检查]
-VV[Sonner调试] --> XX[主题集成检查]
-VV[Sonner调试] --> YY[图标系统检查]
-VV[Sonner调试] --> ZZ[CSS变量检查]
-WW --> AA[通知显示检查]
-XX --> BB[主题切换检查]
-YY --> CC[图标渲染检查]
-ZZ --> DD[样式应用检查]
-EE[相对时间格式化调试] --> FF[Intl.RelativeTimeFormat检查]
-EE[相对时间格式化调试] --> GG[本地化支持检查]
-EE[相对时间格式化调试] --> HH[时间格式化函数检查]
-EE[相对时间格式化调试] --> II[多语言环境检查]
-FF --> JJ[时间差计算检查]
-GG --> KK[语言检测检查]
-HH --> LL[格式化准确性检查]
-II --> MM[显示效果检查]
-NN[工具调用组件调试] --> OO[ToolCallGroup检查]
-NN[工具调用组件调试] --> PP[ToolFallback检查]
-NN[工具调用组件调试] --> QQ[工具分类检查]
-NN[工具调用组件调试] --> RR[状态管理检查]
-OO --> SS[分组渲染检查]
-PP --> TT[详情抽屉检查]
-QQ --> UU[分类准确性检查]
-RR --> VV[状态更新检查]
-WW[旅行规划技能调试] --> XX[Xiaohongshu证据收集检查]
-WW[旅行规划技能调试] --> YY[路由候选生成检查]
-WW[旅行规划技能调试] --> ZZ[工具调用支持检查]
-WW[旅行规划技能调试] --> AA[测试用例验证检查]
-XX --> BB[搜索查询构建检查]
-YY --> CC[证据质量评估检查]
-ZZ --> DD[下一步行动建议检查]
-AA --> EE[测试结果验证检查]
+U[assistant-ui/react调试] --> Z[插格系统组件检查]
+U[assistant-ui/react调试] --> AA[Agent管理组件检查]
+BB[Hook系统调试] --> BB[useChatEventBridge检查]
+BB[Hook系统调试] --> CC[useSessionManager检查]
+BB[Hook系统调试] --> DD[useMobile检查]
+EE[Profile调试] --> FF[模板加载检查]
+EE[Profile调试] --> GG[文件上传检查]
+EE[Profile调试] --> HH[Markdown渲染检查]
+II[国际化调试] --> JJ[翻译文件检查]
+II[国际化调试] --> KK[语言切换检查]
+II[国际化调试] --> LL[动态翻译检查]
+MM[邀请码验证调试] --> NN[InviteCodeClient检查]
+MM[邀请码验证调试] --> OO[verifyInviteCode函数检查]
+MM[邀请码验证调试] --> PP[handleInviteCodeVerify函数检查]
+NN --> QQ[签名生成检查]
+NN --> RR[格式验证检查]
+OO --> SS[请求头检查]
+OO --> TT[响应处理检查]
+PP --> UU[状态更新检查]
+PP --> VV[错误处理检查]
+WW[Sonner调试] --> XX[Toaster组件检查]
+WW[Sonner调试] --> YY[主题集成检查]
+WW[Sonner调试] --> ZZ[图标系统检查]
+WW[Sonner调试] --> AAA[CSS变量检查]
+XX --> BBB[通知显示检查]
+YY --> CCC[主题切换检查]
+ZZ --> DDD[图标渲染检查]
+AAA --> EEE[样式应用检查]
+FF[相对时间格式化调试] --> GGG[Intl.RelativeTimeFormat检查]
+FF[相对时间格式化调试] --> HHH[本地化支持检查]
+FF[相对时间格式化调试] --> III[时间格式化函数检查]
+FF[相对时间格式化调试] --> JJJ[多语言环境检查]
+GGG --> KKK[时间差计算检查]
+HHH --> LLL[语言检测检查]
+III --> MMM[格式化准确性检查]
+JJJ --> NNN[显示效果检查]
+OO[工具调用组件调试] --> PPP[ToolCallGroup检查]
+OO[工具调用组件调试] --> QQQ[ToolFallback检查]
+OO[工具调用组件调试] --> RRR[工具分类检查]
+OO[工具调用组件调试] --> SSS[状态管理检查]
+PPP --> TTT[分组渲染检查]
+QQQ --> UUU[详情抽屉检查]
+RRR --> VVV[分类准确性检查]
+SSS --> WWW[状态更新检查]
+XX[旅行规划技能调试] --> XXX[Xiaohongshu证据收集检查]
+XX[旅行规划技能调试] --> YYY[路由候选生成检查]
+XX[旅行规划技能调试] --> ZZZ[工具调用支持检查]
+XX[旅行规划技能调试] --> AAAA[测试用例验证检查]
+XXX --> BBBB[搜索查询构建检查]
+YYY --> CCCC[证据质量评估检查]
+ZZZ --> DDDD[下一步行动建议检查]
+AAAA --> EEEE[测试结果验证检查]
+FF[PluginCard调试] --> GGGG[插格管理检查]
+FF[PluginCard调试] --> HHHH[状态显示检查]
+FF[PluginCard调试] --> IIII[交互元素检查]
+JJ[PluginDetailDialog调试] --> JJJJ[插格详情检查]
+JJ[PluginDetailDialog调试] --> KKKK[核心信息检查]
+JJ[PluginDetailDialog调试] --> LLLL[简化布局检查]
+MM[PluginsPage调试] --> MMMM[插格列表检查]
+MM[PluginsPage调试] --> NNNN[空状态检查]
+MM[PluginsPage调试] --> OOOO[诊断信息检查]
+QQ[SectionCard调试] --> PPPP[卡片容器检查]
+QQ[SectionCard调试] --> QQQQ[样式应用检查]
+QQ[SectionCard调试] --> RRRR[自定义扩展检查]
+SS[AppleToggle调试] --> SSSS[开关控件检查]
+SS[AppleToggle调试] --> TTTT[动画效果检查]
+SS[AppleToggle调试] --> UUUU[禁用状态检查]
+VV[AgentCard调试] --> VVVV[代理卡片检查]
+VV[AgentCard调试] --> WWW[选中状态检查]
+VV[AgentCard调试] --> XXX[悬停效果检查]
+YY[AgentDetailDrawer调试] --> YYYY[详情抽屉检查]
+YY[AgentDetailDrawer调试] --> ZZZZ[抽屉布局检查]
+YY[AgentDetailDrawer调试] --> AAAAA[滚动区域检查]
+BB[ProfileHeroSection调试] --> BBBBB[档案展示检查]
+BB[ProfileHeroSection调试] --> CCCCC[头像显示检查]
+BB[ProfileHeroSection调试] --> DDDDD[在线状态检查]
 ```
 
 **章节来源**
@@ -2126,6 +2926,14 @@ AA --> EE[测试结果验证检查]
 - [AgentSessionList.tsx:24-33](file://ui-react/src/components/chat/AgentSessionList.tsx#L24-L33)
 - [ToolCallGroup.tsx:186-197](file://ui-react/src/components/chat/ToolCallGroup.tsx#L186-L197)
 - [ToolFallback.tsx:403-532](file://ui-react/src/components/chat/ToolFallback.tsx#L403-L532)
+- [PluginCard.tsx:107-198](file://ui-react/src/components/plugins/PluginCard.tsx#L107-L198)
+- [PluginDetailDialog.tsx:84-113](file://ui-react/src/components/plugins/PluginDetailDialog.tsx#L84-L113)
+- [PluginsPage.tsx:89-96](file://ui-react/src/pages/PluginsPage.tsx#L89-L96)
+- [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
+- [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
+- [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [detail-drawer.tsx:112-150](file://ui-react/src/components/agents/detail-drawer.tsx#L112-L150)
+- [profile.tsx:138-353](file://ui-react/src/components/agents/profile.tsx#L138-L353)
 - [xhs_evidence_builder.mjs:90-155](file://skills/travel-planner/scripts/xhs_evidence_builder.mjs#L90-L155)
 - [route_selector.mjs:44-214](file://skills/travel-planner/scripts/route_selector.mjs#L44-L214)
 - [travel-planner-skill.test.ts:41-57](file://test/travel-planner-skill.test.ts#L41-L57)
@@ -2144,6 +2952,14 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 6. **新增Sonner Toast通知系统**：集成主题化通知、自定义图标和Next.js主题系统
 7. **新增相对时间格式化系统**：提供本地化的相对时间显示，支持多语言环境
 8. **新增ToolCallGroup和ToolFallback组件**：专门用于处理Xiaohongshu证据收集和路由确认步骤的工具调用可视化
+9. **简化组件库结构**：删除button.tsx和calendar.tsx组件，移除不常用的日期选择功能
+10. **插格系统UI简化**：移除PluginCard中的PackageIcon，优化插格管理界面
+11. **新增SectionCard组件**：提供统一的卡片容器样式，支持自定义类名扩展
+12. **优化AppleToggle组件**：实现苹果风格的开关控件，支持禁用状态和动画效果
+13. **增强Agent管理界面**：新增AgentCard、ProfileHeroSection、AgentDetailDrawer等组件
+14. **改进Skills和Tools组件**：统一样式设计，提升用户体验一致性
+15. **新增AgentDetailDrawer组件**：提供完整的代理详情展示界面
+16. **改进SoulSection组件**：增强编辑和预览功能
 
 ### 技术创新亮点
 
@@ -2156,6 +2972,12 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 7. **国际化增强**：相对时间格式化系统提供本地化时间显示
 8. **工具调用组件系统**：专门针对Xiaohongshu证据收集和路由确认步骤的工具调用可视化
 9. **旅行规划技能增强**：支持Xiaohongshu证据收集和路由确认的完整流程
+10. **插格系统优化**：移除PackageIcon后减少了图标渲染开销，提升了插格管理界面的简洁性
+11. **SectionCard样式改进**：提供统一的卡片容器样式，支持自定义扩展
+12. **AppleToggle动画优化**：使用CSS transition和transform，提供流畅的动画效果
+13. **AgentCard悬停优化**：使用CSS hover伪类，避免JavaScript事件监听
+14. **AgentDetailDrawer滚动优化**：使用CSS height和overflow，提供更好的滚动性能
+15. **ProfileHeroSection头像优化**：使用CSS background和overflow，提升图片渲染性能
 
 ### 功能完整性
 
@@ -2167,8 +2989,14 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **优化的Profile界面**：模板选择和表单编辑功能
 - **现代化通知系统**：基于Sonner的主题化通知
 - **相对时间格式化系统**：提供本地化的相对时间显示
-- **工具调用组件系统**：专门用于Xiaohongshu证据收集和路由确认步骤
+- **工具调用组件系统**：专门用于Xiaohongshu证据收集和路由确认步骤的工具调用可视化
 - **旅行规划技能增强**：支持完整的Xiaohongshu证据收集和路由确认流程
+- **插格系统简化**：移除PackageIcon，优化插格管理界面
+- **SectionCard组件**：提供统一的卡片容器样式
+- **AppleToggle组件**：实现苹果风格的开关控件
+- **AgentCard组件**：提供现代化的代理卡片设计
+- **AgentDetailDrawer组件**：提供完整的代理详情展示界面
+- **ProfileHeroSection组件**：增强的代理档案展示功能
 
 **架构优势**：
 - **技术多样性**：同时支持Lit和React两种主流框架
@@ -2181,14 +3009,16 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **通知体验**：现代化的Sonner通知系统提供更好的用户体验
 - **工具调用可视化**：专门针对Xiaohongshu证据收集和路由确认步骤的工具调用展示
 - **旅行规划流程**：完整的Xiaohongshu证据收集和路由确认步骤支持
+- **组件库精简**：删除不常用组件，提升整体性能和维护性
+- **插格系统优化**：移除PackageIcon后界面更加简洁，用户体验得到提升
+- **Agent管理增强**：新增多种组件，提供完整的代理管理功能
+- **样式一致性**：SectionCard和AppleToggle等组件提供统一的视觉风格
 
-### 未来发展展望
+这次架构升级为OpenClaw平台奠定了坚实的技术基础，为未来的功能扩展和技术演进做好了准备。现代化的架构不仅提升了当前的用户体验，也为用户提供了更加灵活和安全的API密钥管理方式。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。
 
-这次重大架构升级为OpenClaw平台奠定了坚实的技术基础，为未来的功能扩展和技术演进做好了准备。现代化的架构不仅提升了当前的用户体验，也为用户提供了更加灵活和安全的API密钥管理方式。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。
+**新增的SectionCard组件**为所有卡片容器提供了统一的样式基础，支持自定义类名扩展，确保了界面的一致性和可维护性。**优化的AppleToggle组件**实现了苹果风格的开关控件，提供了流畅的动画效果和禁用状态支持，提升了用户交互体验。
 
-**新增的ToolCallGroup和ToolFallback组件**为用户提供了现代化的工具调用体验，专门针对Xiaohongshu证据收集和路由确认步骤进行了优化。这些组件不仅提升了工具调用的可视化效果，还提供了详细的状态跟踪和错误处理机制。工具分类系统支持9种不同类型的工具识别，为用户提供了清晰的工具调用信息展示。
-
-**新增的旅行规划技能增强**使得用户能够更好地利用Xiaohongshu平台进行证据收集和路由确认。从证据收集到路由候选生成，再到最终的路由确认，整个流程都得到了全面的优化和支持。测试用例的验证确保了系统的稳定性和可靠性。
+**增强的Agent管理组件系统**为用户提供了完整的代理管理功能，从简单的代理卡片展示到复杂的代理详情抽屉，每个组件都经过精心设计和优化。**ProfileHeroSection组件**增强了代理档案展示功能，提供了头像显示和在线状态等增强功能。
 
 现代化的UI组件系统为用户提供了更加现代化和一致的用户体验，显著提升了平台的技术能力和实用性。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。现代化的架构引入为用户提供了更加灵活和安全的API密钥管理方式，这些功能的集成不仅提升了平台的技术能力，也为未来的功能扩展和用户增长奠定了坚实基础。
 
@@ -2196,4 +3026,4 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 
 **新增的Sonner Toast通知系统**为用户提供了现代化的通知体验，集成了主题化支持、自定义图标和Next.js主题系统，进一步提升了整体的用户体验。这一集成展示了现代前端开发中组件系统、状态管理和通知系统的最佳实践，为用户提供了更加一致和专业的界面体验。
 
-这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统、状态管理系统、通知系统、相对时间格式化系统、工具调用组件系统和旅行规划技能增强共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。
+这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统、状态管理系统、通知系统、相对时间格式化系统、工具调用组件系统、旅行规划技能增强、插格系统简化、SectionCard样式改进、AppleToggle组件优化、Agent管理组件增强等共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。

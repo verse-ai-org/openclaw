@@ -1,11 +1,15 @@
 import type { ReactNode } from "react";
 import { Chart } from "@/components/tool-ui/chart";
 import { CodeBlock } from "@/components/tool-ui/code-block";
+import { GeoMap } from "@/components/tool-ui/geo-map";
+import { ItemCarousel } from "@/components/tool-ui/item-carousel";
 import { LinkPreview } from "@/components/tool-ui/link-preview";
 import { StatsDisplay } from "@/components/tool-ui/stats-display";
 import { Terminal } from "@/components/tool-ui/terminal";
 import { safeParseSerializableChart } from "@/components/tool-ui/chart/schema";
 import { safeParseSerializableCodeBlock } from "@/components/tool-ui/code-block/schema";
+import { safeParseSerializableGeoMap } from "@/components/tool-ui/geo-map/schema";
+import { safeParseSerializableItemCarousel } from "@/components/tool-ui/item-carousel/schema";
 import { safeParseSerializableLinkPreview } from "@/components/tool-ui/link-preview/schema";
 import { safeParseSerializableStatsDisplay } from "@/components/tool-ui/stats-display/schema";
 import { safeParseSerializableTerminal } from "@/components/tool-ui/terminal/schema";
@@ -93,6 +97,33 @@ function buildTerminalSummary(payload: Record<string, unknown>): string {
   return "Terminal output";
 }
 
+function buildItemCarouselSummary(payload: Record<string, unknown>): string {
+  const title = typeof payload.title === "string" ? payload.title.trim() : "";
+  const itemCount = Array.isArray(payload.items) ? payload.items.length : 0;
+  if (title && itemCount > 0) {
+    return `${title} · ${itemCount} items`;
+  }
+  if (title) {
+    return title;
+  }
+  if (itemCount > 0) {
+    return `${itemCount} items`;
+  }
+  return "Item carousel";
+}
+
+function buildGeoMapSummary(payload: Record<string, unknown>): string {
+  const title = typeof payload.title === "string" ? payload.title.trim() : "";
+  const markers = Array.isArray(payload.markers) ? payload.markers.length : 0;
+  const routes = Array.isArray(payload.routes) ? payload.routes.length : 0;
+  const markerText = markers > 0 ? `${markers} markers` : "No markers";
+  const routeText = routes > 0 ? `${routes} routes` : "";
+  if (title) {
+    return routeText ? `${title} · ${markerText} · ${routeText}` : `${title} · ${markerText}`;
+  }
+  return routeText ? `${markerText} · ${routeText}` : markerText;
+}
+
 export function resolveRichToolPresentation(
   toolName: string,
   result: unknown,
@@ -135,6 +166,30 @@ export function resolveRichToolPresentation(
     return {
       summary: buildChartSummary(payload),
       content: <Chart {...parsed} />,
+      canPromote: true,
+    };
+  }
+
+  if (toolName === "item_carousel" || toolName === "item-carousel" || toolName === "ItemCarousel") {
+    const parsed = safeParseSerializableItemCarousel(payload);
+    if (!parsed) {
+      return null;
+    }
+    return {
+      summary: buildItemCarouselSummary(payload),
+      content: <ItemCarousel {...parsed} />,
+      canPromote: true,
+    };
+  }
+
+  if (toolName === "geo_map" || toolName === "geo-map" || toolName === "GeoMap") {
+    const parsed = safeParseSerializableGeoMap(payload);
+    if (!parsed) {
+      return null;
+    }
+    return {
+      summary: buildGeoMapSummary(payload),
+      content: <GeoMap {...parsed} />,
       canPromote: true,
     };
   }

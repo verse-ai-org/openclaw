@@ -11,11 +11,11 @@
 - [应用外壳](file://ui-react/src/components/layout/AppShell.tsx)
 - [侧边栏](file://ui-react/src/components/layout/Sidebar.tsx)
 - [聊天页面](file://ui-react/src/pages/ChatPage.tsx)
-- [代理管理页面](file://ui-react/src/pages/AgentsPage.tsx)
+- [员工管理页面](file://ui-react/src/pages/AgentsPage.tsx)
 - [通道管理页面](file://ui-react/src/pages/ChannelsPage.tsx)
 - [配置管理页面](file://ui-react/src/pages/ConfigPage.tsx)
 - [定时任务管理页面](file://ui-react/src/pages/CronPage.tsx)
-- [计划任务页面](file://ui-react/src/pages/ScheduledTasksPage.tsx)
+- [计划任务管理页面](file://ui-react/src/pages/ScheduledTasksPage.tsx)
 - [聊天运行时提供者](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx)
 - [线程视图](file://ui-react/src/components/chat/ThreadView.tsx)
 - [助手消息组件](file://ui-react/src/components/chat/AssistantMessage.tsx)
@@ -25,26 +25,31 @@
 - [会话作用域聊天事件桥接测试](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts)
 - [聊天存储](file://ui-react/src/store/chat.store.ts)
 - [网关存储](file://ui-react/src/store/gateway.store.ts)
-- [代理存储](file://ui-react/src/store/agents.store.ts)
+- [员工存储](file://ui-react/src/store/agents.store.ts)
 - [通道存储](file://ui-react/src/store/channels.store.ts)
 - [剪贴板复制钩子](file://ui-react/src/hooks/useCopyToClipboard.ts)
 - [网关连接钩子](file://ui-react/src/hooks/useGateway.ts)
 - [Vite构建配置](file://ui-react/vite.config.ts)
 - [UI包依赖定义](file://ui-react/package.json)
-- [代理类型定义](file://ui-react/src/types/agents.ts)
+- [员工类型定义](file://ui-react/src/types/agents.ts)
 - [通道类型定义](file://ui-react/src/types/channels.ts)
 - [网关类型定义](file://ui-react/src/types/gateway.ts)
+- [员工资料抽屉](file://ui-react/src/components/agents/detail-drawer.tsx)
+- [员工资料-个人资料](file://ui-react/src/components/agents/profile.tsx)
+- [员工资料-核心技能](file://ui-react/src/components/agents/skills.tsx)
+- [员工资料-工具能力](file://ui-react/src/components/agents/tools.tsx)
+- [员工资料-灵魂文件](file://ui-react/src/components/agents/soul.tsx)
+- [聊天侧边栏](file://ui-react/src/components/chat/ChatSidebar.tsx)
+- [会话管理器](file://ui-react/src/hooks/useSessionManager.ts)
+- [聊天事件桥接实现](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 新增计划任务管理页面（ScheduledTasksPage）功能说明
-- 新增会话作用域聊天事件桥接机制说明
-- 新增剪贴板复制功能说明
-- 更新聊天存储系统以支持增强的工具调用流式显示
-- 更新路由配置以支持新页面
-- 新增状态管理架构说明
-- 更新导航结构和侧边栏配置
+- 术语更新：聊天界面中的"Agents"统一更新为"Employees"，体现更贴近业务场景的表述
+- 搜索功能改进：聊天侧边栏搜索占位符从"Search agents"更新为"Search employees"，提升用户体验一致性
+- 会话同步逻辑增强：通过useSessionManager和useChatEventBridge的协同，实现更精确的会话状态同步
+- 状态管理优化：聊天存储中的pendingHistoryReloadKey和pendingSessionsReloadSeq机制，确保会话历史和标题的及时更新
 
 ## 目录
 1. [简介](#简介)
@@ -61,13 +66,13 @@
 ## 简介
 本文件面向使用浏览器操作网关（Gateway）的用户与开发者，系统化介绍控制面板（Control UI）、仪表盘（Dashboard）与 WebChat 的使用方法、配置项与交互流程；同时覆盖界面定制、主题与响应式设计、开发与构建流程、API 接口与集成方式、浏览器兼容性、性能优化与安全注意事项。
 
-**更新** 本版本文档反映了UI React前端的全面重构，引入了全新的@assistant-ui/react库生态系统，包括AssistantMessage、Composer、GatewayChatRuntimeProvider等核心组件，以及useChatEventBridge钩子和增强的聊天存储系统。新增了代理管理、通道管理、配置管理、定时任务管理、计划任务管理等核心功能页面。新增的会话作用域聊天事件桥接机制确保跨会话通信的安全性和准确性，剪贴板复制功能提升了用户交互体验。
+**更新** 本版本文档反映了UI React前端的全面重构，引入了全新的@assistant-ui/react库生态系统，包括AssistantMessage、Composer、GatewayChatRuntimeProvider等核心组件，以及useChatEventBridge钩子和增强的聊天存储系统。新增的员工管理、通道管理、配置管理、定时任务管理、计划任务管理等核心功能页面。新增的员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。新增的会话作用域聊天事件桥接机制确保跨会话通信的安全性和准确性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化。
 
 ## 项目结构
 Web 界面由"文档指引 + React前端应用 + 状态管理 + 组件库"构成：
 - 文档层：提供使用说明、认证与暴露模式、远程访问与安全建议等
-- 前端层：基于React 19 + TypeScript，使用@assistant-ui/react组件库，通过WebSocket与网关交互
-- 状态管理层：采用Zustand状态管理，分离聊天状态、网关状态、代理状态、通道状态和计划任务状态
+- 前端层：基于React 19 + TypeScript，使用@assistant-ui-react组件库，通过WebSocket与网关交互
+- 状态管理层：采用Zustand状态管理，分离聊天状态、网关状态、员工状态、通道状态和计划任务状态
 - 组件层：基于@assistant-ui-react的可组合UI组件，支持主题定制和响应式设计
 
 ```mermaid
@@ -85,11 +90,17 @@ R["路由配置<br/>ui-react/src/router.tsx"]
 AS["应用外壳<br/>ui-react/src/components/layout/AppShell.tsx"]
 SB["侧边栏<br/>ui-react/src/components/layout/Sidebar.tsx"]
 CP["聊天页面<br/>ui-react/src/pages/ChatPage.tsx"]
-AP["代理管理页面<br/>ui-react/src/pages/AgentsPage.tsx"]
+EP["员工管理页面<br/>ui-react/src/pages/AgentsPage.tsx"]
 CNP["通道管理页面<br/>ui-react/src/pages/ChannelsPage.tsx"]
 CFP["配置管理页面<br/>ui-react/src/pages/ConfigPage.tsx"]
 CRP["定时任务管理页面<br/>ui-react/src/pages/CronPage.tsx"]
 STP["计划任务管理页面<br/>ui-react/src/pages/ScheduledTasksPage.tsx"]
+ED["员工资料抽屉<br/>ui-react/src/components/agents/detail-drawer.tsx"]
+PH["个人资料英雄区<br/>ui-react/src/components/agents/profile.tsx"]
+CSK["核心技能模块<br/>ui-react/src/components/agents/skills.tsx"]
+TOL["工具能力模块<br/>ui-react/src/components/agents/tools.tsx"]
+SL["灵魂文件模块<br/>ui-react/src/components/agents/soul.tsx"]
+CSD["聊天侧边栏<br/>ui-react/src/components/chat/ChatSidebar.tsx"]
 end
 subgraph "组件库与状态管理"
 GCR["GatewayChatRuntimeProvider<br/>聊天运行时提供者"]
@@ -101,36 +112,11 @@ CEB["useChatEventBridge<br/>聊天事件桥接钩子"]
 CCB["useCopyToClipboard<br/>剪贴板复制钩子"]
 CS["chat.store<br/>聊天存储"]
 GS["gateway.store<br/>网关存储"]
-ATS["agents.store<br/>代理存储"]
+ATS["agents.store<br/>员工存储"]
 CHS["channels.store<br/>通道存储"]
 STS["scheduled-tasks.store<br/>计划任务存储"]
 UG["useGateway<br/>网关连接钩子"]
-end
-D1 --> A
-D2 --> A
-D3 --> CP
-H --> M --> A
-A --> R
-R --> AS
-AS --> SB
-AS --> CP
-AS --> AP
-AS --> CNP
-AS --> CFP
-AS --> CRP
-AS --> STP
-CP --> GCR
-GCR --> TV
-TV --> AM
-TV --> UM
-TV --> CM
-CEB --> CS
-CS --> GS
-AS --> UG
-AP --> ATS
-CNP --> CHS
-STP --> STS
-AS --> CCB
+SSM["useSessionManager<br/>会话管理器"]
 ```
 
 **图表来源**
@@ -139,7 +125,7 @@ AS --> CCB
 - [应用外壳:1-90](file://ui-react/src/components/layout/AppShell.tsx#L1-L90)
 - [侧边栏:1-129](file://ui-react/src/components/layout/Sidebar.tsx#L1-L129)
 - [聊天页面:1-20](file://ui-react/src/pages/ChatPage.tsx#L1-L20)
-- [代理管理页面:1-366](file://ui-react/src/pages/AgentsPage.tsx#L1-L366)
+- [员工管理页面:1-272](file://ui-react/src/pages/AgentsPage.tsx#L1-L272)
 - [通道管理页面:1-355](file://ui-react/src/pages/ChannelsPage.tsx#L1-L355)
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
@@ -153,8 +139,15 @@ AS --> CCB
 - [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
 - [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
-- [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
+- [员工存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
 - [通道存储:1-391](file://ui-react/src/store/channels.store.ts#L1-L391)
+- [员工资料抽屉:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [员工资料-个人资料:1-379](file://ui-react/src/components/agents/profile.tsx#L1-L379)
+- [员工资料-核心技能:1-342](file://ui-react/src/components/agents/skills.tsx#L1-L342)
+- [员工资料-工具能力:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
+- [员工资料-灵魂文件:1-136](file://ui-react/src/components/agents/soul.tsx#L1-L136)
+- [聊天侧边栏:1-169](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L169)
+- [会话管理器:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 
 **章节来源**
 - [控制UI（浏览器）:1-269](file://docs/web/control-ui.md#L1-L269)
@@ -165,7 +158,7 @@ AS --> CCB
 - [应用外壳:1-90](file://ui-react/src/components/layout/AppShell.tsx#L1-L90)
 - [侧边栏:1-129](file://ui-react/src/components/layout/Sidebar.tsx#L1-L129)
 - [聊天页面:1-20](file://ui-react/src/pages/ChatPage.tsx#L1-L20)
-- [代理管理页面:1-366](file://ui-react/src/pages/AgentsPage.tsx#L1-L366)
+- [员工管理页面:1-272](file://ui-react/src/pages/AgentsPage.tsx#L1-L272)
 - [通道管理页面:1-355](file://ui-react/src/pages/ChannelsPage.tsx#L1-L355)
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
@@ -179,8 +172,15 @@ AS --> CCB
 - [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
 - [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
-- [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
+- [员工存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
 - [通道存储:1-391](file://ui-react/src/store/channels.store.ts#L1-L391)
+- [员工资料抽屉:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [员工资料-个人资料:1-379](file://ui-react/src/components/agents/profile.tsx#L1-L379)
+- [员工资料-核心技能:1-342](file://ui-react/src/components/agents/skills.tsx#L1-L342)
+- [员工资料-工具能力:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
+- [员工资料-灵魂文件:1-136](file://ui-react/src/components/agents/soul.tsx#L1-L136)
+- [聊天侧边栏:1-169](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L169)
+- [会话管理器:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 
 ## 核心组件
 - 控制面板（Control UI）
@@ -197,16 +197,17 @@ AS --> CCB
   - 支持流式响应、工具调用、Markdown渲染、附件上传
   - 行为与通道一致，历史从网关拉取，断开时只读
   - 增强的会话作用域事件处理，确保跨会话通信安全性
-- 代理管理（Agents）
-  - 全面的代理生命周期管理
-  - 支持代理配置、技能管理、工具配置、文件管理
+- 员工管理（Employees）
+  - 全面的员工生命周期管理
+  - 支持员工配置、技能管理、工具配置、文件管理
   - 实时状态监控和性能指标展示
+  - **新增** 集成员工资料抽屉，提供增强的员工资料查看和管理功能
 - 通道管理（Channels）
   - 多渠道统一管理界面
   - 支持WhatsApp、Telegram、Discord等主流通信平台
   - 实时状态监控、配置编辑、登录管理
 - 配置管理（Config）
-  - 全局配置和代理特定配置
+  - 全局配置和员工特定配置
   - 实时配置编辑和应用
   - 支持模型选择、工具配置、技能管理
 - 定时任务管理（Cron）
@@ -227,13 +228,13 @@ AS --> CCB
 - 调试（Debug）
   - 快照状态、健康检查、模型列表、事件日志与手动 RPC 调用
 
-**更新** 新的React架构引入了@assistant-ui-react组件库，提供了更丰富的UI组件和更好的开发者体验。新增的代理管理、通道管理、配置管理、定时任务管理和计划任务管理页面提供了完整的系统控制能力。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。
+**更新** 新的React架构引入了@assistant-ui-react组件库，提供了更丰富的UI组件和更好的开发者体验。新增的员工管理、通道管理、配置管理、定时任务管理和计划任务管理页面提供了完整的系统控制能力。新增的员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化。
 
 **章节来源**
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)
 - [仪表盘（浏览器）:8-55](file://docs/web/dashboard.md#L8-L55)
 - [WebChat（网关WebSocket UI）:8-62](file://docs/web/webchat.md#L8-L62)
-- [代理管理页面:1-366](file://ui-react/src/pages/AgentsPage.tsx#L1-L366)
+- [员工管理页面:1-272](file://ui-react/src/pages/AgentsPage.tsx#L1-L272)
 - [通道管理页面:1-355](file://ui-react/src/pages/ChannelsPage.tsx#L1-L355)
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
@@ -244,11 +245,18 @@ AS --> CCB
 - [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
 - [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
-- [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
+- [员工存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
 - [通道存储:1-391](file://ui-react/src/store/channels.store.ts#L1-L391)
+- [员工资料抽屉:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [员工资料-个人资料:1-379](file://ui-react/src/components/agents/profile.tsx#L1-L379)
+- [员工资料-核心技能:1-342](file://ui-react/src/components/agents/skills.tsx#L1-L342)
+- [员工资料-工具能力:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
+- [员工资料-灵魂文件:1-136](file://ui-react/src/components/agents/soul.tsx#L1-L136)
+- [聊天侧边栏:1-169](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L169)
+- [会话管理器:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 
 ## 架构总览
-前端通过React组件树与@assistant-ui-react生态系统的协作，实现与网关的WebSocket通信；应用外壳统一管理连接状态，聊天运行时提供者桥接Zustand状态与@assistant-ui的外部存储运行时；组件层基于@assistant-ui的可组合组件实现丰富的聊天功能。新增的页面通过统一的状态管理架构实现数据共享和状态同步。会话作用域事件桥接机制确保只有匹配当前活动会话的事件才会更新UI状态。
+前端通过React组件树与@assistant-ui-react生态系统的协作，实现与网关的WebSocket通信；应用外壳统一管理连接状态，聊天运行时提供者桥接Zustand状态与@assistant-ui的外部存储运行时；组件层基于@assistant-ui的可组合组件实现丰富的聊天功能。新增的页面通过统一的状态管理架构实现数据共享和状态同步。会话作用域事件桥接机制确保只有匹配当前活动会话的事件才会更新UI状态。**新增** 员工资料抽屉系统通过独立的组件架构提供完整的员工资料管理功能，支持响应式设计和流畅的动画效果。
 
 ```mermaid
 sequenceDiagram
@@ -258,8 +266,10 @@ participant Shell as "应用外壳<br/>AppShell.tsx"
 participant Sidebar as "侧边栏<br/>Sidebar.tsx"
 participant Router as "路由配置<br/>router.tsx"
 participant Page as "功能页面"
+participant Drawer as "员工资料抽屉<br/>EmployeeDetailDrawer"
 participant Store as "状态管理<br/>Zustand Store"
 participant EventBridge as "聊天事件桥接<br/>useChatEventBridge"
+participant SessionManager as "会话管理器<br/>useSessionManager"
 participant Runtime as "聊天运行时提供者<br/>GatewayChatRuntimeProvider.tsx"
 participant Provider as "AssistantRuntimeProvider"
 participant WS as "网关 WebSocket"
@@ -275,9 +285,15 @@ Store-->>Page : 更新页面状态
 Page->>EventBridge : 注册事件处理器
 EventBridge->>EventBridge : 检查会话作用域
 EventBridge->>Store : 条件性更新状态
+Page->>SessionManager : 管理会话同步
+SessionManager->>Store : 更新会话状态
 Page->>Runtime : 提供消息和事件处理
 Runtime->>Provider : 消息转换和事件桥接
 Provider-->>Browser : 渲染功能界面
+Page->>Drawer : 打开员工资料抽屉
+Drawer->>Store : 加载员工资料数据
+Store-->>Drawer : 返回员工资料
+Drawer-->>Browser : 渲染员工详情界面
 ```
 
 **图表来源**
@@ -287,6 +303,8 @@ Provider-->>Browser : 渲染功能界面
 - [路由配置:20-39](file://ui-react/src/router.tsx#L20-L39)
 - [聊天运行时提供者:112-237](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L112-L237)
 - [聊天事件桥接钩子:23-40](file://ui-react/src/hooks/useChatEventBridge.ts#L23-L40)
+- [会话管理器:67-297](file://ui-react/src/hooks/useSessionManager.ts#L67-L297)
+- [员工资料抽屉:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
 
 ## 详细组件分析
 
@@ -364,48 +382,60 @@ Provider-->>Browser : 渲染功能界面
 - [Composer组件:6-90](file://ui-react/src/components/chat/Composer.tsx#L6-L90)
 - [聊天事件桥接钩子:31-40](file://ui-react/src/hooks/useChatEventBridge.ts#L31-L40)
 
-### 代理管理（Agents）页面
+### 员工管理（Employees）页面
 - 功能特性
-  - 代理列表管理：支持多个代理实例的创建、删除和配置
-  - 代理详情展示：包含代理身份信息、专业摘要、核心技能、工具配置
-  - 文件管理：支持代理相关文件的查看、编辑和保存
-  - 实时状态监控：显示代理的运行状态、配置状态和性能指标
+  - 员工列表管理：支持多个员工实例的创建、删除和配置
+  - 员工详情展示：包含员工身份信息、专业摘要、核心技能、工具配置
+  - 文件管理：支持员工相关文件的查看、编辑和保存
+  - 实时状态监控：显示员工的运行状态、配置状态和性能指标
+  - **新增** 集成员工资料抽屉，提供增强的员工资料查看和管理功能
 - 页面架构
-  - 侧边栏代理列表：支持代理选择和刷新
-  - 主内容区域：包含代理概览、专业摘要、核心技能、工具配置等模块
+  - 侧边栏员工列表：支持员工选择和刷新
+  - 主内容区域：包含员工概览、专业摘要、核心技能、工具配置等模块
   - 文件管理区：支持Markdown文件的编辑和预览
+  - **新增** 员工资料抽屉：提供完整的员工资料查看界面
 - 状态管理
-  - 代理存储：管理代理列表、选择状态、配置表单和文件内容
-  - 实时数据同步：通过WebSocket接收代理状态更新
+  - 员工存储：管理员工列表、选择状态、配置表单和文件内容
+  - 实时数据同步：通过WebSocket接收员工状态更新
   - 错误处理：提供重试机制和错误提示
+  - **新增** 员工资料抽屉状态管理：处理抽屉的打开/关闭和员工资料加载
 
-**更新** 新增的代理管理页面提供了完整的代理生命周期管理功能，支持代理配置、技能管理、工具配置和文件管理。
+**更新** 新增的员工管理页面集成了全新的员工资料抽屉系统，提供了完整的员工资料查看和管理功能。员工资料抽屉包含个人资料英雄区、核心技能、工具能力和灵魂文件四个核心模块，支持员工资料的编辑和保存。
 
 ```mermaid
 flowchart TD
-Start(["访问代理管理页面"]) --> CheckConn{"是否已连接网关？"}
+Start(["访问员工管理页面"]) --> CheckConn{"是否已连接网关？"}
 CheckConn --> |否| ShowDisconnected["显示未连接状态"]
-CheckConn --> |是| LoadAgents["加载代理列表"]
-LoadAgents --> Loading{"是否正在加载？"}
+CheckConn --> |是| LoadEmployees["加载员工列表"]
+LoadEmployees --> Loading{"是否正在加载？"}
 Loading --> |是| ShowLoading["显示加载动画"]
-Loading --> |否| RenderAgents["渲染代理列表"]
-RenderAgents --> SelectAgent["选择代理"]
-SelectAgent --> LoadIdentity["加载代理身份信息"]
-LoadIdentity --> RenderDetails["渲染代理详情"]
-RenderDetails --> ShowFiles["显示文件管理"]
-ShowFiles --> EditFile["编辑文件内容"]
-EditFile --> SaveFile["保存文件"]
-SaveFile --> UpdateList["更新文件列表"]
+Loading --> |否| RenderEmployees["渲染员工列表"]
+RenderEmployees --> SelectEmployee["选择员工"]
+SelectEmployee --> OpenDrawer["打开员工资料抽屉"]
+OpenDrawer --> LoadProfile["加载个人资料"]
+LoadProfile --> LoadSkills["加载核心技能"]
+LoadSkills --> LoadTools["加载工具能力"]
+LoadTools --> LoadSoul["加载灵魂文件"]
+LoadSoul --> ShowDrawer["显示完整员工资料"]
+ShowDrawer --> EditProfile["编辑个人资料"]
+EditProfile --> SaveProfile["保存个人资料"]
+SaveProfile --> UpdateList["更新员工列表"]
 ```
 
 **图表来源**
-- [代理管理页面:251-366](file://ui-react/src/pages/AgentsPage.tsx#L251-L366)
-- [代理存储:170-222](file://ui-react/src/store/agents.store.ts#L170-L222)
+- [员工管理页面:106-272](file://ui-react/src/pages/AgentsPage.tsx#L106-L272)
+- [员工存储:170-222](file://ui-react/src/store/agents.store.ts#L170-L222)
+- [员工资料抽屉:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
 
 **章节来源**
-- [代理管理页面:1-366](file://ui-react/src/pages/AgentsPage.tsx#L1-L366)
-- [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
-- [代理类型定义:1-200](file://ui-react/src/types/agents.ts#L1-L200)
+- [员工管理页面:1-272](file://ui-react/src/pages/AgentsPage.tsx#L1-L272)
+- [员工存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
+- [员工类型定义:1-200](file://ui-react/src/types/agents.ts#L1-L200)
+- [员工资料抽屉:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [员工资料-个人资料:1-379](file://ui-react/src/components/agents/profile.tsx#L1-L379)
+- [员工资料-核心技能:1-342](file://ui-react/src/components/agents/skills.tsx#L1-L342)
+- [员工资料-工具能力:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
+- [员工资料-灵魂文件:1-136](file://ui-react/src/components/agents/soul.tsx#L1-L136)
 
 ### 通道管理（Channels）页面
 - 功能特性
@@ -434,13 +464,13 @@ SaveFile --> UpdateList["更新文件列表"]
 ### 配置管理（Config）页面
 - 功能特性
   - 全局配置：管理全局默认设置，如默认模型等
-  - 代理特定配置：为每个代理设置特定的配置项
+  - 员工特定配置：为每个员工设置特定的配置项
   - 实时编辑：支持配置的实时编辑和保存
   - 配置验证：提供配置表单的验证和错误提示
   - 原始配置查看：提供完整的配置对象查看界面
 - 页面架构
   - 全局默认设置：管理全局范围的配置项
-  - 代理模型配置：为每个代理设置主要模型
+  - 员工模型配置：为每个员工设置主要模型
   - 原始配置查看：显示完整的配置对象
 - 配置管理
   - 配置表单：动态生成的配置编辑界面
@@ -448,11 +478,11 @@ SaveFile --> UpdateList["更新文件列表"]
   - 配置重载：支持从网关重新加载配置
   - 配置应用：支持配置的即时应用和重启
 
-**更新** 新增的配置管理页面提供了完整的配置管理功能，支持全局和代理特定的配置设置。
+**更新** 新增的配置管理页面提供了完整的配置管理功能，支持全局和员工特定的配置设置。
 
 **章节来源**
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
-- [代理存储:238-290](file://ui-react/src/store/agents.store.ts#L238-L290)
+- [员工存储:238-290](file://ui-react/src/store/agents.store.ts#L238-L290)
 
 ### 定时任务管理（Cron）页面
 - 功能特性
@@ -475,8 +505,8 @@ SaveFile --> UpdateList["更新文件列表"]
 
 **章节来源**
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
-- [代理存储:455-468](file://ui-react/src/store/agents.store.ts#L455-L468)
-- [代理类型定义:147-200](file://ui-react/src/types/agents.ts#L147-L200)
+- [员工存储:455-468](file://ui-react/src/store/agents.store.ts#L455-L468)
+- [员工类型定义:147-200](file://ui-react/src/types/agents.ts#L147-L200)
 
 ### 计划任务管理（Scheduled Tasks）页面
 - 功能特性
@@ -501,6 +531,150 @@ SaveFile --> UpdateList["更新文件列表"]
 **章节来源**
 - [计划任务管理页面:1-359](file://ui-react/src/pages/ScheduledTasksPage.tsx#L1-L359)
 
+### 员工资料抽屉（EmployeeDetailDrawer）系统
+- 功能概述
+  - **新增** 全新的员工资料查看和管理系统
+  - 基于抽屉式设计，提供完整的员工资料展示界面
+  - 支持员工资料的编辑、保存和删除操作
+  - 集成四个核心模块：个人资料、核心技能、工具能力和灵魂文件
+- 核心组件
+  - **个人资料英雄区**：展示员工头像、名称、简介和聊天入口
+  - **核心技能模块**：显示和管理员工绑定的技能
+  - **工具能力模块**：配置和管理员工的工具使用权限
+  - **灵魂文件模块**：编辑和管理员工的SOUL.md文件
+- 交互特性
+  - 响应式设计：支持不同屏幕尺寸的适配
+  - 流畅动画：抽屉式展开和收起的动画效果
+  - 一键聊天：支持从员工资料直接进入聊天界面
+  - 删除确认：安全的员工删除操作流程
+
+**更新** 新增的员工资料抽屉系统提供了完整的员工资料管理功能，集成了个人资料、核心技能、工具能力和灵魂文件四个核心模块，支持员工资料的编辑和保存操作。
+
+**章节来源**
+- [员工资料抽屉:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [员工资料-个人资料:1-379](file://ui-react/src/components/agents/profile.tsx#L1-L379)
+- [员工资料-核心技能:1-342](file://ui-react/src/components/agents/skills.tsx#L1-L342)
+- [员工资料-工具能力:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
+- [员工资料-灵魂文件:1-136](file://ui-react/src/components/agents/soul.tsx#L1-L136)
+
+### 员工资料-个人资料英雄区
+- 功能特性
+  - **新增** 员工个人资料的集中展示区域
+  - 支持员工头像、名称、简介和状态显示
+  - 提供员工资料编辑功能
+  - 支持一键进入聊天界面
+  - 支持视频展示和在线状态指示
+- 数据展示
+  - 员工头像：支持自定义头像或emoji显示
+  - 员工名称：支持编辑和保存
+  - 员工简介：支持编辑和保存
+  - 员工类型：显示员工的生物特征描述
+  - 在线状态：实时显示员工在线状态
+- 编辑功能
+  - 编辑模式：支持IDENTITY.md文件的编辑
+  - 实时预览：编辑过程中的实时预览功能
+  - 保存机制：支持草稿保存和正式保存
+  - 字段提示：支持字段注释和提示信息
+
+**更新** 新增的个人资料英雄区提供了员工个人资料的完整展示和编辑功能，支持IDENTITY.md文件的编辑和保存操作。
+
+**章节来源**
+- [员工资料-个人资料:138-379](file://ui-react/src/components/agents/profile.tsx#L138-L379)
+
+### 员工资料-核心技能模块
+- 功能特性
+  - **新增** 员工核心技能的展示和管理模块
+  - 支持技能的查看、添加、删除和排序
+  - 提供技能搜索和分类功能
+  - 支持技能来源的显示和管理
+  - 支持显式技能列表的创建和维护
+- 技能管理
+  - 技能列表：显示当前绑定的技能
+  - 技能搜索：支持技能名称和描述的搜索
+  - 技能分类：按来源类型分类显示技能
+  - 技能添加：支持从技能目录中添加技能
+  - 技能删除：支持从员工中移除技能
+- 配置模式
+  - 自动模式：基于员工配置自动管理技能
+  - 手动模式：支持显式的技能允许列表
+  - 混合模式：结合自动和手动的技能管理模式
+
+**更新** 新增的核心技能模块提供了员工技能的完整管理功能，支持技能的查看、添加、删除和配置管理。
+
+**章节来源**
+- [员工资料-核心技能:173-342](file://ui-react/src/components/agents/skills.tsx#L173-L342)
+
+### 员工资料-工具能力模块
+- 功能特性
+  - **新增** 员工工具能力的配置和管理模块
+  - 支持工具权限的精细控制
+  - 提供预设工具配置方案
+  - 支持工具的搜索和分类
+  - 支持工具权限的批量管理
+- 工具配置
+  - 工具列表：显示当前可用的工具
+  - 预设方案：提供最小化、编程、消息和完整配置
+  - 权限控制：支持工具的允许和拒绝列表
+  - 工具搜索：支持工具名称和描述的搜索
+  - 权限预览：实时显示工具的权限状态
+- 高级功能
+  - 批量操作：支持工具权限的批量添加和删除
+  - 权限继承：支持从全局配置继承工具权限
+  - 权限冲突：自动检测和处理权限冲突
+  - 变更确认：重要权限变更的确认机制
+
+**更新** 新增的工具能力模块提供了员工工具权限的完整配置功能，支持预设方案和精细的权限控制。
+
+**章节来源**
+- [员工资料-工具能力:349-554](file://ui-react/src/components/agents/tools.tsx#L349-L554)
+
+### 员工资料-灵魂文件模块
+- 功能特性
+  - **新增** 员工灵魂文件的编辑和管理模块
+  - 支持SOUL.md文件的查看、编辑和保存
+  - 提供Markdown格式的编辑器
+  - 支持文件的草稿保存和正式保存
+  - 支持文件的重置和预览功能
+- 编辑功能
+  - Markdown编辑器：支持Markdown语法的编辑
+  - 实时预览：编辑过程中的实时预览功能
+  - 文件管理：支持文件的创建、保存和删除
+  - 草稿机制：支持编辑过程中的草稿保存
+  - 格式支持：支持Markdown的各种格式和语法
+- 文件状态
+  - 文件存在：显示现有文件的内容
+  - 文件不存在：提供创建新文件的入口
+  - 草稿状态：显示当前的编辑状态
+  - 保存状态：显示文件的保存状态
+
+**更新** 新增的灵魂文件模块提供了员工SOUL.md文件的完整编辑功能，支持Markdown格式的编辑和保存操作。
+
+**章节来源**
+- [员工资料-灵魂文件:9-136](file://ui-react/src/components/agents/soul.tsx#L9-L136)
+
+### 聊天侧边栏中的员工资料查看
+- 功能概述
+  - **新增** 聊天界面中的员工资料查看功能
+  - 支持从聊天侧边栏直接查看员工资料
+  - 提供员工头像和名称的点击查看功能
+  - 支持从员工资料直接进入聊天界面
+- 交互流程
+  - 员工列表：显示当前连接的员工
+  - 员工头像：点击头像查看员工资料
+  - 员工名称：点击名称查看员工资料
+  - 资料查看：打开员工资料抽屉显示详细信息
+  - 一键聊天：从员工资料直接进入聊天界面
+- 状态管理
+  - 员工选择：管理当前选中的员工
+  - 资料抽屉：控制员工资料抽屉的显示状态
+  - 会话切换：支持从员工资料切换到聊天会话
+  - 界面切换：支持员工列表和会话列表的切换
+
+**更新** 新增的聊天侧边栏员工资料查看功能，允许用户从聊天界面直接查看和管理员工资料。
+
+**章节来源**
+- [聊天侧边栏:70-169](file://ui-react/src/components/chat/ChatSidebar.tsx#L70-L169)
+
 ### 聊天（Chat）交互与行为
 - 发送与停止
   - 发送非阻塞，立即返回运行标识并以事件流回传结果
@@ -512,7 +686,7 @@ SaveFile --> UpdateList["更新文件列表"]
 - 队列与草稿
   - 多消息排队发送，支持恢复草稿与附件
 - 会话键与头像
-  - 自动解析会话键中的代理 ID，并根据代理头像元数据刷新头像
+  - 自动解析会话键中的员工 ID，并根据员工头像元数据刷新头像
 - 工具调用支持
   - 流式工具调用状态显示
   - 工具调用参数和结果的可视化展示
@@ -577,6 +751,27 @@ WaitFlush --> SendNow
 - [聊天事件桥接钩子:562-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L562-L1011)
 - [会话作用域聊天事件桥接测试:1-60](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts#L1-L60)
 
+### 会话同步逻辑增强
+- 会话状态管理
+  - useSessionManager：统一管理会话列表、历史加载和会话切换
+  - pendingHistoryReloadKey：延迟历史重载，避免频繁刷新
+  - pendingSessionsReloadSeq：单调递增计数器，触发会话列表更新
+- 事件驱动同步
+  - useChatEventBridge：监听聊天事件，自动触发会话状态更新
+  - derivedTitle更新：聊天完成时自动更新会话标题
+  - 会话生成状态：跟踪跨会话的生成进度
+- 状态一致性保证
+  - 会话键解析：从sessionKey中提取员工ID和会话ID
+  - 自动会话切换：当从计划任务跳转时自动切换到对应会话
+  - 历史完整性：工具调用完成后自动重载历史以显示持久化内容
+
+**更新** 新增的会话同步逻辑通过useSessionManager和useChatEventBridge的协同，实现了更精确的会话状态同步和状态一致性保证。
+
+**章节来源**
+- [会话管理器:67-297](file://ui-react/src/hooks/useSessionManager.ts#L67-L297)
+- [聊天事件桥接实现:31-200](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L31-L200)
+- [聊天存储:118-200](file://ui-react/src/store/chat.store.ts#L118-L200)
+
 ### 剪贴板复制功能
 - 功能概述
   - 提供简洁的剪贴板复制钩子，支持文本复制到系统剪贴板
@@ -603,7 +798,7 @@ WaitFlush --> SendNow
   - 握手成功后应用快照（会话默认值、健康状态、存在性等）
 - 事件分发
   - 聊天事件：更新会话键、处理流式片段、必要时重载历史
-  - 代理事件：工具结果完成后重载历史以显示持久化内容
+  - 员工事件：工具结果完成后重载历史以显示持久化内容
   - 存在性/定时任务/设备配对/执行审批等事件触发相应刷新
 - 断线与错误
   - 断线码 1012 视为预期重启，其他断线显示错误原因
@@ -723,6 +918,7 @@ App-->>App : 显示错误或自动重连
   - 状态管理采用Zustand，避免复杂的组件间通信
   - 新增页面通过统一的状态管理架构实现数据共享
   - 会话作用域事件桥接确保事件处理的准确性
+  - **新增** 员工资料抽屉系统通过独立的组件架构提供完整的员工资料管理功能
 - 外部依赖
   - @assistant-ui-react：现代化聊天UI组件库
   - React 19 + TypeScript：现代前端开发栈
@@ -734,7 +930,7 @@ App-->>App : 显示错误或自动重连
   - Lucide React：图标库
   - React Router 7：路由管理
 
-**更新** 新的依赖关系体现了现代化的前端技术栈和组件化架构，新增页面通过统一的状态管理实现更好的数据一致性。会话作用域事件桥接机制确保了跨会话通信的安全性。
+**更新** 新的依赖关系体现了现代化的前端技术栈和组件化架构，新增页面通过统一的状态管理实现更好的数据一致性。会话作用域事件桥接机制确保了跨会话通信的安全性。新增的员工资料抽屉系统通过独立的组件架构提供完整的员工资料管理功能。
 
 ```mermaid
 graph LR
@@ -742,7 +938,7 @@ App["应用根组件<br/>App.tsx"] --> Router["路由配置<br/>router.tsx"]
 Router --> Shell["应用外壳<br/>AppShell.tsx"]
 Shell --> Sidebar["侧边栏<br/>Sidebar.tsx"]
 Shell --> ChatPage["聊天页面<br/>ChatPage.tsx"]
-Shell --> AgentsPage["代理管理页面<br/>AgentsPage.tsx"]
+Shell --> EmployeesPage["员工管理页面<br/>EmployeesPage.tsx"]
 Shell --> ChannelsPage["通道管理页面<br/>ChannelsPage.tsx"]
 Shell --> ConfigPage["配置管理页面<br/>ConfigPage.tsx"]
 Shell --> CronPage["定时任务管理页面<br/>CronPage.tsx"]
@@ -754,20 +950,27 @@ ThreadView --> UserMessage["用户消息<br/>UserMessage.tsx"]
 ThreadView --> Composer["Composer<br/>Composer.tsx"]
 ChatPage --> ChatStore["聊天存储<br/>chat.store.ts"]
 Shell --> GatewayStore["网关存储<br/>gateway.store.ts"]
-AgentsPage --> AgentsStore["代理存储<br/>agents.store.ts"]
+EmployeesPage --> EmployeesStore["员工存储<br/>employees.store.ts"]
 ChannelsPage --> ChannelsStore["通道存储<br/>channels.store.ts"]
 Shell --> GatewayHook["网关连接钩子<br/>useGateway.ts"]
 GatewayHook --> GatewayClient["GatewayClient类"]
 AssistantRuntimeProvider["@assistant-ui-react<br/>AssistantRuntimeProvider"] --> Runtime
 Zustand["Zustand状态管理"] --> ChatStore
 Zustand --> GatewayStore
-Zustand --> AgentsStore
+Zustand --> EmployeesStore
 Zustand --> ChannelsStore
 AssistantMessage --> Markdown["@assistant-ui-react-markdown"]
 AssistantMessage --> Lucide["Lucide React 图标"]
 Composer --> RadixUI["@radix-ui-react-* 组件"]
 useChatEventBridge["会话作用域事件桥接<br/>useChatEventBridge"] --> ChatStore
+useSessionManager["会话管理器<br/>useSessionManager"] --> ChatStore
 useCopyToClipboard["剪贴板复制<br/>useCopyToClipboard"] --> App
+EmployeesPage --> EmployeeDetailDrawer["员工资料抽屉<br/>EmployeeDetailDrawer"]
+EmployeeDetailDrawer --> ProfileHero["个人资料英雄区<br/>ProfileHeroSection"]
+EmployeeDetailDrawer --> CoreSkills["核心技能模块<br/>CoreSkillsSection"]
+EmployeeDetailDrawer --> ToolsSection["工具能力模块<br/>ToolsSection"]
+EmployeeDetailDrawer --> SoulSection["灵魂文件模块<br/>SoulSection"]
+ChatSidebar["聊天侧边栏<br/>ChatSidebar"] --> EmployeeDetailDrawer
 ```
 
 **图表来源**
@@ -776,7 +979,7 @@ useCopyToClipboard["剪贴板复制<br/>useCopyToClipboard"] --> App
 - [应用外壳:1-90](file://ui-react/src/components/layout/AppShell.tsx#L1-L90)
 - [侧边栏:1-129](file://ui-react/src/components/layout/Sidebar.tsx#L1-L129)
 - [聊天页面:1-20](file://ui-react/src/pages/ChatPage.tsx#L1-L20)
-- [代理管理页面:1-366](file://ui-react/src/pages/AgentsPage.tsx#L1-L366)
+- [员工管理页面:1-272](file://ui-react/src/pages/AgentsPage.tsx#L1-L272)
 - [通道管理页面:1-355](file://ui-react/src/pages/ChannelsPage.tsx#L1-L355)
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [定时任务管理页面:1-183](file://ui-react/src/pages/CronPage.tsx#L1-L183)
@@ -787,11 +990,18 @@ useCopyToClipboard["剪贴板复制<br/>useCopyToClipboard"] --> App
 - [Composer组件:1-90](file://ui-react/src/components/chat/Composer.tsx#L1-L90)
 - [聊天存储:1-363](file://ui-react/src/store/chat.store.ts#L1-L363)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
-- [代理存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
+- [员工存储:1-470](file://ui-react/src/store/agents.store.ts#L1-L470)
 - [通道存储:1-391](file://ui-react/src/store/channels.store.ts#L1-L391)
 - [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
 - [聊天事件桥接钩子:1-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L1011)
+- [会话管理器:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 - [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
+- [员工资料抽屉:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [员工资料-个人资料:1-379](file://ui-react/src/components/agents/profile.tsx#L1-L379)
+- [员工资料-核心技能:1-342](file://ui-react/src/components/agents/skills.tsx#L1-L342)
+- [员工资料-工具能力:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
+- [员工资料-灵魂文件:1-136](file://ui-react/src/components/agents/soul.tsx#L1-L136)
+- [聊天侧边栏:1-169](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L169)
 
 **章节来源**
 - [UI包依赖定义:1-57](file://ui-react/package.json#L1-L57)
@@ -807,24 +1017,27 @@ useCopyToClipboard["剪贴板复制<br/>useCopyToClipboard"] --> App
   - 会话作用域事件过滤减少不必要的状态更新
 - 状态管理
   - Zustand的轻量级状态管理，避免不必要的重新渲染
-  - 分离的聊天状态、网关状态、代理状态、通道状态和计划任务状态
+  - 分离的聊天状态、网关状态、员工状态、通道状态和计划任务状态
   - 新增页面通过统一的状态管理实现更好的性能
+  - **新增** 员工资料抽屉的状态管理优化，避免不必要的重新渲染
 - 组件优化
   - @assistant-ui-react的虚拟化和优化支持
   - Memo化的消息组件和工具调用组件
   - 会话作用域事件桥接减少事件处理开销
+  - **新增** 员工资料抽屉的组件优化，支持响应式设计和动画效果
 - 主题与布局
   - Tailwind CSS的原子化类名，减少CSS体积
   - 响应式设计的媒体查询优化
 
-**更新** 新的架构在性能方面有了显著提升，特别是在状态管理和组件渲染方面。新增页面通过统一的状态管理实现了更好的数据共享和性能优化。会话作用域事件桥接机制减少了不必要的状态更新，提升了整体性能。
+**更新** 新的架构在性能方面有了显著提升，特别是在状态管理和组件渲染方面。新增页面通过统一的状态管理实现了更好的数据共享和性能优化。会话作用域事件桥接机制减少了不必要的状态更新，提升了整体性能。新增的员工资料抽屉系统通过优化的组件设计和响应式布局提升了用户体验。
 
 **章节来源**
 - [Vite构建配置:21-28](file://ui-react/vite.config.ts#L21-L28)
 - [聊天存储:135-363](file://ui-react/src/store/chat.store.ts#L135-L363)
 - [网关存储:72-184](file://ui-react/src/store/gateway.store.ts#L72-L184)
-- [代理存储:134-170](file://ui-react/src/store/agents.store.ts#L134-L170)
+- [员工存储:134-170](file://ui-react/src/store/agents.store.ts#L134-L170)
 - [通道存储:89-111](file://ui-react/src/store/channels.store.ts#L89-L111)
+- [员工资料抽屉:99-142](file://ui-react/src/components/agents/detail-drawer.tsx#L99-L142)
 
 ## 故障排查指南
 - "未授权"/1008 错误
@@ -855,12 +1068,21 @@ useCopyToClipboard["剪贴板复制<br/>useCopyToClipboard"] --> App
   - 检查 getActiveChatSessionKey 的返回值
   - 验证 isChatEventForActiveSession 的过滤逻辑
   - 确认会话键的优先级顺序
+- 会话同步问题
+  - 检查 useSessionManager 的会话状态管理
+  - 验证 pendingHistoryReloadKey 和 pendingSessionsReloadSeq 的触发
+  - 确认会话键解析和自动切换逻辑
 - 剪贴板复制问题
   - 检查浏览器权限设置
   - 验证 navigator.clipboard API 的可用性
   - 确认复制文本的有效性
+- **新增** 员工资料抽屉问题
+  - 检查员工资料数据的加载状态
+  - 验证员工资料抽屉的打开/关闭逻辑
+  - 确认员工资料编辑功能的正常工作
+  - 检查员工删除确认对话框的显示状态
 
-**更新** 新的故障排查指南涵盖了React架构特有的问题和解决方案，包括新增页面、会话作用域事件桥接和剪贴板复制功能的故障排查。
+**更新** 新的故障排查指南涵盖了React架构特有的问题和解决方案，包括新增页面、会话作用域事件桥接、会话同步逻辑、剪贴板复制功能和员工资料抽屉系统的故障排查。
 
 **章节来源**
 - [仪表盘（浏览器）:45-55](file://docs/web/dashboard.md#L45-L55)
@@ -868,10 +1090,12 @@ useCopyToClipboard["剪贴板复制<br/>useCopyToClipboard"] --> App
 - [网关连接钩子:276-291](file://ui-react/src/hooks/useGateway.ts#L276-L291)
 - [聊天事件桥接钩子:988-1011](file://ui-react/src/hooks/useChatEventBridge.ts#L988-L1011)
 - [会话作用域聊天事件桥接测试:1-60](file://ui-react/src/hooks/useChatEventBridge.session-scope.test.ts#L1-L60)
+- [会话管理器:266-271](file://ui-react/src/hooks/useSessionManager.ts#L266-L271)
 - [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
+- [员工资料抽屉:50-91](file://ui-react/src/components/agents/detail-drawer.tsx#L50-L91)
 
 ## 结论
-该 Web 界面以轻量、安全与易用为目标：通过React 19 + @assistant-ui-react的现代化架构，提供完整的控制与调试能力；配合响应式布局与主题系统，适配多终端场景；完善的认证与安全策略确保管理员面的安全边界。新的架构引入了更好的组件化设计、状态管理和开发体验，为未来的功能扩展奠定了坚实的基础。新增的代理管理、通道管理、配置管理、定时任务管理、计划任务管理页面提供了完整的系统控制能力，支持多渠道通信、代理生命周期管理、自动化任务调度和会话作用域事件处理。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。对于开发者，清晰的模块划分与现代化的技术栈便于二次开发与集成。
+该 Web 界面以轻量、安全与易用为目标：通过React 19 + @assistant-ui-react的现代化架构，提供完整的控制与调试能力；配合响应式布局与主题系统，适配多终端场景；完善的认证与安全策略确保管理员面的安全边界。新的架构引入了更好的组件化设计、状态管理和开发体验，为未来的功能扩展奠定了坚实的基础。新增的员工管理、通道管理、配置管理、定时任务管理、计划任务管理页面提供了完整的系统控制能力，支持多渠道通信、员工生命周期管理、自动化任务调度和会话作用域事件处理。**新增** 员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化，搜索功能改进提升了用户体验一致性。对于开发者，清晰的模块划分与现代化的技术栈便于二次开发与集成。
 
 ## 附录
 - 快速链接
@@ -884,9 +1108,13 @@ useCopyToClipboard["剪贴板复制<br/>useCopyToClipboard"] --> App
   - Zustand状态管理的最佳实践
   - 新增页面的故障排查和解决方案
   - 会话作用域事件桥接的配置和使用
+  - 会话同步逻辑的优化和故障排查
   - 剪贴板复制功能的兼容性处理
+  - **新增** 员工资料抽屉系统的使用和故障排查
+  - **新增** 术语更新和搜索功能改进的使用指南
 
 **章节来源**
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)
 - [仪表盘（浏览器）:8-55](file://docs/web/dashboard.md#L8-L55)
 - [Vite构建配置:29-34](file://ui-react/vite.config.ts#L29-L34)
+- [员工资料抽屉:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)

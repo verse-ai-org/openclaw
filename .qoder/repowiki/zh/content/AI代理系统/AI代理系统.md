@@ -1,7 +1,7 @@
 # AI代理系统
 
 <cite>
-**本文引用的文件**
+**本文档引用的文件**
 - [README.md](file://README.md)
 - [AGENTS.md](file://AGENTS.md)
 - [docs/concepts/agent-loop.md](file://docs/concepts/agent-loop.md)
@@ -25,14 +25,19 @@
 - [ui-react/src/components/skills/SkillCard.tsx](file://ui-react/src/components/skills/SkillCard.tsx)
 - [ui-react/src/lib/skills-grouping.ts](file://ui-react/src/lib/skills-grouping.ts)
 - [apps/shared/OpenClawKit/Tools/CanvasA2UI/bootstrap.js](file://apps/shared/OpenClawKit/Tools/CanvasA2UI/bootstrap.js)
+- [ui-react/src/store/agents.store.ts](file://ui-react/src/store/agents.store.ts)
+- [ui-react/src/types/agents.ts](file://ui-react/src/types/agents.ts)
+- [ui-react/src/pages/ScheduledTasksPage.tsx](file://ui-react/src/pages/ScheduledTasksPage.tsx)
+- [ui-react/src/components/scheduled-tasks/TaskCard.tsx](file://ui-react/src/components/scheduled-tasks/TaskCard.tsx)
+- [ui-react/docs/scheduled-tasks.md](file://ui-react/docs/scheduled-tasks.md)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 更新旅行规划技能章节，反映JavaScript架构迁移，从Python脚本迁移到Node.js实现
-- 新增CLI参数解析和数据库管理功能的详细描述
-- 更新技能架构图以反映新的JavaScript模块化设计
-- 增强数据库管理器的功能说明，包括JSON文件存储和状态管理
+- 更新agents.store中formDataToCronSchedule函数的时区处理逻辑，改进对时区感知ISO字符串的支持
+- 更新rerunCronJob函数返回布尔值以改善错误处理和用户反馈
+- 新增定时任务调度模块的详细技术文档和UI组件分析
+- 增强代理循环与定时任务的集成说明
 
 ## 目录
 1. [简介](#简介)
@@ -49,7 +54,7 @@
 12. [附录](#附录)
 
 ## 简介
-本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成新的旅行规划技能，该技能已从Python架构完全迁移到JavaScript架构，提供更丰富的旅行相关服务和更好的用户体验。
+本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成新的旅行规划技能，该技能已从Python架构完全迁移到JavaScript架构，提供更丰富的旅行相关服务和更好的用户体验。同时，系统新增了完善的定时任务调度功能，支持复杂的调度策略和错误处理机制。
 
 ## 项目结构
 OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Telegram、Discord等），并通过网关（Gateway）作为统一控制平面，协调会话、工具与事件。系统采用"本地优先"的设计，强调在用户设备上运行，确保低延迟与隐私保护。
@@ -61,12 +66,14 @@ OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Te
   - 上下文引擎（Context Engine）：负责系统提示词组装、压缩与注入。
   - 工具（Tools）：浏览器控制、画布、节点、定时任务、会话间通信等。
   - **新增** 旅行规划技能：基于JavaScript的全新架构，提供完整的旅行计划生成和偏好管理。
+  - **新增** 定时任务调度模块：支持复杂的调度策略和错误处理机制。
 
 ```mermaid
 graph TB
 subgraph "客户端"
 UI["控制界面/WebChat"]
 Nodes["iOS/Android 节点"]
+ScheduledTasks["定时任务界面"]
 end
 subgraph "网关(Gateway)"
 WS["WebSocket 控制平面"]
@@ -74,6 +81,7 @@ AgentLoop["代理循环(Embedded Pi)"]
 Tools["工具执行器"]
 Memory["内存索引管理器"]
 CE["上下文引擎"]
+Cron["定时任务调度器"]
 end
 subgraph "外部服务"
 Channels["多渠道适配器<br/>Telegram/WhatsApp/..."]
@@ -82,12 +90,14 @@ TravelServices["旅行服务<br/>Fliggy/Marriott/..."]
 end
 UI --> WS
 Nodes --> WS
+ScheduledTasks --> WS
 WS --> AgentLoop
 AgentLoop --> Tools
 AgentLoop --> Memory
 AgentLoop --> CE
 AgentLoop --> Providers
 AgentLoop --> TravelServices
+AgentLoop --> Cron
 Channels --> WS
 ```
 
@@ -115,6 +125,9 @@ Channels --> WS
   - 统一的`--key=value`参数解析，支持JSON值内联和文件路径引用。
 - **新增** 数据库管理器
   - 基于JSON文件的本地存储，提供偏好、行程、预算和状态管理。
+- **新增** 定时任务调度模块
+  - 支持一次性、周期性、固定间隔和Cron表达式的复杂调度策略。
+  - 提供完善的错误处理和用户反馈机制。
 
 **章节来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
@@ -124,7 +137,7 @@ Channels --> WS
 - [docs/concepts/agent-loop.md:23-49](file://docs/concepts/agent-loop.md#L23-L49)
 
 ## 架构总览
-OpenClaw的代理循环以"单会话串行、全局可选队列"为核心，确保会话一致性与避免工具/会话竞态。代理运行时通过嵌入式Pi代理内核，订阅事件并桥接至OpenClaw的流式输出。工具执行与消息发送由工具执行器完成，记忆检索由内存索引管理器提供，上下文引擎负责系统提示词组装与压缩。
+OpenClaw的代理循环以"单会话串行、全局可选队列"为核心，确保会话一致性与避免工具/会话竞态。代理运行时通过嵌入式Pi代理内核，订阅事件并桥接至OpenClaw的流式输出。工具执行与消息发送由工具执行器完成，记忆检索由内存索引管理器提供，上下文引擎负责系统提示词组装与压缩。定时任务调度模块通过Zustand状态管理器与Gateway进行交互，提供完整的任务生命周期管理。
 
 ```mermaid
 sequenceDiagram
@@ -135,6 +148,7 @@ participant Pi as "嵌入式Pi代理内核"
 participant Tools as "工具执行器"
 participant Mem as "内存索引管理器"
 participant CE as "上下文引擎"
+participant Cron as "定时任务调度器"
 participant Travel as "旅行规划技能"
 Client->>Gateway : "agent/agent.wait 调用"
 Gateway->>Agent : "参数校验与会话解析"
@@ -148,6 +162,10 @@ Tools-->>Pi : "工具结果/事件"
 Pi-->>Agent : "生命周期/助手/工具流事件"
 Agent-->>Gateway : "流式输出/最终回复"
 Gateway-->>Client : "响应/等待完成"
+Client->>Gateway : "cron.run 立即执行"
+Gateway->>Cron : "执行定时任务"
+Cron-->>Gateway : "任务执行状态"
+Gateway-->>Client : "执行结果"
 ```
 
 **图示来源**
@@ -470,6 +488,103 @@ GenerateBrief --> OutputPlan["输出完整计划"]
 - [skills/travel-planner/scripts/booking-ready.mjs:1-260](file://skills/travel-planner/scripts/booking-ready.mjs#L1-L260)
 - [skills/travel-planner/scripts/xhs-evidence-builder.mjs:1-183](file://skills/travel-planner/scripts/xhs-evidence-builder.mjs#L1-L183)
 
+### 定时任务调度模块
+
+**新增** 定时任务调度模块提供了完整的任务生命周期管理，支持多种调度策略和错误处理机制。
+
+定时任务调度模块通过Zustand状态管理器与Gateway进行交互，提供以下核心功能：
+
+- **调度策略支持**：一次性执行、周期性执行（每日/每周/每月）、固定间隔执行、Cron表达式执行
+- **表单数据转换**：`formDataToCronSchedule`函数将UI表单数据转换为Gateway可识别的调度格式
+- **错误处理**：`rerunCronJob`函数返回布尔值，提供明确的成功/失败状态反馈
+- **状态管理**：完整的任务创建、更新、删除、启用/禁用和立即执行功能
+
+```mermaid
+flowchart TD
+subgraph "定时任务调度模块"
+UserInput["用户输入表单"] --> FormData["ScheduledTaskFormData"]
+FormData --> Converter["formDataToCronSchedule"]
+Converter --> CronSchedule["CronSchedule"]
+CronSchedule --> Gateway["Gateway RPC"]
+Gateway --> Job["CronJob"]
+Job --> UI["UI状态更新"]
+UserAction["用户操作"] --> Rerun["rerunCronJob"]
+Rerun --> Boolean["返回布尔值"]
+Boolean --> Toast["Toast通知"]
+end
+```
+
+**图示来源**
+- [ui-react/src/store/agents.store.ts:55-100](file://ui-react/src/store/agents.store.ts#L55-L100)
+- [ui-react/src/store/agents.store.ts:1050-1062](file://ui-react/src/store/agents.store.ts#L1050-L1062)
+- [ui-react/src/types/agents.ts:252-274](file://ui-react/src/types/agents.ts#L252-L274)
+
+#### formDataToCronSchedule函数改进
+
+**更新** `formDataToCronSchedule`函数现在更好地处理时区感知的ISO字符串，提供更准确的时间调度。
+
+主要改进包括：
+
+- **时区感知支持**：当`scheduleAt`已经是有效的ISO字符串时，直接使用原值，无需额外的时区偏移处理
+- **回退机制**：如果提供的日期字符串无效，则回退到当前时间的ISO字符串
+- **类型安全**：明确区分`one-time`、`every`和其他快捷调度类型的处理逻辑
+
+```mermaid
+flowchart TD
+Form["ScheduledTaskFormData"] --> CheckKind{"scheduleKind检查"}
+CheckKind --> |one-time| OneTime["一次性执行"]
+CheckKind --> |every| Every["固定间隔"]
+CheckKind --> |daily/weekly/monthly| Cron["Cron表达式"]
+OneTime --> CheckDate{"检查scheduleAt是否有效ISO"}
+CheckDate --> |有效| UseAsIs["直接使用ISO字符串"]
+CheckDate --> |无效| UseNow["使用当前时间ISO字符串"]
+UseAsIs --> ReturnAt["返回{kind:'at', at}"]
+UseNow --> ReturnAt
+Every --> CalcInterval["计算间隔毫秒数"]
+CalcInterval --> ReturnEvery["返回{kind:'every', everyMs}""]
+Cron --> BuildExpr["构建Cron表达式"]
+BuildExpr --> ReturnCron["返回{kind:'cron', expr}""]
+ReturnAt --> Result["CronSchedule"]
+ReturnEvery --> Result
+ReturnCron --> Result
+```
+
+**图示来源**
+- [ui-react/src/store/agents.store.ts:55-100](file://ui-react/src/store/agents.store.ts#L55-L100)
+
+#### rerunCronJob函数返回布尔值
+
+**更新** `rerunCronJob`函数现在返回布尔值，提供明确的成功/失败状态，改善错误处理和用户反馈。
+
+改进后的错误处理机制：
+
+- **连接检查**：首先检查Gateway连接状态，未连接时返回`false`
+- **执行尝试**：尝试执行`cron.run` RPC调用
+- **成功状态**：执行成功返回`true`
+- **错误处理**：捕获异常并设置错误状态，返回`false`
+- **用户反馈**：调用方可以根据返回值显示相应的Toast通知
+
+```mermaid
+flowchart TD
+Start["rerunCronJob调用"] --> CheckConn["检查连接状态"]
+CheckConn --> |未连接| ReturnFalse1["返回false"]
+CheckConn --> |已连接| TryRun["尝试执行cron.run"]
+TryRun --> Success{"执行成功?"}
+Success --> |是| ReturnTrue["返回true"]
+Success --> |否| CatchErr["捕获异常"]
+CatchErr --> SetError["设置错误状态"]
+SetError --> ReturnFalse2["返回false"]
+```
+
+**图示来源**
+- [ui-react/src/store/agents.store.ts:1050-1062](file://ui-react/src/store/agents.store.ts#L1050-L1062)
+
+**章节来源**
+- [ui-react/src/store/agents.store.ts:55-100](file://ui-react/src/store/agents.store.ts#L55-L100)
+- [ui-react/src/store/agents.store.ts:1050-1062](file://ui-react/src/store/agents.store.ts#L1050-L1062)
+- [ui-react/src/types/agents.ts:252-274](file://ui-react/src/types/agents.ts#L252-L274)
+- [ui-react/docs/scheduled-tasks.md:1-350](file://ui-react/docs/scheduled-tasks.md#L1-L350)
+
 ## UI组件更新
 
 ### 技能管理系统
@@ -518,6 +633,73 @@ Canvas A2UI组件提供了增强的用户界面交互能力，支持复杂的用
 **章节来源**
 - [apps/shared/OpenClawKit/Tools/CanvasA2UI/bootstrap.js:393-496](file://apps/shared/OpenClawKit/Tools/CanvasA2UI/bootstrap.js#L393-L496)
 
+### 定时任务调度UI组件
+
+**新增** 定时任务调度模块的UI组件提供了完整的任务管理界面，支持复杂的调度配置和实时状态监控。
+
+#### ScheduledTasksPage页面
+
+**更新** ScheduledTasksPage页面现在集成了定时任务调度功能，提供完整的任务生命周期管理界面。
+
+主要功能包括：
+
+- **任务列表展示**：显示所有定时任务的状态、调度信息和最近执行情况
+- **任务创建向导**：通过聊天界面引导用户创建新的定时任务
+- **运行历史监控**：实时显示任务执行状态和错误信息
+- **即时执行**：支持手动触发任务执行并提供即时反馈
+
+```mermaid
+flowchart TD
+Page["ScheduledTasksPage"] --> Tabs["标签页切换"]
+Tabs --> MyTasks["我的任务"]
+Tabs --> RunHistory["运行历史"]
+MyTasks --> TaskCards["任务卡片列表"]
+TaskCards --> TaskCard["TaskCard组件"]
+TaskCard --> Controls["控制按钮"]
+Controls --> RunNow["立即执行"]
+Controls --> Edit["编辑任务"]
+Controls --> Delete["删除任务"]
+RunHistory --> HistoryTable["运行历史表格"]
+HistoryTable --> Filters["过滤器"]
+Filters --> StatusFilter["状态过滤"]
+Filters --> TimeFilter["时间过滤"]
+HistoryTable --> Records["历史记录"]
+Page --> Modal["任务表单弹窗"]
+Modal --> FormFields["表单字段"]
+FormFields --> ScheduleType["调度类型选择"]
+FormFields --> DeliveryMode["投递模式选择"]
+```
+
+**图示来源**
+- [ui-react/src/pages/ScheduledTasksPage.tsx:35-424](file://ui-react/src/pages/ScheduledTasksPage.tsx#L35-L424)
+
+#### TaskCard组件
+
+**更新** TaskCard组件现在支持定时任务的即时执行功能，提供直观的任务状态显示。
+
+关键特性：
+
+- **状态指示器**：显示任务的启用状态和最近执行结果
+- **快速操作**：一键启用/禁用任务和立即执行
+- **调度信息**：显示任务的调度频率和下次执行时间
+- **错误状态**：显示最近一次执行的错误信息
+
+#### 定时任务表单组件
+
+**新增** TaskFormModal组件提供了完整的定时任务配置界面，支持复杂的调度策略配置。
+
+功能特性：
+
+- **调度类型选择**：支持一次性、每日、每周、每月、固定间隔和自定义Cron表达式
+- **时间配置**：提供直观的时间选择器和时区处理
+- **投递模式**：支持静默执行和消息通道投递
+- **预览功能**：实时显示任务的调度计划和执行效果
+
+**章节来源**
+- [ui-react/src/pages/ScheduledTasksPage.tsx:1-424](file://ui-react/src/pages/ScheduledTasksPage.tsx#L1-L424)
+- [ui-react/src/components/scheduled-tasks/TaskCard.tsx:1-116](file://ui-react/src/components/scheduled-tasks/TaskCard.tsx#L1-L116)
+- [ui-react/docs/scheduled-tasks.md:1-350](file://ui-react/docs/scheduled-tasks.md#L1-L350)
+
 ## 依赖关系分析
 - 组件耦合
   - 代理循环依赖上下文引擎进行提示词组装、依赖内存索引管理器进行上下文检索、依赖工具执行器进行动作执行。
@@ -525,10 +707,12 @@ Canvas A2UI组件提供了增强的用户界面交互能力，支持复杂的用
   - **新增** JavaScript旅行规划技能通过Node.js模块化架构与系统集成，提供本地数据持久化。
   - **新增** CLI参数解析系统为所有技能脚本提供统一的命令行接口。
   - **新增** 数据库管理器提供JSON文件存储和状态管理功能。
+  - **新增** 定时任务调度模块通过Zustand状态管理器与Gateway交互，提供完整的任务生命周期管理。
 - 外部依赖
   - 模型提供商（OpenAI/Anthropic等）通过嵌入式Pi代理内核访问。
   - 多渠道适配器通过网关WebSocket接入，形成统一的消息入口。
   - **新增** 各种旅行服务API通过技能接口访问，如Fliggy MCP、小红书、高德地图等。
+  - **新增** Gateway Cron系统提供定时任务的持久化存储和执行调度。
 
 ```mermaid
 graph LR
@@ -539,12 +723,16 @@ AgentLoop --> Tools["工具执行器"]
 AgentLoop --> Providers["模型提供商"]
 AgentLoop --> TravelSkills["旅行规划技能"]
 AgentLoop --> FlyAISkills["FlyAI技能"]
+AgentLoop --> CronModule["定时任务调度模块"]
 Channels["多渠道适配器"] --> AgentLoop
 TravelSkills --> NodeRuntime["Node.js运行时"]
 TravelSkills --> CLIParser["CLI参数解析器"]
 TravelSkills --> DBManager["数据库管理器"]
 TravelSkills --> JSONStorage["JSON文件存储"]
 FlyAISkills --> NodeRuntime
+CronModule --> Zustand["Zustand状态管理"]
+CronModule --> Gateway["Gateway RPC"]
+CronModule --> CronJobs["CronJob持久化"]
 ```
 
 **图示来源**
@@ -574,6 +762,10 @@ FlyAISkills --> NodeRuntime
 - **新增** 数据库管理器
   - JSON文件存储提供了简单可靠的数据持久化方案。
   - 自动文件创建和默认值设置减少了初始化复杂度。
+- **新增** 定时任务调度模块
+  - Zustand状态管理器提供高性能的状态更新和订阅机制。
+  - Gateway RPC调用优化，减少不必要的网络往返。
+  - 错误处理和重试机制确保任务调度的可靠性。
 
 ## 故障排查指南
 - 代理循环
@@ -596,6 +788,11 @@ FlyAISkills --> NodeRuntime
   - 文件存在性检查：确认JSON文件存在且可访问。
   - 数据完整性验证：检查数据结构的完整性和一致性。
   - 错误处理：查看具体的错误信息和解决建议。
+- **新增** 定时任务调度模块
+  - Gateway连接检查：确认WebSocket连接状态和认证信息。
+  - 调度配置验证：检查Cron表达式和时间配置的正确性。
+  - 错误状态监控：查看任务执行的错误信息和重试次数。
+  - 用户反馈：确认Toast通知和错误消息的显示状态。
 
 **章节来源**
 - [docs/concepts/agent-loop.md:138-149](file://docs/concepts/agent-loop.md#L138-L149)
@@ -604,6 +801,8 @@ FlyAISkills --> NodeRuntime
 
 ## 结论
 OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构，实现了从消息到动作再到回复的完整闭环。系统现已成功集成了全新的JavaScript旅行规划技能，该技能完全替代了原有的Python实现，提供了更现代、更高效的架构设计。新增的CLI参数解析系统和数据库管理器进一步提升了技能的可用性和可靠性。新增的UI组件进一步提升了用户体验，支持技能的安装、管理和监控。代理作用域与会话路由确保多代理协作与会话隔离；内存检索提供高效的知识检索能力；代理循环与钩子体系支撑灵活的推理与决策流程。结合队列化与并发控制、只读数据库恢复与缓存策略，以及新的JavaScript旅行规划技能，系统在性能与稳定性之间取得良好平衡。
+
+**新增** 定时任务调度模块的集成进一步增强了系统的自动化能力，支持复杂的调度策略和错误处理机制。通过改进的formDataToCronSchedule函数和rerunCronJob函数，系统提供了更准确的时间处理和更可靠的错误反馈。完整的UI组件和状态管理确保了用户友好的操作体验和透明的任务状态监控。
 
 ## 附录
 
@@ -620,6 +819,10 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 使用`runScript()`工厂函数简化脚本开发。
   - 实现参数验证和错误处理。
   - 支持JSON值内联和文件路径引用。
+- **新增** 定时任务调度开发
+  - 使用Zustand状态管理器管理任务状态。
+  - 实现CronSchedule与UI表单数据的双向转换。
+  - 提供完整的错误处理和用户反馈机制。
 
 **章节来源**
 - [docs/concepts/agent-loop.md:80-95](file://docs/concepts/agent-loop.md#L80-L95)
@@ -659,6 +862,10 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 确保Node.js运行时可用，检查脚本依赖完整性。
   - 配置旅行偏好数据库目录权限，确保数据持久化正常。
   - 使用统一的CLI参数格式进行技能调用。
+- **新增** 定时任务调度配置
+  - 确保Gateway连接正常，检查WebSocket认证状态。
+  - 验证Cron表达式的正确性和时区设置。
+  - 配置适当的投递模式和通知渠道。
 
 **章节来源**
 - [README.md:318-338](file://README.md#L318-L338)
@@ -687,6 +894,10 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 文件系统权限管理，确保数据文件的安全访问。
   - JSON数据验证，防止损坏的数据文件。
   - 路径遍历防护，防止恶意文件路径访问。
+- **新增** 定时任务调度安全
+  - Gateway RPC调用需要适当的认证和授权。
+  - 任务配置需要输入验证和格式检查。
+  - 错误处理需要防止敏感信息泄露。
 
 **章节来源**
 - [README.md:332-338](file://README.md#L332-L338)
@@ -704,3 +915,24 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
 - [ui/src/ui/controllers/skills.ts:125-157](file://ui/src/ui/controllers/skills.ts#L125-L157)
 - [ui-react/src/store/skills.store.ts:208-253](file://ui-react/src/store/skills.store.ts#L208-L253)
 - [ui-react/src/components/skills/SkillCard.tsx:1-320](file://ui-react/src/components/skills/SkillCard.tsx#L1-L320)
+
+### 定时任务调度最佳实践
+- **调度策略选择**
+  - 一次性任务：使用`kind: "at"`，确保`deleteAfterRun: false`
+  - 周期性任务：使用`kind: "cron"`，合理设置Cron表达式
+  - 固定间隔：使用`kind: "every"`，设置合适的间隔毫秒数
+- **时区处理**
+  - 使用时区感知的ISO字符串，避免本地时区偏移问题
+  - 确保Gateway正确处理时区转换
+- **错误处理**
+  - 实现重试机制和错误告警
+  - 提供详细的错误信息和诊断日志
+- **性能优化**
+  - 合理设置任务执行间隔，避免过度频繁的调度
+  - 使用适当的投递模式，平衡通知需求和系统负载
+  - 监控任务执行时间和资源使用情况
+
+**章节来源**
+- [ui-react/src/store/agents.store.ts:55-100](file://ui-react/src/store/agents.store.ts#L55-L100)
+- [ui-react/src/store/agents.store.ts:1050-1062](file://ui-react/src/store/agents.store.ts#L1050-L1062)
+- [ui-react/docs/scheduled-tasks.md:150-210](file://ui-react/docs/scheduled-tasks.md#L150-L210)

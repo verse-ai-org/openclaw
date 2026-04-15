@@ -1,10 +1,9 @@
 /**
  * Travel Plan Generator
  *
- * 单步独立原则：本模块优先消费 travel_db 中已持久化的 trip 记录。
+ * 单步独立原则：本模块只消费 travel_db 中已持久化的 trip 记录。
  * 每个计算步骤由 agent 按 SKILL.md workflow 独立调用对应脚本写入 DB，
- * plan_generator 仅负责将已有数据组合为骨架计划输出。
- * 若 trip 尚未完成第五步，route_validation 会自动生成预览版（不写入 DB）。
+ * plan_generator 仅负责将已有数据组合为骨架计划输出，不再补算缺失阶段。
  */
 
 import fs from "node:fs";
@@ -12,7 +11,6 @@ import path from "node:path";
 import { buildPreTripBrief } from "./briefing.mjs";
 import { readJsonFromCliValue, requireFlag, runScript } from "./cli_args.mjs";
 import { getPreferences, getSelectedRoute, getTripById } from "./db.mjs";
-import { buildLiveValidation } from "./route-validation.mjs";
 
 function pyStripChars(str, chars) {
   const charSet = new Set([...chars]);
@@ -27,7 +25,7 @@ export function inferTripStage(tripData) {
   if (tripData.stage) return tripData.stage;
   if (tripData.during_trip) return "in_trip";
   if (tripData.bookings_confirmed) return "ready_to_book";
-  if (tripData.selected_route_id || tripData.chosen_route_id) return "plan_ready";
+  if (tripData.chosen_route_id) return "plan_ready";
   if (tripData.route_options?.length) return "route_plan";
   return "intake";
 }
@@ -42,8 +40,11 @@ function dateForDay(departureDate, dayOffset) {
 }
 
 function activityDensity(pace) {
+  const normalizedPace = String(pace || "moderate").toLowerCase();
   if (pace === "relaxed") return "1 主锤点 + 1 可选支线";
-  if (pace === "packed") return "2 主锤点 + 1 晚间备选";
+  if (normalizedPace === "packed" || normalizedPace === "intensive") {
+    return "2 主锤点 + 1 晚间备选";
+  }
   return "1 主锤点 + 1 附近区域";
 }
 
@@ -53,9 +54,17 @@ function activityDensity(pace) {
  */
 export function generateRouteFraming(tripData) {
   const existing = tripData.route_plan;
-  if (existing && existing.recommended_route) {
-    // 已有持久化的路线框定，直接返回
-    const recommended = existing.recommended_route || {};
+  if (existing && typeof existing === "object") {
+    const recommended = getSelectedRoute(tripData);
+    const allOptions = Array.isArray(tripData.route_options) ? tripData.route_options : [];
+    const altIds = Array.isArray(existing.alternative_ids) ? existing.alternative_ids : [];
+    const rejectedIds = Array.isArray(existing.rejected_route_ids) ? existing.rejected_route_ids : [];
+    const alternatives = altIds
+      .map((routeId) => allOptions.find((option) => option?.route_id === routeId))
+      .filter(Boolean);
+    const rejectedRoutes = rejectedIds
+      .map((routeId) => allOptions.find((option) => option?.route_id === routeId))
+      .filter(Boolean);
     const evidenceMeta = tripData.route_evidence_meta || {};
     const quality = String(evidenceMeta.quality || "").toLowerCase();
     const verificationStatus = String(evidenceMeta.verification_status || "");
@@ -66,28 +75,32 @@ export function generateRouteFraming(tripData) {
           ? "medium"
           : quality === "low"
             ? "low"
-            : "persisted";
+            : existing.recommended_route_id
+              ? "persisted"
+              : "none";
     const sourceReason = String(existing?.decision_summary?.source_reason || "");
-    return {
-      stage: "route_plan",
-      recommended_route: recommended,
-      alternatives: existing.alternatives || [],
-      rejected_routes: existing.rejected_routes || [],
-      used_platform: existing.used_platform || "",
-      fallback_count: Number(existing.fallback_count || 0),
-      fallback_reason: existing.fallback_reason || "",
-      source_reason: sourceReason,
-      source_confidence: sourceConfidence,
-      verification_status: verificationStatus,
-      evidence_summary: "",
-      evidence_links: [],
-      next_action: "",
-      decision_summary: existing.decision_summary || {
-        headline: recommended.title || "",
-        why_now: "路线第四步已输出并持久化。",
-        planning_note: "",
-      },
-    };
+    if (recommended && Object.keys(recommended).length > 0) {
+      return {
+        stage: "route_plan",
+        recommended_route: recommended,
+        alternatives,
+        rejected_routes: rejectedRoutes,
+        used_platform: existing.used_platform || "",
+        fallback_count: Number(existing.fallback_count || 0),
+        fallback_reason: existing.fallback_reason || "",
+        source_reason: sourceReason,
+        source_confidence: sourceConfidence,
+        verification_status: verificationStatus,
+        evidence_summary: "",
+        evidence_links: [],
+        next_action: "",
+        decision_summary: existing.decision_summary || {
+          headline: recommended.title || "",
+          why_now: "路线第四步已输出并持久化。",
+          planning_note: "",
+        },
+      };
+    }
   }
 
   // route_plan 尚未写入：返回占位结构，提示 agent 进入第四步
@@ -517,10 +530,18 @@ export function generatePreTripChecklist(_destinationCountry, departureDate) {
   return checklist;
 }
 
-function hasToolPlan(liveValidation) {
-  const tp = liveValidation?.tool_plan;
-  if (!tp || typeof tp !== "object") return false;
-  return Object.keys(tp).length > 0;
+function summarizeValidationState(routeValidation) {
+  const validation = routeValidation && typeof routeValidation === "object" ? routeValidation : {};
+  const hasPersistedValidation =
+    String(validation.verdict || "").trim() !== "" ||
+    String(validation.checked_at || "").trim() !== "" ||
+    Boolean(validation.transport_result?.checked) ||
+    (validation.weather_result?.locations_checked || []).length > 0;
+
+  return {
+    hasPersistedValidation,
+    validation: hasPersistedValidation ? validation : null,
+  };
 }
 
 function hasNonEmptyLink(value) {
@@ -534,6 +555,122 @@ function hasRealBookingEvidence(bookingReady) {
   const hotelLink = hasNonEmptyLink(bookingReady?.chosen_hotel?.booking_link);
   const diningLink = hasNonEmptyLink(bookingReady?.chosen_dining?.booking_link);
   return transportLink && hotelLink && diningLink;
+}
+
+function normalizeStops(route) {
+  const stops = Array.isArray(route?.stops) ? route.stops : [];
+  return stops.map((stop) => String(stop || "").trim()).filter(Boolean);
+}
+
+function buildRouteOverviewText(route, destination) {
+  const stops = normalizeStops(route);
+  if (stops.length >= 2) return stops.join(" → ");
+  return route?.title || destination.city || destination.region || destination.country || "待确认路线";
+}
+
+function buildDailyOverviewEntries(itinerary, route) {
+  const stops = normalizeStops(route);
+  return itinerary.map((dayCard, index) => {
+    const startStop = stops[index] || stops[0] || "";
+    const endStop = stops[index + 1] || startStop || stops[stops.length - 1] || "";
+    const routeLineCore =
+      startStop && endStop ? `${startStop} → ${endStop}` : startStop || endStop || "路线待确认";
+    const routeLine = `${routeLineCore}（约待确认km，待确认h）`;
+    const lodging = String(dayCard?.lodging?.name || "").trim() || "待确认住宿区域";
+    const secondary = String(dayCard?.secondary_goal || "").trim();
+    return {
+      day: Number(dayCard?.day || index + 1),
+      route_line: routeLine,
+      main_anchor: String(dayCard?.primary_goal || "").trim() || "待确认主锚点",
+      secondary_anchor: secondary || "可选次锚点待确认",
+      lodging,
+    };
+  });
+}
+
+function buildTransportSnapshot(tripData, validation, selectedRoute) {
+  const raw = validation?.transport_result?.raw || {};
+  const flights = []
+    .concat(Array.isArray(raw?.flights) ? raw.flights : [])
+    .concat(Array.isArray(tripData?.live_results?.flights?.data?.items) ? tripData.live_results.flights.data.items : []);
+  const trains = []
+    .concat(Array.isArray(raw?.trains) ? raw.trains : [])
+    .concat(Array.isArray(tripData?.live_results?.transport?.trains) ? tripData.live_results.transport.trains : []);
+  const driveMode =
+    String(validation?.transport_result?.mode || "").toLowerCase() === "drive" ||
+    String(validation?.transport_result?.mode || "").toLowerCase() === "self_drive";
+  const stops = normalizeStops(selectedRoute);
+  return {
+    flight: flights.length > 0 ? "已验证（存在机票候选）" : "暂无已验证机票信息",
+    train: trains.length > 0 ? "已验证（存在高铁候选）" : "暂无已验证高铁信息",
+    drive:
+      driveMode || stops.length >= 2
+        ? `建议关注自驾分段：${stops.slice(0, 2).join(" → ") || "待确认路段"}`
+        : "暂无自驾核验信息",
+  };
+}
+
+function inferWeatherRowsFromRaw(raw, defaultLocations = []) {
+  if (!raw || typeof raw !== "object") {
+    return defaultLocations.map((location) => ({
+      location,
+      date: "",
+      condition: "未实时验证",
+      temperature: "-",
+      risk: "待核验",
+    }));
+  }
+  const candidateArray = Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw.locations)
+      ? raw.locations
+      : Array.isArray(raw.items)
+        ? raw.items
+        : [];
+  const rows = candidateArray
+    .map((item) => ({
+      location: String(item?.location || item?.city || item?.name || "").trim(),
+      date: String(item?.date || item?.forecast_date || "").trim(),
+      condition: String(item?.condition || item?.weather || item?.summary || "未实时验证").trim(),
+      temperature: String(item?.temperature || item?.temp || item?.temperature_range || "-").trim(),
+      risk: String(item?.risk || item?.warning || "").trim() || "正常",
+    }))
+    .filter((item) => item.location);
+  if (rows.length > 0) return rows;
+  return defaultLocations.map((location) => ({
+    location,
+    date: "",
+    condition: "未实时验证",
+    temperature: "-",
+    risk: "待核验",
+  }));
+}
+
+function buildWeatherTableRows(validation, dailyOverview) {
+  const checked = Array.isArray(validation?.weather_result?.locations_checked)
+    ? validation.weather_result.locations_checked
+    : [];
+  const defaultLocations = checked.length > 0 ? checked : dailyOverview.map((item) => item.route_line.split("（")[0]);
+  const rows = inferWeatherRowsFromRaw(validation?.weather_result?.raw, defaultLocations);
+  return rows.slice(0, Math.max(3, dailyOverview.length));
+}
+
+function buildStep6Summary(tripData, selectedRoute, itinerary, validation) {
+  const destination = tripData.destination || {};
+  const routeOverview = buildRouteOverviewText(selectedRoute, destination);
+  const dailyOverview = buildDailyOverviewEntries(itinerary, selectedRoute);
+  return {
+    route_overview_text: routeOverview,
+    daily_overview: dailyOverview,
+    transport_snapshot: buildTransportSnapshot(tripData, validation || {}, selectedRoute || {}),
+    weather_table_rows: buildWeatherTableRows(validation || {}, dailyOverview),
+    template_hint: {
+      route_overview_title: "路线总览：",
+      daily_plan_title: "每日计划：",
+      transport_title: "交通情况：",
+      weather_title: "天气情况：",
+    },
+  };
 }
 
 /**
@@ -557,51 +694,68 @@ export function generateTripPlan(tripData) {
   const pace = tripData.pace_preference || preferences.pace_preference || "moderate";
   const accommodationLevel = preferences.budget_level || "mid-range";
 
-  // 读取已持久化的路线框定（第四步 save_route_plan 写入）
   const routeFraming = generateRouteFraming(tripData);
   const routeChoiceConfirmed = tripData.route_choice_confirmed === true;
   const selectedRoute = routeChoiceConfirmed ? getSelectedRoute(tripData) : {};
 
   const skeleton = generatePlanSkeleton({ ...tripData }, preferences);
 
-  // 读取已持久化的 route_validation（第五步写入）；若尚未走到第五步则自动生成预览版（不写入 DB）
-  const persistedValidation = tripData.route_validation || {};
-  const liveValidation =
-    persistedValidation.tool_plan != null
-      ? persistedValidation
-      : buildLiveValidation(tripData, selectedRoute, preferences);
+  const { hasPersistedValidation, validation } = summarizeValidationState(tripData.route_validation);
   const bookingReady = tripData.booking_ready || {};
-
   const bookingReadyStatus = bookingReady.status || "";
-  const itineraryReady =
-    routeChoiceConfirmed && bookingReadyStatus === "ready" && hasRealBookingEvidence(bookingReady);
-
-  const bookingStrategy = {
-    status:
-      bookingReadyStatus === "ready"
-        ? hasRealBookingEvidence(bookingReady)
-          ? "booking_ready"
-          : "needs_live_links"
-        : hasToolPlan(liveValidation)
-          ? "needs_route_validation"
-          : "route_only",
-    next_actions: [
-      ...(!routeChoiceConfirmed ? ["先确认路线选项，再进行验证与每日规划。"] : []),
-      "实时检索交通选项（机票或高铁）。",
-      "实时检索酒店选项，锁定前不指定每日锤点。",
-      "实时检索餐饮选项并保留至少一个可分享链接。",
-      "门限达标且链接存在后升级为可下单回复。",
-    ],
-    decision_gates: liveValidation.decision_gates || [],
-  };
-
-  const hydratedItinerary = itineraryReady
+  const hasBookingReady = bookingReadyStatus === "ready";
+  const hasBookingLinks = hasRealBookingEvidence(bookingReady);
+  const itinerarySkeletonReady = routeChoiceConfirmed && hasPersistedValidation;
+  const itinerarySkeleton = itinerarySkeletonReady
+    ? generateDailyItinerary(destination, tripData, interests, pace)
+    : [];
+  const itinerary = hasBookingReady
     ? hydrateItineraryWithBookingReady(
-        generateDailyItinerary(destination, tripData, interests, pace),
+        itinerarySkeleton,
         bookingReady,
         tripData.confirmed_bookings || {},
       )
+    : itinerarySkeleton;
+  const preTripMaterialsReady = hasBookingReady || Boolean(tripData.during_trip);
+  const preTripChecklist = preTripMaterialsReady
+    ? generatePreTripChecklist(destination.country || "", departureDate)
     : [];
+  const preTripBrief = preTripMaterialsReady
+    ? buildPreTripBrief(tripData, {
+        booking_ready: bookingReady,
+        pre_trip_checklist: preTripChecklist,
+        itinerary,
+      })
+    : null;
+  const packingChecklist = preTripMaterialsReady
+    ? generatePackingChecklist(tripData.climate || "moderate", duration, tripData.activities || [])
+    : {};
+
+  const bookingStrategy = {
+    status: !routeChoiceConfirmed
+      ? "needs_route_choice"
+      : !hasPersistedValidation
+        ? "needs_route_validation"
+        : hasBookingReady
+          ? hasBookingLinks
+            ? "booking_ready"
+            : "needs_live_links"
+          : "needs_booking_ready",
+    next_actions: [
+      ...(!routeChoiceConfirmed ? ["先确认路线选项，再进行验证与每日规划。"] : []),
+      ...(!hasPersistedValidation ? ["先完成第五步交通与天气验证，并持久化 route_validation。"] : []),
+      ...(hasPersistedValidation && !hasBookingReady
+        ? ["当前只应输出 Step 7 的简要每日计划；住宿、交通细化等待 Step 8。"]
+        : []),
+      ...(hasPersistedValidation && !hasBookingReady
+        ? ["完成 Step 8 的实时交通/酒店/餐饮查询并保存 booking_ready。"]
+        : []),
+      ...(hasBookingReady && !hasBookingLinks
+        ? ["补齐交通、酒店、餐饮的可分享链接后再进入可下单回复。"]
+        : []),
+    ],
+    decision_gates: Array.isArray(bookingReady.decision_gates) ? bookingReady.decision_gates : [],
+  };
 
   const serviceState = {
     stage: tripData.during_trip
@@ -609,9 +763,16 @@ export function generateTripPlan(tripData) {
       : tripData.bookings_confirmed || bookingReadyStatus === "ready"
         ? "pre_trip"
         : "planning",
-    ready_for_pre_trip_brief: bookingReadyStatus === "ready",
+    ready_for_pre_trip_brief: preTripMaterialsReady,
     ready_for_daily_brief: Boolean(tripData.during_trip),
   };
+
+  const step6Summary = buildStep6Summary(
+    tripData,
+    selectedRoute,
+    itinerarySkeletonReady ? itinerary : [],
+    validation,
+  );
 
   return {
     trip_id: tripData.id || "",
@@ -623,52 +784,94 @@ export function generateTripPlan(tripData) {
       duration_days: duration,
     },
     route_plan: routeFraming,
-    route_validation: liveValidation,
+    route_validation: validation,
+    route_validation_status: hasPersistedValidation ? "ready" : "missing",
     plan_skeleton: skeleton,
-    selected_route_id: tripData.selected_route_id || tripData.chosen_route_id || "",
+    chosen_route_id: tripData.chosen_route_id || "",
     selected_route: selectedRoute,
     booking_strategy: bookingStrategy,
-    booking_ready: bookingReady,
+    booking_ready: hasBookingReady ? bookingReady : null,
     service_state: serviceState,
     trip_brief: {
       planning_focus: "确认路线、验证交通与住宿，再合成可下单决策包。",
       response_order: [
         ...(!routeChoiceConfirmed ? ["route_options_and_user_choice"] : []),
-        "recommendation",
-        "live_transport_and_hotel_validation",
-        "booking_ready_transport_and_hotel_options",
-        "transport_and_hotel_strategy",
-        "day_by_day",
+        ...(routeChoiceConfirmed && !hasPersistedValidation
+          ? ["route_validation_and_user_confirmation"]
+          : []),
+        ...(itinerarySkeletonReady ? ["recommendation", "transport_and_hotel_strategy", "day_by_day"] : []),
+        ...(hasBookingReady ? ["booking_ready_transport_and_hotel_options"] : []),
         "budget",
-        "pre_trip_actions",
+        ...(preTripMaterialsReady ? ["pre_trip_actions"] : []),
       ],
     },
-    itinerary: hydratedItinerary,
+    step6_summary: step6Summary,
+    itinerary,
     budget: calculateBudgetBreakdown(budget, duration, accommodationLevel),
-    packing_checklist: generatePackingChecklist(
-      tripData.climate || "moderate",
-      duration,
-      tripData.activities || [],
-    ),
-    pre_trip_checklist: generatePreTripChecklist(destination.country || "", departureDate),
-    pre_trip_brief: buildPreTripBrief(tripData, {
-      booking_ready: bookingReady,
-      pre_trip_checklist: generatePreTripChecklist(destination.country || "", departureDate),
-      itinerary: hydratedItinerary,
-    }),
+    packing_checklist: packingChecklist,
+    pre_trip_checklist: preTripChecklist,
+    pre_trip_brief: preTripBrief,
     generated_at: new Date().toISOString(),
   };
+}
+
+function selectPlanViewByStep(plan, step) {
+  if (step === 6) {
+    return {
+      trip_id: plan.trip_id,
+      requested_step: 6,
+      stage: plan.stage,
+      chosen_route_id: plan.chosen_route_id,
+      route_plan: plan.route_plan,
+      route_validation: plan.route_validation,
+      step6_summary: plan.step6_summary,
+      booking_strategy: plan.booking_strategy,
+      next_actions: plan.booking_strategy?.next_actions || [],
+      generated_at: plan.generated_at,
+    };
+  }
+  if (step === 7) {
+    return {
+      trip_id: plan.trip_id,
+      requested_step: 7,
+      stage: plan.stage,
+      chosen_route_id: plan.chosen_route_id,
+      route_validation_status: plan.route_validation_status,
+      itinerary: plan.itinerary,
+      trip_brief: plan.trip_brief,
+      booking_strategy: plan.booking_strategy,
+      next_actions: plan.booking_strategy?.next_actions || [],
+      generated_at: plan.generated_at,
+    };
+  }
+  if (step === 8) {
+    return {
+      trip_id: plan.trip_id,
+      requested_step: 8,
+      stage: plan.stage,
+      chosen_route_id: plan.chosen_route_id,
+      booking_ready: plan.booking_ready,
+      booking_strategy: plan.booking_strategy,
+      itinerary: plan.itinerary,
+      budget: plan.budget,
+      pre_trip_checklist: plan.pre_trip_checklist,
+      packing_checklist: plan.packing_checklist,
+      generated_at: plan.generated_at,
+    };
+  }
+  return { ...plan, requested_step: step };
 }
 
 runScript({
   name: "plan_generator.mjs",
   description: "读取 travel_db 中已持久化的 trip 记录，输出结构化骨架计划 JSON",
   usage:
-    "node plan_generator.mjs --trip-id=<id> [--output=<file>]\n" +
-    "  node plan_generator.mjs --trip-json=<json|@file> [--output=<file>]",
+    "node plan_generator.mjs --trip-id=<id> [--step=<n>] [--output=<file>]\n" +
+    "  node plan_generator.mjs --trip-json=<json|@file> [--step=<n>] [--output=<file>]",
   flags: [
     { name: "trip-id", desc: "从 travel_db 按 id 加载 trip" },
     { name: "trip-json", desc: "trip 对象 JSON 或 @文件路径" },
+    { name: "step", desc: "可选阶段标识（如 6 / 7 / 8），用于上层流程编排" },
     { name: "output", desc: "将 JSON 写入文件（默认输出到 stdout）" },
   ],
   callerUrl: import.meta.url,
@@ -697,13 +900,24 @@ runScript({
     }
 
     const plan = generateTripPlan(trip);
+    const stepRaw = args.step !== undefined && args.step !== "" ? String(args.step).trim() : "";
+    const step = stepRaw ? Number.parseInt(stepRaw, 10) : null;
+    if (stepRaw && !Number.isFinite(step)) {
+      console.error("错误：--step 必须为数字（如 6 / 7 / 8）");
+      process.exit(1);
+    }
+    if (step != null && ![6, 7, 8].includes(step)) {
+      console.error("错误：当前仅支持 --step=6|7|8");
+      process.exit(1);
+    }
+    const outputPlan = step != null ? selectPlanViewByStep(plan, step) : plan;
     if (args.output !== undefined && args.output !== "") {
       const outPath = path.resolve(args.output);
       fs.mkdirSync(path.dirname(outPath), { recursive: true });
-      fs.writeFileSync(outPath, JSON.stringify(plan, null, 2), "utf8");
+      fs.writeFileSync(outPath, JSON.stringify(outputPlan, null, 2), "utf8");
       console.log(`✓ 骨架计划已生成：${outPath}`);
     } else {
-      console.log(JSON.stringify(plan, null, 2));
+      console.log(JSON.stringify(outputPlan, null, 2));
     }
   },
 });

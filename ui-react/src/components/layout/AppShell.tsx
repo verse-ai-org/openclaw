@@ -36,8 +36,8 @@ function TopNav() {
       >
         <SidebarTrigger className="-ml-1 z-50" />
         <div className="flex items-center gap-1.5 text-sm">
-          <span className="font-semibold text-primary">Workspace</span>
-          <span className="text-muted-foreground">/</span>
+          {/* <span className="font-semibold text-primary">Workspace</span>
+          <span className="text-muted-foreground">/</span> */}
           <span className="text-foreground">{currentLabel}</span>
         </div>
       </div>

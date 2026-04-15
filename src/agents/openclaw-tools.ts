@@ -28,6 +28,8 @@ import { createQuestionFlowTool } from "./tools/question-flow-tool.js";
 import { createOptionListTool } from "./tools/option-list-tool.js";
 import { createCodeBlockTool } from "./tools/code-block-tool.js";
 import { createChartTool } from "./tools/chart-tool.js";
+import { createGeoMapTool } from "./tools/geo-map-tool.js";
+import { createItemCarouselTool } from "./tools/item-carousel-tool.js";
 import { createLinkPreviewTool } from "./tools/link-preview-tool.js";
 import { createStatsDisplayTool } from "./tools/stats-display-tool.js";
 import { createTerminalOutputTool } from "./tools/terminal-output-tool.js";
@@ -177,6 +179,8 @@ export function createOpenClawTools(
     createOptionListTool(),
     createCodeBlockTool(),
     createChartTool(),
+    createItemCarouselTool(),
+    createGeoMapTool(),
     createLinkPreviewTool(),
     createStatsDisplayTool(),
     createTerminalOutputTool(),

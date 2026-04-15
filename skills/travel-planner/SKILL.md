@@ -55,14 +55,7 @@ node {baseDir}/scripts/db.mjs --cmd=is_initialized
 
 **只问高影响项**。在 Control UI 会话中，**必须调用 `question_flow` 工具**（而非直接输出文字问答），让前端渲染交互式问卷卡片。
 
-#### Control UI：同一轮内不要拆成「两条助手消息」
-
-部分模型会在 **工具调用停一轮** 之后，再单独输出一条只含 `<final>…</final>` 说明文字的助手消息。这会导致问卷卡片与说明分成上下两条气泡，且用户容易只看到第二条、看不到问卷。
-
-**必须遵守**：
-
-1. **优先**在同一轮助手输出中完成：先写一两句面向用户的说明（可直接用自然语言，不必包在 `<final>` 里），**再**调用 `question_flow`；或说明与工具调用同回合连续完成，**避免**在 `question_flow` 的 tool result 之后**再单独起一条**仅含 `<final>` 的助手消息。
-2. 若运行时仍拆成两条助手消息：把必要说明放在 **调用 `question_flow` 之前**的那条里；**不要**在工具之后再发一条只有包装标签、重复引导的 `<final>` 纯文案。
+**必须遵守**：在同一轮助手输出中完成：先写一两句面向用户的说明，再调用`question_flow`。
 
 #### 执行方式：调用 `question_flow` 工具
 
@@ -197,7 +190,8 @@ node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新
 
 #### 平台选择
 
-在 Control UI 会话中，**调用 `option_list` 工具**让用户选择平台（而非纯文字询问）：
+在 Control UI 会话中，**调用 `option_list` 工具**让用户选择平台。
+**必须遵守**：在同一轮助手输出中完成：先写一两句面向用户的说明，再调用`option_list`。 
 
 ```json
 {
@@ -237,6 +231,78 @@ node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新
 node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json_with_route_platform_metadata>'
 ```
 
+`route-plan.mjs` 支持可选的图文/坐标增强输入（用于 Tool UI 展示，不影响路线决策本身）：
+
+- `stop_media`：全局 stop 图文映射（key=站点名，value 可含 `image/picUrl/mainPic`、`subtitle/summary`）
+- `route_stop_media`：按 `route_id` 的 stop 图文映射（优先级高于 `stop_media`）
+- `stop_points`：全局 stop 坐标映射（key=站点名，value 含 `lat/lng`）
+- `route_stop_points`：按 `route_id` 的 stop 坐标映射（优先级高于 `stop_points`）
+
+当提供上述字段时，`route_tool_ui.item_carousel` 会优先填充图片与说明，`route_tool_ui.geo_map` 会在坐标足够时自动生成。
+
+可选：先用适配脚本将 `flyai/amap` 的 POI 原始结果转为上述增强字段：
+
+```bash
+node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <route_options_json>, "flyai_pois": <flyai_poi_json>, "amap_pois": <amap_poi_json> }'
+```
+
+将返回的 `route_stop_media` / `route_stop_points` 合并回 `route-plan.mjs --input` 即可。
+
+#### Step 4 图文路线展示：标准四步链路（推荐）
+
+1. 先生成基础候选路线（无图版）：
+
+```bash
+node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json>' > /tmp/route-base.json
+```
+
+2. 用 `flyai/amap` 的 POI 结果做图文与坐标增强映射：
+
+```bash
+node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <route_options_json>, "flyai_pois": <flyai_poi_json>, "amap_pois": <amap_poi_json> }' > /tmp/route-enrichment.json
+```
+
+3. 将增强字段回填，再次调用 `route-plan.mjs` 生成最终候选：
+
+```bash
+node {baseDir}/scripts/route-plan.mjs --input='{ "route_options": <route_options_json>, "route_stop_media": <route_stop_media_json>, "route_stop_points": <route_stop_points_json>, "...": "其它原始字段保持不变" }'
+```
+
+4. 在 Control UI 中按 `route_tool_ui` 调用渲染工具（每条 route 一组）：
+
+- 对 `route_tool_ui[*].item_carousel` 调用 `item_carousel`
+- 对 `route_tool_ui[*].geo_map`（非 null）调用 `geo_map`
+- 仍保留文本版路线摘要作为降级兜底
+
+#### Step 4 图文路线展示：默认图片注入链路（新增，默认必须执行）
+
+当 `item_carousel.items` 没有图片时，优先用 `@skills/flyai` 的 `search-poi` 为每个 stop 补图（必要时再用 amap）：
+
+1. 对 `route_options[*].stops` 的关键站点（建议每条路线 3-6 个）执行 `flyai search-poi`：
+
+```bash
+flyai search-poi --city-name "<目的地城市>" --keyword "<站点名>"
+```
+
+2. 将所有 `search-poi` 结果聚合后，调用：
+
+```bash
+node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <route_options_json>, "flyai_pois": <flyai_poi_json> }'
+```
+
+3. 将返回的 `route_stop_media` / `route_stop_points` 合并回 `route-plan.mjs --input` 重新生成结果；如已直接传入 `flyai_pois`（或 `pois/amap_pois`）给 `route-plan.mjs`，脚本会自动尝试按 stop 匹配并填充图文/坐标。
+
+   - 持久化建议（推荐）：将二次 `route-plan.mjs` 输出中的 `route_options`（含 `stop_cards`）、`route_stop_media`、`route_stop_points` 一并保存到路线规划结果中，供后续 Step 6/7/8 复用，避免重复检索图片。
+
+4. 仅当仍无图时，再降级到纯文本卡片（不得伪造图片 URL）。
+
+执行守卫（必须满足）：
+
+- 若 `route_tool_ui_ready=false` 且当前输入里没有 `route_stop_media`，必须先执行 `flyai search-poi` 补图链路，再次调用 `route-plan.mjs`；不得直接进入 `option_list`。
+- `flyai search-poi` 图片提取优先级固定为：`mainPic -> picUrl -> image`。
+- 每条路线至少应尝试为前 3 个 stop 注入图片；若平台无图再降级为文本。
+- `save_route_plan` 时优先使用“补图后的”`recommended_route/alternatives/route_options`，确保后续步骤能直接读取到 `stop_cards` 与媒体缓存。
+
 #### 必须顺序（不可跳步）
 
 1. 确认用户已在本步骤中明确选择平台（`xhs` 或 `search`），不得自行设置默认值直接继续。
@@ -273,12 +339,24 @@ node scripts/db.mjs --cmd=save_route_evidence --trip-id=<trip_id> --platform=<xh
 
 4. 调用 `route-plan.mjs` 输出候选路线。
    - `recommended_route`、`alternatives`、`decision_summary` 必须来自本次 `route-plan.mjs` 输出，不允许手工臆造。
+   - 若返回 `route_tool_ui`，在 Control UI 中优先调用对应 Tool UI：
+     - `item_carousel`：展示路线点位图文卡片；
+     - `geo_map`：当 payload 含有效坐标时展示地图（无坐标可跳过，不得伪造坐标）。
+   - 新增状态守卫：读取 `route_tool_ui_ready`。
+     - 若为 `true`：必须先完成图文/地图展示，再进入 `option_list` 选路线。
+     - 若为 `false`：先根据 `route_tool_ui_missing_reason` 补齐 `stops` 或 `route_stop_media/route_stop_points`，再重新调用 `route-plan.mjs`；不得直接跳到 `option_list`。
+   - 新增机器可读守卫：
+     - `option_list_allowed=false` 时，禁止调用 `option_list`。
+     - 严格按 `step4_tool_call_order` 执行工具顺序。
+     - `step4_guard_note` 可用于最终回复里的一句简短说明（仅说明当前流程状态，不输出内部字段名）。
 5. 若失败（不可用/无结果/候选不足），记录失败原因并按降级链切到下一个平台，回到第 2 步。
 6. 一旦成功，持久化路线框定（含平台与降级信息）：
 
 ```bash
 node {baseDir}/scripts/db.mjs --cmd=save_route_plan --trip-id=<trip_id> --recommended-route='<recommended_route_json>' --alternatives='<alternatives_json>' --rejected-routes='<rejected_routes_json>' --decision-summary='<decision_summary_json>' --route-source-used=<xhs|search> --route-source-preference=<xhs|search> --route-source-fallbacks='<fallback_chain_json>'
 ```
+
+> 存储约定：`route_plan` 内只保存 `recommended_route_id / alternative_ids / rejected_route_ids` 等轻量字段；完整路线对象统一保存在 trip 的 `route_options` 中，后续通过 `chosen_route_id` 解析当前选中路线。
 
 7. 通过 `option_list` 工具展示 `route_options`，让用户明确选择 `route_id`（而非纯文字让用户自由输入）。推荐结构如下：
 
@@ -297,6 +375,7 @@ node {baseDir}/scripts/db.mjs --cmd=save_route_plan --trip-id=<trip_id> --recomm
 - `options[].id` 必须直接使用真实的 `route_id`，不得另造映射 ID。
 - `options[].label` 可包含路线摘要与一句简短权衡，便于用户直接选。
 - 若本轮消息里用户已经明确点名某个 `route_id`，可直接采用，无需重复发起 `option_list`。
+- **执行顺序硬约束**：当 `route_tool_ui_ready=true` 且 `route_tool_ui[*].item_carousel.payload.items.length > 0` 时，`option_list` 必须在图文路线展示之后调用，不得先弹路线选择器。
 8. 持久化用户选择：
 
 ```bash
@@ -347,7 +426,7 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 - 必须先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
 - 给出 2-3 条 `route_id` 路线选项，每条 1 行权衡（时间成本/换乘压力/景观收益）
 - 候选路线选择阶段必须优先使用 `option_list`，让用户点选具体 `route_id`
-- 最后明确说明下一步将进入交通与天气核验
+- 最后明确说明下一步将调研目的地的交通与天气天气情况
 
 ### 第五步：调研交通和天气
 
@@ -356,7 +435,7 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 1. 确认 `route_choice_confirmed=true` 且存在 `chosen_route_id`。
 2. 从 `route_options` 取出 `chosen_route_id` 对应的路线，读取 `stops`。
 
-**交通核验**（出发城市 ≠ `stops[0]` 时执行）：
+**调研交通情况**（出发城市 ≠ `stops[0]` 时执行）：
 
 3. 从 `trip.departure_city` 或 `preferences.departure_city` 确定出发城市。
 4. 判断出行方式（分两段）：
@@ -364,7 +443,7 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
    - **游览段**（`stops` 内部转场）：若 `trip.constraints` 包含「自驾」，用 `@skills/amap-lbs-skill` 查询关键相邻 stop 之间的驾车时长，评估单日转场是否现实（超过 4 小时需提醒）；否则说明以公共交通/包车为主，无需单独验证。
 5. 将原始结果写入 `route_validation.transport_result`，并记录 `status: ok / unavailable / not_required`。
 
-**天气核验**（始终执行）：
+**调研天气情况**（始终执行）：
 
 6. 从 `stops` 中选取 2-3 个有代表性的地点（首站、中间高海拔/偏远站、末站）。
 7. 使用 `@skills/weather` 查询每个地点在 `trip.departure_date ~ trip.return_date` 内的天气预报。
@@ -382,7 +461,7 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 node {baseDir}/scripts/db.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='{"route_validation": <route_validation_json>}'
 ```
 
-11. **必须向用户发起确认**：输出验证结论后，以「需要我总结当前的计划骨架行程吗？」收尾；未收到用户明确确认不得进入 Step 6。
+11. **必须向用户发起确认**：输出验证结论后，以「接下来我会总结当前的计划骨架行程，需要您确认」收尾；未收到用户明确确认不得进入 Step 6。
 
 #### `route_validation` 写入结构
 
@@ -430,16 +509,45 @@ node {baseDir}/scripts/db.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='{"
 骨架来源：
 
 ```bash
-node {baseDir}/scripts/plan-generator.mjs --trip-id=<id>
+node {baseDir}/scripts/plan-generator.mjs --trip-id=<id> --step=6
 ```
 
-优先展示：`route_plan`、`route_validation`、`plan_skeleton`、`booking_strategy`。
+> 推荐按步骤读取 `plan-generator.mjs` 输出：`--step=6|7|8`。这样可以避免上层渲染拿到过多无关字段。
 
-#### 输出格式
+优先展示：`step6_summary`、`route_plan`、`route_validation`、`plan_skeleton`、`booking_strategy`。
 
-> 计划骨架总结卡片模板（5项结构）见 `references/reply-templates.md` — 第六步。
+> `plan-generator.mjs` 是阶段感知的：
+> - Step 5 未完成时，只返回缺失提示，不补算 `route_validation`；
+> - Step 7 仅返回简要每日计划骨架，不提前暴露 Step 8 的实时交通/酒店明细；
+> - Step 8 完成并写入 `booking_ready` 后，才返回预订级别补充信息。
 
-**必须先展示总结卡片**，再等用户确认；未完成确认不进入 Step 7。这一步必须是一个**独立回复回合**，不得与 Step 7 合并。
+#### 输出格式（硬约束）
+
+Step 6 回复必须严格按以下顺序与标题输出，不得改名、不得省略：
+
+1. `路线总览：<完整链路，用 "→" 连接>`
+2. `每日计划：`
+   - 每天必须使用以下 4 行结构（可复制）：
+     - `Day N ｜ A → B（约Xkm，Yh）`
+     - `主锚点：...`
+     - `🌿 次锚点：...（可选）`
+     - `🏨 住宿：...`
+3. `交通情况：`
+   - `机票：...`
+   - `高铁：...`
+   - `自驾：...`
+   - 若暂无验证结果，必须显式写“暂无已验证...信息”。
+4. `天气情况：`
+   - 必须输出“主锚点天气表格”，至少包含：`Day / 地点 / 日期 / 天气 / 温度 / 风险`
+
+渲染时优先读取 `plan-generator.mjs` 返回的 `step6_summary`：
+
+- `step6_summary.route_overview_text`
+- `step6_summary.daily_overview[]`
+- `step6_summary.transport_snapshot`
+- `step6_summary.weather_table_rows[]`
+
+**必须先展示以上总结卡片**，再等用户确认；未完成确认不进入 Step 7。这一步必须是一个**独立回复回合**，不得与 Step 7 合并。
 
 完成门槛（全部满足才可进入 Step 7）：
 
@@ -471,7 +579,7 @@ node {baseDir}/scripts/plan-generator.mjs --trip-id=<id>
 建议命令（骨架生成）：
 
 ```bash
-node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id>
+node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id> --step=7
 ```
 
 本步回复顺序与每日计划必含字段见 `references/reply-templates.md` — 第七步。
@@ -505,6 +613,7 @@ node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id>
 合成与持久化建议：
 
 ```bash
+node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id> --step=8
 node {baseDir}/scripts/booking-ready.mjs --trip='<trip_json>' --route='<route_json>' --validation='<route-validation_json>' --results='<live_results_json>'
 node {baseDir}/scripts/db.mjs --cmd=save_live_results --trip-id=<trip_id> --payload='<live_results_json>'
 node {baseDir}/scripts/db.mjs --cmd=save_booking_ready --trip-id=<trip_id> --payload='<booking_ready_json>'
@@ -521,7 +630,7 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_booking --trip-id=<trip_id> --catego
 > 行前清单、打包建议、安全应急细则见 `references/travel_guidelines.md`。
 > 礼仪与文化注意事项见 `references/cultural_etiquette.md`。
 
-推荐阶段值枚举见 `references/route-protocol.md`。
+推荐阶段值枚举与状态字段说明见 `references/route-protocol.md`。
 
 ### 第九步：行中支持
 
@@ -571,6 +680,7 @@ node {baseDir}/scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
 | `scripts/db.mjs` | 偏好、行程、预算摘要、导出（唯一状态存储层） |
 | `scripts/route-plan.mjs` | 路线候选结构化输出 |
 | `scripts/route-validation.mjs` | 对实时技能结果做可行性裁决（`go/caution/block`），不再生成 tool_plan |
+| `scripts/route-ui-enrichment.mjs` | 将 flyai/amap POI 原始结果映射为 `route_stop_media/route_stop_points` 增强输入 |
 | `scripts/plan-generator.mjs` | 读取已持久化的 trip，输出骨架计划、每日卡片、打包建议（不主动调用其他计算模块） |
 | `scripts/xhs-evidence-builder.mjs` | 规范化小红书搜索结果，输出 `route_evidence` 对象（其中 `platform=xhs`，第四步 xhs 链路必走） |
 | `scripts/booking-ready.mjs` | 合并实时结果生成 booking-ready 包 |

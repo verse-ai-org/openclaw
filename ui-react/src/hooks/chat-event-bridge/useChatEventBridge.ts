@@ -28,8 +28,34 @@ import {
 import { createInteractiveBlock, isInteractiveToolName } from "./interactive-blocks";
 import type { RawMessage } from "./types";
 
+function extractInteractivePayload(data: Record<string, unknown>): unknown {
+  const candidate = data.result ?? data.meta ?? data.args;
+  if (typeof candidate === "string") {
+    return candidate;
+  }
+  if (!candidate || typeof candidate !== "object") {
+    return candidate;
+  }
+  if (!Array.isArray((candidate as { content?: unknown }).content)) {
+    return candidate;
+  }
+  const content = (candidate as { content: unknown[] }).content;
+  const text = content
+    .filter(
+      (entry): entry is { type?: unknown; text?: unknown } =>
+        !!entry && typeof entry === "object",
+    )
+    .filter((entry) => entry.type === "text" && typeof entry.text === "string")
+    .map((entry) => entry.text.trim())
+    .filter(Boolean)
+    .join("\n");
+  return text || candidate;
+}
+
 export function useChatEventBridge() {
   useEffect(() => {
+    const pendingInteractiveHydrationRuns = new Set<string>();
+
     const dispatch = (event: string, payload: unknown) => {
       const p = payload as Record<string, unknown> | undefined;
 
@@ -67,6 +93,8 @@ export function useChatEventBridge() {
             }
           } else if (state === "final") {
             const text = extractMessageText(chatPayload?.message);
+            const finalRunId =
+              typeof chatPayload?.runId === "string" ? chatPayload.runId : undefined;
             if (text) {
               const storeState = useChatStore.getState();
               const { committedBlocks, toolStreamById, toolStreamOrder, interactiveStreamById, interactiveStreamOrder } = storeState;
@@ -131,11 +159,27 @@ export function useChatEventBridge() {
                   .getState()
                   .setMessages([...useChatStore.getState().messages, finalMsg]);
               }
+              if (finalRunId && pendingInteractiveHydrationRuns.has(finalRunId)) {
+                const rawKey =
+                  typeof chatPayload?.sessionKey === "string"
+                    ? chatPayload.sessionKey
+                    : (useChatStore.getState().sessionKey ?? "main");
+                useChatStore.getState().setPendingHistoryReloadKey(rawKey);
+                pendingInteractiveHydrationRuns.delete(finalRunId);
+              }
             } else if (
               useChatStore.getState().stream !== null ||
               useChatStore.getState().committedBlocks.length > 0
             ) {
               useChatStore.getState().finalizeStream();
+              if (finalRunId && pendingInteractiveHydrationRuns.has(finalRunId)) {
+                const rawKey =
+                  typeof chatPayload?.sessionKey === "string"
+                    ? chatPayload.sessionKey
+                    : (useChatStore.getState().sessionKey ?? "main");
+                useChatStore.getState().setPendingHistoryReloadKey(rawKey);
+                pendingInteractiveHydrationRuns.delete(finalRunId);
+              }
             } else {
               useChatStore.getState().resetStream();
               const rawKey =
@@ -195,14 +239,28 @@ export function useChatEventBridge() {
 
             if (isInteractiveToolName(toolName)) {
               if (phase === "result") {
+                const interactivePayload = extractInteractivePayload(data);
                 const block = createInteractiveBlock({
                   interactiveId: toolCallId ?? crypto.randomUUID(),
                   kind: toolName,
-                  payload: data.result ?? data.meta ?? data.args,
+                  payload: interactivePayload,
                 });
+                if (import.meta.env.DEV && !block) {
+                  console.warn("[interactive] dropped interactive payload", {
+                    toolName,
+                    toolCallId,
+                    phase,
+                    interactivePayload,
+                  });
+                }
                 if (block) {
                   useChatStore.getState().commitCurrentText();
                   useChatStore.getState().upsertInteractiveStream(block);
+                  if (typeof agentPayload.runId === "string") {
+                    pendingInteractiveHydrationRuns.delete(agentPayload.runId);
+                  }
+                } else if (typeof agentPayload.runId === "string") {
+                  pendingInteractiveHydrationRuns.add(agentPayload.runId);
                 }
               }
               break;

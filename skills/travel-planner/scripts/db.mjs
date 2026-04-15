@@ -35,13 +35,31 @@ const dataDir = () => path.join(dbDir(), "data");
 const evidenceDir = () => path.join(dataDir(), "evidence");
 
 const DEFAULT_TRIP_STAGE = "intake";
+const STAGE_VALUES = {
+  INTAKE: "intake",
+  ROUTE_PLANNED: "route_plan",
+  ROUTE_CONFIRMED: "plan_ready",
+  BOOKING_READY: "ready_to_book",
+  IN_TRIP: "in_trip",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+};
+
+const PACE_ALIASES = {
+  relaxed: "relaxed",
+  moderate: "moderate",
+  intensive: "intensive",
+  packed: "intensive",
+};
 
 /** Default values for all trip fields. Centralises the schema so that
  * normalizeTripRecord never needs per-field ??= assignments. */
 const TRIP_DEFAULTS = {
   // ---- lifecycle ----
+  // stage: coarse trip lifecycle marker.
+  // intake -> route_plan -> plan_ready -> ready_to_book -> in_trip -> completed
+  // cancelled is terminal and may happen from any active stage.
   stage: DEFAULT_TRIP_STAGE,
-  planning_mode: "explore",
 
   // ---- trip intent / constraints ----
   destination_text: "",
@@ -54,33 +72,39 @@ const TRIP_DEFAULTS = {
   nice_to_have: [],
 
   // ---- route planning ----
-  // selected_route_id: id of the active route (resolved via route_options).
-  // selected_route is kept as a read-only computed accessor; do NOT write to it directly.
-  selected_route_id: "",
-  route_source_preference: "auto",
-  route_source_used: "",
-  route_source_fallbacks: [],
-  route_evidence_meta: null,
-  // Single source of truth for route candidates shown to user.
-  route_options: [],
-  route_choice_confirmed: false,
+  // chosen_route_id: single source of truth for the user's currently selected route.
   chosen_route_id: "",
+  // route_source_preference: platform preference requested by the user (auto/search/xhs/...).
+  route_source_preference: "auto",
+  // route_source_used: platform actually used after fallback handling.
+  route_source_used: "",
+  // route_source_fallbacks: ordered fallback history for the current route framing attempt.
+  route_source_fallbacks: [],
+  // route_evidence_meta: metadata pointer to the persisted RouteEvidenceV1 file.
+  route_evidence_meta: null,
+  // route_options: full route candidate objects shown to the user for selection.
+  route_options: [],
+  // route_choice_confirmed: whether the user has explicitly confirmed chosen_route_id.
+  route_choice_confirmed: false,
+  // route_plan: lightweight route framing summary; stores ids, platform, and decision summary only.
   route_plan: null,
 
   // ---- route validation ----
+  // route_validation: persisted step-5 verification summary (transport/weather/verdict).
   route_validation: null,
+  // live_results: raw step-8 live search results (transport/hotel/poi/food inputs).
   live_results: null,
 
   // ---- booking planning ----
-  booking_strategy: {},
+  // booking_ready: step-8 synthesized booking-ready package.
   booking_ready: null,
+  // bookings_confirmed: whether at least one decisive booking item has been confirmed.
   bookings_confirmed: false,
+  // confirmed_bookings: user-confirmed booking choices keyed by category.
   confirmed_bookings: {},
 
-  // ---- in-trip / service preferences ----
+  // ---- in-trip / service flags ----
   during_trip: false,
-  daily_brief_preferences: { local_morning_hour: 7 },
-  service_preferences: { daily_channel_brief: false, pre_trip_reminders: false },
 };
 
 function emptyRoutePlanning() {
@@ -89,9 +113,9 @@ function emptyRoutePlanning() {
     fallback_count: 0,
     fallback_reason: "",
     fallback_chain: [],
-    recommended_route: null,
-    alternatives: [],
-    rejected_routes: [],
+    recommended_route_id: "",
+    alternative_ids: [],
+    rejected_route_ids: [],
     decision_summary: {},
   };
 }
@@ -313,6 +337,103 @@ function hasRequiredEvidence(meta, usedPlatform) {
   return sourceCount > 0 && String(meta.evidence_file || "").trim() !== "";
 }
 
+function normalizePacePreference(value) {
+  const key = String(value || "")
+    .trim()
+    .toLowerCase();
+  return PACE_ALIASES[key] || "moderate";
+}
+
+function inferCanonicalStage(trip) {
+  const stage = String(trip.stage || "").trim();
+  if (stage === STAGE_VALUES.CANCELLED || stage === STAGE_VALUES.COMPLETED) return stage;
+  if (trip.during_trip) return STAGE_VALUES.IN_TRIP;
+  if (trip.bookings_confirmed || trip.booking_ready?.status === "ready") return STAGE_VALUES.BOOKING_READY;
+  if (trip.route_choice_confirmed && trip.chosen_route_id) return STAGE_VALUES.ROUTE_CONFIRMED;
+  if (Array.isArray(trip.route_options) && trip.route_options.length >= 2) return STAGE_VALUES.ROUTE_PLANNED;
+  return STAGE_VALUES.INTAKE;
+}
+
+function reconcileTripState(trip) {
+  if (trip.pace_preference !== undefined) {
+    trip.pace_preference = normalizePacePreference(trip.pace_preference);
+  }
+  const options = Array.isArray(trip.route_options) ? trip.route_options : [];
+  const hasChosenRoute = options.some((option) => option?.route_id === trip.chosen_route_id);
+  if (!hasChosenRoute) {
+    trip.chosen_route_id = "";
+    trip.route_choice_confirmed = false;
+  }
+  if (!trip.chosen_route_id) {
+    trip.route_choice_confirmed = false;
+  }
+  if (trip.stage !== STAGE_VALUES.COMPLETED && trip.stage !== STAGE_VALUES.CANCELLED) {
+    trip.stage = inferCanonicalStage(trip);
+  }
+}
+
+function evaluateStepGate(trip, step) {
+  const normalizedStep = String(step || "").trim().toLowerCase();
+  const options = Array.isArray(trip.route_options) ? trip.route_options : [];
+  const reasons = [];
+
+  if (
+    normalizedStep === "route_validation" ||
+    normalizedStep === "step5" ||
+    normalizedStep === "5"
+  ) {
+    if (!trip.route_choice_confirmed || !trip.chosen_route_id) {
+      reasons.push("需要先确认路线（route_choice_confirmed=true 且存在 chosen_route_id）。");
+    }
+  } else if (normalizedStep === "plan_summary" || normalizedStep === "step6" || normalizedStep === "6") {
+    if (!trip.route_choice_confirmed || !trip.chosen_route_id) {
+      reasons.push("需要先确认路线后才能进入骨架确认。");
+    }
+    if (!String(trip.route_validation?.verdict || "").trim()) {
+      reasons.push("需要先完成并持久化 route_validation.verdict。");
+    }
+  } else if (
+    normalizedStep === "detailed_plan" ||
+    normalizedStep === "step7" ||
+    normalizedStep === "7"
+  ) {
+    if (!trip.route_choice_confirmed || !trip.chosen_route_id) {
+      reasons.push("需要先确认路线。");
+    }
+    if (!String(trip.route_validation?.verdict || "").trim()) {
+      reasons.push("需要先完成交通/天气验证（Step 5）。");
+    }
+  } else if (
+    normalizedStep === "booking_ready" ||
+    normalizedStep === "step8" ||
+    normalizedStep === "8"
+  ) {
+    if (!trip.route_choice_confirmed || !trip.chosen_route_id) {
+      reasons.push("需要先确认路线。");
+    }
+    if (!String(trip.route_validation?.verdict || "").trim()) {
+      reasons.push("需要先完成 route_validation。");
+    }
+  } else if (normalizedStep === "in_trip" || normalizedStep === "step9" || normalizedStep === "9") {
+    if (!trip.bookings_confirmed) {
+      reasons.push("需要先确认关键预订项（bookings_confirmed=true）。");
+    }
+  } else if (normalizedStep === "route_plan" || normalizedStep === "step4" || normalizedStep === "4") {
+    if (options.length < 2) {
+      reasons.push("需要至少 2 条候选路线（route_options >= 2）。");
+    }
+  } else {
+    reasons.push(`不支持的 step: ${step}`);
+  }
+
+  return {
+    ok: reasons.length === 0,
+    step: normalizedStep,
+    stage: trip.stage,
+    reasons,
+  };
+}
+
 export function normalizeTripRecord(trip) {
   // Merge defaults first (preserves existing values), then fix up object fields
   // that need to be initialised from factory functions rather than plain literals.
@@ -320,30 +441,21 @@ export function normalizeTripRecord(trip) {
   // Open-phase schema cleanup: actively drop deprecated duplicated fields.
   delete trip.route_candidates;
   delete trip.source_reason;
-  // Migrate legacy selected_route object → selected_route_id string.
-  if (
-    trip.selected_route &&
-    typeof trip.selected_route === "object" &&
-    Object.keys(trip.selected_route).length
-  ) {
-    const legacyId = trip.selected_route.route_id || "";
-    if (legacyId && !trip.selected_route_id) trip.selected_route_id = legacyId;
-    delete trip.selected_route;
-  }
   if (!trip.route_plan) trip.route_plan = emptyRoutePlanning();
   if (!trip.route_evidence_meta) trip.route_evidence_meta = {};
   if (!trip.route_validation) trip.route_validation = emptyLiveValidation();
   if (!trip.live_results) trip.live_results = emptyLiveResults();
   if (!trip.booking_ready) trip.booking_ready = emptyBookingReady();
+  reconcileTripState(trip);
   return trip;
 }
 
 /**
- * Resolve the selected route object from route_options by selected_route_id.
+ * Resolve the selected route object from route_options by chosen_route_id.
  * Returns {} when not found, so callers can safely destructure.
  */
 export function getSelectedRoute(trip) {
-  const id = trip.selected_route_id || trip.chosen_route_id || "";
+  const id = trip.chosen_route_id || "";
   if (!id) return {};
   const options = Array.isArray(trip.route_options) ? trip.route_options : [];
   return options.find((o) => o?.route_id === id) ?? {};
@@ -367,6 +479,9 @@ export function getPreferences() {
 export function savePreferences(preferences) {
   const prefs = loadJson(preferencesFile());
   Object.assign(prefs, preferences);
+  if (prefs.pace_preference !== undefined) {
+    prefs.pace_preference = normalizePacePreference(prefs.pace_preference);
+  }
   prefs.initialized = true;
   prefs.last_updated = new Date().toISOString();
   saveJson(preferencesFile(), prefs);
@@ -374,7 +489,7 @@ export function savePreferences(preferences) {
 
 export function updatePreference(key, value) {
   const prefs = loadJson(preferencesFile());
-  prefs[key] = value;
+  prefs[key] = key === "pace_preference" ? normalizePacePreference(value) : value;
   prefs.last_updated = new Date().toISOString();
   saveJson(preferencesFile(), prefs);
 }
@@ -414,7 +529,7 @@ export function getTrips(status = "all") {
   return {};
 }
 
-const INACTIVE_STAGES = new Set(["done", "cancelled"]);
+const INACTIVE_STAGES = new Set([STAGE_VALUES.COMPLETED, STAGE_VALUES.CANCELLED]);
 
 /**
  * 返回 current_trips 中尚未结束（stage 不为 done/cancelled）的行程摘要列表。
@@ -480,6 +595,24 @@ export function setTripStage(tripId, stage) {
   return updateTrip(tripId, { stage });
 }
 
+function canEnterBookingReady(trip) {
+  return evaluateStepGate(trip, "booking_ready").ok;
+}
+
+function canConfirmBookingStage(trip) {
+  return trip.stage === STAGE_VALUES.BOOKING_READY || canEnterBookingReady(trip);
+}
+
+function canStartTripStage(trip) {
+  return evaluateStepGate(trip, "in_trip").ok;
+}
+
+export function checkStepGate(tripId, step) {
+  const trip = getTripById(tripId);
+  if (!trip) return null;
+  return evaluateStepGate(trip, step);
+}
+
 export function saveRouteFramingWithSource(
   tripId,
   recommendedRoute,
@@ -511,12 +644,11 @@ export function saveRouteFramingWithSource(
     ...(sourceReason ? { source_reason: sourceReason } : {}),
   };
   const updates = {
-    stage: "route_plan",
-    selected_route_id:
+    stage: STAGE_VALUES.ROUTE_PLANNED,
+    chosen_route_id:
       recommendedRoute && recommendedRoute.route_id ? recommendedRoute.route_id : "",
     route_options: routeOptions,
     route_choice_confirmed: false,
-    chosen_route_id: "",
     route_source_used: usedPlatform || "",
     route_source_fallbacks: normalizedFallbacks,
     ...(routeSourcePreference ? { route_source_preference: routeSourcePreference } : {}),
@@ -544,10 +676,9 @@ export function confirmRouteChoice(tripId, routeId) {
   const chosen = options.find((option) => option?.route_id === routeId);
   if (!chosen) return false;
   return updateTrip(tripId, {
-    selected_route_id: routeId,
-    route_choice_confirmed: true,
     chosen_route_id: routeId,
-    stage: "plan_ready",
+    route_choice_confirmed: true,
+    stage: STAGE_VALUES.ROUTE_CONFIRMED,
   });
 }
 
@@ -600,25 +731,33 @@ export function saveLiveResults(tripId, liveResults) {
 }
 
 export function saveBookingReadyPackage(tripId, bookingReady) {
-  const nextStage = bookingReady?.status === "ready" ? "ready_to_book" : "plan_ready";
+  const trip = getTripById(tripId);
+  if (!trip) return false;
+  if (!canEnterBookingReady(trip)) return false;
+  const nextStage =
+    bookingReady?.status === "ready" ? STAGE_VALUES.BOOKING_READY : STAGE_VALUES.ROUTE_CONFIRMED;
   return updateTrip(tripId, { booking_ready: bookingReady, stage: nextStage });
 }
 
 export function confirmBookingChoice(tripId, category, choice) {
   const trip = getTripById(tripId);
   if (!trip) return false;
+  if (!canConfirmBookingStage(trip)) return false;
   const confirmed = { ...trip.confirmed_bookings };
   confirmed[category] = choice;
   const updates = { confirmed_bookings: confirmed };
   if (category === "flight" || category === "hotel") {
     updates.bookings_confirmed = true;
-    updates.stage = "ready_to_book";
+    updates.stage = STAGE_VALUES.BOOKING_READY;
   }
   return updateTrip(tripId, updates);
 }
 
 export function startTrip(tripId) {
-  return updateTrip(tripId, { stage: "in_trip", during_trip: true });
+  const trip = getTripById(tripId);
+  if (!trip) return false;
+  if (!canStartTripStage(trip)) return false;
+  return updateTrip(tripId, { stage: STAGE_VALUES.IN_TRIP, during_trip: true });
 }
 
 export function endTrip(tripId) {
@@ -790,6 +929,7 @@ const CMD_FLAGS = {
   save_booking_ready: ["cmd", "trip-id", "payload"],
   save_route_evidence: ["cmd", "trip-id", "platform", "payload"],
   get_route_evidence: ["cmd", "trip-id", "platform"],
+  check_step_gate: ["cmd", "trip-id", "step"],
   save_route_plan: [
     "cmd",
     "trip-id",
@@ -889,6 +1029,15 @@ runScript({
       const tripId = requireFlag(args, "trip-id");
       const platform = String(args.platform || "");
       const result = getRouteEvidence(tripId, platform);
+      console.log(JSON.stringify(result || {}, null, 2));
+      if (!result) {
+        console.error(`Error: trip not found: ${tripId}`);
+        process.exit(1);
+      }
+    } else if (command === "check_step_gate") {
+      const tripId = requireFlag(args, "trip-id");
+      const step = requireFlag(args, "step");
+      const result = checkStepGate(tripId, step);
       console.log(JSON.stringify(result || {}, null, 2));
       if (!result) {
         console.error(`Error: trip not found: ${tripId}`);

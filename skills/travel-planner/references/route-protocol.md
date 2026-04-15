@@ -83,23 +83,49 @@
 
 ---
 
-## 证据落盘路径
+## 行程状态字段约定
 
-```
-~/.openclaw/agents/travel-planner/data/evidence/<trip_id>.<platform>.json
-```
+### trip.stage（生命周期阶段）
 
-示例：`<trip_id>.xhs.json`、`<trip_id>.search.json`
-
----
-
-## 行程阶段值（`stage` 枚举）
+统一使用以下枚举值：
 
 | 值 | 含义 |
 |----|------|
-| `intake` | 初始采集阶段 |
-| `route_plan` | 路线规划中 |
-| `plan_ready` | 计划已生成 |
-| `ready_to_book` | 可预订状态 |
+| `intake` | 初始采集阶段，刚建档或信息仍在补充 |
+| `route_plan` | 已完成候选路线框定，但用户尚未最终确认 |
+| `plan_ready` | 用户已确认 `chosen_route_id`，且可进入骨架计划/简要日程阶段 |
+| `ready_to_book` | 已生成 `booking_ready` 包，允许进入预订准备与行前服务 |
 | `in_trip` | 行程进行中 |
 | `completed` | 行程已完成 |
+| `cancelled` | 行程已取消 |
+
+> 兼容说明：历史数据里若出现 `done`，读取时会自动归一化为 `completed`。
+
+### 路线选择相关字段
+
+| 字段 | 含义 | 约定 |
+|------|------|------|
+| `chosen_route_id` | 当前选中的路线 ID | **单一真实来源（single source of truth）** |
+| `route_choice_confirmed` | 用户是否明确确认了 `chosen_route_id` | `true` 后才可进入 Step 5/6/7 |
+| `route_options` | 完整候选路线对象数组 | 用于展示给用户，也用于按 `chosen_route_id` 解析当前路线 |
+| `route_plan` | 轻量路线框定摘要 | 只存 `recommended_route_id / alternative_ids / rejected_route_ids / decision_summary / platform` 等字段，不存完整路线对象 |
+
+### 验证与预订相关字段
+
+| 字段 | 含义 |
+|------|------|
+| `route_validation` | 第五步调研验证后的持久化摘要（交通 / 天气 / verdict） |
+| `booking_ready` | 第八步实时检索后生成的 booking-ready 包 |
+| `bookings_confirmed` | 是否已经确认关键预订项（如航班 / 酒店） |
+| `confirmed_bookings` | 各预订类别的已确认结果 |
+| `live_results` | 第八步实时查询得到的原始结果集合（transport / hotel / poi / dining 等） |
+
+### stage guard（状态守卫）
+
+| 动作 | 前置条件 |
+|------|----------|
+| `save_route_plan` | 已有足够 `route_evidence`，且候选路线数 `>= 2` |
+| `confirm_route_choice` | `route_options >= 2` 且用户明确选中了 `route_id` |
+| `save_booking_ready` | `route_choice_confirmed = true` 且 `route_validation` 已持久化 |
+| `confirm_booking` | 当前 `stage` 必须已到 `ready_to_book`（或之后） |
+| `start_trip` | 当前 `stage` 已到 `ready_to_book`（或之后），且 `bookings_confirmed = true` |

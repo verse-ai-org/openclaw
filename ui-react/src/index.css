@@ -17,6 +17,10 @@
   /* full: 主按钮全圆角 */
   --radius-full: 9999px;
 
+  /* ── 宽度 token ── */
+  --sidebar-width: 12rem;
+  --sidebar-width-mobile: 10rem;
+
   /* ── 颜色 token 映射 ── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -148,6 +152,10 @@
   --chart-3: #00694b;
   --chart-4: #f59e0b;
   --chart-5: #8b5cf6;
+
+  /* ── Sidebar ── */
+  --sidebar-width: 12rem;
+  --sidebar-width-mobile: 10rem;
   --sidebar: #F9F9F9;
   --sidebar-foreground: #1a1c1d;
   --sidebar-primary: #ba0034;
@@ -198,6 +206,11 @@
   --chart-3: #00c78a;
   --chart-4: #fbbf24;
   --chart-5: #a78bfa;
+
+
+  /* ── Sidebar ── */
+  --sidebar-width: 12rem;
+  --sidebar-width-mobile: 10rem;
   --sidebar: #2a2a33;
   --sidebar-foreground: #e8e8ec;
   --sidebar-primary: #e51245;

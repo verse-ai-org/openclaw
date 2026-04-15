@@ -32,6 +32,8 @@ This skill is the **single place** for that channel preference. **Domain skills*
 | `option_list`      | Single-step option picker                            | Passthrough JSON config; user confirms selection as a new message. |
 | `code_block`       | Syntax-highlighted code / log block                | Passthrough: `id`, `code`, optional `language`, `filename`, etc. |
 | `chart`            | Bar or line chart                                    | Passthrough: `id`, `type` (`bar`\|`line`), `data`, `xKey`, `series`. |
+| `item_carousel`    | Image-first horizontal card carousel                 | Passthrough: `id`, optional `title/description`, `items[]` (`id`,`name`, optional `subtitle`,`image`,`actions`). |
+| `geo_map`          | Interactive map with markers and optional routes     | Passthrough: `id`, `markers[]`, optional `routes[]`,`viewport`,`theme`. |
 | `link_preview`     | Link preview card (title, image, domain)             | Passthrough: `id`, `href`, optional metadata and `ratio` / `fit`. |
 | `stats_display`    | KPI / metrics grid                                   | Passthrough: `id`, `stats[]` (see Tool UI StatsDisplay schema). |
 | `terminal_output`  | Terminal session card (command, stdout, exit code) | Passthrough: `id`, `command`, `exitCode`, optional `stdout` / `stderr`. |
@@ -116,12 +118,14 @@ Rules:
 - **Return this JSON as the tool result**.
 - After the user confirms, parse their reply to map label → option id.
 
-## `code_block`, `chart`, `link_preview`, `stats_display`, `terminal_output` (detail)
+## `code_block`, `chart`, `item_carousel`, `geo_map`, `link_preview`, `stats_display`, `terminal_output` (detail)
 
 These mirror the serializable schemas under `ui-react/src/components/tool-ui/*/schema.ts`. Prefer calling the **named tool** with a complete JSON payload instead of pasting raw markdown or unstructured `exec` output when the user is on Control UI.
 
 - **`code_block`** — Use for file snippets, configs, or long command output worth highlighting. Required: `id`, `code`.
 - **`chart`** — Use for comparisons or trends. Required: `id`, `type`, `data` (array of row objects), `xKey`, `series` (each with `key` + `label` matching row fields).
+- **`item_carousel`** — Use for image-heavy option exploration (routes, destinations, products). Required: `id`, `items[]` with `id` + `name`; include `image` whenever available.
+- **`geo_map`** — Use for geographic context (POIs, route legs, coverage). Required: `id`, `markers[]`; optional `routes[]`, `viewport`, `theme`.
 - **`link_preview`** — Use when sharing a URL with optional title/description/image you already know. Required: `id`, `href` (https).
 - **`stats_display`** — Use for dashboards (KPIs, deltas, sparklines). Required: `id`, `stats` (array of items with at least `key`, `label`, `value`; optional `format` / `diff` / `sparkline` per `stats-display` schema).
 - **`terminal_output`** — Use to present a command and its output as a card. Required: `id`, `command`, `exitCode`.

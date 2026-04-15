@@ -21,14 +21,27 @@
 - [SKILL.md](file://skills/my-pdf/SKILL.md)
 - [SKILL.md](file://skills/office-document-specialist-suite/SKILL.md)
 - [SKILL.md](file://skills/travel-planner/SKILL.md)
+- [types.base.ts](file://src/config/types.base.ts)
+- [identity-file.ts](file://src/agents/identity-file.ts)
+- [session-utils.ts](file://src/gateway/session-utils.ts)
+- [profile.tsx](file://ui-react/src/components/agents/profile.tsx)
+- [app-render.ts](file://ui/src/ui/app-render.ts)
+- [avatar-policy.ts](file://src/shared/avatar-policy.ts)
+- [workspace.ts](file://src/agents/workspace.ts)
+- [assistant-identity.ts](file://src/gateway/assistant-identity.ts)
+- [identity.ts](file://src/agents/identity.ts)
+- [identity-avatar.ts](file://src/agents/identity-avatar.ts)
+- [detail-drawer.tsx](file://ui-react/src/components/agents/detail-drawer.tsx)
+- [agents-utils.ts](file://ui/src/ui/views/agents-utils.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增Office Helper代理配置，包含word-docx、excel-xlsx、my-pdf、office-document-specialist-suite等Office文档处理技能
-- 更新旅行规划代理的技能配置，增强旅行规划能力
-- 完善代理模板系统，支持Office Helper的完整工作流
-- 扩展代理技能生态系统，提供更专业的文档处理能力
+- 新增视频URL等身份字段，增强代理展示能力
+- 扩展内置代理身份配置，支持视频展示功能
+- 完善代理身份文件解析，支持视频字段处理
+- 更新前端代理详情页面，支持视频展示组件
+- 增强代理身份配置的完整性和一致性
 
 ## 目录
 1. [简介](#简介)
@@ -38,10 +51,11 @@
 5. [详细组件分析](#详细组件分析)
 6. [代理配置与管理](#代理配置与管理)
 7. [技能生态系统](#技能生态系统)
-8. [依赖关系分析](#依赖关系分析)
-9. [性能考虑](#性能考虑)
-10. [故障排除指南](#故障排除指南)
-11. [结论](#结论)
+8. [身份配置增强](#身份配置增强)
+9. [依赖关系分析](#依赖关系分析)
+10. [性能考虑](#性能考虑)
+11. [故障排除指南](#故障排除指南)
+12. [结论](#结论)
 
 ## 简介
 
@@ -49,7 +63,7 @@
 
 该系统采用模块化设计，每个组件都有明确的职责分工，同时通过标准化的接口实现松耦合集成。系统支持代理的动态创建、销毁、状态监控和资源回收，确保在高并发场景下的稳定性和可靠性。
 
-**更新** 新增Office Helper代理和旅行规划代理的技能配置，扩展了文档处理和旅行规划的专业能力。
+**更新** 新增视频URL等身份字段，扩展了代理的身份配置能力，支持更丰富的视觉展示效果，包括视频展示功能和增强的代理外观定制。
 
 ## 项目结构
 
@@ -75,6 +89,8 @@ S[代理模板系统] --> T[Office Helper模板]
 S --> U[旅行规划模板]
 V[技能配置] --> W[文档处理技能]
 V --> X[旅行规划技能]
+Y[身份配置增强] --> Z[视频展示功能]
+Y --> AA[代理外观定制]
 end
 ```
 
@@ -94,6 +110,18 @@ end
 - 负载日志：`anthropic-payload-log.ts`
 - 代理模板系统：`docs/reference/templates/agents/`
 - 技能配置：`skills/`
+- 身份配置：`src/config/types.base.ts`
+- 身份文件解析：`src/agents/identity-file.ts`
+- 会话工具：`src/gateway/session-utils.ts`
+- 前端代理详情：`ui-react/src/components/agents/profile.tsx`
+- 应用渲染：`ui/src/ui/app-render.ts`
+- 头像策略：`src/shared/avatar-policy.ts`
+- 工作区管理：`src/agents/workspace.ts`
+- 助手身份解析：`src/gateway/assistant-identity.ts`
+- 代理身份解析：`src/agents/identity.ts`
+- 头像解析：`src/agents/identity-avatar.ts`
+- 详情抽屉：`ui-react/src/components/agents/detail-drawer.tsx`
+- 代理工具：`ui/src/ui/views/agents-utils.ts`
 
 **章节来源**
 - [builtin-agents.ts:1-100](file://src/agents/builtin-agents.ts#L1-L100)
@@ -142,6 +170,7 @@ class BuiltinAgentDef {
 +templateSubdir string
 +skills string[]
 +tools ToolRestrictions
++identity IdentityConfig
 }
 AgentRegistry --> Agent : manages
 Agent --> AgentInstance : creates
@@ -380,6 +409,7 @@ class OfficeHelperAgent {
 +templateSubdir : "agents/my-office-helper"
 +skills : ["word-docx", "excel-xlsx", "my-pdf", "office-document-specialist-suite"]
 +tools : {profile : "full", deny : []}
++identity : IdentityConfig
 }
 class TravelPlannerAgent {
 +id : "travel-planner"
@@ -388,6 +418,7 @@ class TravelPlannerAgent {
 +templateSubdir : "agents/travel-planner"
 +skills : ["travel-planner", "xiaohongshu", "flyai", "amap-lbs-skill", "12306", "weather"]
 +tools : {profile : "full", deny : []}
++identity : IdentityConfig
 }
 BUILTIN_AGENTS --> OfficeHelperAgent
 BUILTIN_AGENTS --> TravelPlannerAgent
@@ -405,12 +436,14 @@ BUILTIN_AGENTS --> TravelPlannerAgent
 - **技能配置**：专门的Office文档处理技能组合
 - **工作流程**：先阅读相关技能文档再执行操作
 - **格式转换原则**：确认保留内容，警告有损转换
+- **身份配置**：支持视频展示功能
 
 **旅行规划代理模板**
 - **核心理念**：成为你想跟随的旅行者
 - **技能配置**：旅行规划、地图服务、预订系统等综合技能
 - **个性化服务**：根据用户预算和偏好调整详细程度
 - **安全第一**：关注目的地安全警告和风险
+- **身份配置**：支持视频展示功能
 
 **章节来源**
 - [builtin-agents.ts:37-70](file://src/agents/builtin-agents.ts#L37-L70)
@@ -488,6 +521,110 @@ end
 - [builtin-agents.ts:62-67](file://src/agents/builtin-agents.ts#L62-L67)
 - [builtin-agents.ts:47-54](file://src/agents/builtin-agents.ts#L47-L54)
 
+## 身份配置增强
+
+### 视频展示功能
+
+内置代理系统新增了视频展示功能，通过身份配置支持视频URL字段：
+
+```mermaid
+classDiagram
+class IdentityConfig {
++name? : string
++theme? : string
++emoji? : string
++avatar? : string
++video? : string
++bio? : string
+}
+class AgentIdentityFile {
++name? : string
++emoji? : string
++theme? : string
++creature? : string
++vibe? : string
++avatar? : string
+}
+class VideoShowcase {
++videoUrl string
++autoPlay boolean
++muted boolean
++playsInline boolean
++preload string
++className string
+}
+IdentityConfig --> AgentIdentityFile : extends
+VideoShowcase --> AgentIdentityFile : renders
+```
+
+**图表来源**
+- [types.base.ts:232-242](file://src/config/types.base.ts#L232-L242)
+- [identity-file.ts:5-12](file://src/agents/identity-file.ts#L5-L12)
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+
+### 身份配置字段
+
+身份配置现在支持以下字段：
+
+- **name**: 代理名称
+- **theme**: 主题颜色
+- **emoji**: 表情符号
+- **avatar**: 头像图片（支持本地路径、HTTP URL、数据URI）
+- **video**: 视频URL（仅支持HTTP/HTTPS）
+- **bio**: 简短介绍/说明文本
+
+### 会话工具集成
+
+会话工具负责将身份配置整合到代理会话中：
+
+```mermaid
+flowchart TD
+Start([获取代理身份]) --> CheckConfig{"检查配置身份"}
+CheckConfig --> |存在| ParseConfig["解析配置身份"]
+CheckConfig --> |不存在| LoadIdentity["加载IDENTITY.md"]
+ParseConfig --> SetVideo["设置视频URL"]
+LoadIdentity --> SetVideo
+SetVideo --> ResolveAvatar["解析头像URL"]
+ResolveAvatar --> ReturnIdentity["返回完整身份"]
+```
+
+**图表来源**
+- [session-utils.ts:382-418](file://src/gateway/session-utils.ts#L382-L418)
+
+### 前端视频展示组件
+
+前端代理详情页面实现了完整的视频展示功能：
+
+```mermaid
+flowchart TD
+VideoComponent[VideoShowcase组件] --> CheckVideo{"检查video属性"}
+CheckVideo --> |存在| RenderVideo["渲染视频展示"]
+CheckVideo --> |不存在| HideVideo["隐藏视频区域"]
+RenderVideo --> AutoPlay["自动播放一次"]
+AutoPlay --> Muted["静音播放"]
+Muted --> Inline["内联播放"]
+Inline --> Preload["预加载优化"]
+Preload --> Responsive["响应式布局"]
+Responsive --> End([完成])
+HideVideo --> End
+```
+
+**图表来源**
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+
+前端组件特性：
+- **自动播放**：组件挂载时自动播放一次
+- **静音播放**：默认静音避免用户体验干扰
+- **内联播放**：支持内联播放提升移动端体验
+- **预加载策略**：支持预加载优化视频加载速度
+- **响应式布局**：固定宽高比(3:4)，适应不同屏幕尺寸
+
+**章节来源**
+- [types.base.ts:232-242](file://src/config/types.base.ts#L232-L242)
+- [identity-file.ts:5-12](file://src/agents/identity-file.ts#L5-L12)
+- [session-utils.ts:382-418](file://src/gateway/session-utils.ts#L382-L418)
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+
 ## 依赖关系分析
 
 内置代理系统的依赖关系相对简单且清晰，主要依赖于核心的运行时环境和标准库：
@@ -505,6 +642,18 @@ AH[auth-health.ts]
 APL[anthropic-payload-log.ts]
 OHT[Office Helper模板]
 TPT[旅行规划模板]
+IC[IdentityConfig]
+AIF[AgentIdentityFile]
+SU[session-utils.ts]
+PR[profile.tsx]
+AR[app-render.ts]
+APC[avatar-policy.ts]
+WS[workspace.ts]
+AID[assistant-identity.ts]
+AID2[identity.ts]
+IA[identity-avatar.ts]
+DD[detail-drawer.tsx]
+AU[agents-utils.ts]
 end
 subgraph "外部依赖"
 Node[node: fs, path, child_process]
@@ -523,6 +672,12 @@ BA --> AH
 BA --> APL
 BA --> OHT
 BA --> TPT
+BA --> IC
+IC --> AIF
+AIF --> SU
+SU --> PR
+PR --> AR
+AR --> APC
 OHT --> Skills
 TPT --> Skills
 OHT --> Templates
@@ -533,6 +688,12 @@ ACSP --> Node
 APP --> Utils
 AH --> Logger
 APL --> Config
+WS --> Node
+AID --> APC
+AID2 --> IC
+IA --> APC
+DD --> PR
+AU --> PR
 ```
 
 **图表来源**
@@ -574,6 +735,7 @@ APL --> Config
 - **进程缓存**：缓存已启动的代理实例
 - **路径缓存**：缓存解析后的文件路径
 - **配置缓存**：缓存代理配置信息
+- **身份缓存**：缓存代理身份信息（包括视频URL）
 
 ### 技能执行优化
 
@@ -581,6 +743,20 @@ APL --> Config
 - **技能预热**：常用技能提前加载到内存
 - **工作流优化**：复杂任务分解为多个简单技能执行
 - **结果缓存**：重复计算的结果进行缓存
+- **视频预加载**：视频URL支持预加载优化
+
+### 视频展示优化
+
+视频展示功能的性能优化：
+- **自动播放**：视频组件支持自动播放一次
+- **静音播放**：默认静音播放避免用户体验干扰
+- **内联播放**：支持内联播放提升移动端体验
+- **预加载策略**：支持预加载优化视频加载速度
+- **响应式布局**：固定宽高比(3:4)适应不同设备
+
+**章节来源**
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+- [session-utils.ts:382-418](file://src/gateway/session-utils.ts#L382-L418)
 
 ## 故障排除指南
 
@@ -602,6 +778,11 @@ APL --> Config
    - 监控CPU和内存使用率
    - 检查磁盘空间使用情况
    - 分析网络连接状态
+
+4. **身份配置问题**
+   - 检查视频URL的有效性
+   - 验证头像URL的格式
+   - 确认身份配置文件的完整性
 
 ### 错误处理机制
 
@@ -655,15 +836,27 @@ GracefulShutdown --> End
    - 优化技能间的协作流程
    - 考虑技能预加载机制
 
+5. **视频展示性能问题**
+   - 检查视频URL的可达性和格式
+   - 优化视频预加载策略
+   - 调整视频播放参数
+   - 监控网络带宽使用情况
+
+6. **身份配置解析问题**
+   - 验证IDENTITY.md文件格式
+   - 检查工作区文件权限
+   - 确认配置文件编码格式
+
 **章节来源**
 - [auth-health.ts:1-250](file://src/agents/auth-health.ts#L1-L250)
 - [anthropic-payload-log.ts:1-250](file://src/agents/anthropic-payload-log.ts#L1-L250)
+- [identity-file.ts:5-12](file://src/agents/identity-file.ts#L5-L12)
 
 ## 结论
 
 内置代理系统作为 OpenClaw 平台的核心组件，展现了优秀的架构设计和实现质量。系统通过模块化的组件设计、清晰的职责分离和完善的错误处理机制，为平台提供了稳定可靠的代理管理能力。
 
-**更新** 最新版本显著增强了Office文档处理和旅行规划能力，通过新增Office Helper代理和优化旅行规划代理配置，系统现在能够提供更专业、更高效的文档处理和旅行规划服务。
+**更新** 最新版本显著增强了身份配置能力，通过新增视频URL等身份字段，系统现在能够提供更丰富、更直观的代理展示效果。这一增强不仅提升了用户体验，还为代理的个性化定制提供了更多可能性。
 
 系统的主要优势包括：
 - **高度模块化**：每个组件都有明确的职责和接口
@@ -671,6 +864,8 @@ GracefulShutdown --> End
 - **强大的监控能力**：提供全面的系统状态监控
 - **完善的错误处理**：具备自愈能力和故障恢复机制
 - **专业的技能生态**：提供针对特定领域的专业技能组合
+- **丰富的身份配置**：支持视频展示等高级外观定制
+- **优化的性能表现**：视频展示功能经过专门的性能优化
 
 未来的发展方向可能包括：
 - **智能化代理管理**：引入机器学习算法优化代理调度
@@ -678,5 +873,7 @@ GracefulShutdown --> End
 - **更好的可观测性**：提供更详细的性能指标和诊断信息
 - **云原生支持**：支持容器化部署和微服务架构
 - **技能生态扩展**：持续增加更多专业领域的技能组合
+- **多媒体展示增强**：支持更多类型的媒体内容展示
+- **个性化体验提升**：提供更丰富的代理外观和行为定制选项
 
-内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的Office Helper和旅行规划代理进一步丰富了系统的能力矩阵，为用户提供更加专业和便捷的服务体验。
+内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的视频展示功能进一步丰富了系统的能力矩阵，为用户提供更加生动和个性化的服务体验。

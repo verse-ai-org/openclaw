@@ -7,7 +7,7 @@ import {
 import {
   resolveRichToolPresentation,
   type RichToolPresentation,
-} from "@/components/chat/tool-rich-presentation";
+} from "@/components/chat/ToolFallback/rich-presentation";
 import { ToolCallGroup } from "@/components/chat/ToolCallGroup";
 
 export type AssistantToolPart = {
@@ -28,17 +28,22 @@ type PromotionCandidate = {
   score: number;
 };
 
+type PromotionMode = "default" | "route_visual";
+
 const PROMOTION_PRIORITY: Record<string, number> = {
   weather_widget: 100,
   chart: 90,
+  item_carousel: 85,
+  geo_map: 84,
   stats_display: 80,
   link_preview: 60,
 };
 
 const MAX_PROMOTED_TEXT_LENGTH = 400;
-const MAX_PROMOTED_TOOL_COUNT = 8;
+const MAX_PROMOTED_TOOL_COUNT = 15;
 const MAX_PROMOTED_CANDIDATES = 2;
 const MIN_PROMOTION_SCORE = 70;
+const ROUTE_VISUAL_TOOL_NAMES = new Set(["item_carousel", "geo_map"]);
 
 function getToolStatus(part: AssistantToolPart): ToolFallbackPartProps["status"] {
   if (part.result === undefined) {
@@ -86,57 +91,76 @@ function buildPromotionCandidates(toolParts: AssistantToolPart[]): PromotionCand
   return candidates;
 }
 
-export function resolvePromotedToolPart(
+function detectPromotionMode(candidates: PromotionCandidate[]): PromotionMode {
+  const hasRouteVisual = candidates.some((candidate) =>
+    ROUTE_VISUAL_TOOL_NAMES.has(candidate.part.toolName),
+  );
+  return hasRouteVisual ? "route_visual" : "default";
+}
+
+function sortCandidatesByScore(candidates: PromotionCandidate[]): PromotionCandidate[] {
+  return [...candidates].sort((a, b) => b.score - a.score);
+}
+
+export function resolvePromotedToolParts(
   toolParts: AssistantToolPart[],
   context: PromotedToolSelectionContext,
-): AssistantToolPart | null {
+): AssistantToolPart[] {
   if (context.textContent.trim().length > MAX_PROMOTED_TEXT_LENGTH) {
-    return null;
+    return [];
   }
 
   if (toolParts.length > MAX_PROMOTED_TOOL_COUNT) {
-    return null;
+    return [];
   }
 
   const candidates = buildPromotionCandidates(toolParts);
-  if (candidates.length === 0 || candidates.length > MAX_PROMOTED_CANDIDATES) {
-    return null;
+  if (candidates.length === 0) {
+    return [];
   }
+  const mode = detectPromotionMode(candidates);
+  const sorted = sortCandidatesByScore(candidates);
 
-  let best: PromotionCandidate | null = null;
-  for (const candidate of candidates) {
-    if (!best || candidate.score > best.score) {
-      best = candidate;
+  if (mode === "route_visual") {
+    const routeVisualCandidates = sorted.filter((candidate) =>
+      ROUTE_VISUAL_TOOL_NAMES.has(candidate.part.toolName),
+    );
+    const selected = routeVisualCandidates
+      .filter((candidate) => candidate.score >= MIN_PROMOTION_SCORE)
+      .slice(0, MAX_PROMOTED_CANDIDATES)
+      .map((candidate) => candidate.part);
+    if (selected.length > 0) {
+      return selected;
     }
   }
 
+  const best = sorted[0];
   if (!best || best.score < MIN_PROMOTION_SCORE) {
-    return null;
+    return [];
   }
 
-  return best.part;
+  return [best.part];
 }
 
 export const PromotedToolResult: FC<{
   toolParts: AssistantToolPart[];
   textContent: string;
 }> = ({ toolParts, textContent }) => {
-  const promoted = resolvePromotedToolPart(toolParts, { textContent });
-  if (!promoted || promoted.result === undefined) {
+  const promotedParts = resolvePromotedToolParts(toolParts, { textContent });
+  if (promotedParts.length === 0) {
     return null;
   }
 
-  const presentation = resolveRichToolPresentation(
-    promoted.toolName,
-    promoted.result,
-    promoted.result,
+  return (
+    <div className="my-2 space-y-2 overflow-hidden">
+      {promotedParts.map((part) => {
+        if (part.result === undefined) return null;
+        const presentation = resolveRichToolPresentation(part.toolName, part.result, part.result);
+        if (!presentation) return null;
+        return <div key={part.toolCallId}>{presentation.content}</div>;
+      })}
+    </div>
   );
-
-  if (!presentation) {
-    return null;
-  }
-
-  return <div className="my-2 overflow-hidden">{presentation.content}</div>;
 };
 
 export const AssistantToolGroup: FC<{ toolParts: AssistantToolPart[] }> = ({ toolParts }) => {
