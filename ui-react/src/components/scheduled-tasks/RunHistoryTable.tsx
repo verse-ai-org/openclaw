@@ -138,7 +138,7 @@ export function RunHistoryTable({
               type="button"
               onClick={() => handleTimeFilter(opt.value)}
               className={
-                "rounded-[14px] px-5 py-2 text-[13px] font-semibold transition-all" +
+                "rounded-[14px] px-5 py-1 text-[13px] font-semibold transition-all" +
                 (timeFilter === opt.value
                   ? " bg-white text-foreground shadow-sm"
                   : " text-muted-foreground hover:text-foreground")
@@ -157,7 +157,7 @@ export function RunHistoryTable({
               type="button"
               onClick={() => handleStatusFilter(val)}
               className={
-                "rounded-[14px] px-5 py-2 text-[13px] font-semibold transition-all" +
+                "rounded-[14px] px-5 py-1 text-[13px] font-semibold transition-all" +
                 (statusFilter === val
                   ? " bg-white text-foreground shadow-sm"
                   : " text-muted-foreground hover:text-foreground")

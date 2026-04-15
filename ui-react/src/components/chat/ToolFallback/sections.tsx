@@ -100,9 +100,13 @@ function parseMarkdown(markdown: string): {
   body: string;
 } {
   const content = markdown.trimStart();
-  if (!content.startsWith("---\n")) return { frontmatter: "", body: markdown };
+  if (!content.startsWith("---\n")) {
+    return { frontmatter: "", body: markdown };
+  }
   const end = content.indexOf("\n---\n", 4);
-  if (end === -1) return { frontmatter: "", body: markdown };
+  if (end === -1) {
+    return { frontmatter: "", body: markdown };
+  }
   return {
     frontmatter: content.slice(4, end).trim(),
     body: content.slice(end + 5).trimStart(),

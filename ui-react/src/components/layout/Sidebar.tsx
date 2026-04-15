@@ -1,11 +1,11 @@
-import {  UserIcon } from "lucide-react";
+// import {  UserIcon } from "lucide-react";
 import { NavLink, useLocation } from "react-router";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
+// import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+// import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
+  // SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -78,7 +78,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Footer: user identity */}
-      <SidebarFooter className='p-0'>
+      {/* <SidebarFooter className='p-0'>
         <Separator className="border" />
         <div className="flex items-center gap-2.5 px-3 py-3 group-data-[collapsible=icon]:justify-center">
           <Avatar className="size-8 shrink-0">
@@ -91,7 +91,7 @@ export function AppSidebar() {
             <span className="truncate text-xs text-muted-foreground">Bossim Pro</span>
           </div>
         </div>
-      </SidebarFooter>
+      </SidebarFooter> */}
     </Sidebar>
   );
 }
@@ -110,7 +110,7 @@ function NavItem({ tab }: { tab: Tab }) {
         isActive={isActive}
         tooltip={label}
         className={cn(
-          "rounded-lg transition-colors data-[active=true]:bg-white data-[active=true]:text-primary",
+          "rounded-full transition-colors data-[active=true]:bg-white data-[active=true]:text-primary",
           isActive
             ? "bg-white text-primary shadow-sm hover:bg-white hover:text-primary dark:bg-sidebar-accent"
             : "text-foreground/80 hover:bg-muted hover:text-foreground",

@@ -26,7 +26,7 @@ function TopNav() {
 
   return (
     <header
-      className="flex h-12 shrink-0 items-center justify-between border-b px-4 bg-white"
+      className="flex h-12 shrink-0 items-center justify-between border-b px-4"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
       {/* Left: sidebar toggle + breadcrumb */}
@@ -34,10 +34,8 @@ function TopNav() {
         className="flex items-center gap-3"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <SidebarTrigger className="-ml-1 z-50" />
+        <SidebarTrigger className="ml-1 z-50" />
         <div className="flex items-center gap-1.5 text-sm">
-          {/* <span className="font-semibold text-primary">Workspace</span>
-          <span className="text-muted-foreground">/</span> */}
           <span className="text-foreground">{currentLabel}</span>
         </div>
       </div>

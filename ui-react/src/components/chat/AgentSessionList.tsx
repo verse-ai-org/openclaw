@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import {  PlusIcon, Trash2Icon, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { resolveSessionDisplayName, type SessionEntry } from "@/hooks/useSessionManager";
 import type { GatewayAgentRow } from "@/types/agents";
-import { resolveAgentEmoji, resolveAgentDisplayName } from "./AgentList";
+import { resolveAgentEmoji, resolveAgentDisplayName, resolveAgentBio } from "./AgentList";
 
 // ---------------------------------------------------------------------------
 // AgentSessionList — Panel that shows sessions for a specific agent
@@ -166,19 +166,20 @@ export function AgentSessionList({
 
   const emoji = resolveAgentEmoji(agent);
   const name = resolveAgentDisplayName(agent);
+  const bio = resolveAgentBio(agent);
   const avatarUrl = agent.identity?.avatarUrl;
 
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Header: back link + agent identity block */}
-      <div className="shrink-0 px-2 pt-3 pb-3 border-b border-[rgb(229,229,234)]">
+      <div className="shrink-0 px-2 py-2 shadow-bottom">
         {/* Back link — small, muted */}
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1 px-1 mb-2 text-[12px] text-[rgb(142,142,147)] hover:text-foreground transition-colors"
+          className="flex items-center justify-center px-1 mb-2 text-[12px] text-[rgb(142,142,147)] hover:text-foreground transition-colors"
         >
-          <ArrowLeftIcon className="size-3 shrink-0" />
+          <ChevronLeft className="size-4 shrink-0" />
           <span className="font-medium">Employees</span>
         </button>
 
@@ -201,15 +202,18 @@ export function AgentSessionList({
             type="button"
             onClick={() => onViewProfile?.(agent.id)}
             disabled={!onViewProfile}
-            className="flex-1 min-w-0 truncate text-[15px] font-bold text-foreground text-left transition-colors hover:text-primary disabled:cursor-default disabled:hover:text-foreground"
+            className="flex-1 min-w-0 truncate text-sm font-bold text-foreground text-left cursor-pointer transition-colors hover:text-primary disabled:cursor-default disabled:hover:text-foreground"
           >
             {name}
+            <p className="flex-1 min-w-0 truncate text-xs text-muted-foreground whitespace-nowrap overflow-clip">
+              {bio}
+            </p>
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto px-2 py-4">
+      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto px-2 py-4 border-t">
         {/* Section heading + new session button */}
         <div className="flex items-center justify-between px-3 mb-3">
           <span className="text-[17px] font-bold leading-tight text-foreground">Sessions</span>

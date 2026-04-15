@@ -98,7 +98,7 @@ export function ChatSidebar() {
   return (
     <div className="flex w-60 shrink-0 flex-col border-r bg-white">
       {/* Fixed search bar — sits above the sliding track, never moves */}
-      <div className="shrink-0 px-3 py-2 border-b border-[rgb(229,229,234)]">
+      <div className="shrink-0 px-3 py-2">
         <div className="relative flex items-center">
           <SearchIcon className="absolute left-3 size-3.5 text-[rgb(142,142,147)] pointer-events-none" />
           <input

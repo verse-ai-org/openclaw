@@ -159,7 +159,7 @@ export function ToolDetailDrawer({
               }
             >
               <div className="overflow-hidden rounded-lg border border-border bg-background">
-                <div className="border-b bg-white/60 px-3 py-2 text-[11px] text-muted-foreground">
+                <div className="border-b bg-secondary px-3 py-2 text-sm text-muted-foreground">
                   {workingDirField?.value
                     ? `cwd: ${workingDirField.value}`
                     : "shell session"}
@@ -283,20 +283,6 @@ export function ToolDetailDrawer({
           </div>
         </div>
         <DrawerFooter className="border-t sm:flex-row sm:justify-end">
-          {resultStr && typeof navigator !== "undefined" && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 text-muted-foreground"
-              aria-label="Copy raw result"
-              title="Copy raw result"
-              onClick={async () => {
-                await navigator.clipboard.writeText(resultStr);
-              }}
-            >
-              <CopyIcon className="size-3.5" />
-            </Button>
-          )}
           <DrawerClose asChild>
             <Button variant="outline">Close</Button>
           </DrawerClose>

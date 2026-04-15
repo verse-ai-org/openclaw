@@ -292,20 +292,19 @@ export function ScheduledTasksPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="ghost"
                   disabled={cronLoading}
                   onClick={() => void loadCronStatus()}
                   title="Refresh"
                   className="gap-1.5"
                 >
                   <RefreshCwIcon className={cn("size-3.5", cronLoading && "animate-spin")} />
-                  Refresh
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleCreateWithChat} className="gap-1.5">
+                <Button variant="outline" size="sm" onClick={handleCreateWithChat} className="gap-1.5 rounded-full">
                   <MessageSquareIcon className="size-3.5" />
                   Create With Chat
                 </Button>
-                <Button size="sm" onClick={handleOpenNew} className="gap-1.5">
+                <Button size="sm" onClick={handleOpenNew} className="gap-1.5 rounded-full">
                   <PlusIcon className="size-3.5" />
                   New Scheduled Task
                 </Button>
@@ -357,7 +356,7 @@ export function ScheduledTasksPage() {
               )}
             </div>
 
-            <TabsContent value="my-tasks" className="mt-6">
+            <TabsContent value="my-tasks" className="mt-2">
               {cronLoading && cronJobs.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
                   <Loader2Icon className="size-4 animate-spin" />
@@ -380,7 +379,7 @@ export function ScheduledTasksPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="run-history" className="mt-6">
+            <TabsContent value="run-history" className="mt-2">
               <RunHistoryTable
                 records={filteredRunHistory}
                 total={filteredRunHistory.length}

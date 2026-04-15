@@ -18,7 +18,7 @@ export const router = createHashRouter([
     element: <AppShell />,
     children: [
       // Default redirect to chat
-      { index: true, element: <Navigate to="/chat" replace /> },
+      { index: true, element: <Navigate to="/employees" replace /> },
       { path: "chat", element: <ChatPage /> },
       { path: "overview", element: <OverviewPage /> },
       { path: "channels", element: <ChannelsPage /> },

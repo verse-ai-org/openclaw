@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
-import { RefreshCwIcon, Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ChannelDetailDialog } from "@/components/channels/ChannelDetailDialog";
-import { cn } from "@/lib/utils";
 import { useChannelsStore } from "@/store/channels.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { usePluginsStore } from "@/store/plugins.store";
@@ -16,6 +14,7 @@ import { ChannelActionDialog } from "@/components/channels/ChannelActionDialog";
 import type { ChannelActionVariant } from "@/components/channels/ChannelActionDialog";
 import { DEFAULT_CHANNEL_ORDER } from "@/components/channels/constants";
 import { CatalogSection } from "@/components/channels/CatalogSection";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +37,7 @@ function resolveChannelOrder(snapshot: ChannelsStatusSnapshot): string[] {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function ChannelsPage() {
+  const [activeView, setActiveView] = useState<"all" | "active" | "disabled">("all");
   const isConnected = useGatewayStore((s) => s.status === "connected");
   const beginRestart = useGatewayStore((s) => s.beginRestart);
   const {
@@ -235,179 +235,168 @@ export function ChannelsPage() {
                 Messaging integrations — enable, configure, and connect.
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loading}
-              onClick={handleRefresh}
-              className="mb-1 gap-1.5"
-            >
-              <RefreshCwIcon
-                className={cn("size-3.5", loading && "animate-spin")}
-              />
-              Refresh
-            </Button>
           </div>
 
           {lastError && <ErrorCallout message={lastError} />}
 
-          {/* Tabs: All / Active / Disabled */}
-          <Tabs defaultValue="all">
-            <TabsList className="inline-flex h-auto gap-1 rounded-2xl bg-[#F6F6F6] p-1">
-              <TabsTrigger
-                value="all"
-                className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all
-                data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-              >
-                All ({activeTabChannels.length + discoverEntries.length})
-              </TabsTrigger>
-              <TabsTrigger
-                value="active"
-                className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all
-                data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-              >
-                Active ({enabledChannels.length})
-                {needsSetupChannels.length > 0 && (
-                  <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
-                    {needsSetupChannels.length} need setup
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="disabled"
-                className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all
-                data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-              >
-                Disabled ({disabledChannels.length + discoverEntries.length})
-              </TabsTrigger>
-            </TabsList>
+          {/* View switch: All / Active / Disabled */}
+          <div className="flex flex-col gap-6">
+            <SegmentedControl
+              options={[
+                {
+                  value: "all",
+                  label: `All (${activeTabChannels.length + discoverEntries.length})`,
+                },
+                {
+                  value: "active",
+                  label:
+                    needsSetupChannels.length > 0
+                      ? `Active (${enabledChannels.length}, ${needsSetupChannels.length} need setup)`
+                      : `Active (${enabledChannels.length})`,
+                },
+                {
+                  value: "disabled",
+                  label: `Disabled (${disabledChannels.length + discoverEntries.length})`,
+                },
+              ]}
+              value={activeView}
+              onChange={setActiveView}
+              size="sm"
+              className="w-fit"
+            />
 
-            {/* All tab: installed channels + discover */}
-            <TabsContent value="all" className="mt-6">
-              {catalogLoading && !catalog ? (
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <Loader2Icon className="size-4 animate-spin" /> Loading…
-                </div>
-              ) : (
-                <>
-                  {activeTabChannels.length > 0 && (
-                    <div className="flex flex-col gap-3">
-                      {discoverEntries.length > 0 && (
-                        <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
-                          Installed
+            {/* All view: installed channels + discover */}
+            {activeView === "all" && (
+              <>
+                {catalogLoading && !catalog ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2Icon className="size-4 animate-spin" /> Loading…
+                  </div>
+                ) : (
+                  <>
+                    {activeTabChannels.length > 0 && (
+                      <div className="flex flex-col gap-3">
+                        {discoverEntries.length > 0 && (
+                          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
+                            Installed
+                          </p>
+                        )}
+                        <ChannelGrid
+                          channelIds={activeTabChannels}
+                          snapshot={snapshot}
+                          onOpen={handleOpen}
+                          onDisable={handleDisable}
+                          onEnable={handleEnable}
+                        />
+                      </div>
+                    )}
+                    {discoverEntries.length > 0 && (
+                      <div className="mt-6">
+                        <CatalogSection
+                          pluginDisabledEntries={pluginDisabledEntries}
+                          notInstalledEntries={notInstalledEntries}
+                          onEnablePlugin={handleEnablePlugin}
+                          enablingPluginId={togglingPluginId}
+                        />
+                      </div>
+                    )}
+                    {activeTabChannels.length === 0 &&
+                      discoverEntries.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          No channels available.
                         </p>
                       )}
-                      <ChannelGrid
-                        channelIds={activeTabChannels}
-                        snapshot={snapshot}
-                        onOpen={handleOpen}
-                        onDisable={handleDisable}
-                        onEnable={handleEnable}
-                      />
-                    </div>
-                  )}
-                  {discoverEntries.length > 0 && (
-                    <div className="mt-6">
-                      <CatalogSection
-                        pluginDisabledEntries={pluginDisabledEntries}
-                        notInstalledEntries={notInstalledEntries}
-                        onEnablePlugin={handleEnablePlugin}
-                        enablingPluginId={togglingPluginId}
-                      />
-                    </div>
-                  )}
-                  {activeTabChannels.length === 0 &&
-                    discoverEntries.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No channels available.
-                      </p>
-                    )}
-                </>
-              )}
-            </TabsContent>
+                  </>
+                )}
+              </>
+            )}
 
-            {/* Active tab */}
-            <TabsContent value="active" className="mt-6">
-              {enabledChannels.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No active channels.
-                </p>
-              )}
-              {configuredChannels.length > 0 && (
-                <div className="flex flex-col gap-3">
-                  {needsSetupChannels.length > 0 && (
-                    <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
-                      Configured
-                    </p>
-                  )}
-                  <ChannelGrid
-                    channelIds={configuredChannels}
-                    snapshot={snapshot}
-                    onOpen={handleOpen}
-                    onDisable={handleDisable}
-                    onEnable={handleEnable}
-                  />
-                </div>
-              )}
-              {needsSetupChannels.length > 0 && (
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 mt-4">
-                    <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wide">
-                      Needs Setup
-                    </p>
-                    <span className="text-[11px] text-[#9CA3AF]">
-                      — enabled but not yet configured
-                    </span>
-                  </div>
-                  <ChannelGrid
-                    channelIds={needsSetupChannels}
-                    snapshot={snapshot}
-                    onOpen={handleOpen}
-                    onDisable={handleDisable}
-                    onEnable={handleEnable}
-                  />
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Disabled tab */}
-            <TabsContent value="disabled" className="mt-6">
-              {disabledChannels.length > 0 && (
-                <div className="flex flex-col gap-3">
-                  {discoverEntries.length > 0 && (
-                    <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
-                      Disabled
-                    </p>
-                  )}
-                  <ChannelGrid
-                    channelIds={disabledChannels}
-                    snapshot={snapshot}
-                    onOpen={handleOpen}
-                    onDisable={handleDisable}
-                    onEnable={handleEnable}
-                  />
-                </div>
-              )}
-              {discoverEntries.length > 0 && (
-                <div className="mt-6">
-                  <CatalogSection
-                    pluginDisabledEntries={pluginDisabledEntries}
-                    notInstalledEntries={notInstalledEntries}
-                    onEnablePlugin={handleEnablePlugin}
-                    enablingPluginId={togglingPluginId}
-                    catalogLoading={catalogLoading}
-                    catalogError={catalogError}
-                  />
-                </div>
-              )}
-              {disabledChannels.length === 0 &&
-                discoverEntries.length === 0 && (
+            {/* Active view */}
+            {activeView === "active" && (
+              <>
+                {enabledChannels.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No disabled channels.
+                    No active channels.
                   </p>
                 )}
-            </TabsContent>
-          </Tabs>
+                {configuredChannels.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    {needsSetupChannels.length > 0 && (
+                      <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
+                        Configured
+                      </p>
+                    )}
+                    <ChannelGrid
+                      channelIds={configuredChannels}
+                      snapshot={snapshot}
+                      onOpen={handleOpen}
+                      onDisable={handleDisable}
+                      onEnable={handleEnable}
+                    />
+                  </div>
+                )}
+                {needsSetupChannels.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 mt-4">
+                      <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wide">
+                        Needs Setup
+                      </p>
+                      <span className="text-[11px] text-[#9CA3AF]">
+                        — enabled but not yet configured
+                      </span>
+                    </div>
+                    <ChannelGrid
+                      channelIds={needsSetupChannels}
+                      snapshot={snapshot}
+                      onOpen={handleOpen}
+                      onDisable={handleDisable}
+                      onEnable={handleEnable}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Disabled view */}
+            {activeView === "disabled" && (
+              <>
+                {disabledChannels.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    {discoverEntries.length > 0 && (
+                      <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
+                        Disabled
+                      </p>
+                    )}
+                    <ChannelGrid
+                      channelIds={disabledChannels}
+                      snapshot={snapshot}
+                      onOpen={handleOpen}
+                      onDisable={handleDisable}
+                      onEnable={handleEnable}
+                    />
+                  </div>
+                )}
+                {discoverEntries.length > 0 && (
+                  <div className="mt-6">
+                    <CatalogSection
+                      pluginDisabledEntries={pluginDisabledEntries}
+                      notInstalledEntries={notInstalledEntries}
+                      onEnablePlugin={handleEnablePlugin}
+                      enablingPluginId={togglingPluginId}
+                      catalogLoading={catalogLoading}
+                      catalogError={catalogError}
+                    />
+                  </div>
+                )}
+                {disabledChannels.length === 0 &&
+                  discoverEntries.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No disabled channels.
+                    </p>
+                  )}
+              </>
+            )}
+          </div>
         </div>
       </ScrollArea>
 

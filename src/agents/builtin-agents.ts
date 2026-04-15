@@ -61,7 +61,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     ],
     tools: { profile: "full", deny: [] },
     identity: {
-      name: "Travel Planner",
+      name: "Tom",
       emoji: "✈️",
       avatar: "https://files.aiverser.com/bossim/images/travel-planner.webp",
       video:

@@ -1,5 +1,7 @@
-import { Filter, RefreshCw } from "lucide-react";
+import { Filter, RefreshCwIcon } from "lucide-react";
 import { AddSkillDialog } from "./AddSkillDialog";
+import { Button } from "../ui/button.tsx";
+import { cn } from "@/lib/utils.ts";
 
 interface Props {
   filter: string;
@@ -23,34 +25,33 @@ export function SkillsToolbar({ filter, loading, shownCount, onFilterChange, onR
         />
       </div>
 
-      {/* Refresh icon button */}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        className="size-8 rounded-full"
         disabled={loading}
+        title="Refresh"
         onClick={onRefresh}
-        aria-label="Refresh"
-        className="flex size-[33px] shrink-0 items-center justify-center rounded-full bg-[#F6F6F6] text-muted-foreground transition-colors hover:bg-[#EBEBEB] disabled:opacity-50"
       >
-        <RefreshCw className={`size-[13px] ${loading ? "animate-spin" : ""}`} />
-      </button>
-
-      {/* Skills count pill */}
-      <span className="inline-flex items-center rounded-full bg-black/5 px-4 py-[3px] text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-        {shownCount} Skills
-      </span>
+        <RefreshCwIcon className={cn("size-4", loading && "animate-spin")} />
+      </Button>
 
       {/* Add New Skill button */}
       <AddSkillDialog
         trigger={
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-[6px] text-[11px] font-bold text-white hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[11px] font-bold text-white hover:bg-primary/90 transition-colors"
           >
             <span className="text-base leading-none">+</span>
             Add New Skill
           </button>
         }
       />
+
+      {/* Skills count pill */}
+      <span className="hidden items-center rounded-full bg-black/5 px-4 py-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        {shownCount} Skills
+      </span>
     </div>
   );
 }

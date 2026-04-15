@@ -79,16 +79,17 @@
 - [skills.tsx](file://ui-react/src/components/agents/skills.tsx)
 - [tools.tsx](file://ui-react/src/components/agents/tools.tsx)
 - [soul.tsx](file://ui-react/src/components/agents/soul.tsx)
+- [design-system.md](file://ui-react/design/design-system.md)
+- [agents.store.ts](file://ui-react/src/store/agents.store.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增SectionCard组件样式改进，提供统一的卡片容器样式
-- 优化AppleToggle组件，实现苹果风格的开关控件
-- 增强Agent管理界面的组件系统，包括AgentCard、ProfileHeroSection等
-- 优化Skills和Tools组件的样式一致性
-- 新增AgentDetailDrawer组件，提供完整的代理详情展示
-- 改进SoulSection组件的编辑和预览功能
+- 新增代理卡组件视频播放功能，支持3:4比例和圆角设计
+- 更新SectionCard组件样式统一为圆角设计
+- 优化AppleToggle组件动画效果和禁用状态
+- 增强Agent管理界面的视频展示功能
+- 统一设计系统中的圆角和比例规范
 
 ## 目录
 1. [简介](#简介)
@@ -120,6 +121,8 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **优化AppleToggle组件**：实现苹果风格的开关控件，支持禁用状态和动画效果
 - **增强Agent管理界面**：新增AgentCard、ProfileHeroSection、AgentDetailDrawer等组件
 - **改进Skills和Tools组件**：统一样式设计，提升用户体验一致性
+- **新增代理卡组件视频播放功能**：支持3:4比例和圆角设计，提供流畅的视频播放体验
+- **统一设计系统规范**：更新圆角和比例规范，确保界面一致性
 
 该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。现代化的架构显著提升了用户体验和开发效率。
 
@@ -987,8 +990,11 @@ class AgentCard {
 +name : string
 +emoji : string
 +avatar : string
++video : string
 +isSelected : boolean
 +onClick : Function
++handleMouseEnter() void
++handleMouseLeave() void
 +render() ReactNode
 }
 class AgentDetailDrawer {
@@ -1043,7 +1049,7 @@ A[SectionCard组件] --> B[圆角设计]
 A --> C[边框样式]
 A --> D[阴影效果]
 A --> E[内边距设置]
-B --> F[rounded-3xl圆角]
+B --> F[rounded-2xl圆角]
 C --> G[border border-[#F0F0F0]边框]
 D --> H[shadow-sm阴影]
 E --> I[px-6 py-5内边距]
@@ -1095,38 +1101,46 @@ S --> T
 
 #### AgentCard组件样式优化
 
-**新增** AgentCard组件提供了现代化的代理卡片设计，支持选中状态和悬停效果：
+**新增** AgentCard组件提供了现代化的代理卡片设计，支持选中状态、悬停效果和视频播放功能：
 
 ```mermaid
 flowchart TD
-A[AgentCard组件] --> B[选中状态]
-A --> C[悬停效果]
-A --> D[头像显示]
-A --> E[选中指示器]
-B --> F[边框-[#BA0034]红色]
-B --> G[背景-[#BA0034]/10半透明]
-B --> H[shadow-md阴影]
-C --> I[hover:border-[#BA0034]/30]
-C --> J[hover:bg-[#BA0034]/5]
-C --> K[hover:shadow-lg]
-D --> L[圆角2xl背景]
-D --> M[溢出隐藏]
-E --> N[绝对定位右上角]
-E --> O[红色圆点指示器]
-F --> P[视觉反馈]
-G --> P
-H --> P
-I --> P
-J --> P
-K --> P
-L --> P
-M --> P
-N --> P
-O --> P
+A[AgentCard组件] --> B[3:4比例]
+A --> C[圆角设计]
+A --> D[选中状态]
+A --> E[悬停效果]
+A --> F[视频播放功能]
+B --> G[aspect-3/4比例]
+C --> H[rounded-2xl圆角]
+D --> I[边框-[#BA0034]红色]
+D --> J[背景-[#BA0034]/10半透明]
+D --> K[shadow-md阴影]
+E --> L[hover:border-[#BA0034]/30]
+E --> M[hover:bg-[#BA0034]/5]
+E --> N[hover:shadow-lg]
+F --> O[video元素]
+F --> P[muted自动静音]
+F --> Q[playsInline内联播放]
+F --> R[loop循环播放]
+F --> S[group-hover:opacity-100悬停显示]
+G --> T[视觉一致性]
+H --> T
+I --> T
+J --> T
+K --> T
+L --> T
+M --> T
+N --> T
+O --> T
+P --> T
+Q --> T
+R --> T
+S --> T
 ```
 
 **图表来源**
 - [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [card.tsx:69-79](file://ui-react/src/components/agents/card.tsx#L69-L79)
 
 #### AgentDetailDrawer组件功能增强
 
@@ -1160,11 +1174,50 @@ N --> O[完整的代理管理界面]
 **图表来源**
 - [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
 
+#### ProfileHeroSection组件视频展示
+
+**新增** ProfileHeroSection组件集成了VideoShowcase组件，提供视频展示功能：
+
+```mermaid
+flowchart TD
+A[ProfileHeroSection组件] --> B[视频展示]
+A --> C[头像展示]
+A --> D[在线状态]
+B --> E[VideoShowcase组件]
+B --> F[aspect-3/4比例]
+B --> G[rounded-2xl圆角]
+B --> H[muted自动静音]
+B --> I[playsInline内联播放]
+B --> J[preload自动预加载]
+C --> K[头像容器]
+C --> L[在线状态徽章]
+D --> M[在线状态显示]
+E --> N[视频自动播放]
+F --> O[统一设计规范]
+G --> O
+H --> O
+I --> O
+J --> O
+K --> P[头像显示]
+L --> P
+M --> P
+N --> Q[视频播放功能]
+O --> Q
+P --> Q
+```
+
+**图表来源**
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+- [profile.tsx:257-273](file://ui-react/src/components/agents/profile.tsx#L257-L273)
+
 **章节来源**
 - [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
 - [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
 - [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [card.tsx:69-79](file://ui-react/src/components/agents/card.tsx#L69-L79)
 - [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+- [profile.tsx:257-273](file://ui-react/src/components/agents/profile.tsx#L257-L273)
 
 ## 架构概览
 
@@ -1207,11 +1260,9 @@ PP[CronPage] --> QQ[下次运行时间]
 PP --> RR[最后运行时间]
 QQ --> SS[定时任务状态]
 RR --> SS
-NN --> TT[通道活动监控]
-KK --> TT
-UU[ToolCallGroup组件] --> VV[工具调用分组]
-UU[ToolCallGroup组件] --> WW[状态徽章]
-UU[ToolCallGroup组件] --> XX[图标条显示]
+NN[ToolCallGroup组件] --> VV[工具调用分组]
+NN[ToolCallGroup组件] --> WW[状态徽章]
+NN[ToolCallGroup组件] --> XX[图标条显示]
 YY[ToolFallback组件] --> ZZ[工具调用回退]
 YY[ToolFallback组件] --> AA[详细抽屉]
 YY[ToolFallback组件] --> BB[分类系统]
@@ -1243,6 +1294,9 @@ MM[Agent管理组件] --> RR[ProfileHeroSection档案展示]
 MM[Agent管理组件] --> SS[CoreSkillsSection技能管理]
 MM[Agent管理组件] --> TT[ToolsSection工具管理]
 MM[Agent管理组件] --> UU[SoulSection灵魂管理]
+MM[Agent管理组件] --> VV[VideoShowcase视频展示]
+MM[Agent管理组件] --> WW[3:4比例设计]
+MM[Agent管理组件] --> XX[圆角设计规范]
 ```
 
 **图表来源**
@@ -2255,7 +2309,7 @@ AppleToggle --> ToggleColors : 使用
 
 #### AgentCard组件样式优化
 
-**新增** AgentCard组件提供了现代化的代理卡片设计，支持选中状态和悬停效果：
+**新增** AgentCard组件提供了现代化的代理卡片设计，支持选中状态、悬停效果和视频播放功能：
 
 ```mermaid
 classDiagram
@@ -2264,8 +2318,11 @@ class AgentCard {
 +name : string
 +emoji : string
 +avatar : string
++video : string
 +isSelected : boolean
 +onClick : Function
++handleMouseEnter() void
++handleMouseLeave() void
 +render() ReactNode
 }
 class CardState {
@@ -2283,14 +2340,21 @@ class CardAvatar {
 +avatarSize : "size-24"
 +avatarTransition : "transition-transform group-hover : scale-110"
 }
+class CardVideo {
++videoAspect : "aspect-3/4"
++videoRadius : "rounded-2xl"
++videoOpacity : "opacity-0 group-hover : opacity-100"
+}
 AgentCard --> CardState : 使用
 AgentCard --> CardHover : 使用
 AgentCard --> CardSelected : 使用
 AgentCard --> CardAvatar : 使用
+AgentCard --> CardVideo : 使用
 ```
 
 **图表来源**
 - [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [card.tsx:69-79](file://ui-react/src/components/agents/card.tsx#L69-L79)
 
 #### AgentDetailDrawer组件功能增强
 
@@ -2332,11 +2396,38 @@ AgentDetailDrawer --> DrawerActions : 使用
 **图表来源**
 - [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
 
+#### ProfileHeroSection组件视频展示
+
+**新增** ProfileHeroSection组件集成了VideoShowcase组件，提供视频展示功能：
+
+```mermaid
+classDiagram
+class VideoShowcase {
++videoUrl : string
++videoRef : RefObject
++effect : Effect
++render() ReactNode
+}
+class ProfileHeroSection {
++agentId : string
++onChatClick : Function
++render() ReactNode
+}
+VideoShowcase --> ProfileHeroSection : 被调用
+```
+
+**图表来源**
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+- [profile.tsx:246-311](file://ui-react/src/components/agents/profile.tsx#L246-L311)
+
 **章节来源**
 - [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
 - [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
 - [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [card.tsx:69-79](file://ui-react/src/components/agents/card.tsx#L69-L79)
 - [detail-drawer.tsx:39-154](file://ui-react/src/components/agents/detail-drawer.tsx#L39-L154)
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+- [profile.tsx:246-311](file://ui-react/src/components/agents/profile.tsx#L246-L311)
 
 ## 依赖关系分析
 
@@ -2416,12 +2507,17 @@ UU[AppleToggle组件] --> XX[禁用状态]
 YY[AgentCard组件] --> ZZ[代理卡片]
 YY[AgentCard组件] --> AA[选中状态]
 YY[AgentCard组件] --> BB[悬停效果]
+YY[AgentCard组件] --> CC[视频播放]
 CC[AgentDetailDrawer组件] --> DD[详情抽屉]
 CC[AgentDetailDrawer组件] --> EE[抽屉布局]
 CC[AgentDetailDrawer组件] --> FF[滚动区域]
 GG[ProfileHeroSection组件] --> HH[档案展示]
 GG[ProfileHeroSection组件] --> II[头像显示]
 GG[ProfileHeroSection组件] --> JJ[在线状态]
+GG[ProfileHeroSection组件] --> KK[视频展示]
+LL[VideoShowcase组件] --> MM[3:4比例]
+LL[VideoShowcase组件] --> NN[圆角设计]
+LL[VideoShowcase组件] --> OO[自动播放]
 ```
 
 **图表来源**
@@ -2484,6 +2580,9 @@ GG[ProfileHeroSection组件] --> JJ[在线状态]
 | **AppleToggle优化** | ❌ 不支持 | ✅ **全新实现** | ✅ **苹果风格开关** | ✅ **完全现代化** |
 | **AgentCard样式优化** | ❌ 不支持 | ✅ **全新实现** | ✅ **现代化卡片设计** | ✅ **完全现代化** |
 | **AgentDetailDrawer增强** | ❌ 不支持 | ✅ **全新实现** | ✅ **完整详情界面** | ✅ **完全现代化** |
+| **ProfileHeroSection增强** | ❌ 不支持 | ✅ **全新实现** | ✅ **视频展示功能** | ✅ **完全现代化** |
+| **代理卡视频播放** | ❌ 不支持 | ✅ **全新实现** | ✅ **3:4比例设计** | ✅ **完全现代化** |
+| **统一圆角设计** | ❌ 不支持 | ✅ **全新实现** | ✅ **设计系统规范** | ✅ **完全现代化** |
 
 **章节来源**
 - [package.json:11-26](file://ui/package.json#L11-L26)
@@ -2542,6 +2641,11 @@ GG[ProfileHeroSection组件] --> JJ[在线状态]
 23. **AgentCard悬停优化**：使用CSS hover伪类，避免JavaScript事件监听
 24. **AgentDetailDrawer滚动优化**：使用CSS height和overflow，提供更好的滚动性能
 25. **ProfileHeroSection头像优化**：使用CSS background和overflow，提升图片渲染性能
+26. **VideoShowcase视频优化**：使用preload和playsInline优化视频加载和播放性能
+27. **3:4比例设计优化**：统一的比例设计减少布局计算复杂度
+28. **圆角设计优化**：统一的圆角设计使用CSS变量，提升渲染性能
+29. **视频播放性能优化**：使用muted和loop属性优化视频播放性能
+30. **自动播放优化**：使用useEffect和ref优化视频自动播放性能
 
 ### 现代化内存管理
 
@@ -2630,6 +2734,21 @@ SS --> |高| TT[清理档案状态缓存]
 SS --> |正常| UU[保持档案状态]
 TT --> VV[重置档案配置]
 UU --> WW[继续渲染]
+XX[VideoShowcase组件] --> YY[内存占用]
+YY --> |高| AA[清理视频状态缓存]
+YY --> |正常| BB[保持视频状态]
+AA --> CC[重置视频配置]
+BB --> DD[继续渲染]
+EE[3:4比例设计] --> FF[内存占用]
+FF --> |高| GG[清理比例状态缓存]
+FF --> |正常| HH[保持比例状态]
+GG --> II[重置比例配置]
+HH --> JJ[继续渲染]
+KK[圆角设计规范] --> LL[内存占用]
+LL --> |高| MM[清理圆角状态缓存]
+LL --> |正常| NN[保持圆角状态]
+MM --> OO[重置圆角配置]
+NN --> PP[继续渲染]
 ```
 
 ### 现代化网络优化
@@ -2659,6 +2778,9 @@ UU --> WW[继续渲染]
 - **AgentCard悬停缓存**：悬停状态进行缓存，提升交互性能
 - **AgentDetailDrawer滚动缓存**：滚动位置进行缓存，提升用户体验
 - **ProfileHeroSection头像缓存**：头像资源进行缓存，提升加载速度
+- **VideoShowcase视频缓存**：视频资源进行缓存，提升播放性能
+- **3:4比例设计缓存**：比例计算进行缓存，提升布局性能
+- **圆角设计规范缓存**：圆角计算进行缓存，提升渲染性能
 
 ## 故障排除指南
 
@@ -2679,6 +2801,8 @@ UU --> WW[继续渲染]
    - **验证PluginCard组件是否正确渲染**
    - **检查SectionCard组件样式是否正确应用**
    - **验证AppleToggle组件动画是否正常**
+   - **检查AgentCard组件视频播放功能是否正常**
+   - **验证ProfileHeroSection组件视频展示是否正常**
 
 3. **性能问题**
    - 监控内存使用情况
@@ -2690,6 +2814,9 @@ UU --> WW[继续渲染]
    - **验证SectionCard组件的样式性能**
    - **检查AppleToggle组件的动画性能**
    - **验证AgentCard组件的交互性能**
+   - **检查VideoShowcase组件的视频播放性能**
+   - **验证3:4比例设计的布局性能**
+   - **检查圆角设计规范的渲染性能**
 
 4. **技能管理问题**
    - 检查技能API密钥是否正确
@@ -2721,6 +2848,7 @@ UU --> WW[继续渲染]
    - **确认技能状态是否正确同步**
    - **验证网关连接状态**
    - **检查Agent管理状态**
+   - **验证VideoShowcase组件状态**
 
 9. **assistant-ui/react问题**
    - **检查聊天框架是否正确初始化**
@@ -2730,6 +2858,7 @@ UU --> WW[继续渲染]
    - **验证工具调用组件的渲染**
    - **验证插格系统组件的渲染**
    - **验证Agent管理组件的渲染**
+   - **验证视频播放组件的渲染**
 
 10. **Hook系统问题**
     - **验证自定义Hook是否正确使用**
@@ -2739,6 +2868,7 @@ UU --> WW[继续渲染]
     - **检查工具调用组件的Hook使用**
     - **验证插格系统组件的Hook使用**
     - **验证Agent管理组件的Hook使用**
+    - **验证VideoShowcase组件的Hook使用**
 
 11. **国际化问题**
     - **验证翻译文件加载**
@@ -2752,6 +2882,7 @@ UU --> WW[继续渲染]
     - **确认Markdown渲染效果**
     - **检查国际化翻译是否正确**
     - **验证ProfileHeroSection头像显示**
+    - **验证VideoShowcase组件的视频播放**
 
 13. **邀请码验证问题**
     - **检查邀请码格式验证是否正确**
@@ -2782,6 +2913,7 @@ UU --> WW[继续渲染]
     - **检查工具详情抽屉的功能**
     - **验证工具调用的错误处理**
     - **检查SectionCard组件的工具调用显示**
+    - **验证ToolCallGroup组件的3:4比例设计**
 
 17. **旅行规划技能问题**
     - **检查Xiaohongshu证据收集是否正常**
@@ -2789,6 +2921,7 @@ UU --> WW[继续渲染]
     - **确认工具调用的Xiaohongshu支持**
     - **检查测试用例的验证结果**
     - **验证旅行规划技能的完整流程**
+    - **验证3:4比例设计在旅行规划中的应用**
 
 18. **插格系统问题**
     - **检查PluginCard组件是否正确渲染**
@@ -2798,6 +2931,7 @@ UU --> WW[继续渲染]
     - **验证插格系统UI简化后的功能**
     - **确认PackageIcon移除后的显示效果**
     - **检查SectionCard组件的插格显示**
+    - **验证圆角设计规范在插格系统中的应用**
 
 19. **Agent管理组件问题**
     - **检查SectionCard组件是否正确渲染**
@@ -2807,6 +2941,17 @@ UU --> WW[继续渲染]
     - **验证AgentDetailDrawer组件的功能**
     - **确认ProfileHeroSection组件的显示**
     - **检查Skills和Tools组件的样式一致性**
+    - **验证VideoShowcase组件的视频播放功能**
+    - **验证3:4比例设计在代理管理中的应用**
+    - **检查圆角设计规范在代理管理中的应用**
+
+20. **视频播放功能问题**
+    - **检查VideoShowcase组件是否正确渲染**
+    - **验证视频自动播放功能**
+    - **确认3:4比例设计是否正确应用**
+    - **检查圆角设计是否正确应用**
+    - **验证视频播放的性能优化**
+    - **确认视频播放的兼容性**
 
 ### 现代化调试工具
 
@@ -2836,80 +2981,73 @@ U[assistant-ui/react调试] --> X[消息渲染检查]
 U[assistant-ui/react调试] --> Y[工具调用组件检查]
 U[assistant-ui/react调试] --> Z[插格系统组件检查]
 U[assistant-ui/react调试] --> AA[Agent管理组件检查]
-BB[Hook系统调试] --> BB[useChatEventBridge检查]
-BB[Hook系统调试] --> CC[useSessionManager检查]
-BB[Hook系统调试] --> DD[useMobile检查]
-EE[Profile调试] --> FF[模板加载检查]
-EE[Profile调试] --> GG[文件上传检查]
-EE[Profile调试] --> HH[Markdown渲染检查]
-II[国际化调试] --> JJ[翻译文件检查]
-II[国际化调试] --> KK[语言切换检查]
-II[国际化调试] --> LL[动态翻译检查]
-MM[邀请码验证调试] --> NN[InviteCodeClient检查]
-MM[邀请码验证调试] --> OO[verifyInviteCode函数检查]
-MM[邀请码验证调试] --> PP[handleInviteCodeVerify函数检查]
-NN --> QQ[签名生成检查]
-NN --> RR[格式验证检查]
-OO --> SS[请求头检查]
-OO --> TT[响应处理检查]
-PP --> UU[状态更新检查]
-PP --> VV[错误处理检查]
-WW[Sonner调试] --> XX[Toaster组件检查]
-WW[Sonner调试] --> YY[主题集成检查]
-WW[Sonner调试] --> ZZ[图标系统检查]
-WW[Sonner调试] --> AAA[CSS变量检查]
-XX --> BBB[通知显示检查]
-YY --> CCC[主题切换检查]
-ZZ --> DDD[图标渲染检查]
-AAA --> EEE[样式应用检查]
-FF[相对时间格式化调试] --> GGG[Intl.RelativeTimeFormat检查]
-FF[相对时间格式化调试] --> HHH[本地化支持检查]
-FF[相对时间格式化调试] --> III[时间格式化函数检查]
-FF[相对时间格式化调试] --> JJJ[多语言环境检查]
-GGG --> KKK[时间差计算检查]
-HHH --> LLL[语言检测检查]
-III --> MMM[格式化准确性检查]
-JJJ --> NNN[显示效果检查]
-OO[工具调用组件调试] --> PPP[ToolCallGroup检查]
-OO[工具调用组件调试] --> QQQ[ToolFallback检查]
-OO[工具调用组件调试] --> RRR[工具分类检查]
-OO[工具调用组件调试] --> SSS[状态管理检查]
-PPP --> TTT[分组渲染检查]
-QQQ --> UUU[详情抽屉检查]
-RRR --> VVV[分类准确性检查]
-SSS --> WWW[状态更新检查]
-XX[旅行规划技能调试] --> XXX[Xiaohongshu证据收集检查]
-XX[旅行规划技能调试] --> YYY[路由候选生成检查]
-XX[旅行规划技能调试] --> ZZZ[工具调用支持检查]
-XX[旅行规划技能调试] --> AAAA[测试用例验证检查]
-XXX --> BBBB[搜索查询构建检查]
-YYY --> CCCC[证据质量评估检查]
-ZZZ --> DDDD[下一步行动建议检查]
-AAAA --> EEEE[测试结果验证检查]
-FF[PluginCard调试] --> GGGG[插格管理检查]
-FF[PluginCard调试] --> HHHH[状态显示检查]
-FF[PluginCard调试] --> IIII[交互元素检查]
-JJ[PluginDetailDialog调试] --> JJJJ[插格详情检查]
-JJ[PluginDetailDialog调试] --> KKKK[核心信息检查]
-JJ[PluginDetailDialog调试] --> LLLL[简化布局检查]
-MM[PluginsPage调试] --> MMMM[插格列表检查]
-MM[PluginsPage调试] --> NNNN[空状态检查]
-MM[PluginsPage调试] --> OOOO[诊断信息检查]
-QQ[SectionCard调试] --> PPPP[卡片容器检查]
-QQ[SectionCard调试] --> QQQQ[样式应用检查]
-QQ[SectionCard调试] --> RRRR[自定义扩展检查]
-SS[AppleToggle调试] --> SSSS[开关控件检查]
-SS[AppleToggle调试] --> TTTT[动画效果检查]
-SS[AppleToggle调试] --> UUUU[禁用状态检查]
-VV[AgentCard调试] --> VVVV[代理卡片检查]
-VV[AgentCard调试] --> WWW[选中状态检查]
-VV[AgentCard调试] --> XXX[悬停效果检查]
-YY[AgentDetailDrawer调试] --> YYYY[详情抽屉检查]
-YY[AgentDetailDrawer调试] --> ZZZZ[抽屉布局检查]
-YY[AgentDetailDrawer调试] --> AAAAA[滚动区域检查]
-BB[ProfileHeroSection调试] --> BBBBB[档案展示检查]
-BB[ProfileHeroSection调试] --> CCCCC[头像显示检查]
-BB[ProfileHeroSection调试] --> DDDDD[在线状态检查]
+U[assistant-ui/react调试] --> BB[VideoShowcase组件检查]
+EE[Hook系统调试] --> BB[useChatEventBridge检查]
+EE[Hook系统调试] --> CC[useSessionManager检查]
+EE[Hook系统调试] --> DD[useMobile检查]
+EE[Hook系统调试] --> EE[VideoShowcase Hook检查]
+FF[Profile调试] --> GG[模板加载检查]
+FF[Profile调试] --> HH[文件上传检查]
+FF[Profile调试] --> II[Markdown渲染检查]
+FF[Profile调试] --> JJ[VideoShowcase集成检查]
+II[国际化调试] --> KK[翻译文件检查]
+II[国际化调试] --> LL[语言切换检查]
+II[国际化调试] --> MM[动态翻译检查]
+NN[邀请码验证调试] --> OO[InviteCodeClient检查]
+NN[邀请码验证调试] --> PP[verifyInviteCode函数检查]
+NN[邀请码验证调试] --> QQ[handleInviteCodeVerify函数检查]
+OO --> RR[签名生成检查]
+OO --> SS[格式验证检查]
+PP --> TT[请求头检查]
+PP --> UU[响应处理检查]
+QQ --> VV[状态更新检查]
+QQ --> WW[错误处理检查]
+XX[Sonner调试] --> XX[Toaster组件检查]
+XX[Sonner调试] --> YY[主题集成检查]
+XX[Sonner调试] --> ZZ[图标系统检查]
+XX[Sonner调试] --> AAA[CSS变量检查]
+XX[相对时间格式化调试] --> BBB[Intl.RelativeTimeFormat检查]
+XX[相对时间格式化调试] --> CCC[本地化支持检查]
+XX[相对时间格式化调试] --> DDD[时间格式化函数检查]
+XX[相对时间格式化调试] --> EEE[多语言环境检查]
+FF[ToolCallGroup调试] --> FFF[ToolCallGroup检查]
+FF[ToolCallGroup调试] --> GGG[ToolFallback检查]
+FF[ToolCallGroup调试] --> HHH[工具分类检查]
+FF[ToolCallGroup调试] --> III[状态管理检查]
+FFF[ToolFallback调试] --> JJJ[ToolFallback检查]
+FFF[ToolFallback调试] --> KKK[工具详情抽屉检查]
+FFF[ToolFallback调试] --> LLL[分类准确性检查]
+FFF[ToolFallback调试] --> MMM[状态更新检查]
+NN[PluginCard调试] --> NNN[插格管理检查]
+NN[PluginCard调试] --> OOO[状态显示检查]
+NN[PluginCard调试] --> PPP[交互元素检查]
+QQ[PluginDetailDialog调试] --> QQQ[插格详情检查]
+QQ[PluginDetailDialog调试] --> RRR[核心信息检查]
+QQ[PluginDetailDialog调试] --> SSS[简化布局检查]
+UU[PluginsPage调试] --> UUU[插格列表检查]
+UU[PluginsPage调试] --> VVV[空状态检查]
+UU[PluginsPage调试] --> WWW[诊断信息检查]
+XX[SectionCard调试] --> XXX[卡片容器检查]
+XX[SectionCard调试] --> YYY[样式应用检查]
+XX[SectionCard调试] --> ZZZ[自定义扩展检查]
+AA[AppleToggle调试] --> AAAA[开关控件检查]
+AA[AppleToggle调试] --> BBBB[动画效果检查]
+AA[AppleToggle调试] --> CCCC[禁用状态检查]
+DD[AgentCard调试] --> DDDD[代理卡片检查]
+DD[AgentCard调试] --> EEEE[选中状态检查]
+DD[AgentCard调试] --> FFFF[悬停效果检查]
+DD[AgentCard调试] --> GGGG[视频播放检查]
+HH[AgentDetailDrawer调试] --> HHHH[详情抽屉检查]
+HH[AgentDetailDrawer调试] --> IIII[抽屉布局检查]
+HH[AgentDetailDrawer调试] --> JJJJ[滚动区域检查]
+LL[ProfileHeroSection调试] --> LLLL[档案展示检查]
+LL[ProfileHeroSection调试] --> MMMM[头像显示检查]
+LL[ProfileHeroSection调试] --> NNNN[在线状态检查]
+LL[ProfileHeroSection调试] --> OOOO[VideoShowcase集成检查]
+PP[VideoShowcase调试] --> PPPP[视频展示检查]
+PP[VideoShowcase调试] --> QQQQ[3:4比例检查]
+PP[VideoShowcase调试] --> RRRR[圆角设计检查]
+PP[VideoShowcase调试] --> SSSS[自动播放检查]
 ```
 
 **章节来源**
@@ -2932,8 +3070,10 @@ BB[ProfileHeroSection调试] --> DDDDD[在线状态检查]
 - [shared.tsx:4-10](file://ui-react/src/components/agents/shared.tsx#L4-L10)
 - [shared.tsx:18-48](file://ui-react/src/components/agents/shared.tsx#L18-L48)
 - [card.tsx:12-58](file://ui-react/src/components/agents/card.tsx#L12-L58)
+- [card.tsx:69-79](file://ui-react/src/components/agents/card.tsx#L69-L79)
 - [detail-drawer.tsx:112-150](file://ui-react/src/components/agents/detail-drawer.tsx#L112-L150)
 - [profile.tsx:138-353](file://ui-react/src/components/agents/profile.tsx#L138-L353)
+- [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
 - [xhs_evidence_builder.mjs:90-155](file://skills/travel-planner/scripts/xhs_evidence_builder.mjs#L90-L155)
 - [route_selector.mjs:44-214](file://skills/travel-planner/scripts/route_selector.mjs#L44-L214)
 - [travel-planner-skill.test.ts:41-57](file://test/travel-planner-skill.test.ts#L41-L57)
@@ -2960,6 +3100,8 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 14. **改进Skills和Tools组件**：统一样式设计，提升用户体验一致性
 15. **新增AgentDetailDrawer组件**：提供完整的代理详情展示界面
 16. **改进SoulSection组件**：增强编辑和预览功能
+17. **新增代理卡组件视频播放功能**：支持3:4比例和圆角设计，提供流畅的视频播放体验
+18. **统一设计系统规范**：更新圆角和比例规范，确保界面一致性
 
 ### 技术创新亮点
 
@@ -2969,15 +3111,15 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 4. **性能优化**：虚拟滚动、懒加载、状态分片等优化策略
 5. **开发体验提升**：TypeScript支持、组件记忆化、事件桥接优化
 6. **通知系统现代化**：集成Sonner提供主题化通知体验
-7. **国际化增强**：相对时间格式化系统提供本地化时间显示
+7. **国际化增强**：相对时间格式化系统提供多语言环境支持
 8. **工具调用组件系统**：专门针对Xiaohongshu证据收集和路由确认步骤的工具调用可视化
 9. **旅行规划技能增强**：支持Xiaohongshu证据收集和路由确认的完整流程
-10. **插格系统优化**：移除PackageIcon后减少了图标渲染开销，提升了插格管理界面的简洁性
-11. **SectionCard样式改进**：提供统一的卡片容器样式，支持自定义扩展
-12. **AppleToggle动画优化**：使用CSS transition和transform，提供流畅的动画效果
-13. **AgentCard悬停优化**：使用CSS hover伪类，避免JavaScript事件监听
-14. **AgentDetailDrawer滚动优化**：使用CSS height和overflow，提供更好的滚动性能
-15. **ProfileHeroSection头像优化**：使用CSS background和overflow，提升图片渲染性能
+10. **插格系统优化**：移除PackageIcon后界面更加简洁，用户体验得到提升
+11. **Agent管理增强**：新增多种组件，提供完整的代理管理功能
+12. **样式一致性**：SectionCard和AppleToggle等组件提供统一的视觉风格
+13. **视频播放功能**：AgentCard和ProfileHeroSection组件集成了VideoShowcase组件
+14. **3:4比例设计**：统一的3:4比例设计规范，提升视觉一致性
+15. **圆角设计规范**：统一的圆角设计规范，提升界面美观度
 
 ### 功能完整性
 
@@ -2997,6 +3139,9 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **AgentCard组件**：提供现代化的代理卡片设计
 - **AgentDetailDrawer组件**：提供完整的代理详情展示界面
 - **ProfileHeroSection组件**：增强的代理档案展示功能
+- **VideoShowcase组件**：提供视频展示功能
+- **3:4比例设计**：统一的比例设计规范
+- **圆角设计规范**：统一的圆角设计规范
 
 **架构优势**：
 - **技术多样性**：同时支持Lit和React两种主流框架
@@ -3012,7 +3157,8 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **组件库精简**：删除不常用组件，提升整体性能和维护性
 - **插格系统优化**：移除PackageIcon后界面更加简洁，用户体验得到提升
 - **Agent管理增强**：新增多种组件，提供完整的代理管理功能
-- **样式一致性**：SectionCard和AppleToggle等组件提供统一的视觉风格
+- **样式一致性**：统一的设计规范确保界面美观度
+- **视频播放优化**：优化的视频播放功能提升用户体验
 
 这次架构升级为OpenClaw平台奠定了坚实的技术基础，为未来的功能扩展和技术演进做好了准备。现代化的架构不仅提升了当前的用户体验，也为用户提供了更加灵活和安全的API密钥管理方式。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。
 
@@ -3020,10 +3166,14 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 
 **增强的Agent管理组件系统**为用户提供了完整的代理管理功能，从简单的代理卡片展示到复杂的代理详情抽屉，每个组件都经过精心设计和优化。**ProfileHeroSection组件**增强了代理档案展示功能，提供了头像显示和在线状态等增强功能。
 
+**新增的VideoShowcase组件**为代理管理界面提供了视频展示功能，支持3:4比例和圆角设计，提升了视觉体验。**统一的设计系统规范**确保了所有组件的视觉一致性，提升了整体的用户体验。
+
 现代化的UI组件系统为用户提供了更加现代化和一致的用户体验，显著提升了平台的技术能力和实用性。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。两个UI实现的并行存在为用户提供了选择空间，同时也降低了迁移风险。现代化的架构引入为用户提供了更加灵活和安全的API密钥管理方式，这些功能的集成不仅提升了平台的技术能力，也为未来的功能扩展和用户增长奠定了坚实基础。
 
 **新增的相对时间格式化系统**为用户提供了现代化的时间显示体验，基于Intl.RelativeTimeFormat提供了本地化的相对时间显示，支持多语言环境和精确的时间计算。这一系统与现有的聊天界面、会话管理和设备监控等功能完美集成，进一步提升了整体的用户体验。
 
 **新增的Sonner Toast通知系统**为用户提供了现代化的通知体验，集成了主题化支持、自定义图标和Next.js主题系统，进一步提升了整体的用户体验。这一集成展示了现代前端开发中组件系统、状态管理和通知系统的最佳实践，为用户提供了更加一致和专业的界面体验。
 
-这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统、状态管理系统、通知系统、相对时间格式化系统、工具调用组件系统、旅行规划技能增强、插格系统简化、SectionCard样式改进、AppleToggle组件优化、Agent管理组件增强等共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。
+**新增的代理卡组件视频播放功能**为用户提供了更加丰富的代理展示体验，支持3:4比例和圆角设计，提升了视觉美感。**统一的设计系统规范**确保了所有组件的视觉一致性，为用户提供了更加专业和一致的界面体验。
+
+这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统、状态管理系统、通知系统、相对时间格式化系统、工具调用组件系统、旅行规划技能增强、插格系统简化、SectionCard样式改进、AppleToggle组件优化、Agent管理组件增强、VideoShowcase组件集成等共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。

@@ -1,16 +1,34 @@
-import { useEffect } from "react";
-import { Loader2Icon, PackageIcon, RefreshCwIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2Icon, PackageIcon } from "lucide-react";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { cn } from "@/lib/utils";
 import { useGatewayStore } from "@/store/gateway.store";
 import { usePluginsStore } from "@/store/plugins.store";
 import { PluginCard } from "@/components/plugins/PluginCard";
 
 export function PluginsPage() {
+  const [filter, setFilter] = useState<"all" | "loaded" | "not-loaded">("all");
   const isConnected = useGatewayStore((s) => s.status === "connected");
   const allPlugins = usePluginsStore((s) => s.plugins);
   // Channel plugins are managed entirely from the Channels page.
   const plugins = allPlugins.filter((p) => p.channelIds.length === 0);
+  const loadedPlugins = useMemo(
+    () => plugins.filter((plugin) => plugin.status === "loaded"),
+    [plugins],
+  );
+  const notLoadedPlugins = useMemo(
+    () => plugins.filter((plugin) => plugin.status !== "loaded"),
+    [plugins],
+  );
+  const filteredPlugins = useMemo(() => {
+    if (filter === "loaded") {
+      return loadedPlugins;
+    }
+    if (filter === "not-loaded") {
+      return notLoadedPlugins;
+    }
+    return plugins;
+  }, [filter, loadedPlugins, notLoadedPlugins, plugins]);
   const loading = usePluginsStore((s) => s.loading);
   const lastError = usePluginsStore((s) => s.lastError);
   const diagnostics = usePluginsStore((s) => s.diagnostics);
@@ -49,16 +67,6 @@ export function PluginsPage() {
             Installed and available plugins.
           </p>
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-9 mb-1 shrink-0"
-          disabled={loading}
-          onClick={() => void fetchPlugins()}
-          title="Refresh"
-        >
-          <RefreshCwIcon className={cn("size-4", loading && "animate-spin")} />
-        </Button>
       </div>
 
       {/* Content */}
@@ -86,6 +94,23 @@ export function PluginsPage() {
           </div>
         )}
 
+        {plugins.length > 0 && (
+          <SegmentedControl
+            options={[
+              { value: "all", label: `All (${plugins.length})` },
+              { value: "loaded", label: `Loaded (${loadedPlugins.length})` },
+              {
+                value: "not-loaded",
+                label: `Not loaded (${notLoadedPlugins.length})`,
+              },
+            ]}
+            value={filter}
+            onChange={setFilter}
+            size="sm"
+            className="w-fit"
+          />
+        )}
+
         {plugins.length === 0 && !loading && (
           <div className="text-center py-16">
             <div className="inline-flex size-16 items-center justify-center rounded-3xl bg-[#F6F6F6] mb-4">
@@ -95,9 +120,22 @@ export function PluginsPage() {
           </div>
         )}
 
-        {plugins.length > 0 && (
+        {plugins.length > 0 && filteredPlugins.length === 0 && (
+          <div className="text-center py-16">
+            <div className="inline-flex size-16 items-center justify-center rounded-3xl bg-[#F6F6F6] mb-4">
+              <PackageIcon className="size-7 text-[#D1D5DB]" />
+            </div>
+            <p className="text-sm font-medium text-[#8E8E93]">
+              {filter === "loaded"
+                ? "No loaded plugins."
+                : "No not-loaded plugins."}
+            </p>
+          </div>
+        )}
+
+        {filteredPlugins.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {plugins.map((plugin) => (
+            {filteredPlugins.map((plugin) => (
               <PluginCard key={plugin.id} plugin={plugin} />
             ))}
           </div>

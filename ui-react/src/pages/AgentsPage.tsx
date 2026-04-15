@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileTextIcon, Loader2Icon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { FileTextIcon, Loader2Icon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +11,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { AgentCard } from "../components/agents/card";
@@ -58,7 +57,7 @@ function CreateAgentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Agent</DialogTitle>
+          <DialogTitle>New Employee</DialogTitle>
         </DialogHeader>
         <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
@@ -173,18 +172,7 @@ export function AgentsPage() {
             </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              className="size-10"
-              disabled={loading}
-              onClick={() => void loadAgents()}
-              title="Refresh"
-            >
-              <RefreshCwIcon
-                className={cn("size-4", loading && "animate-spin")}
-              />
-            </Button>
-            <Button
-              className="gap-2 rounded-full bg-primary text-white hover:bg-primary/90"
+              className="gap-2 rounded-3xl bg-primary text-white hover:bg-primary/90"
               onClick={() => setCreateOpen(true)}
             >
               <PlusIcon className="size-4" />

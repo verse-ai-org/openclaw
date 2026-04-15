@@ -87,8 +87,8 @@ export const UserMessage: FC = () => {
             {/* Message bubble — text only */}
             <div
               className={cn(
-                "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm",
-                "bg-foreground text-background",
+                "max-w-[80%] rounded-3xl px-4 py-2.5 text-sm",
+                "bg-secondary text-foreground",
               )}
             >
               <MessagePrimitive.Parts

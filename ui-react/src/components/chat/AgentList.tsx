@@ -16,6 +16,10 @@ function resolveAgentDisplayName(agent: GatewayAgentRow): string {
   return agent.identity?.name ?? agent.name ?? agent.id;
 }
 
+function resolveAgentBio(agent: GatewayAgentRow): string {
+  return agent?.name ?? agent.identity?.bio ?? "Your assistant";
+}
+
 function AgentItem({
   agent,
   onClick,
@@ -25,6 +29,7 @@ function AgentItem({
 }) {
   const emoji = resolveAgentEmoji(agent);
   const name = resolveAgentDisplayName(agent);
+  const bio = resolveAgentBio(agent);
   const avatarUrl = agent.identity?.avatarUrl;
 
   return (
@@ -32,24 +37,34 @@ function AgentItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full rounded-xl px-3 py-2.5 text-left transition-colors",
-        "flex items-center gap-3",
-        "hover:bg-[rgb(243,244,246)]",
+        "w-full rounded-2xl px-3 py-2 text-left transition-colors",
+        "flex items-center gap-2",
+        "hover:bg-muted",
       )}
     >
       {/* Avatar: image if available, else emoji */}
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[rgb(243,244,246)] text-[18px] overflow-hidden">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-md overflow-hidden">
         {avatarUrl ? (
-          <img src={avatarUrl} alt={name} className="size-full object-contain rounded-lg" />
+          <img
+            src={avatarUrl}
+            alt={name}
+            className="size-full object-contain rounded-lg"
+          />
         ) : (
           emoji
         )}
       </span>
 
       {/* Name */}
-      <span className="flex-1 min-w-0 truncate text-sm font-semibold text-foreground">
-        {name}
-      </span>
+      <div className="flex flex-col">
+        <p className="flex-1 min-w-0 truncate text-sm font-semibold text-foreground">
+          {name}
+        </p>
+
+        <p className="flex-1 min-w-0 truncate text-xs text-muted-foreground whitespace-nowrap overflow-clip">
+          {bio}
+        </p>
+      </div>
     </button>
   );
 }
@@ -83,13 +98,10 @@ export function AgentList({ onSelectAgent, search = "" }: AgentListProps) {
       })
     : allAgents;
 
-  return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto px-2 py-4">
-      {/* Section heading */}
-      <div className="px-3 mb-3">
-        <span className="text-[17px] font-bold leading-tight text-foreground">Employees</span>
-      </div>
+  // console.log("AgentList:render", { agents });
 
+  return (
+    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto px-2 py-2">
       {/* List */}
       <div className="flex flex-col gap-0.5">
         {loading && agents.length === 0 && (
@@ -108,4 +120,4 @@ export function AgentList({ onSelectAgent, search = "" }: AgentListProps) {
   );
 }
 
-export { resolveAgentEmoji, resolveAgentDisplayName };
+export { resolveAgentEmoji, resolveAgentDisplayName, resolveAgentBio };

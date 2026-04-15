@@ -33,6 +33,14 @@
 - [identity-avatar.ts](file://src/agents/identity-avatar.ts)
 - [detail-drawer.tsx](file://ui-react/src/components/agents/detail-drawer.tsx)
 - [agents-utils.ts](file://ui/src/ui/views/agents-utils.ts)
+- [agents.config.ts](file://src/commands/agents.config.ts)
+- [card.tsx](file://ui-react/src/components/agents/card.tsx)
+- [agent-media-payload.ts](file://src/plugin-sdk/agent-media-payload.ts)
+- [zod-schema.agent-model.ts](file://src/config/zod-schema.agent-model.ts)
+- [session-identity.ts](file://src/acp/runtime/session-identity.ts)
+- [parse.ts](file://src/media/parse.ts)
+- [nodes-camera.ts](file://src/cli/nodes-camera.ts)
+- [video.ts](file://src/media-understanding/video.ts)
 </cite>
 
 ## 更新摘要
@@ -42,6 +50,8 @@
 - 完善代理身份文件解析，支持视频字段处理
 - 更新前端代理详情页面，支持视频展示组件
 - 增强代理身份配置的完整性和一致性
+- 改进身份字段的条件检查和验证逻辑
+- 优化视频字段的更新和合并机制
 
 ## 目录
 1. [简介](#简介)
@@ -63,7 +73,7 @@
 
 该系统采用模块化设计，每个组件都有明确的职责分工，同时通过标准化的接口实现松耦合集成。系统支持代理的动态创建、销毁、状态监控和资源回收，确保在高并发场景下的稳定性和可靠性。
 
-**更新** 新增视频URL等身份字段，扩展了代理的身份配置能力，支持更丰富的视觉展示效果，包括视频展示功能和增强的代理外观定制。
+**更新** 新增视频URL等身份字段，扩展了代理的身份配置能力，支持更丰富的视觉展示效果，包括视频展示功能和增强的代理外观定制。系统现在具备完整的身份字段验证和更新逻辑，确保代理配置的一致性和完整性。
 
 ## 项目结构
 
@@ -91,6 +101,12 @@ V[技能配置] --> W[文档处理技能]
 V --> X[旅行规划技能]
 Y[身份配置增强] --> Z[视频展示功能]
 Y --> AA[代理外观定制]
+BB[身份验证系统] --> CC[字段验证]
+BB --> DD[条件检查]
+EE[视频处理] --> FF[媒体解析]
+EE --> GG[URL验证]
+HH[配置管理] --> II[代理配置]
+HH --> JJ[身份合并]
 end
 ```
 
@@ -122,6 +138,14 @@ end
 - 头像解析：`src/agents/identity-avatar.ts`
 - 详情抽屉：`ui-react/src/components/agents/detail-drawer.tsx`
 - 代理工具：`ui/src/ui/views/agents-utils.ts`
+- 身份配置管理：`src/commands/agents.config.ts`
+- 代理卡片组件：`ui-react/src/components/agents/card.tsx`
+- 媒体负载：`src/plugin-sdk/agent-media-payload.ts`
+- 模型验证：`src/config/zod-schema.agent-model.ts`
+- 会话身份：`src/acp/runtime/session-identity.ts`
+- 媒体解析：`src/media/parse.ts`
+- 相机节点：`src/cli/nodes-camera.ts`
+- 视频理解：`src/media-understanding/video.ts`
 
 **章节来源**
 - [builtin-agents.ts:1-100](file://src/agents/builtin-agents.ts#L1-L100)
@@ -619,11 +643,56 @@ HideVideo --> End
 - **预加载策略**：支持预加载优化视频加载速度
 - **响应式布局**：固定宽高比(3:4)，适应不同屏幕尺寸
 
+### 身份字段验证和更新逻辑
+
+系统现在具备完整的身份字段验证和更新机制：
+
+```mermaid
+flowchart TD
+IdentityUpdate[身份字段更新] --> ValidateFields["验证字段有效性"]
+ValidateFields --> CheckName{"检查名称字段"}
+CheckName --> |有效| ValidateTheme["验证主题字段"]
+CheckName --> |无效| RejectUpdate["拒绝更新"]
+ValidateTheme --> CheckEmoji{"检查表情符号"}
+CheckEmoji --> |有效| ValidateAvatar["验证头像字段"]
+CheckEmoji --> |无效| RejectUpdate
+ValidateAvatar --> CheckVideo{"检查视频URL"}
+CheckVideo --> |有效| MergeIdentity["合并身份配置"]
+CheckVideo --> |无效| ValidateVideo["验证视频URL格式"]
+ValidateVideo --> VideoValid{"格式有效?"}
+VideoValid --> |是| MergeIdentity
+VideoValid --> |否| RejectUpdate
+MergeIdentity --> ApplyUpdate["应用更新"]
+ApplyUpdate --> Success["更新成功"]
+RejectUpdate --> End([结束])
+Success --> End
+```
+
+**图表来源**
+- [agents.config.ts:136-192](file://src/commands/agents.config.ts#L136-L192)
+- [identity-file.ts:38-78](file://src/agents/identity-file.ts#L38-L78)
+- [session-utils.ts:382-418](file://src/gateway/session-utils.ts#L382-L418)
+
+身份字段验证规则：
+- **名称字段**：必须非空且长度不超过限制
+- **主题字段**：支持任意字符串值
+- **表情符号**：必须是有效的Unicode字符
+- **头像字段**：支持HTTP URL、数据URI或本地路径
+- **视频URL字段**：仅支持HTTP/HTTPS协议
+- **生物字段**：支持任意字符串值
+
+身份字段更新机制：
+- **条件检查**：仅在字段存在且有效时才进行更新
+- **字段合并**：新配置与现有配置进行智能合并
+- **优先级处理**：配置文件中的值优先于IDENTITY.md中的值
+- **回退机制**：如果配置文件不可用，使用IDENTITY.md中的值
+
 **章节来源**
 - [types.base.ts:232-242](file://src/config/types.base.ts#L232-L242)
 - [identity-file.ts:5-12](file://src/agents/identity-file.ts#L5-L12)
 - [session-utils.ts:382-418](file://src/gateway/session-utils.ts#L382-L418)
 - [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
+- [agents.config.ts:136-192](file://src/commands/agents.config.ts#L136-L192)
 
 ## 依赖关系分析
 
@@ -654,6 +723,14 @@ AID2[identity.ts]
 IA[identity-avatar.ts]
 DD[detail-drawer.tsx]
 AU[agents-utils.ts]
+ACFG[agents.config.ts]
+CARD[card.tsx]
+AMP[agent-media-payload.ts]
+ZS[agent-model.ts]
+SID[session-identity.ts]
+PARSE[media parse.ts]
+CAM[nodes-camera.ts]
+VID[video.ts]
 end
 subgraph "外部依赖"
 Node[node: fs, path, child_process]
@@ -694,6 +771,12 @@ AID2 --> IC
 IA --> APC
 DD --> PR
 AU --> PR
+ACFG --> IC
+CARD --> VID
+AMP --> PARSE
+ZS --> CAM
+SID --> VID
+VID --> PARSE
 ```
 
 **图表来源**
@@ -736,6 +819,7 @@ AU --> PR
 - **路径缓存**：缓存解析后的文件路径
 - **配置缓存**：缓存代理配置信息
 - **身份缓存**：缓存代理身份信息（包括视频URL）
+- **媒体缓存**：缓存视频和音频媒体资源
 
 ### 技能执行优化
 
@@ -753,10 +837,20 @@ AU --> PR
 - **内联播放**：支持内联播放提升移动端体验
 - **预加载策略**：支持预加载优化视频加载速度
 - **响应式布局**：固定宽高比(3:4)适应不同设备
+- **媒体压缩**：视频文件大小限制和压缩优化
+
+### 身份字段验证优化
+
+身份字段验证的性能优化：
+- **快速路径**：常见验证场景使用快速路径
+- **缓存验证结果**：重复验证的结果进行缓存
+- **批量验证**：多个字段同时验证时使用批量处理
+- **增量更新**：仅更新发生变化的字段
 
 **章节来源**
 - [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
 - [session-utils.ts:382-418](file://src/gateway/session-utils.ts#L382-L418)
+- [agents.config.ts:136-192](file://src/commands/agents.config.ts#L136-L192)
 
 ## 故障排除指南
 
@@ -783,6 +877,7 @@ AU --> PR
    - 检查视频URL的有效性
    - 验证头像URL的格式
    - 确认身份配置文件的完整性
+   - 验证身份字段的格式和长度
 
 ### 错误处理机制
 
@@ -841,22 +936,31 @@ GracefulShutdown --> End
    - 优化视频预加载策略
    - 调整视频播放参数
    - 监控网络带宽使用情况
+   - 实施视频压缩和缓存策略
 
 6. **身份配置解析问题**
    - 验证IDENTITY.md文件格式
    - 检查工作区文件权限
    - 确认配置文件编码格式
+   - 优化身份字段验证逻辑
+
+7. **视频字段更新问题**
+   - 验证视频URL的格式和协议
+   - 检查视频文件的大小和格式
+   - 确认视频资源的可访问性
+   - 实施视频字段的条件检查
 
 **章节来源**
 - [auth-health.ts:1-250](file://src/agents/auth-health.ts#L1-L250)
 - [anthropic-payload-log.ts:1-250](file://src/agents/anthropic-payload-log.ts#L1-L250)
 - [identity-file.ts:5-12](file://src/agents/identity-file.ts#L5-L12)
+- [agents.config.ts:136-192](file://src/commands/agents.config.ts#L136-L192)
 
 ## 结论
 
 内置代理系统作为 OpenClaw 平台的核心组件，展现了优秀的架构设计和实现质量。系统通过模块化的组件设计、清晰的职责分离和完善的错误处理机制，为平台提供了稳定可靠的代理管理能力。
 
-**更新** 最新版本显著增强了身份配置能力，通过新增视频URL等身份字段，系统现在能够提供更丰富、更直观的代理展示效果。这一增强不仅提升了用户体验，还为代理的个性化定制提供了更多可能性。
+**更新** 最新版本显著增强了身份配置能力，通过新增视频URL等身份字段，系统现在能够提供更丰富、更直观的代理展示效果。这一增强不仅提升了用户体验，还为代理的个性化定制提供了更多可能性。系统现在具备完整的身份字段验证和更新逻辑，确保代理配置的一致性和完整性。
 
 系统的主要优势包括：
 - **高度模块化**：每个组件都有明确的职责和接口
@@ -866,6 +970,7 @@ GracefulShutdown --> End
 - **专业的技能生态**：提供针对特定领域的专业技能组合
 - **丰富的身份配置**：支持视频展示等高级外观定制
 - **优化的性能表现**：视频展示功能经过专门的性能优化
+- **健壮的身份验证**：完整的字段验证和更新机制
 
 未来的发展方向可能包括：
 - **智能化代理管理**：引入机器学习算法优化代理调度
@@ -875,5 +980,6 @@ GracefulShutdown --> End
 - **技能生态扩展**：持续增加更多专业领域的技能组合
 - **多媒体展示增强**：支持更多类型的媒体内容展示
 - **个性化体验提升**：提供更丰富的代理外观和行为定制选项
+- **身份配置优化**：进一步完善身份字段的验证和更新机制
 
-内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的视频展示功能进一步丰富了系统的能力矩阵，为用户提供更加生动和个性化的服务体验。
+内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的视频展示功能和增强的身份验证机制进一步丰富了系统的能力矩阵，为用户提供更加生动和个性化的服务体验。
