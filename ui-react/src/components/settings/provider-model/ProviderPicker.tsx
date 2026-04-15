@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { AuthProviderGroupDef } from "@/data/auth-choice-groups";
 import { AUTH_PROVIDER_GROUPS } from "@/data/auth-choice-groups";
-import { PROVIDER_EMOJI } from "./provider-constants";
 
 interface ProviderPickerProps {
   selectedProviderId: string | null;

@@ -500,7 +500,7 @@ export function ToolsSection({ agentId }: { agentId: string }) {
                 key={tool.id}
                 title={tool.description}
                 className={cn(
-                  "flex items-center gap-2 bg-white rounded-[16px] px-3 h-10 shadow-sm",
+                  "flex items-center gap-2 bg-white rounded-md px-3 h-10 shadow-sm",
                   !allowed && "opacity-45",
                 )}
               >

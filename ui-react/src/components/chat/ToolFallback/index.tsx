@@ -565,11 +565,11 @@ const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({
     <>
       <div
         className={cn(
-          "my-1 overflow-hidden rounded-lg border bg-white hover:bg-white/50 text-sm transition-colors",
+          "overflow-hidden text-xs transition-colors",
           statusType === "incomplete"
             ? "border-destructive/60 bg-destructive/5"
             : cfg.borderAccent,
-          canViewDetail && "cursor-pointer hover:bg-white/80",
+          canViewDetail && "cursor-pointer",
         )}
         role={canViewDetail ? "button" : undefined}
         tabIndex={canViewDetail ? 0 : undefined}
@@ -581,7 +581,7 @@ const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({
         }
         aria-label={canViewDetail ? `View details for ${toolLabel}` : undefined}
       >
-        <div className="flex w-full items-center gap-2.5 px-3 py-2.5">
+        <div className="flex w-full items-center gap-2 px-3 py-1">
           <span
             className={cn(
               "flex size-6 shrink-0 items-center justify-center rounded-md",
@@ -600,7 +600,7 @@ const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({
               </span>
             )}
           </span>
-          <StatusBadge status={statusType} isCancelled={isCancelled} />
+          <StatusBadge status={statusType} isCancelled={isCancelled} withText={false} />
           {canViewDetail && (
             <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
           )}

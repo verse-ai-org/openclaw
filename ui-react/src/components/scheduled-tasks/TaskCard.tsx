@@ -43,7 +43,7 @@ export function TaskCard({ job, onEdit, onDelete, onToggleEnabled, onRunNow }: T
       onClick={() => onEdit(job)}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { onEdit(job); } }}
       className={
-        "relative flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm transition-opacity cursor-pointer hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" +
+        "relative flex flex-col gap-3 rounded-xl border bg-card p-5 transition-opacity cursor-pointer hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" +
         (!isEnabled ? " opacity-60" : "")
       }
     >

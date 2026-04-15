@@ -284,7 +284,7 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
       )}
 
       {boundSkills.length > 0 ? (
-        <div className="max-h-[240px] overflow-y-auto">
+        <div className="max-h-[260px] overflow-y-auto">
           <div className="grid grid-cols-3 gap-3 pr-1">
             {boundSkills.map((skill) => (
               <div key={skill.id} className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2">

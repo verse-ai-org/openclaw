@@ -7,15 +7,15 @@
 @theme inline {
   /* ── 圆角：Editorial 大圆角体系 ── */
   /* sm: 用于小型元素（徽章、tag） */
-  --radius-sm: 0.2rem;
+  /* --radius-sm: 0.2rem; */
   /* md: 用于输入框 */
-  --radius-md: 0.5rem;
+  /* --radius-md: 0.5rem; */
   /* lg: 内层嵌套卡片 2rem/32px */
-  --radius-lg: 1rem;
+  /* --radius-lg: 1rem; */
   /* xl: 外层容器卡片 3rem/48px */
-  --radius-xl: 2rem;
+  /* --radius-xl: 2rem; */
   /* full: 主按钮全圆角 */
-  --radius-full: 9999px;
+  /* --radius-full: 9999px; */
 
   /* ── 宽度 token ── */
   --sidebar-width: 12rem;
@@ -84,11 +84,11 @@
 
   /* ── 海拔/阴影 token ── */
   /* Ambient Shadow: 悬浮卡片使用，模拟自然光 */
-  --shadow-ambient: 0 20px 40px rgba(26, 28, 29, 0.06);
+  /* --shadow-ambient: 0 20px 40px rgba(26, 28, 29, 0.06); */
   /* Ghost Border: 无障碍场景下容器边界，primary 15% opacity */
-  --ghost-border-color: color-mix(in srgb, var(--primary) 15%, transparent);
+  /* --ghost-border-color: color-mix(in srgb, var(--primary) 15%, transparent); */
   /* Input focus ring: primary 40% opacity */
-  --focus-ring-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  /* --focus-ring-color: color-mix(in srgb, var(--primary) 40%, transparent); */
 
   /* ── 玻璃态 token ── */
   /* Level 3 overlay: surface 80% opacity + blur */

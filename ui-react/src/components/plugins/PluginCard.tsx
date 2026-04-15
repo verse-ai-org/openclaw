@@ -99,8 +99,8 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
     <>
       <div
         className={cn(
-          "flex flex-col rounded-3xl border p-8 transition-colors",
-          isDisabled ? "bg-[#FBFBFB] border-black/[0.06]" : "bg-white border-black/[0.08]",
+          "flex flex-col rounded-xl border p-8 transition-colors",
+          isDisabled ? "bg-white/80 opacity-60" : "bg-white",
         )}
       >
         {/* Main row */}

@@ -232,6 +232,7 @@ export function AgentsPage() {
                   const agentName = agent.name ?? ident?.name ?? agent.id;
                   const agentEmoji = ident?.emoji;
                   const agentAvatar = ident?.avatarUrl;
+                  const agentVideo = ident?.video;
 
                   return (
                     <AgentCard
@@ -240,6 +241,7 @@ export function AgentsPage() {
                       name={agentName}
                       emoji={agentEmoji}
                       avatar={agentAvatar}
+                      video={agentVideo}
                       isSelected={selectedId === agent.id}
                       onClick={() => selectAgent(agent.id)}
                     />

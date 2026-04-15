@@ -204,7 +204,7 @@ const ToolCallGroupInner: FC<
   return (
     <div
       className={cn(
-        "my-2 rounded-lg border bg-secondary text-sm transition-colors",
+        "my-2 rounded-xl border bg-secondary text-sm transition-colors",
         groupStatus === "failed" ? "border-destructive/30" : "border-secondary",
       )}
     >

@@ -45,10 +45,12 @@ function extractInteractivePayload(data: Record<string, unknown>): unknown {
   const content = (candidate as { content: unknown[] }).content;
   const text = content
     .filter(
-      (entry): entry is { type?: unknown; text?: unknown } =>
-        !!entry && typeof entry === "object",
+      (entry): entry is { type: "text"; text: string } =>
+        !!entry &&
+        typeof entry === "object" &&
+        (entry as { type?: unknown }).type === "text" &&
+        typeof (entry as { text?: unknown }).text === "string",
     )
-    .filter((entry) => entry.type === "text" && typeof entry.text === "string")
     .map((entry) => entry.text.trim())
     .filter(Boolean)
     .join("\n");

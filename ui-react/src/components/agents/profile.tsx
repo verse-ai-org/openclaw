@@ -439,7 +439,7 @@ export function IntroSection({
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-[#F0F0F0] shadow-sm px-6 py-5">
+    <div className="bg-white rounded-3xl border border-[#F0F0F0] px-6 py-5">
       <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">What I Do</p>
 
       {points.length > 1 ? (

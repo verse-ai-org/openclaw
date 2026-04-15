@@ -34,7 +34,7 @@ function IconBtn({
           : "text-muted-foreground hover:bg-black/5 hover:text-foreground",
       ].join(" ")}
     >
-      <Icon className="size-[14px]" />
+      <Icon size={14} className="" />
     </button>
   );
 }
@@ -93,8 +93,8 @@ export function SkillCard({
   return (
     <div
       className={[
-        "flex flex-col rounded-3xl border p-8 transition-colors",
-        isDisabled ? "bg-[#FBFBFB] border-black/[0.06]" : "bg-white border-black/[0.08]",
+        "flex flex-col rounded-2xl border p-8 transition-colors",
+        isDisabled ? "bg-white/60" : "bg-white",
         hasError ? "opacity-60" : "",
       ]
         .filter(Boolean)
@@ -105,7 +105,7 @@ export function SkillCard({
         {/* Skill icon */}
         <div
           className={[
-            "relative flex size-[52px] shrink-0 items-center justify-center rounded-2xl text-xl",
+            "relative flex size-12 shrink-0 items-center justify-center rounded-2xl text-xl",
             isDisabled ? "bg-[#F0F0F0]" : "bg-primary/5",
           ].join(" ")}
         >
