@@ -51,6 +51,7 @@ function extractInteractivePayload(data: Record<string, unknown>): unknown {
         (entry as { type?: unknown }).type === "text" &&
         typeof (entry as { text?: unknown }).text === "string",
     )
+    .filter((entry): entry is { type: "text"; text: string } => entry.type === "text" && typeof entry.text === "string")
     .map((entry) => entry.text.trim())
     .filter(Boolean)
     .join("\n");
