@@ -50,7 +50,7 @@ export const TAB_GROUPS: TabGroup[] = [
   { label: "Message", tabs: ["chat"] },
   { label: "Team", tabs: ["employees", "skills"] },
   { label: "Tools", tabs: ["channels", "plugins", "scheduled-tasks"] },
-  { label: "settings", tabs: ["overview", "settings"] },
+  { label: "System", tabs: ["overview", "settings"] },
 ];
 
 export const TAB_PATHS: Record<Tab, string> = {

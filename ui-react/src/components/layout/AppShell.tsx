@@ -1,4 +1,4 @@
-import { BellIcon, MonitorIcon } from "lucide-react";
+import { BellIcon, MonitorIcon, RefreshCwIcon } from "lucide-react";
 import { Outlet, useLocation } from "react-router";
 import { GatewayStatusIndicator } from "@/components/gateway/GatewayStatusIndicator";
 import { GatewayRestartingOverlay } from "@/components/gateway/GatewayRestartingOverlay";
@@ -47,6 +47,14 @@ function TopNav() {
         className="flex items-center gap-1"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
+        <button
+          type="button"
+          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Refresh page"
+          onClick={() => window.location.reload()}
+        >
+          <RefreshCwIcon className="size-4" />
+        </button>
         <button
           type="button"
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

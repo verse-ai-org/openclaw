@@ -2,6 +2,14 @@
 
 <cite>
 **本文档引用的文件**
+- [ToolFallback/index.tsx](file://ui-react/src/components/chat/ToolFallback/index.tsx)
+- [ToolFallback/sections.tsx](file://ui-react/src/components/chat/ToolFallback/sections.tsx)
+- [ToolFallback/tool-detail-drawer.tsx](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx)
+- [ToolFallback/status-badge.tsx](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx)
+- [ToolFallback/rich-presentation.tsx](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx)
+- [ToolFallback/types.ts](file://ui-react/src/components/chat/ToolFallback/types.ts)
+- [ToolFallback/parse-tool-ui-payload.ts](file://ui-react/src/components/chat/ToolFallback/parse-tool-ui-payload.ts)
+- [ToolFallback/parse-weather-widget-payload.ts](file://ui-react/src/components/chat/ToolFallback/parse-weather-widget-payload.ts)
 - [ToolFallback.tsx](file://ui-react/src/components/chat/ToolFallback.tsx)
 - [ToolCallGroup.tsx](file://ui-react/src/components/chat/ToolCallGroup.tsx)
 - [OptionList.tsx](file://ui-react/src/components/tool-ui/option-list/option-list.tsx)
@@ -37,11 +45,12 @@
 
 ## 更新摘要
 **所做更改**
-- 新增Chart、CodeBlock、LinkPreview、StatsDisplay、Terminal等富工具UI组件
-- 新增6个完整的工具UI组件系统，每个都包含独立的schema验证和渲染逻辑
-- 引入了专业的数据可视化、代码高亮、链接预览、统计展示和终端输出功能
-- 更新了工具UI基础设施，支持图表、代码块、链接预览、统计数据、终端输出等丰富内容类型
-- 新增了完整的富工具UI基础设施，提升了工具调用结果的可视化和交互体验
+- ToolFallback组件经历了重大重构：旧的ToolFallback.tsx被完全替换为新的综合实现(index.tsx)
+- 新增了sections.tsx、tool-detail-drawer.tsx、status-badge.tsx等专用组件模块
+- 增强了富工具UI组件的聊天事件桥接功能
+- 新增了rich-presentation.tsx用于富工具UI内容的解析和展示
+- 新增了parse-tool-ui-payload.ts和parse-weather-widget-payload.ts用于工具UI负载解析
+- 保持了原有的OptionList、QuestionFlow、Chart、CodeBlock、LinkPreview、StatsDisplay、Terminal等组件
 
 ## 目录
 1. [简介](#简介)
@@ -58,30 +67,36 @@
 
 工具UI组件是OpenClaw项目中用于展示和交互AI工具调用结果的核心界面组件。该组件系统提供了统一的工具调用可视化、状态管理和用户交互功能，支持多种工具类型（读取、写入、执行、搜索、网络请求等）的分类显示和详细查看。
 
-**更新** 新增了强大的富工具UI基础设施，包含6个专业级组件：Chart图表、CodeBlock代码块、LinkPreview链接预览、StatsDisplay统计数据、Terminal终端输出、OptionList选项列表和QuestionFlow问题流程。这些组件提供了从简单到复杂的完整工具UI解决方案，支持数据可视化、代码展示、链接分享、统计分析和交互式问答等多种场景。
+**更新** ToolFallback组件经过重大重构，从单一的ToolFallback.tsx文件演进为模块化的组件架构。新的架构将工具回退功能分解为多个专门的组件：ToolFallback/index.tsx作为主入口，sections.tsx提供通用的工具UI段落组件，tool-detail-drawer.tsx负责详情抽屉功能，status-badge.tsx管理状态徽章，rich-presentation.tsx处理富工具UI内容的解析和展示。
 
 该组件系统采用现代化的React设计，结合Tailwind CSS样式系统和专业的第三方库（如Recharts、Shiki、ansi-to-react），为用户提供直观且功能丰富的工具调用体验。组件支持响应式设计，在桌面端和移动端都能提供优秀的用户体验。
 
 ## 项目结构
 
-OpenClaw项目的工具UI组件主要分布在两个前端框架中，现已扩展到包含新增的富工具UI基础设施：
+OpenClaw项目的工具UI组件主要分布在两个前端框架中，现已扩展到包含重构后的ToolFallback模块化架构：
 
 ```mermaid
 graph TB
-subgraph "React前端 (ui-react)"
-RF1[ToolFallback 组件]
-RF2[ToolCallGroup 组件]
-RF3[天气小部件]
-RF4[UI基础组件]
-RF5[Markdown文本组件]
-RF6[Chart 图表组件]
-RF7[CodeBlock 代码块组件]
-RF8[LinkPreview 链接预览组件]
-RF9[StatsDisplay 统计显示组件]
-RF10[Terminal 终端输出组件]
-RF11[OptionList 选项列表组件]
-RF12[QuestionFlow 问题流程组件]
-RF13[ActionButtons 动作按钮组件]
+subgraph "重构后的ToolFallback模块"
+TF[ToolFallback/index.tsx<br/>主组件入口]
+SE[sections.tsx<br/>工具UI段落组件]
+DD[tool-detail-drawer.tsx<br/>详情抽屉组件]
+SB[status-badge.tsx<br/>状态徽章组件]
+RP[rich-presentation.tsx<br/>富工具UI解析]
+TP[types.ts<br/>类型定义]
+PT[parse-tool-ui-payload.ts<br/>工具UI负载解析]
+PW[parse-weather-widget-payload.ts<br/>天气小部件负载解析]
+end
+subgraph "原有工具UI组件"
+RF1[Chart 图表组件]
+RF2[CodeBlock 代码块组件]
+RF3[LinkPreview 链接预览组件]
+RF4[StatsDisplay 统计显示组件]
+RF5[Terminal 终端输出组件]
+RF6[OptionList 选项列表组件]
+RF7[QuestionFlow 问题流程组件]
+RF8[ActionButtons 动作按钮组件]
+RF9[useActionButtons 钩子组件]
 end
 subgraph "Lit前端 (ui)"
 LF1[工具卡片渲染]
@@ -93,12 +108,10 @@ A1[Electron窗口管理]
 A2[控制UI资源解析]
 end
 subgraph "共享组件系统"
-SC1[ActionButtons]
-SC2[useActionButtons]
-SC3[Contract定义]
-SC4[Schema验证]
-SC5[主题系统]
-SC6[复制粘贴功能]
+SC1[Contract定义]
+SC2[Schema验证]
+SC3[主题系统]
+SC4[复制粘贴功能]
 end
 subgraph "第三方库集成"
 TL1[Recharts 数据可视化]
@@ -107,49 +120,54 @@ TL3[ansi-to-react ANSI转义]
 TL4[Lucide Icons 图标库]
 TL5[Zod Schema 类型验证]
 end
-RF1 --> RF4
-RF2 --> RF4
-RF3 --> RF4
-RF5 --> RF1
+TF --> SE
+TF --> DD
+TF --> SB
+TF --> RP
+TF --> TP
+TF --> PT
+TF --> PW
+DD --> SE
+DD --> SB
+RP --> RF1
+RP --> RF2
+RP --> RF3
+RP --> RF4
+RP --> RF5
+RF1 --> SC1
+RF2 --> SC1
+RF3 --> SC1
+RF4 --> SC1
+RF5 --> SC1
 RF6 --> SC1
 RF7 --> SC1
 RF8 --> SC1
 RF9 --> SC1
-RF10 --> SC1
-RF11 --> SC1
-RF12 --> SC1
-RF13 --> SC2
 SC1 --> SC2
-SC3 --> SC4
-SC5 --> TL1
-SC5 --> TL2
-SC5 --> TL3
-SC6 --> TL4
-SC6 --> TL5
+SC3 --> TL1
+SC3 --> TL2
+SC3 --> TL3
+SC4 --> TL4
+SC4 --> TL5
 LF1 --> LF2
 LF2 --> LF3
-A1 --> RF1
-A2 --> RF1
+A1 --> TF
+A2 --> TF
 ```
 
 **图表来源**
-- [ToolFallback.tsx:1-527](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L527)
-- [Chart.tsx:1-183](file://ui-react/src/components/tool-ui/chart/chart.tsx#L1-L183)
-- [CodeBlock.tsx:1-468](file://ui-react/src/components/tool-ui/code-block/code-block.tsx#L1-L468)
-- [LinkPreview.tsx:1-142](file://ui-react/src/components/tool-ui/link-preview/link-preview.tsx#L1-L142)
-- [StatsDisplay.tsx:1-282](file://ui-react/src/components/tool-ui/stats-display/stats-display.tsx#L1-L282)
-- [Terminal.tsx:1-284](file://ui-react/src/components/tool-ui/terminal/terminal.tsx#L1-L284)
-- [OptionList.tsx:1-626](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L1-L626)
-- [QuestionFlow.tsx:1-794](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L1-L794)
+- [ToolFallback/index.tsx:1-631](file://ui-react/src/components/chat/ToolFallback/index.tsx#L1-L631)
+- [ToolFallback/sections.tsx:1-139](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L1-L139)
+- [ToolFallback/tool-detail-drawer.tsx:1-308](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L308)
+- [ToolFallback/status-badge.tsx:1-33](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L33)
+- [ToolFallback/rich-presentation.tsx:1-235](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L1-L235)
 
 **章节来源**
-- [ToolFallback.tsx:1-527](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L527)
-- [Chart.tsx:1-183](file://ui-react/src/components/tool-ui/chart/chart.tsx#L1-L183)
-- [CodeBlock.tsx:1-468](file://ui-react/src/components/tool-ui/code-block/code-block.tsx#L1-L468)
-- [LinkPreview.tsx:1-142](file://ui-react/src/components/tool-ui/link-preview/link-preview.tsx#L1-L142)
-- [StatsDisplay.tsx:1-282](file://ui-react/src/components/tool-ui/stats-display/stats-display.tsx#L1-L282)
-- [Terminal.tsx:1-284](file://ui-react/src/components/tool-ui/terminal/terminal.tsx#L1-L284)
-- [tool-cards.ts:1-157](file://ui/src/ui/chat/tool-cards.ts#L1-L157)
+- [ToolFallback/index.tsx:1-631](file://ui-react/src/components/chat/ToolFallback/index.tsx#L1-L631)
+- [ToolFallback/sections.tsx:1-139](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L1-L139)
+- [ToolFallback/tool-detail-drawer.tsx:1-308](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L308)
+- [ToolFallback/status-badge.tsx:1-33](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L33)
+- [ToolFallback/rich-presentation.tsx:1-235](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L1-L235)
 
 ## 核心组件
 
@@ -170,44 +188,42 @@ A2 --> RF1
 | function | FunctionSquareIcon | 靛蓝色 | Call | 函数调用 |
 | default | WrenchIcon | 灰色 | Tool | 其他工具 |
 
-### 新增的富工具UI组件
+### 重构后的ToolFallback模块
 
-**更新** 新增了6个专业级富工具UI组件，提供完整的工具调用结果可视化：
+**更新** ToolFallback组件经过重大重构，采用模块化架构设计：
 
-#### Chart 图表组件
-- **数据可视化**：支持柱状图和折线图两种类型
-- **交互式图表**：支持数据点点击和悬停提示
-- **主题定制**：支持自定义颜色和样式
-- **响应式设计**：适配不同屏幕尺寸
-- **无障碍支持**：完整的ARIA标签和键盘导航
+#### 主组件入口 (ToolFallback/index.tsx)
+- **工具分类识别**: 基于工具名称自动分类，支持正则表达式匹配
+- **参数预览生成**: 智能提取关键参数进行预览，支持多种工具类型的参数解析
+- **状态检测**: 检测工具执行状态和错误，支持运行中、完成、失败三种状态
+- **富工具UI支持**: 新增对Chart、CodeBlock、LinkPreview、StatsDisplay、Terminal等组件的支持
+- **详情抽屉**: 提供完整的工具调用详情展示
 
-#### CodeBlock 代码块组件
-- **语法高亮**：支持多种编程语言的语法高亮
-- **主题切换**：自动适配深色/浅色主题
-- **行号显示**：可选的行号显示功能
-- **代码复制**：一键复制整个代码块
-- **折叠展开**：支持大代码块的折叠显示
+#### 专用组件模块
 
-#### LinkPreview 链接预览组件
-- **链接解析**：自动提取链接标题、描述和图片
-- **安全导航**：安全的链接打开机制
-- **域名标识**：显示网站域名和favicon
-- **响应式布局**：适配不同屏幕尺寸
-- **无障碍支持**：键盘导航和屏幕阅读器支持
+##### sections.tsx - 工具UI段落组件
+- **ToolSection**: 通用工具段落组件，支持标题、操作按钮和内容区域
+- **ToolFieldList**: 字段列表组件，用于展示工具参数和结果字段
+- **RawToggleSection**: 原始内容切换组件，支持展开/折叠显示原始内容
+- **RawResultContent**: 原始结果内容组件，支持Markdown解析和frontmatter处理
 
-#### StatsDisplay 统计显示组件
-- **多格式支持**：数字、货币、百分比等多种格式
-- **趋势展示**：内置Sparkline图表展示趋势
-- **对比分析**：支持正负变化的颜色标识
-- **本地化**：支持多语言数字格式化
-- **网格布局**：响应式的统计卡片网格
+##### tool-detail-drawer.tsx - 详情抽屉组件
+- **命令显示**: 展示工具命令和工作目录信息
+- **结果预览**: 支持结果内容的预览和完整显示
+- **错误处理**: 显示工具执行过程中的错误信息
+- **富内容展示**: 支持富工具UI内容的结构化预览
+- **复制功能**: 提供命令和结果的快速复制功能
 
-#### Terminal 终端输出组件
-- **ANSI转义**：完整支持ANSI颜色和格式
-- **输出分栏**：区分标准输出和错误输出
-- **复制功能**：一键复制终端输出
-- **折叠控制**：支持大输出的折叠显示
-- **状态指示**：显示退出码和执行时间
+##### status-badge.tsx - 状态徽章组件
+- **运行状态**: 显示工具执行中的旋转指示器
+- **完成状态**: 显示成功完成的对勾图标
+- **失败状态**: 显示失败的错误图标，支持取消状态的特殊显示
+
+##### rich-presentation.tsx - 富工具UI解析组件
+- **负载解析**: 解析工具UI负载数据，支持多种富工具UI格式
+- **内容映射**: 将工具名称映射到相应的富工具UI组件
+- **摘要生成**: 为富工具UI内容生成简洁的摘要信息
+- **天气小部件**: 特殊处理天气小部件的富内容展示
 
 ### 状态管理系统
 工具调用状态分为三种：
@@ -216,77 +232,77 @@ A2 --> RF1
 - **incomplete**: 工具执行失败或被取消
 
 **章节来源**
-- [ToolFallback.tsx:78-154](file://ui-react/src/components/chat/ToolFallback.tsx#L78-L154)
-- [ToolFallback.tsx:160-190](file://ui-react/src/components/chat/ToolFallback.tsx#L160-L190)
-- [Chart.tsx:39-183](file://ui-react/src/components/tool-ui/chart/chart.tsx#L39-L183)
-- [CodeBlock.tsx:178-468](file://ui-react/src/components/tool-ui/code-block/code-block.tsx#L178-L468)
-- [LinkPreview.tsx:22-142](file://ui-react/src/components/tool-ui/link-preview/link-preview.tsx#L22-L142)
-- [StatsDisplay.tsx:218-282](file://ui-react/src/components/tool-ui/stats-display/stats-display.tsx#L218-L282)
-- [Terminal.tsx:192-284](file://ui-react/src/components/tool-ui/terminal/terminal.tsx#L192-L284)
+- [ToolFallback/index.tsx:32-47](file://ui-react/src/components/chat/ToolFallback/index.tsx#L32-L47)
+- [ToolFallback/index.tsx:49-116](file://ui-react/src/components/chat/ToolFallback/index.tsx#L49-L116)
+- [ToolFallback/sections.tsx:19-31](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L19-L31)
+- [ToolFallback/tool-detail-drawer.tsx:41-56](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L41-L56)
+- [ToolFallback/status-badge.tsx:9-32](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L9-L32)
+- [ToolFallback/rich-presentation.tsx:127-135](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L127-L135)
 
 ## 架构概览
 
-工具UI组件系统采用分层架构设计，现已扩展包含新增的富工具UI基础设施：
+工具UI组件系统采用分层架构设计，现已扩展包含重构后的模块化ToolFallback架构：
 
 ```mermaid
 graph TD
-subgraph "组件层次结构"
-A[ToolCallGroup<br/>工具调用组容器] --> B[ToolFallback<br/>工具回退组件]
-B --> C[ToolDetailDrawer<br/>工具详情抽屉]
-B --> D[状态徽章<br/>StatusBadge]
-A --> E[图标条<br/>Icon Strip]
-A --> F[状态徽章<br/>GroupStatusBadge]
+subgraph "重构后的ToolFallback架构"
+A[ToolFallback 主组件] --> B[sections 工具UI段落]
+A --> C[tool-detail-drawer 详情抽屉]
+A --> D[status-badge 状态徽章]
+A --> E[rich-presentation 富内容解析]
+A --> F[types 类型定义]
+A --> G[parse-tool-ui-payload 负载解析]
+A --> H[parse-weather-widget-payload 天气负载解析]
 end
 subgraph "新增富工具UI系统"
-CH[Chart<br/>图表组件] --> CHV[ChartView<br/>图表视图]
-CB[CodeBlock<br/>代码块组件] --> CBS[CodeBlockState<br/>代码块状态]
-LP[LinkPreview<br/>链接预览组件] --> LPS[LinkState<br/>链接状态]
-SD[StatsDisplay<br/>统计显示组件] --> SDS[StatCard<br/>统计卡片]
-TE[Terminal<br/>终端组件] --> TES[TerminalState<br/>终端状态]
+CH[Chart 图表组件] --> CHV[ChartView 图表视图]
+CB[CodeBlock 代码块组件] --> CBS[CodeBlockState 代码块状态]
+LP[LinkPreview 链接预览组件] --> LPS[LinkState 链接状态]
+SD[StatsDisplay 统计显示组件] --> SDS[StatCard 统计卡片]
+TE[Terminal 终端组件] --> TES[TerminalState 终端状态]
 end
 subgraph "新增OptionList系统"
-OL[OptionList<br/>选项列表组件] --> AB[ActionButtons<br/>动作按钮]
-OL --> SL[Selection Logic<br/>选择逻辑]
-OL --> RV[Receipt View<br/>收据视图]
+OL[OptionList 选项列表组件] --> AB[ActionButtons 动作按钮]
+OL --> SL[Selection Logic 选择逻辑]
+OL --> RV[Receipt View 收据视图]
 end
 subgraph "新增QuestionFlow系统"
-QF[QuestionFlow<br/>问题流程组件] --> PF[Progressive Mode<br/>渐进式模式]
-QF --> UF[Upfront Mode<br/>前置式模式]
-QF --> RF[Receipt Mode<br/>收据模式]
-QF --> PB[Progress Bar<br/>进度条]
-QF --> KB[Keyboard Navigation<br/>键盘导航]
+QF[QuestionFlow 问题流程组件] --> PF[Progressive Mode 渐进式模式]
+QF --> UF[Upfront Mode 前置式模式]
+QF --> RF[Receipt Mode 收据模式]
+QF --> PB[Progress Bar 进度条]
+QF --> KB[Keyboard Navigation 键盘导航]
 end
 subgraph "共享组件系统"
-AB --> UAB[useActionButtons<br/>动作按钮钩子]
-SC[Schema Contract<br/>模式契约] --> PV[Parse Validation<br/>解析验证]
-SH[Shared Helpers<br/>共享助手] --> TH[Theme Handling<br/>主题处理]
-SH --> CC[Copy Control<br/>复制控制]
+AB --> UAB[useActionButtons 钩子]
+SC[Schema Contract 模式契约] --> PV[Parse Validation 解析验证]
+SH[Shared Helpers 共享助手] --> TH[Theme Handling 主题处理]
+SH --> CC[Copy Control 复制控制]
 end
 subgraph "第三方库集成"
-TL1[Recharts<br/>数据可视化库]
-TL2[Shiki<br/>语法高亮库]
-TL3[ansi-to-react<br/>ANSI转义库]
-TL4[Lucide Icons<br/>图标库]
-TL5[Zod Schema<br/>类型验证库]
+TL1[Recharts 数据可视化库]
+TL2[Shiki 语法高亮库]
+TL3[ansi-to-react ANSI转义库]
+TL4[Lucide Icons 图标库]
+TL5[Zod Schema 类型验证库]
 end
 subgraph "辅助组件"
-G[分类配置<br/>TOOL_CATEGORY_CONFIG]
-H[工具分类<br/>classifyTool]
-I[参数预览<br/>buildArgsPreview]
-J[格式化工具标签<br/>formatToolLabel]
-K[Markdown组件共享<br/>plainMdComponents]
+G[分类配置 TOOL_CATEGORY_CONFIG]
+H[工具分类 classifyTool]
+I[参数预览 buildArgsPreview]
+J[格式化工具标签 formatToolLabel]
+K[Markdown组件共享 plainMdComponents]
 end
 subgraph "外部集成"
-L[Assistant UI<br/>React组件库]
-M[Electron窗口<br/>静态服务器]
-N[Lit前端<br/>传统UI]
-O[ReactMarkdown<br/>Markdown渲染]
-P[RemarkGfm<br/>GitHub风格标记]
-Q[Zod Schema<br/>Zod模式验证]
-R[Lucide Icons<br/>图标库]
+L[Assistant UI React组件库]
+M[Electron窗口静态服务器]
+N[Lit前端传统UI]
+O[ReactMarkdown Markdown渲染]
+P[RemarkGfm GitHub风格标记]
+Q[Zod Schema Zod模式验证]
+R[Lucide Icons 图标库]
 end
 A --> L
-B --> L
 C --> L
 B --> K
 K --> O
@@ -305,130 +321,257 @@ TE --> SH
 AB --> UAB
 SC --> PV
 A --> M
-B --> M
-N --> B
+N --> A
 ```
 
 **图表来源**
-- [ToolCallGroup.tsx:147-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L147-L274)
-- [ToolFallback.tsx:405-527](file://ui-react/src/components/chat/ToolFallback.tsx#L405-L527)
-- [Chart.tsx:1-183](file://ui-react/src/components/tool-ui/chart/chart.tsx#L1-L183)
-- [CodeBlock.tsx:1-468](file://ui-react/src/components/tool-ui/code-block/code-block.tsx#L1-L468)
-- [LinkPreview.tsx:1-142](file://ui-react/src/components/tool-ui/link-preview/link-preview.tsx#L1-L142)
-- [StatsDisplay.tsx:1-282](file://ui-react/src/components/tool-ui/stats-display/stats-display.tsx#L1-L282)
-- [Terminal.tsx:1-284](file://ui-react/src/components/tool-ui/terminal/terminal.tsx#L1-L284)
-- [OptionList.tsx:1-626](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L1-L626)
-- [QuestionFlow.tsx:1-794](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L1-L794)
-- [ActionButtons.tsx:1-101](file://ui-react/src/components/tool-ui/shared/action-buttons.tsx#L1-L101)
-- [useActionButtons.tsx:1-154](file://ui-react/src/components/tool-ui/shared/use-action-buttons.tsx#L1-L154)
+- [ToolFallback/index.tsx:132-144](file://ui-react/src/components/chat/ToolFallback/index.tsx#L132-L144)
+- [ToolFallback/sections.tsx:1-139](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L1-L139)
+- [ToolFallback/tool-detail-drawer.tsx:1-308](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L308)
+- [ToolFallback/status-badge.tsx:1-33](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L33)
+- [ToolFallback/rich-presentation.tsx:1-235](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L1-L235)
 
 ## 详细组件分析
 
-### ToolCallGroup 组件
+### ToolFallback 主组件
 
-ToolCallGroup是工具调用组的容器组件，负责管理多个连续的工具调用：
+ToolFallback是重构后的工具调用回退显示组件，采用模块化架构设计：
 
 ```mermaid
 classDiagram
-class ToolCallGroup {
-+number startIndex
-+number endIndex
-+JSX.Element children
-+deriveGroupStatus(parts, messageIsRunning) GroupStatus
-+buildIconStrip(toolNames, maxIcons) IconConfig
-+handleToggle() void
-}
-class GroupStatusBadge {
-+GroupStatus status
-+number failCount
+class ToolFallback {
++ToolFallbackPartProps props
++buildToolDetailModel() ToolDetailModel
++resultIndicatesError() boolean
++formatToolLabel() string
++classifyTool() ToolCategory
 +render() JSX.Element
 }
-class RawToolPart {
-+string type
-+string toolName
-+unknown result
-+boolean isError
+class ToolDetailModel {
++string toolLabel
++ToolCategory category
++ToolStatus statusType
++boolean isCancelled
++string resultStr
++string summaryPreview
++string errorMessage
++ToolDetailField[] argsFields
++ToolDetailField[] resultFields
++ReactNode richContent
++boolean canPromoteRichContent
 }
-ToolCallGroup --> GroupStatusBadge : "使用"
-ToolCallGroup --> RawToolPart : "处理"
+class ToolDetailDrawer {
++boolean open
++ToolDetailField[] argsFields
++ToolDetailField[] resultFields
++string summaryPreview
++string resultStr
++ToolStatus statusType
++ToolCategoryConfig categoryConfig
++ReactNode richContent
++boolean canPromoteRichContent
++render() JSX.Element
+}
+class StatusBadge {
++ToolStatus status
++boolean isCancelled
++render() JSX.Element
+}
+class RichToolPresentation {
++string summary
++ReactNode content
++boolean canPromote
++resolveRichToolPresentation() RichToolPresentation | null
+}
+ToolFallback --> ToolDetailModel : "构建"
+ToolFallback --> ToolDetailDrawer : "使用"
+ToolFallback --> StatusBadge : "使用"
+ToolFallback --> RichToolPresentation : "解析"
 ```
 
 **图表来源**
-- [ToolCallGroup.tsx:142-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L142-L274)
+- [ToolFallback/index.tsx:421-485](file://ui-react/src/components/chat/ToolFallback/index.tsx#L421-L485)
+- [ToolFallback/index.tsx:531-630](file://ui-react/src/components/chat/ToolFallback/index.tsx#L531-L630)
+- [ToolFallback/tool-detail-drawer.tsx:24-56](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L24-L56)
+- [ToolFallback/status-badge.tsx:4-7](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L4-L7)
+- [ToolFallback/rich-presentation.tsx:20-24](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L20-L24)
 
 #### 核心功能特性
 
-1. **智能折叠管理**: 自动折叠和展开工具调用组
-2. **状态聚合**: 将多个工具调用的状态聚合为组状态
-3. **图标条显示**: 显示工具分类的图标条
-4. **实时状态更新**: 监听消息流状态变化
+1. **模块化架构**: 将复杂功能分解为专门的组件模块
+2. **智能分类**: 基于正则表达式的工具分类识别
+3. **参数解析**: 支持多种工具类型的参数智能提取
+4. **状态管理**: 完整的工具执行状态检测和处理
+5. **富内容支持**: 新增对Chart、CodeBlock、LinkPreview、StatsDisplay、Terminal等组件的支持
+6. **详情展示**: 提供完整的工具调用详情和原始内容展示
 
 **章节来源**
-- [ToolCallGroup.tsx:40-67](file://ui-react/src/components/chat/ToolCallGroup.tsx#L40-L67)
-- [ToolCallGroup.tsx:69-92](file://ui-react/src/components/chat/ToolCallGroup.tsx#L69-L92)
+- [ToolFallback/index.tsx:32-47](file://ui-react/src/components/chat/ToolFallback/index.tsx#L32-L47)
+- [ToolFallback/index.tsx:146-230](file://ui-react/src/components/chat/ToolFallback/index.tsx#L146-L230)
+- [ToolFallback/index.tsx:421-485](file://ui-react/src/components/chat/ToolFallback/index.tsx#L421-L485)
 
-### ToolFallback 组件
+### sections.tsx 工具UI段落组件
 
-ToolFallback是工具调用的回退显示组件，提供详细的工具调用信息：
+sections.tsx提供了通用的工具UI段落组件，支持多种内容展示模式：
+
+```mermaid
+flowchart TD
+A[ToolSection 组件] --> B{是否有操作按钮}
+B --> |是| C[显示标题和操作按钮]
+B --> |否| D[仅显示标题]
+A --> E[显示子内容]
+F[ToolFieldList 组件] --> G[遍历字段数组]
+G --> H[为每个字段创建dl元素]
+H --> I[显示label和value]
+J[RawToggleSection 组件] --> K{是否展开}
+K --> |展开| L[显示expandedContent]
+K --> |折叠| M[显示collapsedHint或null]
+N[RawResultContent 组件] --> O{是否有frontmatter}
+O --> |是| P[显示metadata面板]
+O --> |否| Q[直接显示内容]
+P --> R[解析frontmatter和body]
+```
+
+**图表来源**
+- [ToolFallback/sections.tsx:19-31](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L19-L31)
+- [ToolFallback/sections.tsx:38-56](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L38-L56)
+- [ToolFallback/sections.tsx:67-95](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L67-L95)
+- [ToolFallback/sections.tsx:116-138](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L116-L138)
+
+#### 核心功能特性
+
+1. **通用段落结构**: ToolSection提供统一的段落布局和样式
+2. **字段列表展示**: ToolFieldList支持结构化字段的展示
+3. **内容切换**: RawToggleSection支持展开/折叠显示原始内容
+4. **Markdown解析**: RawResultContent支持Markdown内容的解析和展示
+5. **Frontmatter处理**: 支持YAML frontmatter的分离和展示
+
+**章节来源**
+- [ToolFallback/sections.tsx:19-31](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L19-L31)
+- [ToolFallback/sections.tsx:38-56](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L38-L56)
+- [ToolFallback/sections.tsx:67-95](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L67-L95)
+- [ToolFallback/sections.tsx:116-138](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L116-L138)
+
+### tool-detail-drawer.tsx 详情抽屉组件
+
+tool-detail-drawer.tsx提供了完整的工具调用详情展示功能：
 
 ```mermaid
 sequenceDiagram
 participant U as 用户
-participant TF as ToolFallback
-participant TDC as ToolDetailDrawer
-participant CFG as 分类配置
-participant ST as 状态检测
-U->>TF : 点击工具卡片
-TF->>CFG : 获取工具分类配置
-TF->>ST : 检测工具状态
-ST-->>TF : 返回状态类型
-TF->>TDC : 打开详情抽屉
-TDC-->>U : 显示详细信息
-Note over TF,TDC : 支持参数预览、错误信息、结果展示
+participant DD as ToolDetailDrawer
+participant SE as sections
+participant SB as StatusBadge
+U->>DD : 打开详情抽屉
+DD->>DD : 解析工具参数和结果
+DD->>SE : 显示命令段落
+SE-->>DD : 返回命令内容
+DD->>SE : 显示结果段落
+SE-->>DD : 返回结果内容
+DD->>SB : 显示状态徽章
+SB-->>DD : 返回状态信息
+DD->>U : 展示完整详情
+Note over DD : 支持命令复制、结果预览、错误信息展示
 ```
 
 **图表来源**
-- [ToolFallback.tsx:405-527](file://ui-react/src/components/chat/ToolFallback.tsx#L405-L527)
-- [ToolFallback.tsx:281-400](file://ui-react/src/components/chat/ToolFallback.tsx#L281-L400)
+- [ToolFallback/tool-detail-drawer.tsx:41-56](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L41-L56)
+- [ToolFallback/tool-detail-drawer.tsx:132-177](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L132-L177)
+- [ToolFallback/tool-detail-drawer.tsx:187-273](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L187-L273)
 
-#### 详细功能模块
+#### 核心功能特性
 
-1. **工具分类识别**: 基于工具名称自动分类
-2. **参数预览生成**: 智能提取关键参数进行预览
-3. **状态检测**: 检测工具执行状态和错误
-4. **详情抽屉**: 提供完整的工具调用详情
-5. **富工具UI支持**: 新增对Chart、CodeBlock、LinkPreview、StatsDisplay、Terminal等组件的支持
+1. **命令显示**: 展示工具命令和工作目录信息
+2. **结果预览**: 支持长结果的预览和完整显示切换
+3. **错误处理**: 显示工具执行过程中的错误信息
+4. **富内容展示**: 支持富工具UI内容的结构化预览
+5. **复制功能**: 提供命令和结果的快速复制功能
+6. **状态指示**: 显示工具执行状态和取消状态
 
 **章节来源**
-- [ToolFallback.tsx:227-277](file://ui-react/src/components/chat/ToolFallback.tsx#L227-L277)
-- [ToolFallback.tsx:438-452](file://ui-react/src/components/chat/ToolFallback.tsx#L438-L452)
+- [ToolFallback/tool-detail-drawer.tsx:41-56](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L41-L56)
+- [ToolFallback/tool-detail-drawer.tsx:132-177](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L132-L177)
+- [ToolFallback/tool-detail-drawer.tsx:187-273](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L187-L273)
 
-### ToolDetailDrawer 组件
+### status-badge.tsx 状态徽章组件
 
-ToolDetailDrawer提供工具调用的详细信息展示：
+status-badge.tsx提供了简洁的状态指示功能：
+
+```mermaid
+classDiagram
+class StatusBadge {
++ToolStatus status
++boolean isCancelled
++render() JSX.Element
+}
+class ToolStatus {
+<<enumeration>>
+running
+complete
+incomplete
+}
+StatusBadge --> ToolStatus : "使用"
+```
+
+**图表来源**
+- [ToolFallback/status-badge.tsx:4-7](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L4-L7)
+- [ToolFallback/types.ts:3](file://ui-react/src/components/chat/ToolFallback/types.ts#L3)
+
+#### 核心功能特性
+
+1. **运行状态**: 显示旋转的加载指示器
+2. **完成状态**: 显示绿色的成功图标
+3. **失败状态**: 显示红色的错误图标，支持取消状态的特殊显示
+4. **简洁设计**: 使用圆角徽章提供清晰的状态指示
+
+**章节来源**
+- [ToolFallback/status-badge.tsx:9-32](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L9-L32)
+- [ToolFallback/types.ts:3](file://ui-react/src/components/chat/ToolFallback/types.ts#L3)
+
+### rich-presentation.tsx 富工具UI解析组件
+
+rich-presentation.tsx负责解析和展示富工具UI内容：
 
 ```mermaid
 flowchart TD
-A[打开抽屉] --> B{检查参数}
-B --> |有参数| C[显示参数部分]
-B --> |无参数| D[跳过参数部分]
-A --> E{检查错误}
-E --> |有错误| F[显示错误信息]
-E --> |无错误| G[跳过错误部分]
-A --> H{检查结果}
-H --> |有结果| I[解析并显示结果]
-H --> |无结果| J{状态完成?}
-J --> |是| K[显示空输出提示]
-J --> |否| L[等待结果]
-I --> M[显示元数据]
-I --> N[渲染Markdown内容]
+A[resolveRichToolPresentation] --> B{解析工具UI负载}
+B --> |成功| C{检查工具名称}
+B --> |失败| D[返回null]
+C --> |weather_widget| E[解析天气小部件]
+C --> |code_block| F[解析代码块]
+C --> |chart| G[解析图表]
+C --> |item_carousel| H[解析项目轮播]
+C --> |geo_map| I[解析地理地图]
+C --> |link_preview| J[解析链接预览]
+C --> |stats_display| K[解析统计显示]
+C --> |terminal_output| L[解析终端输出]
+E --> M[返回富内容和摘要]
+F --> M
+G --> M
+H --> M
+I --> M
+J --> M
+K --> M
+L --> M
 ```
 
 **图表来源**
-- [ToolFallback.tsx:294-400](file://ui-react/src/components/chat/ToolFallback.tsx#L294-L400)
+- [ToolFallback/rich-presentation.tsx:127-135](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L127-L135)
+- [ToolFallback/rich-presentation.tsx:137-147](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L137-L147)
+- [ToolFallback/rich-presentation.tsx:149-159](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L149-L159)
+
+#### 核心功能特性
+
+1. **负载解析**: 解析工具UI负载数据，支持多种富工具UI格式
+2. **内容映射**: 将工具名称映射到相应的富工具UI组件
+3. **摘要生成**: 为富工具UI内容生成简洁的摘要信息
+4. **组件渲染**: 返回富工具UI组件的React节点
+5. **质量控制**: 使用Zod模式验证确保数据安全性
 
 **章节来源**
-- [ToolFallback.tsx:327-387](file://ui-react/src/components/chat/ToolFallback.tsx#L327-L387)
+- [ToolFallback/rich-presentation.tsx:127-135](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L127-L135)
+- [ToolFallback/rich-presentation.tsx:137-147](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L137-L147)
+- [ToolFallback/rich-presentation.tsx:149-159](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L149-L159)
 
 ### Chart 图表组件
 
@@ -871,40 +1014,37 @@ StepContent --> ProgressBar : "显示进度"
 
 ## 依赖关系分析
 
-工具UI组件系统的依赖关系已大幅扩展，包含新增的富工具UI基础设施：
+工具UI组件系统的依赖关系已大幅扩展，包含重构后的ToolFallback模块化架构：
 
 ```mermaid
 graph TB
-subgraph "React组件依赖"
-A[ToolFallback] --> B[ToolDetailDrawer]
-A --> C[Button组件]
-A --> D[Drawer组件]
-A --> E[状态徽章]
-F[ToolCallGroup] --> G[GroupStatusBadge]
-F --> H[图标条]
-I[天气小部件] --> J[效果合成器]
-I --> K[天气数据覆盖层]
-L[Markdown文本组件] --> M[plainMdComponents]
-A --> L
+subgraph "重构后的ToolFallback模块"
+A[ToolFallback 主组件] --> B[sections 工具UI段落]
+A --> C[tool-detail-drawer 详情抽屉]
+A --> D[status-badge 状态徽章]
+A --> E[rich-presentation 富内容解析]
+A --> F[types 类型定义]
+A --> G[parse-tool-ui-payload 负载解析]
+A --> H[parse-weather-widget-payload 天气负载解析]
 end
 subgraph "新增富工具UI系统"
-CH[Chart] --> TL1[Recharts]
+CH[Chart 图表组件] --> TL1[Recharts]
 CH --> SH1[ChartAdapter]
-CB[CodeBlock] --> TL2[Shiki]
+CB[CodeBlock 代码块组件] --> TL2[Shiki]
 CB --> SH2[CodeBlockAdapter]
-LP[LinkPreview] --> SH3[LinkAdapter]
-SD[StatsDisplay] --> SH4[StatsAdapter]
-TE[Terminal] --> TL3[ansi-to-react]
+LP[LinkPreview 链接预览组件] --> SH3[LinkAdapter]
+SD[StatsDisplay 统计显示组件] --> SH4[StatsAdapter]
+TE[Terminal 终端输出组件] --> TL3[ansi-to-react]
 TE --> SH5[TerminalAdapter]
 end
 subgraph "新增OptionList系统"
-OL[OptionList] --> AB[ActionButtons]
+OL[OptionList 选项列表组件] --> AB[ActionButtons]
 OL --> SL[Selection Logic]
 OL --> RV[Receipt View]
 OL --> SC[Schema Contract]
 end
 subgraph "新增QuestionFlow系统"
-QF[QuestionFlow] --> PF[Progressive Mode]
+QF[QuestionFlow 问题流程组件] --> PF[Progressive Mode]
 QF --> UF[Upfront Mode]
 QF --> RF[Receipt Mode]
 QF --> PB[Progress Bar]
@@ -936,8 +1076,13 @@ Y[FRamer Motion]
 Z[第三方库]
 end
 A --> N
+B --> N
+C --> N
+D --> N
+E --> N
 F --> N
-I --> N
+G --> N
+H --> N
 CH --> N
 CB --> N
 LP --> N
@@ -949,8 +1094,13 @@ AB --> X
 QF --> Y
 OL --> Y
 A --> O
+B --> O
+C --> O
+D --> O
+E --> O
 F --> O
-I --> O
+G --> O
+H --> O
 CH --> O
 CB --> O
 LP --> O
@@ -959,8 +1109,13 @@ TE --> O
 OL --> O
 QF --> O
 A --> P
+B --> P
+C --> P
+D --> P
+E --> P
 F --> P
-I --> P
+G --> P
+H --> P
 CH --> P
 CB --> P
 LP --> P
@@ -969,10 +1124,23 @@ TE --> P
 OL --> P
 QF --> P
 A --> Q
+B --> Q
+C --> Q
+D --> Q
+E --> Q
 F --> Q
+G --> Q
+H --> Q
 OL --> Q
 QF --> Q
 A --> R
+B --> R
+C --> R
+D --> R
+E --> R
+F --> R
+G --> R
+H --> R
 CH --> R
 CB --> R
 LP --> R
@@ -989,19 +1157,14 @@ AB --> UAB
 SH6 --> Z
 ```
 
-**更新** 新增了6个富工具UI组件的完整依赖关系，包括Recharts、Shiki、ansi-to-react等专业第三方库的集成
+**更新** 新增了ToolFallback模块化架构的完整依赖关系，包括sections.tsx、tool-detail-drawer.tsx、status-badge.tsx、rich-presentation.tsx等新组件的依赖关系
 
 **图表来源**
-- [ToolFallback.tsx:1-32](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L32)
-- [Chart.tsx:1-28](file://ui-react/src/components/tool-ui/chart/chart.tsx#L1-L28)
-- [CodeBlock.tsx:1-22](file://ui-react/src/components/tool-ui/code-block/code-block.tsx#L1-L22)
-- [LinkPreview.tsx:1-11](file://ui-react/src/components/tool-ui/link-preview/link-preview.tsx#L1-L11)
-- [StatsDisplay.tsx:1-16](file://ui-react/src/components/tool-ui/stats-display/stats-display.tsx#L1-L16)
-- [Terminal.tsx:1-16](file://ui-react/src/components/tool-ui/terminal/terminal.tsx#L1-L16)
-- [OptionList.tsx:1-26](file://ui-react/src/components/tool-ui/option-list/option-list.tsx#L1-L26)
-- [QuestionFlow.tsx:1-21](file://ui-react/src/components/tool-ui/question-flow/question-flow.tsx#L1-L21)
-- [ActionButtons.tsx:1-6](file://ui-react/src/components/tool-ui/shared/action-buttons.tsx#L1-L6)
-- [useActionButtons.tsx:1-5](file://ui-react/src/components/tool-ui/shared/use-action-buttons.tsx#L1-L5)
+- [ToolFallback/index.tsx:1-20](file://ui-react/src/components/chat/ToolFallback/index.tsx#L1-L20)
+- [ToolFallback/sections.tsx:1-7](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L1-L7)
+- [ToolFallback/tool-detail-drawer.tsx:1-21](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L21)
+- [ToolFallback/status-badge.tsx:1-2](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L2)
+- [ToolFallback/rich-presentation.tsx:1-18](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L1-L18)
 
 **章节来源**
 - [button.tsx:1-56](file://ui-react/src/components/ui/button.tsx#L1-L56)
@@ -1018,7 +1181,7 @@ SH6 --> Z
 
 **章节来源**
 - [markdown-text.tsx:223-243](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L223-L243)
-- [ToolFallback.tsx:30-31](file://ui-react/src/components/chat/ToolFallback.tsx#L30-L31)
+- [ToolFallback/index.tsx:30-31](file://ui-react/src/components/chat/ToolFallback/index.tsx#L30-L31)
 
 ### 新增共享组件系统
 
@@ -1054,7 +1217,7 @@ SH6 --> Z
 
 ## 性能考虑
 
-工具UI组件系统在设计时充分考虑了性能优化，新增的富工具UI组件也遵循了同样的原则：
+工具UI组件系统在设计时充分考虑了性能优化，重构后的ToolFallback模块也遵循了同样的原则：
 
 ### 渲染优化
 1. **条件渲染**: 只在需要时渲染详细信息
@@ -1063,6 +1226,7 @@ SH6 --> Z
 4. **虚拟滚动**: OptionList支持大量选项的虚拟滚动优化
 5. **动画优化**: 使用CSS动画而非JavaScript动画
 6. **HTML缓存**: CodeBlock组件使用缓存机制减少重复渲染
+7. **模块化加载**: ToolFallback组件按需加载各个模块
 
 ### 内存管理
 1. **事件监听器清理**: 自动清理媒体查询监听器
@@ -1070,6 +1234,7 @@ SH6 --> Z
 3. **引用管理**: 使用useRef管理DOM引用，避免闭包陷阱
 4. **记忆化**: 使用useMemo和useCallback优化重渲染
 5. **缓存管理**: 合理的缓存大小控制和清理策略
+6. **组件卸载**: 重构后的模块在卸载时正确清理资源
 
 ### 用户体验优化
 1. **无障碍访问**: 完整的键盘导航支持
@@ -1077,12 +1242,14 @@ SH6 --> Z
 3. **动画优化**: 减少运动偏好用户的视觉干扰
 4. **加载状态**: 提供清晰的加载和执行状态反馈
 5. **性能监控**: 关键操作的性能指标收集
+6. **模块化体验**: 按需加载提高初始渲染性能
 
 ### 第三方库优化
 1. **Recharts优化**: 图表组件的懒加载和数据优化
 2. **Shiki优化**: 语法高亮的异步加载和缓存机制
 3. **ansi-to-react优化**: ANSI转义的高效渲染
 4. **主题切换优化**: 自动主题检测和切换的性能优化
+5. **Zod验证优化**: 模式验证的性能优化和缓存
 
 ## 故障排除指南
 
@@ -1160,6 +1327,34 @@ SH6 --> Z
 3. 确认输出分栏和颜色处理逻辑
 4. 检查折叠控制和截断处理功能
 
+#### ToolFallback模块问题
+
+**更新** 新增ToolFallback模块相关问题解决：
+
+##### 模块加载失败
+**问题**: ToolFallback组件无法正确加载
+**解决方案**:
+1. 检查模块路径是否正确
+2. 验证各子模块的导出和导入
+3. 确认类型定义的正确性
+4. 检查依赖库的版本兼容性
+
+##### 富内容解析失败
+**问题**: 富工具UI内容无法正确解析
+**解决方案**:
+1. 检查工具UI负载格式是否正确
+2. 验证Zod模式验证的通过情况
+3. 确认工具名称与组件映射的正确性
+4. 检查组件的正确导入和渲染
+
+##### 状态徽章显示异常
+**问题**: 状态徽章无法正确显示
+**解决方案**:
+1. 检查ToolStatus枚举的值
+2. 验证isCancelled标志的设置
+3. 确认状态徽章组件的正确使用
+4. 检查样式类名的正确性
+
 #### OptionList选择问题
 **更新** 新增OptionList相关问题解决：
 **问题**: 选项无法正确选择或状态异常
@@ -1188,42 +1383,39 @@ SH6 --> Z
 4. 检查回调函数的正确绑定
 
 **章节来源**
-- [ToolFallback.tsx:454-488](file://ui-react/src/components/chat/ToolFallback.tsx#L454-L488)
-- [ToolFallback.tsx:490-513](file://ui-react/src/components/chat/ToolFallback.tsx#L490-L513)
-- [Chart.tsx:352-378](file://ui-react/src/components/tool-ui/chart/chart.tsx#L352-L378)
-- [CodeBlock.tsx:352-378](file://ui-react/src/components/tool-ui/code-block/code-block.tsx#L352-L378)
-- [LinkPreview.tsx:691-714](file://ui-react/src/components/tool-ui/link-preview/link-preview.tsx#L691-L714)
-- [StatsDisplay.tsx:691-714](file://ui-react/src/components/tool-ui/stats-display/stats-display.tsx#L691-L714)
-- [Terminal.tsx:691-714](file://ui-react/src/components/tool-ui/terminal/terminal.tsx#L691-L714)
+- [ToolFallback/index.tsx:454-488](file://ui-react/src/components/chat/ToolFallback/index.tsx#L454-L488)
+- [ToolFallback/index.tsx:490-513](file://ui-react/src/components/chat/ToolFallback/index.tsx#L490-L513)
+- [ToolFallback/sections.tsx:691-714](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L691-L714)
+- [ToolFallback/tool-detail-drawer.tsx:691-714](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L691-L714)
+- [ToolFallback/status-badge.tsx:691-714](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L691-L714)
+- [ToolFallback/rich-presentation.tsx:691-714](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L691-L714)
 
 ## 结论
 
 工具UI组件系统为OpenClaw项目提供了强大而灵活的工具调用可视化解决方案。通过模块化的组件设计、智能的状态管理和丰富的用户交互功能，该系统能够有效提升用户对AI工具调用的理解和控制能力。
 
-**更新** 本次更新大幅增强了组件系统的功能，新增的富工具UI基础设施提供了完整的工具调用结果可视化能力：
+**更新** 本次更新大幅增强了组件系统的功能，重构后的ToolFallback模块提供了更加专业和完善的工具调用可视化能力：
 
 ### 主要优势包括：
-- **高度可扩展**: 支持新的工具类型和分类
-- **用户体验优秀**: 直观的界面设计和流畅的交互
-- **技术架构先进**: 基于现代React技术和最佳实践
-- **性能优化完善**: 充分考虑了渲染性能和内存使用
+- **高度模块化**: ToolFallback采用模块化架构设计，便于维护和扩展
+- **智能分类**: 基于正则表达式的工具分类识别更加准确
+- **参数解析**: 支持多种工具类型的参数智能提取和预览
+- **状态管理**: 完整的工具执行状态检测和处理机制
+- **富内容支持**: 新增对Chart、CodeBlock、LinkPreview、StatsDisplay、Terminal等组件的深度支持
+- **详情展示**: 提供完整的工具调用详情和原始内容展示
+- **性能优化**: 模块化架构提高了组件的加载和渲染性能
 - **代码复用高效**: 通过共享组件减少重复代码和维护成本
-- **富内容支持**: 新增的Chart、CodeBlock、LinkPreview、StatsDisplay、Terminal组件提供专业的内容展示
-- **复杂交互支持**: 新增的OptionList和QuestionFlow支持复杂的用户交互流程
 - **类型安全**: 使用Zod提供完整的运行时类型验证
 - **无障碍友好**: 完整的键盘导航和ARIA支持
 - **第三方库集成**: 专业库的深度集成提升了组件的专业性和稳定性
 
 ### 新增功能特性：
-- **Chart图表组件**: 支持柱状图和折线图的数据可视化，包含交互式图表和主题定制
-- **CodeBlock代码块组件**: 提供语法高亮、主题切换、行号显示、代码复制和折叠展开功能
-- **LinkPreview链接预览组件**: 实现优雅的链接预览，包含安全导航和域名标识
-- **StatsDisplay统计显示组件**: 支持多格式数字、趋势图表、对比分析和本地化显示
-- **Terminal终端输出组件**: 提供ANSI转义、输出分栏、复制功能和折叠控制
-- **OptionList选项列表组件**: 支持单选/多选的选项列表，包含动态验证和确认视图
-- **QuestionFlow问题流程组件**: 实现步骤化的问题流程，支持渐进式和前置式交互
-- **共享组件系统**: ActionButtons、useActionButtons和Schema Contract提供统一的基础功能
+- **模块化架构**: ToolFallback/index.tsx作为主入口，sections.tsx提供通用组件，tool-detail-drawer.tsx负责详情展示，status-badge.tsx管理状态，rich-presentation.tsx处理富内容
+- **富工具UI解析**: rich-presentation.tsx支持多种富工具UI格式的解析和展示
+- **负载解析**: parse-tool-ui-payload.ts和parse-weather-widget-payload.ts提供专业的负载解析功能
 - **增强的工具UI**: 为复杂的工具调用提供更好的用户体验
+- **类型安全**: 新增的types.ts提供完整的类型定义和验证
+- **模块化依赖**: 各组件模块独立，便于单独测试和维护
 
 ### 未来发展方向：
 - **更多工具类型支持**: 扩展支持更多专业领域的工具UI组件
@@ -1231,5 +1423,6 @@ SH6 --> Z
 - **批量工具操作**: 支持多个工具的批量执行和管理
 - **高级交互模式**: 实现更复杂的用户交互和数据处理流程
 - **性能进一步优化**: 深入优化大型数据集和复杂图表的渲染性能
+- **模块化扩展**: 继续优化模块化架构，提高组件的可扩展性
 
-本次更新反映了新增的富工具UI基础设施，体现了工具UI组件向更专业、更完善的工具发展，为OpenClaw项目提供了更加强大和灵活的工具调用可视化解决方案。
+本次更新反映了ToolFallback组件的重大重构，体现了工具UI组件向更专业、更完善的工具发展，为OpenClaw项目提供了更加强大和灵活的工具调用可视化解决方案。

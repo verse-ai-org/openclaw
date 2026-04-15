@@ -332,6 +332,16 @@ export type AgentConfigSnapshot = {
     defaults?: AgentConfigDefaults;
     list?: AgentConfigEntry[];
   };
+  models?: {
+    providers?: Record<
+      string,
+      {
+        baseUrl?: string;
+        apiKey?: unknown;
+        auth?: string;
+      }
+    >;
+  };
   tools?: {
     profile?: string;
     allow?: string[];

@@ -25,7 +25,10 @@ import {
   extractToolCallParts,
   mergeToolResults,
 } from "./tool-blocks";
-import { createInteractiveBlock, isInteractiveToolName } from "./interactive-blocks";
+import {
+  createInteractiveBlock,
+  isInteractiveToolName,
+} from "./interactive-blocks";
 import type { RawMessage } from "./types";
 
 function extractInteractivePayload(data: Record<string, unknown>): unknown {
@@ -59,6 +62,8 @@ export function useChatEventBridge() {
     const dispatch = (event: string, payload: unknown) => {
       const p = payload as Record<string, unknown> | undefined;
 
+      console.log(`[ChatEventBridge] ${event}`, payload);
+
       switch (event) {
         case "chat": {
           const chatPayload = p as
@@ -72,14 +77,17 @@ export function useChatEventBridge() {
             | undefined;
           const state = chatPayload?.state;
           const sk =
-            typeof chatPayload?.sessionKey === "string" && chatPayload.sessionKey.trim()
+            typeof chatPayload?.sessionKey === "string" &&
+            chatPayload.sessionKey.trim()
               ? chatPayload.sessionKey.trim()
               : "";
           if (sk) {
             if (state === "final" || state === "error" || state === "aborted") {
               useChatStore.getState().clearSessionGenerating(sk);
             } else if (state === "delta") {
-              useChatStore.getState().markSessionGenerating(sk, chatPayload?.runId);
+              useChatStore
+                .getState()
+                .markSessionGenerating(sk, chatPayload?.runId);
             }
           }
           if (!isChatEventForActiveSession(chatPayload?.sessionKey)) {
@@ -94,10 +102,18 @@ export function useChatEventBridge() {
           } else if (state === "final") {
             const text = extractMessageText(chatPayload?.message);
             const finalRunId =
-              typeof chatPayload?.runId === "string" ? chatPayload.runId : undefined;
+              typeof chatPayload?.runId === "string"
+                ? chatPayload.runId
+                : undefined;
             if (text) {
               const storeState = useChatStore.getState();
-              const { committedBlocks, toolStreamById, toolStreamOrder, interactiveStreamById, interactiveStreamOrder } = storeState;
+              const {
+                committedBlocks,
+                toolStreamById,
+                toolStreamOrder,
+                interactiveStreamById,
+                interactiveStreamOrder,
+              } = storeState;
               const hasToolCalls = toolStreamOrder.length > 0;
               const hasInteractive = interactiveStreamOrder.length > 0;
               const hasCommitted = committedBlocks.length > 0;
@@ -121,7 +137,9 @@ export function useChatEventBridge() {
                     toolCallId: entry.id,
                     toolName: entry.toolName ?? "tool",
                     argsText:
-                      entry.input != null ? JSON.stringify(entry.input, null, 2) : undefined,
+                      entry.input != null
+                        ? JSON.stringify(entry.input, null, 2)
+                        : undefined,
                     result: toolStreamEntryToResultText(entry),
                     phase:
                       entry.phase === "result"
@@ -141,7 +159,8 @@ export function useChatEventBridge() {
                   content: text,
                   ts: Date.now(),
                   runId: chatPayload?.runId,
-                  contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
+                  contentBlocks:
+                    contentBlocks.length > 0 ? contentBlocks : undefined,
                 };
                 useChatStore
                   .getState()
@@ -159,7 +178,10 @@ export function useChatEventBridge() {
                   .getState()
                   .setMessages([...useChatStore.getState().messages, finalMsg]);
               }
-              if (finalRunId && pendingInteractiveHydrationRuns.has(finalRunId)) {
+              if (
+                finalRunId &&
+                pendingInteractiveHydrationRuns.has(finalRunId)
+              ) {
                 const rawKey =
                   typeof chatPayload?.sessionKey === "string"
                     ? chatPayload.sessionKey
@@ -172,7 +194,10 @@ export function useChatEventBridge() {
               useChatStore.getState().committedBlocks.length > 0
             ) {
               useChatStore.getState().finalizeStream();
-              if (finalRunId && pendingInteractiveHydrationRuns.has(finalRunId)) {
+              if (
+                finalRunId &&
+                pendingInteractiveHydrationRuns.has(finalRunId)
+              ) {
                 const rawKey =
                   typeof chatPayload?.sessionKey === "string"
                     ? chatPayload.sessionKey
@@ -199,7 +224,8 @@ export function useChatEventBridge() {
             useChatStore.getState().setRunId(null);
             if (state === "error") {
               const errMsg =
-                chatPayload?.errorMessage ?? "Generation failed. Please try again.";
+                chatPayload?.errorMessage ??
+                "Generation failed. Please try again.";
               useChatStore
                 .getState()
                 .setLastError(
@@ -220,17 +246,22 @@ export function useChatEventBridge() {
             data?: unknown;
           };
           const agentSk =
-            typeof agentPayload.sessionKey === "string" && agentPayload.sessionKey.trim()
+            typeof agentPayload.sessionKey === "string" &&
+            agentPayload.sessionKey.trim()
               ? agentPayload.sessionKey.trim()
               : "";
           if (agentSk && agentPayload.stream === "tool") {
-            useChatStore.getState().markSessionGenerating(agentSk, agentPayload.runId);
+            useChatStore
+              .getState()
+              .markSessionGenerating(agentSk, agentPayload.runId);
           }
           if (!isChatEventForActiveSession(agentPayload?.sessionKey)) {
             break;
           }
           const stream = agentPayload?.stream as string | undefined;
-          const data = agentPayload?.data as Record<string, unknown> | undefined;
+          const data = agentPayload?.data as
+            | Record<string, unknown>
+            | undefined;
 
           if (stream === "tool" && data) {
             const phase = data.phase as string | undefined;
@@ -277,14 +308,17 @@ export function useChatEventBridge() {
               };
               useChatStore.getState().upsertToolStream(entry);
             } else if (phase === "result") {
-              const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
+              const existing = useChatStore
+                .getState()
+                .toolStreamById.get(toolCallId ?? "");
               if (existing) {
                 const isError = Boolean(data.isError);
                 if (isError) {
                   useChatStore.getState().upsertToolStream({
                     ...existing,
                     phase: "error",
-                    error: typeof data.error === "string" ? data.error : undefined,
+                    error:
+                      typeof data.error === "string" ? data.error : undefined,
                     output: data.meta ?? data.result ?? undefined,
                   });
                 } else {
@@ -296,7 +330,9 @@ export function useChatEventBridge() {
                 }
               }
             } else if (phase === "error") {
-              const existing = useChatStore.getState().toolStreamById.get(toolCallId ?? "");
+              const existing = useChatStore
+                .getState()
+                .toolStreamById.get(toolCallId ?? "");
               if (existing) {
                 useChatStore.getState().upsertToolStream({
                   ...existing,
@@ -364,12 +400,16 @@ export function useChatEventBridge() {
             let content = rawContent;
             let attachments: MessageAttachment[] | undefined;
             if (role === "user") {
-              const fromGateway = normalizeHistoryAttachmentHints(m.attachments);
+              const fromGateway = normalizeHistoryAttachmentHints(
+                m.attachments,
+              );
               const stripped = stripAttachmentContent(rawContent);
               content = stripped.prompt;
               attachments =
                 fromGateway ??
-                (stripped.attachments.length > 0 ? stripped.attachments : undefined);
+                (stripped.attachments.length > 0
+                  ? stripped.attachments
+                  : undefined);
             }
 
             return {
@@ -410,7 +450,9 @@ export function useChatEventBridge() {
 
           if (import.meta.env.DEV) {
             console.group("[chat.history] after consolidate");
-            console.log(`total: ${consolidated.length} (was ${normalized.length})`);
+            console.log(
+              `total: ${consolidated.length} (was ${normalized.length})`,
+            );
             consolidated.slice(0, 20).forEach((m, i) => {
               const blocks = m.contentBlocks;
               const preview = blocks
