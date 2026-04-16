@@ -41,7 +41,7 @@ metadata:
 
 #### 执行命令
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=is_initialized
+node {baseDir}/scripts/preferences.mjs --cmd=is_initialized
 ```
 
 - 若返回 `false`：进入轻量偏好采集。
@@ -148,7 +148,7 @@ node {baseDir}/scripts/db.mjs --cmd=is_initialized
 保存时仅写入用户已明确提供的字段：
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=save_preferences --payload='{"departure_city":"上海","budget_level":"mid-range","pace_preference":"moderate","travel_companions":"couple","interests":["nature","food","photography"],"transport_preferences":["private driver","short flight okay"],"walking_tolerance":"moderate"}'
+node {baseDir}/scripts/preferences.mjs --cmd=save_preferences --payload='{"departure_city":"上海","budget_level":"mid-range","pace_preference":"moderate","travel_companions":"couple","interests":["nature","food","photography"],"transport_preferences":["private driver","short flight okay"],"walking_tolerance":"moderate"}'
 ```
 
 ### 第三步：创建 trip 记录
@@ -156,7 +156,7 @@ node {baseDir}/scripts/db.mjs --cmd=save_preferences --payload='{"departure_city
 **硬守卫（不可跳过）**：在执行 `add_trip` 之前，必须先查询是否有进行中的行程：
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=get_active_trips
+node {baseDir}/scripts/trips.mjs --cmd=get_active_trips
 ```
 
 - 若返回 `active_trips` 为空数组：直接新建。
@@ -175,7 +175,7 @@ node {baseDir}/scripts/db.mjs --cmd=get_active_trips
 尽快建档，允许字段不完整：
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新疆","destination":{"region":"Xinjiang","country":"China"},"duration_days":7,"budget":{"total":14000,"currency":"CNY"},"travelers":2,"activities":["nature","photography"],"constraints":["不自驾"],"transport_preferences":["private driver","short domestic flight okay"],"stage":"intake"}' --list=current
+node {baseDir}/scripts/trips.mjs --cmd=add_trip --payload='{"destination_text":"新疆","destination":{"region":"Xinjiang","country":"China"},"duration_days":7,"budget":{"total":14000,"currency":"CNY"},"travelers":2,"activities":["nature","photography"],"constraints":["不自驾"],"transport_preferences":["private driver","short domestic flight okay"],"stage":"intake"}' --list=current
 ```
 
 记录返回的 `trip_id`，后续都用 `--trip-id=<id>`。
@@ -184,289 +184,278 @@ node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新
 
 #### 目标
 
-- 使用外部平台帮助用户做路线规划，平台包括：小红书、搜索。
-- 路线框定阶段以内容驱动为主（`xhs/search`），支持用户手动粘贴内容（如小红书图文链接/正文摘要/截图转文字）作为输入证据。
-- 始终输出 2-3 条带 `route_id` 的候选路线，并要求用户确认选择。
+- 使用外部平台（小红书 / 搜索）为用户生成 2-3 条带 `route_id` 的候选路线，并要求用户确认选择。
+- 路线框定以内容驱动为主，支持用户手动粘贴内容作为证据。
+- 所有脚本参数中的大 JSON 必须通过 `@file` 方式传递，禁止直接内联超长 JSON。
 
-#### 平台选择
+> 完整字段说明与 JSON 示例见 `references/route-protocol.md`。
 
-在 Control UI 会话中，**调用 `option_list` 工具**让用户选择平台。
-**必须遵守**：在同一轮助手输出中完成：先写一两句面向用户的说明，再调用`option_list`。 
+#### 执行主干（严格按序，不可跳步）
+
+---
+
+**A-1｜平台选择（等用户回答后才能继续）**
+
+调用 `option_list` 工具，先写一两句面向用户的说明，再发出以下选择器：
 
 ```json
 {
   "id": "route-platform-choice",
   "options": [
-    { "id": "search", "label": "搜索(全网搜索，推荐)" },
-    { "id": "xhs",    "label": "小红书(抄作业，有小红书登录流程)" }
+    { "id": "search", "label": "搜索（全网搜索，推荐）" },
+    { "id": "xhs",    "label": "小红书（抄作业，有登录流程）" }
   ],
   "selectionMode": "single"
 }
 ```
 
-**硬守卫（不可绕过）**：必须等用户回答后才能开始检索，无论用户是否"显然想往下走"，都不允许跳过这一问。唯一例外：用户在本轮消息中已明确说出"默认就行 / 你决定 / 按默认 / 用搜索 / 用小红书"等等效表达，方可直接采用对应平台。
+守卫：
+- 必须等用户回答，不得自行跳过。例外：用户已在本轮明确说出"默认/按搜索/用小红书"等等效词。
+- 未指定时默认 `search`（Brave）。
+- 降级（`xhs -> search`）时必须显式提示"已从小红书降级到搜索"并说明原因。
 
-- 未指定时默认使用`搜索`（Brave）。
-- 如果小红书流程失败：必须提示用户二选一（`手动提供小红书内容` 或 `改用搜索`）。
-- 当发生平台降级（`xhs -> search`）时，必须在回复中显式提示：`已从小红书降级到搜索`，并说明降级原因。
+---
 
-#### 实现边界（强约束）
+**A-2｜拉取平台证据**
 
-- `travel-planner` 内部不直接调用其他 skill 的脚本。
-- `route-plan.mjs` 仅消费上游输入（`route_evidence`、`route_options`）并输出结构化候选；所有平台（`xhs/search/...`）都必须先按 `RouteEvidenceV1` 调用 `db.mjs --cmd=save_route_evidence` 持久化后，才允许进入 `save_route_plan`。
-- 证据落盘命名采用平台分文件：`~/.openclaw/agents/travel-planner/data/evidence/<trip_id>.<platform>.json`（例如：`<trip_id>.xhs.json`、`<trip_id>.search.json`）。
-- 当平台为 `xhs` 时，默认先走 `@skills/xiaohongshu` 检索链路；若用户明确提供小红书图文内容，可走“用户输入证据”分支，不强制调用平台检索。
+按所选平台执行，任一分支失败按 A-2-F 处理：
 
-统一证据协议（`RouteEvidenceV1`）：
+- **search**：使用搜索引擎检索路线证据，结果写入 `route_evidence.route_hints`（`key_destinations` 或 `popular_loops`）。
+- **xhs**：调用 `@skills/xiaohongshu` 的 `search-feeds` + `get-feed-detail`：
+  - 查询词：`J人<目的地><days>天行程安排`
+  - 过滤：`--note-type 图文 --sort-by 最多点赞`，只保留前 2-3 条图文笔记。
+  - 若 `get-feed-detail` 失败 / 超时 / 返回空，跳至 **A-2-F**。
+- **用户手动粘贴**（xhs/search 均适用）：直接作为证据，标记 `verification_status=user_input_unverified`，`evidence_source=user_input_xhs|user_input_search`。
 
-- 所有平台统一走 `save_route_evidence`，不得平台私有化绕过。
-- 证据落盘路径：`~/.openclaw/agents/travel-planner/data/evidence/<trip_id>.<platform>.json`
-- 新平台接入只需做"平台结果 -> RouteEvidenceV1"的适配映射，不改持久化主流程。
+**A-2-F｜xhs 异常分流**（`get-feed-detail` 不可用时）
 
-> 完整字段说明与 JSON 示例见 `references/route-protocol.md`。
+必须向用户发起二选一确认（不得静默继续）：
+1. 用户手动提供小红书内容 -> 走"用户手动粘贴"分支，标记 `evidence_source=user_input_xhs`
+2. 切换到搜索 -> 记录 `fallback_reason=xhs_detail_unavailable`，提示"已降级到搜索"，重新走 search 链路
 
-路线规划脚本：
+用户未明确选择前，不得进入 A-3。
 
-```bash
-node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json_with_route_platform_metadata>'
-```
+---
 
-`route-plan.mjs` 支持可选的图文/坐标增强输入（用于 Tool UI 展示，不影响路线决策本身）：
+**A-3｜归一化并持久化证据**
 
-- `stop_media`：全局 stop 图文映射（key=站点名，value 可含 `image/picUrl/mainPic`、`subtitle/summary`）
-- `route_stop_media`：按 `route_id` 的 stop 图文映射（优先级高于 `stop_media`）
-- `stop_points`：全局 stop 坐标映射（key=站点名，value 含 `lat/lng`）
-- `route_stop_points`：按 `route_id` 的 stop 坐标映射（优先级高于 `stop_points`）
-
-当提供上述字段时，`route_tool_ui.item_carousel` 会优先填充图片与说明，`route_tool_ui.geo_map` 会在坐标足够时自动生成。
-
-可选：先用适配脚本将 `flyai/amap` 的 POI 原始结果转为上述增强字段：
+- xhs：先通过 `xhs-evidence-builder.mjs` 规范化：
 
 ```bash
-node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <route_options_json>, "flyai_pois": <flyai_poi_json>, "amap_pois": <amap_poi_json> }'
+node {baseDir}/scripts/xhs-evidence-builder.mjs \
+  --input=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/xhs-raw.json
 ```
 
-将返回的 `route_stop_media` / `route_stop_points` 合并回 `route-plan.mjs --input` 即可。
-
-#### Step 4 图文路线展示：标准四步链路（推荐）
-
-1. 先生成基础候选路线（无图版）：
+- 所有平台统一持久化（`RouteEvidenceV1`），不得平台私有化绕过。`--payload` 指向 **当前 trip 目录下** 待提交的规范化 JSON（与最终落盘的 `evidence.<platform>.json` 不同：后者由 `save_route_evidence` 写入）。
 
 ```bash
-node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json>' > ~/.openclaw/agents/travel-planner/data/route-base.json
+node {baseDir}/scripts/trip-workflow.mjs --cmd=save_route_evidence \
+  --trip-id=<trip_id> --platform=<xhs|search> \
+  --payload=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step3.route-evidence.json
 ```
 
-2. 用 `flyai/amap` 的 POI 结果做图文与坐标增强映射：
+守卫：`save_route_evidence` 返回 `ok=true` 才能继续，否则终止并报告失败原因。
+
+- 后续步骤需要 evidence 路径时，调用 `get_route_evidence` 读取返回 JSON 中的 `meta.evidence_file`（或 `get_trip` 结果里的 `route_evidence_meta.evidence_file`），**不要**再落盘 `step4.evidence-meta.json`。
+
+---
+
+**A-3.5｜POI 预取（A-3 完成后立即执行，强制，不可跳过）**
+
+> evidence 文件中的 `route_hints.key_destinations` 已是所有路线景点的去重合集（由 `popular_loops` flat 后去重生成），在路线生成前完成图片预取，保证 A-4 第一次调用就能输出带图的路线。
+
+**目录约定**：
+- POI 临时产物写入 `data/poi/` 子目录
+- 路线中间产物直接写入 `data/trips/<trip_id>/`（如 `step4.stop-media.json`、`step4.plan-input.json`、`step4.plan-output.json`；Step 6 调用 `plan-generator.mjs --trip-id=<id> --cmd=plan_overview` 时**必须**写入 `step6.plan-overview.json`）
+- trip 级长期数据统一写入 `data/trips/<trip_id>/`（含 `trip.json`、`evidence.<platform>.json`、`step*.json`）
+- A-8 完成后仅清理 `data/poi/` 的临时文件；**保留** `data/trips/<trip_id>/step4.plan-input.json` 与 `step4.plan-output.json`（含 `route_tool_ui` 等 Step4 完整输出，作为该步权威数据；`trip.json` 只存 `step4_plan_output_ref` 引用）
+
+**A-3.5-1** 读取 evidence 中的景点列表，批量查 POI 缓存（key 直接使用 evidence 地名作为主键）：
 
 ```bash
-node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <route_options_json>, "flyai_pois": <flyai_poi_json>, "amap_pois": <amap_poi_json> }' > ~/.openclaw/agents/travel-planner/data/route-enrichment.json
+node {baseDir}/scripts/poi-cache.mjs --cmd=get \
+  --keys='["四姑娘山","新都桥","丹巴"]'
 ```
 
-3. 将增强字段回填，再次调用 `route-plan.mjs` 生成最终候选：
+**A-3.5-2** 对缓存未命中（`misses`）的每个景点调用 `flyai search-poi`，选最匹配条目后，**一步写入缓存**：
 
 ```bash
-node {baseDir}/scripts/route-plan.mjs --input='{ "route_options": <route_options_json>, "route_stop_media": <route_stop_media_json>, "route_stop_points": <route_stop_points_json>, "...": "其它原始字段保持不变" }'
+flyai search-poi --city-name "<目的地城市>" --keyword "<景点名>"
 ```
-
-4. 在 Control UI 中按 `route_tool_ui` 调用渲染工具（每条 route 一组）：
-
-- 对 `route_tool_ui[*].item_carousel` 调用 `item_carousel`
-- 对 `route_tool_ui[*].geo_map`（非 null）调用 `geo_map`
-- 仍保留文本版路线摘要作为降级兜底
-
-#### Step 4 图文路线展示：默认图片注入链路（新增，默认必须执行）
-
-当 `item_carousel.items` 没有图片时，优先用 `@skills/flyai` 的 `search-poi` 为每个 stop 补图（必要时再用 amap）：
-
-1. 对 `route_options[*].stops` 的关键站点（建议每条路线 3-6 个）执行 `flyai search-poi`：
 
 ```bash
-flyai search-poi --city-name "<目的地城市>" --keyword "<站点名>"
+node {baseDir}/scripts/poi-cache.mjs --cmd=save --ttl-hours=72 \
+  --payload='{"entries":{"四姑娘山":{"key":"四姑娘山","name":"四姑娘山","evidence_name":"四姑娘山","source_poi_name":"四姑娘山景区","image":"https://...","subtitle":"...","lat":31.08,"lng":102.84}}}'
 ```
 
-2. 将所有 `search-poi` 结果聚合后，调用：
+- 图片提取优先级：`mainPic -> picUrl -> image -> imageUrl -> photo`
+- flyai 无图时该景点只保存 `subtitle` + 坐标，`image` 留空（不得伪造 URL）
+- 景点名应使用 `key_destinations` 中的规范短名（如"四姑娘山"），避免使用含描述的长名
+- flyai 返回首条不一定名称最匹配（如搜"丹巴"可能首条是无关景点），需从 `itemList` 中选名称含景点关键字的条目
+- 缓存写入时 `name/evidence_name` 使用 evidence 地名；flyai 命中名称写入 `source_poi_name` 仅用于来源追踪
+- entries 过长（>1KB）时写入 `data/poi/cache-upserts.json`（临时）再用 `@file` 传入，A-8 后清理
+
+**A-3.5-3** 所有景点写入缓存后，一条命令输出 `stop_media` + `stop_points` 平铺映射（供 A-4 组装 `step4.plan-input.json`）。**必须写入当前 trip 目录**，避免多行程共用一个全局文件：
 
 ```bash
-node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <route_options_json>, "flyai_pois": <flyai_poi_json> }'
+mkdir -p ~/.openclaw/agents/travel-planner/data/trips/<trip_id>
+node {baseDir}/scripts/poi-cache.mjs --cmd=build-stop-media \
+  --destination="川西" \
+  > ~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step4.stop-media.json
 ```
 
-3. 将返回的 `route_stop_media` / `route_stop_points` 合并回 `route-plan.mjs --input` 重新生成结果；如已直接传入 `flyai_pois`（或 `pois/amap_pois`）给 `route-plan.mjs`，脚本会自动尝试按 stop 匹配并填充图文/坐标。
+输出结构：
 
-   - 持久化建议（推荐）：将二次 `route-plan.mjs` 输出中的 `route_options`（含 `stop_cards`）、`route_stop_media`、`route_stop_points` 一并保存到路线规划结果中，供后续 Step 6/7/8 复用，避免重复检索图片。
+```json
+{
+  "stop_media": {
+    "四姑娘山": { "image": "https://...", "subtitle": "四川省..." }
+  },
+  "stop_points": {
+    "四姑娘山": { "lat": 31.08, "lng": 102.84, "label": "四姑娘山" }
+  },
+  "count": 9
+}
+```
 
-4. 仅当仍无图时，再降级到纯文本卡片（不得伪造图片 URL）。
+> `stop_media` key 直接是景点名；**不要按 route_id 分组**，否则 `route-plan` 用内部生成的 route_id 查会全部 miss。
 
-#### Step 4 POI 缓存优先链路（新增，默认必须执行）
 
-为了避免重复 `search-poi`、减少外部波动导致的“有结果但未落盘”，默认按以下顺序执行：
+**A-4｜调用 route-plan.mjs（一次调用生成带图路线）**
 
-1. 从 `route_options[*].stops` 生成缓存 key（建议规范：`<destination_text>|<stop>|flyai`）。
-2. 先查缓存（可批量）：
+将 evidence + **`step4.stop-media.json` 中的 `stop_media` / `stop_points`** 组装写入 `data/trips/<trip_id>/step4.plan-input.json`，输出到 `data/trips/<trip_id>/step4.plan-output.json`：
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=get_poi_cache --keys='["川西|新都桥|flyai","川西|墨石公园|flyai"]'
+mkdir -p ~/.openclaw/agents/travel-planner/data/trips/<trip_id>
+node {baseDir}/scripts/route-plan.mjs \
+  --input=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step4.plan-input.json \
+  > ~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step4.plan-output.json
 ```
 
-3. 对 `misses` 再执行 `flyai search-poi`，并将结果汇总到 `flyai_pois`。
-4. 用缓存命中 + 新查询结果合并为 `route_stop_media/route_stop_points`：
-
-```bash
-node {baseDir}/scripts/poi-cache-merge.mjs --input=@~/.openclaw/agents/travel-planner/data/poi-merge-input.json
-```
-
-`~/.openclaw/agents/travel-planner/data/poi-merge-input.json` 结构示例：
+`data/trips/<trip_id>/step4.plan-input.json` 格式（`route_evidence` 必须按 `get_route_evidence` 返回的 `meta.evidence_file` 读取文件内容后赋值，不得手动粘贴）：
 
 ```json
 {
   "destination_text": "川西",
-  "provider": "flyai",
-  "route_options": [],
-  "cache_entries": {},
-  "flyai_pois": {}
+  "duration_days": 5,
+  "route_evidence": { "<evidence 文件内容，完整读取 meta.evidence_file 对应文件后赋值>" },
+  "stop_media": {
+    "四姑娘山":   { "image": "https://...", "subtitle": "..." },
+    "新都桥":     { "image": "https://...", "subtitle": "..." }
+  },
+  "stop_points": {
+    "四姑娘山": { "lat": 31.08, "lng": 102.84, "label": "四姑娘山" }
+  }
 }
 ```
 
-5. 将 `cache_upserts` 回写缓存：
+- **禁止内联 evidence 字符串**：必须读取 `get_route_evidence` 返回的 `meta.evidence_file` 对应文件内容后赋值，不得手动粘贴 evidence 内容
+- **媒体字段必须用 `stop_media`（平铺结构）**，不得用 `route_stop_media`（按 route_id 分组），否则因 route_id 不匹配导致全部无图
+- **不得手动传散列的 `popular_loops` / `key_destinations` 字段**，必须包在 `route_evidence` 对象内
+
+读取 `data/trips/<trip_id>/step4.plan-output.json` 中的 `route_tool_ui_ready`：
+
+- `true` -> 继续 **A-5**
+- `false`，且 `route_tool_ui_missing_reason = no_stops` -> 检查 evidence 的 `popular_loops` 是否为空，修正后重新执行 A-4（最多重试一次）
+- `false` 且 flyai 全无图 -> 以纯文本卡片降级，继续 **A-5**
+
+---
+
+**A-5｜渲染图文路线**
+
+按 `route_tool_ui` 结构调用工具（每条 route 一组，顺序固定）：
+
+1. `item_carousel`：展示路线点位图文卡片
+2. 保留文字版路线摘要作为降级兜底
+
+`option_list_allowed=false` 时禁止调用 `option_list`；严格按 `step4_tool_call_order` 执行工具顺序。
+
+---
+
+**A-6｜持久化路线规划**
+
+守卫（必须同时满足，否则不得继续）：
+- `save_route_evidence` 已返回 `ok=true`
+- `route_options` 数量 `>= 2`
+
+统一从 `data/trips/<trip_id>/step4.plan-output.json.route_options` 读取：
+- `route_options[0]` 作为推荐路线（recommended）
+- `route_options[1..]` 作为备选路线（alternatives）
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=save_poi_cache --ttl-hours=72 --payload=@~/.openclaw/agents/travel-planner/data/poi-cache-upserts.json
+node {baseDir}/scripts/trip-workflow.mjs --cmd=save_route_plan \
+  --trip-id=<trip_id> \
+  --plan-output=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step4.plan-output.json \
+  --rejected-routes='[]' \
+  --decision-summary='{"used_platform":"search","fallback_count":0}' \
+  --route-source-used=<xhs|search> \
+  --route-source-preference=<xhs|search> \
+  --route-source-fallbacks='[]'
 ```
 
-6. 再次调用 `route-plan.mjs`（必须带上合并后的 `route_stop_media/route_stop_points`），生成最终图文版本。
+> 存储约定：`route_plan` 内只保存 `recommended_route_id / alternative_ids / rejected_route_ids` 等轻量字段；**完整 Step4 结果（含 `route_options`、`route_tool_ui` 等）以 `step4.plan-output.json` 为准**，`trip.json` 使用 `step4_plan_output_ref` 指向该文件；**不再**单独生成 `step4.route-options.json`。
 
-> 强约束：Step 4 所有大 JSON 参数（`--input`/`--payload`）必须使用 `@file` 传递，禁止直接内联超长 JSON，避免 shell 转义/长度问题导致二次 `route-plan` 失败。
+`save_route_plan` 返回失败时，只报告原因和下一步动作，不得伪造"已确认路线"。当 `xhs` 走"用户手动提供内容"分支时，`decision_summary` 和回复中必须标注 `evidence_source=user_input_xhs`、`verification_status=unverified_by_xhs_tool`。
 
-执行守卫（必须满足）：
+---
 
-- 若 `route_tool_ui_ready=false` 且当前输入里没有 `route_stop_media`，必须先执行 `flyai search-poi` 补图链路，再次调用 `route-plan.mjs`；不得直接进入 `option_list`。
-- `flyai search-poi` 图片提取优先级固定为：`mainPic -> picUrl -> image`。
-- 每条路线至少应尝试为前 3 个 stop 注入图片；若平台无图再降级为文本。
-- `save_route_plan` 时优先使用“补图后的”`recommended_route/alternatives/route_options`，确保后续步骤能直接读取到 `stop_cards` 与媒体缓存。
+**A-7｜让用户选择路线**
 
-#### 必须顺序（不可跳步）
-
-1. 确认用户已在本步骤中明确选择平台（`xhs` 或 `search`），不得自行设置默认值直接继续。
-2. 按当前平台拉取上游证据：
-   - `search`：默认使用搜索获取路线证据；仅当用户明确指定其他搜索引擎时覆盖默认值。
-   - `xhs`：调用 `@skills/xiaohongshu` 的 `search-feeds` 和 `get-feed-detail`。
-     - `xhs` 检索优化（路线框定专用）：
-       - 查询词优先使用：`J人<目的地><days>天行程安排`（例如：`J人川西5天行程安排`）。
-       - 强制过滤：`--note-type 图文 --sort-by 最多点赞`。
-       - 证据候选中排除视频笔记，只保留图文笔记。
-       - 路线证据最多保留前 2-3 条高点赞帖子。
-     - `xhs` 异常分流（新增，必须执行）：
-       - 若 `get-feed-detail` 失败/超时/返回空，必须显式提示用户当前状态，不得静默继续。
-       - 必须给用户二选一动作：
-         1) 用户手动提供小红书内容（帖子正文摘要/截图转文字）；
-         2) 改用搜索继续路线框定。
-       - 当用户未明确选择动作时，不得直接进入 `route-plan.mjs`。
-       - 用户选择手动提供内容时，标记为 `evidence_source = user_input_xhs`，并在回复中注明“用户提供，未自动校验”。
-       - 用户选择切换平台时，记录一次 `fallback_reason`（`xhs_detail_unavailable`）后进入 搜索链路，并明确提示用户“已从小红书降级到搜索”。
-   - 用户输入证据分支（适用于 `xhs/search`）：
-     - 当用户主动粘贴内容（小红书图文、网页摘要、截图转文字）时，可直接作为证据输入，不强制重新检索。
-     - 必须标记 `verification_status = user_input_unverified`，并在 `meta` 中写入 `evidence_source`（`user_input_xhs` 或 `user_input_search`）。
-
-3. 归一化输入：
-   - `xhs`：将 `@skills/xiaohongshu` 返回的原始搜索结果，通过 `xhs-evidence-builder.mjs` 规范化后得到 `route_evidence`（`platform=xhs`）：
-```bash
-node scripts/xhs-evidence-builder.mjs --input='{ "destination_text": "<目的地>", "duration_days": <天数>, "search_results": <xhs原始结果_json> }'
-```
-   - `xhs/search`：统一先持久化证据（写入 `~/.openclaw/agents/travel-planner/data/evidence`），再进入路线保存：
-```bash
-node scripts/db.mjs --cmd=save_route_evidence --trip-id=<trip_id> --platform=<xhs|web> --payload='<route_evidence_v1_json>'
-```
-   - `search`：优先在 `route_evidence.route_hints` 提供锚点链路（`key_destinations` 或 `popular_loops`）；`route-plan.mjs` 将据此生成带 `stops` 的候选路线（如 `成都 -> 四姑娘山 -> ...`）。
-
-4. 调用 `route-plan.mjs` 输出候选路线。
-   - `recommended_route`、`alternatives`、`decision_summary` 必须来自本次 `route-plan.mjs` 输出，不允许手工臆造。
-   - 若返回 `route_tool_ui`，在 Control UI 中优先调用对应 Tool UI：
-     - `item_carousel`：展示路线点位图文卡片；
-     - `geo_map`：当 payload 含有效坐标时展示地图（无坐标可跳过，不得伪造坐标）。
-   - 新增状态守卫：读取 `route_tool_ui_ready`。
-     - 若为 `true`：必须先完成图文/地图展示，再进入 `option_list` 选路线。
-     - 若为 `false`：先根据 `route_tool_ui_missing_reason` 补齐 `stops` 或 `route_stop_media/route_stop_points`，再重新调用 `route-plan.mjs`；不得直接跳到 `option_list`。
-   - 新增机器可读守卫：
-     - `option_list_allowed=false` 时，禁止调用 `option_list`。
-     - 严格按 `step4_tool_call_order` 执行工具顺序。
-     - `step4_guard_note` 可用于最终回复里的一句简短说明（仅说明当前流程状态，不输出内部字段名）。
-5. 若失败（不可用/无结果/候选不足），记录失败原因并按降级链切到下一个平台，回到第 2 步。
-6. 一旦成功，持久化路线框定（含平台与降级信息）：
-
-```bash
-node {baseDir}/scripts/db.mjs --cmd=save_route_plan --trip-id=<trip_id> --recommended-route='<recommended_route_json>' --alternatives='<alternatives_json>' --rejected-routes='<rejected_routes_json>' --decision-summary='<decision_summary_json>' --route-source-used=<xhs|search> --route-source-preference=<xhs|search> --route-source-fallbacks='<fallback_chain_json>'
-```
-
-> 存储约定：`route_plan` 内只保存 `recommended_route_id / alternative_ids / rejected_route_ids` 等轻量字段；完整路线对象统一保存在 trip 的 `route_options` 中，后续通过 `chosen_route_id` 解析当前选中路线。
-
-7. 通过 `option_list` 工具展示 `route_options`，让用户明确选择 `route_id`（而非纯文字让用户自由输入）。推荐结构如下：
+`item_carousel` 渲染完成后，调用 `option_list`（必须在图文展示之后，不得提前）：
 
 ```json
 {
   "id": "route-choice",
   "options": [
-    { "id": "route-a", "label": "route-a｜成都 -> 四姑娘山 -> 丹巴 -> 新都桥" },
-    { "id": "route-b", "label": "route-b｜成都 -> 康定 -> 新都桥 -> 塔公" },
-    { "id": "route-c", "label": "route-c｜成都 -> 海螺沟 -> 康定 -> 折返" }
+    { "id": "route-a", "label": "route-a" },
+    { "id": "route-b", "label": "route-b" },
+    { "id": "route-c", "label": "route-c" }
   ],
   "selectionMode": "single"
 }
 ```
 
-- `options[].id` 必须直接使用真实的 `route_id`，不得另造映射 ID。
-- `options[].label` 可包含路线摘要与一句简短权衡，便于用户直接选。
-- 若本轮消息里用户已经明确点名某个 `route_id`，可直接采用，无需重复发起 `option_list`。
-- **执行顺序硬约束**：当 `route_tool_ui_ready=true` 且 `route_tool_ui[*].item_carousel.payload.items.length > 0` 时，`option_list` 必须在图文路线展示之后调用，不得先弹路线选择器。
-8. 持久化用户选择：
+- `options[].id` 和 `label` 必须使用真实的 `route_id`，不得另造映射 ID。
+- 若用户已在本轮明确说出 `route_id`，可直接采用，无需重复发起 `option_list`。
+
+---
+
+**A-8｜持久化用户选择 + 清理临时文件**
+
+守卫：用户已通过 `option_list` 明确选中 `route_id` 后才能执行。
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --route-id=<route_id>
+node {baseDir}/scripts/trip-workflow.mjs --cmd=confirm_route_choice \
+  --trip-id=<trip_id> --route-id=<route_id>
 ```
 
-#### 硬性守卫（必须执行）
+`confirm_route_choice` 返回 `ok=true` 后，**清理 POI 侧临时文件**（不删除 `step4.plan-input.json` / `step4.plan-output.json`）：
 
-保存成功判定（必须同时满足）：
+```bash
+# 清理 POI 临时文件（保留 poi-cache.json 长期缓存）
+rm -f ~/.openclaw/agents/travel-planner/data/poi/cache-upserts.json
+```
 
-- `save_route_evidence` 返回 `ok = true`（平台统一前置）；
-- `route-plan.mjs` 输出的 `route_options` 数量 `>= 2`；
-- `save_route_plan` 返回 `ok = true`；
-- 任一条件不满足：不得进入 `confirm_route_choice`。
+清理后 `data/` 根目录只保留共享缓存与索引（如 `poi-cache.json`、`trips.json`、`preferences.json`）；trip 长期数据保留在 `data/trips/<trip_id>/`。
 
-当 `route_source_preference = auto` 时：
+#### 降级链与平台守卫
 
-- 必须先走 `搜索引擎`, 默认使用Brave。
-- 仅当用户明确指定“小红书优先”时，才按 `小红书 -> 搜索` 尝试。
-- 不允许并行混合多个平台结果。
-- 每次降级必须记录并输出失败原因。
-- 两个平台都失败时，不得给“最终路线”。
-- 仅可返回：
-  1) 已尝试平台与失败原因；
-  2) 用户需要的动作（如登录小红书、提供更具体目的地）；
-  3) 用户同意后给临时草案路线（明确标注未验证）。
-- 若首次平台为 `xhs` 且 `get-feed-detail` 不可用，优先发起分流确认：`手动提供小红书内容` 或 `切到搜索`；未确认前不得自动跳过；一旦降级必须显式提示“已降级到搜索”。
+| 场景 | 行为 |
+|------|------|
+| `route_source_preference=auto` | 先走搜索（Brave），仅用户明确指定时才走小红书优先 |
+| 平台降级 `xhs->search` | 显式提示"已降级到搜索"，记录 `fallback_reason` |
+| 两个平台均失败 | 不得给"最终路线"，只返回失败原因 + 用户可采取的动作 |
+| 用户同意后的临时草案 | 必须标注"未验证" |
+| 不允许并行混合多个平台结果 | — |
 
-当用户显式选择某个平台时：
-
-- 必须先完成该平台上游检索链路，再调用 `route-plan.mjs`。
-- 不得跳过检索链路直接生成“已验证平台结果”。
-
-路线持久化与确认守卫（新增，必须执行）：
-
-- 当 `used_platform in {xhs, search}` 时，若未先执行 `save_route_evidence` 或证据不足，不得执行 `save_route_plan`。
-- 当 `used_platform = search` 时，允许弱校验进入 `save_route_plan`。
-- 当 `route_options` 少于 2 条时，不得执行 `save_route_plan`，也不得执行 `confirm_route_choice`。
-- `confirm_route_choice` 只能在“通过 `option_list` 展示候选路线（或用户已直接明确给出 `route_id`）+ 用户明确选中 route_id”后执行，不得提前写入确认态。
-- 若 `save_route_plan` 返回失败，只能返回失败原因和下一步动作，不得伪造“已确认路线”。
-- 当 `xhs` 明确走“用户手动提供内容”分支时，必须在 `decision_summary` 和用户回复中同时标注：`evidence_source=user_input_xhs`、`verification_status=unverified_by_xhs_tool`。
-
-#### 路线框定回复格式
+#### 回复格式核心要点
 
 > 完整回复顺序规范、xhs 失败分流提示模板、小红书链接展示格式见 `references/reply-templates.md`。
 
-核心要点：
-- 必须先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
+- 先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
 - 给出 2-3 条 `route_id` 路线选项，每条 1 行权衡（时间成本/换乘压力/景观收益）
-- 候选路线选择阶段必须优先使用 `option_list`，让用户点选具体 `route_id`
-- 最后明确说明下一步将调研目的地的交通与天气天气情况
+- 候选路线选择阶段必须用 `option_list` 让用户点选具体 `route_id`
+- 最后说明下一步将调研目的地的交通与天气情况
 
 ### 第五步：调研交通和天气
 
@@ -495,10 +484,16 @@ node {baseDir}/scripts/db.mjs --cmd=confirm_route_choice --trip-id=<trip_id> --r
 **裁决与持久化**（必须在向用户回复前完成）：
 
 9. 综合交通 + 天气结果，写入 `verdict: go / caution / block` 和 `verdict_reasons`。
+   - 可选辅助：将已填好的 `transport_result` / `weather_result`（及可选 `live_results`）交给 `route-validation.mjs` 做一致性推导，输出建议的 `verdict` / `verdict_reasons`（**仍需人工确认**后再写入）：
+   ```bash
+   node {baseDir}/scripts/route-validation.mjs \
+     --validation=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step5.route-validation.partial.json
+   ```
+   若 `trip.live_results` 已存在，可追加 `--results=@.../step8.live-results.json` 做兜底推断（`transport_result.status` / `weather_result.status` 未写满时）。
 10. 持久化：
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='{"route_validation": <route_validation_json>}'
+node {baseDir}/scripts/trips.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='{"route_validation": <route_validation_json>}'
 ```
 
 11. **必须向用户发起确认**：输出验证结论后，以「接下来我会总结当前的计划骨架行程，需要您确认」收尾；未收到用户明确确认不得进入 Step 6。
@@ -531,7 +526,7 @@ node {baseDir}/scripts/db.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='{"
 若技能调用失败：
 1. 明确说明哪一项失败（`flyai` / `amap-lbs-skill` / `weather`）。
 2. 仍可给路线框定与骨架方案，但价格/时刻/天气必须标注为**未验证**。
-3. 有阶段性结果时优先写入 `db.mjs` 便于续跑，命令同步骤 10。
+3. 有阶段性结果时优先用 `trips.mjs --cmd=patch_trip` 写入 `route_validation` 便于续跑，命令同步骤 10。
 
 
 ### 第六步：确认计划骨架
@@ -549,17 +544,10 @@ node {baseDir}/scripts/db.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='{"
 骨架来源：
 
 ```bash
-node {baseDir}/scripts/plan-generator.mjs --trip-id=<id> --step=6
+node {baseDir}/scripts/plan-generator.mjs --cmd=plan_overview --trip-id=<id>
 ```
 
-> 推荐按步骤读取 `plan-generator.mjs` 输出：`--step=6|7|8`。这样可以避免上层渲染拿到过多无关字段。
-
-优先展示：`step6_summary`、`route_plan`、`route_validation`、`plan_skeleton`、`booking_strategy`。
-
-> `plan-generator.mjs` 是阶段感知的：
-> - Step 5 未完成时，只返回缺失提示，不补算 `route_validation`；
-> - Step 7 仅返回简要每日计划骨架，不提前暴露 Step 8 的实时交通/酒店明细；
-> - Step 8 完成并写入 `booking_ready` 后，才返回预订级别补充信息。
+> **强制落盘**：上述命令会在 `data/trips/<trip_id>/step6.plan-overview.json` 写入总结摘要，便于续跑与审计；**不可省略**。
 
 #### 输出格式（硬约束）
 
@@ -619,7 +607,7 @@ Step 6 回复必须严格按以下顺序与标题输出，不得改名、不得�
 建议命令（骨架生成）：
 
 ```bash
-node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id> --step=7
+node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id> --cmd=itinerary_skeleton
 ```
 
 本步回复顺序与每日计划必含字段见 `references/reply-templates.md` — 第七步。
@@ -650,19 +638,16 @@ node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id> --step=7
 - 若任一类实时查询失败，必须明确标注该类为“未实时验证”，并给补查动作，不得伪装为已验证结果。
 - `live_results_json` 必须保留工具原始输出，供 `booking-ready.mjs` 消费与追溯。
 
-合成与持久化建议：
-
 ```bash
-node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id> --step=8
 node {baseDir}/scripts/booking-ready.mjs --trip='<trip_json>' --route='<route_json>' --validation='<route-validation_json>' --results='<live_results_json>'
-node {baseDir}/scripts/db.mjs --cmd=save_live_results --trip-id=<trip_id> --payload='<live_results_json>'
-node {baseDir}/scripts/db.mjs --cmd=save_booking_ready --trip-id=<trip_id> --payload='<booking_ready_json>'
+node {baseDir}/scripts/trip-workflow.mjs --cmd=save_live_results --trip-id=<trip_id> --payload='<live_results_json>'
+node {baseDir}/scripts/trip-workflow.mjs --cmd=save_booking_ready --trip-id=<trip_id> --payload='<booking_ready_json>'
 ```
 
 若用户确认具体预订项，再执行：
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=confirm_booking --trip-id=<trip_id> --category=hotel --payload='<selected_hotel_json>'
+node {baseDir}/scripts/trip-workflow.mjs --cmd=confirm_booking --trip-id=<trip_id> --category=hotel --payload='<selected_hotel_json>'
 ```
 
 最终答复顺序（7项，必须遵守）及链接输出规范见 `references/reply-templates.md` — 第八步。
@@ -689,7 +674,7 @@ node {baseDir}/scripts/briefing.mjs --mode=daily --trip='<trip_json>' --plan='<p
 已出发先标记：
 
 ```bash
-node {baseDir}/scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
+node {baseDir}/scripts/trip-workflow.mjs --cmd=start_trip --trip-id=<trip_id>
 ```
 
 ### 第十步：行后沉淀
@@ -717,12 +702,14 @@ node {baseDir}/scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
 
 | Path | Role |
 |------|------|
-| `scripts/db.mjs` | 偏好、行程、预算摘要、导出（唯一状态存储层） |
+| `scripts/preferences.mjs` | 偏好域存储与读写（含 `is_initialized`/`save_preferences`/`get_preferences`） |
+| `scripts/trips.mjs` | Trip 数据层：schema 标准化、CRUD、预算与行程项 |
+| `scripts/trip-workflow.mjs` | Trip 流程层：阶段守卫、路线确认、evidence 持久化、预订与启程状态流转 |
+| `scripts/db.mjs` | 兼容型 CLI 门面：统一命令分发到 preferences/trips/trip-workflow 与缓存模块 |
 | `scripts/route-plan.mjs` | 路线候选结构化输出 |
-| `scripts/route-validation.mjs` | 对实时技能结果做可行性裁决（`go/caution/block`），不再生成 tool_plan |
+| `scripts/route-validation.mjs` | Step 5 辅助：据 `route_validation`（+可选 `live_results`）推导 `go/caution/block` 建议，不替代 Agent 调研与 `patch_trip` |
 | `scripts/route-ui-enrichment.mjs` | 将 flyai/amap POI 原始结果映射为 `route_stop_media/route_stop_points` 增强输入 |
-| `scripts/poi-cache-merge.mjs` | 合并 POI 缓存与实时 POI 结果，输出 `route_stop_media/route_stop_points` 与缓存回写增量 |
-| `scripts/plan-generator.mjs` | 读取已持久化的 trip，输出骨架计划、每日卡片、打包建议（不主动调用其他计算模块） |
+| `scripts/plan-generator.mjs` | 读取已持久化的 trip，输出 Step 6/7 骨架与总结
 | `scripts/xhs-evidence-builder.mjs` | 规范化小红书搜索结果，输出 `route_evidence` 对象（其中 `platform=xhs`，第四步 xhs 链路必走） |
 | `scripts/booking-ready.mjs` | 合并实时结果生成 booking-ready 包 |
 | `scripts/briefing.mjs` | 行前/每日简报 |

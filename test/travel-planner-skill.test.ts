@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,14 +9,18 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-const travelDbScript = path.join(
+const travelDbScript = path.join(repoRoot, "skills/travel-planner/scripts/db.mjs");
+const planGeneratorScript = path.join(
   repoRoot,
-  "skills/travel-planner/scripts/travel_db.mjs",
+  "skills/travel-planner/scripts/plan-generator.mjs",
 );
 
 import { buildBookingReadyPackage } from "../skills/travel-planner/scripts/booking-ready.mjs";
-import { buildLiveValidation } from "../skills/travel-planner/scripts/route-validation.mjs";
-import { generateTripPlan } from "../skills/travel-planner/scripts/plan-generator.mjs";
+import { buildFeasibilityVerdict } from "../skills/travel-planner/scripts/route-validation.mjs";
+import {
+  generateTripPlan,
+  persistStep6PlanOverview,
+} from "../skills/travel-planner/scripts/plan-generator.mjs";
 import { selectRouteCandidates } from "../skills/travel-planner/scripts/route-plan.mjs";
 import {
   buildXhsEvidence,
@@ -30,6 +34,7 @@ import {
   saveRouteEvidence,
   saveLiveResults,
   setTravelPlannerDbDirForTests,
+  updateTrip,
 } from "../skills/travel-planner/scripts/db.mjs";
 
 describe("travel-planner JS modules", () => {
@@ -49,7 +54,7 @@ describe("travel-planner JS modules", () => {
     }
   });
 
-  it("selectRouteCandidates requests XHS evidence when policy is xhs_first and evidence missing", () => {
+  it("selectRouteCandidates requests XHS evidence when xhs preference and evidence missing", () => {
     const result = selectRouteCandidates({
       destination: { region: "Xinjiang", country: "China" },
       duration_days: 7,
@@ -57,12 +62,10 @@ describe("travel-planner JS modules", () => {
       budget: { total: 14000, currency: "CNY" },
       transport_preferences: [],
       activities: ["nature"],
+      route_source_preference: "xhs",
     });
-    expect(result.destination_key).toBe("generic");
-    expect(result.recommended_route).toEqual({});
-    expect(result.alternatives).toEqual([]);
-    expect(result.framing_source).toBe("agent_tools");
-    expect(result.requires_route_evidence).toBe(true);
+    expect(result.route_options).toEqual([]);
+    expect(result.route_tool_ui_ready).toBe(false);
     expect(result.next_action).toMatch(/Xiaohongshu/i);
     expect(result.planning_note).toMatch(/Xiaohongshu-first|fallback/i);
   });
@@ -150,8 +153,9 @@ describe("travel-planner JS modules", () => {
   it("selectRouteCandidates returns XHS-driven route when evidence is present", () => {
     const result = selectRouteCandidates({
       destination: { region: "川西", country: "China" },
-      recommendation_source_policy: "xhs_first",
+      route_source_preference: "xhs",
       route_evidence: {
+        platform: "xhs",
         evidence_quality: "high",
         generated_at: "2026-04-07T00:00:00Z",
         summary: "川西小环线高频",
@@ -165,39 +169,30 @@ describe("travel-planner JS modules", () => {
         stay_hints: { recommended_bases: ["新都桥", "丹巴"] },
       },
     });
-    expect(result.recommendation_source).toBe("xhs_first");
-    expect(result.requires_route_evidence).toBe(false);
-    expect(result.recommended_route?.stops?.length).toBeGreaterThan(0);
-    expect(result.evidence_links.length).toBeGreaterThan(0);
     expect(result.route_options.length).toBeGreaterThanOrEqual(2);
-    expect(result.recommended_route.route_id).toBeTruthy();
+    expect(result.route_options[0]?.stops?.length).toBeGreaterThan(0);
+    expect(result.route_options[0]?.route_id).toBeTruthy();
+    expect(result.route_options[0]?.source_platform).toBe("xhs");
   });
 
-  it("buildLiveValidation includes flight and hotel tool plans for a route with hubs", () => {
-    const trip = {
-      destination: { country: "China" },
-      departure_date: "2026-07-10",
-      return_date: "2026-07-17",
-      duration_days: 7,
-      travelers: 2,
-      budget: { total: 20000 },
-      departure_city: "Shanghai",
+  it("buildFeasibilityVerdict respects Step 5 transport_result / weather_result status", () => {
+    const rv = {
+      transport_result: {
+        required: true,
+        mode: "flight",
+        checked: true,
+        raw: {},
+        status: "ok",
+      },
+      weather_result: {
+        locations_checked: ["成都"],
+        raw: {},
+        status: "caution",
+      },
     };
-    const route = {
-      arrival_hubs: ["Urumqi", "Yining"],
-      departure_hubs: ["Yining", "Urumqi"],
-      hotel_bases: ["Urumqi", "Yining"],
-      poi_cities: ["Urumqi", "Yining"],
-      style: "nature-relaxed",
-      validation_focus: ["Test focus"],
-      regions: ["Urumqi", "Yining"],
-    };
-    const v = buildLiveValidation(trip, route, {});
-    expect(v.stage).toBe("validation");
-    expect(v.tool_plan.flights.length).toBeGreaterThan(0);
-    expect(v.tool_plan.hotels.length).toBe(2);
-    expect(v.tool_plan.pois.length).toBe(2);
-    expect(v.decision_gates.length).toBe(3);
+    const out = buildFeasibilityVerdict(rv, {});
+    expect(out.verdict).toBe("caution");
+    expect(out.verdict_reasons.length).toBeGreaterThan(0);
   });
 
   it("buildBookingReadyPackage is partial without live results", () => {
@@ -284,6 +279,12 @@ describe("travel-planner JS modules", () => {
     const id = JSON.parse(add.stdout || "{}").trip_id as string;
     const patch = JSON.stringify({
       stage: "plan_ready",
+      chosen_route_id: "r1",
+      route_choice_confirmed: true,
+      route_options: [
+        { route_id: "r1", title: "A", stops: ["a", "b"] },
+        { route_id: "r2", title: "B", stops: ["b", "a"] },
+      ],
       selected_route: { route_id: "r1" },
     });
     const r = spawnSync(
@@ -349,7 +350,9 @@ describe("travel-planner JS modules", () => {
     const trip = getTripById(id);
     expect(trip?.route_evidence_meta?.platform).toBe("xhs");
     expect(trip?.route_evidence_meta?.source_count).toBe(1);
-    expect(trip?.route_evidence_meta?.evidence_file).toContain(`data/evidence/${id}.xhs.json`);
+    expect(trip?.route_evidence_meta?.evidence_file).toContain(
+      `data/trips/${id}/evidence.xhs.json`,
+    );
     const evidence = getRouteEvidence(id);
     expect(evidence?.meta?.quality).toBe("medium");
     expect(evidence?.evidence?.sources?.[0]?.id).toBe("note_1");
@@ -460,6 +463,119 @@ describe("travel-planner JS modules", () => {
     expect(ok).toBe(true);
   });
 
+  it("persistStep6PlanOverview writes step6.plan-overview.json under trip dir", () => {
+    const written = persistStep6PlanOverview("trip-step6-artifact", {
+      generated_at: "2026-04-17T12:00:00.000Z",
+      chosen_route_id: "r1",
+      route_validation_status: "ready",
+      step6_summary: {
+        route_overview_text: "A B",
+        daily_overview: [{ day: 1, route_line: "x" }],
+        transport_snapshot: { flights: "n/a" },
+        weather_table_rows: [],
+        template_hint: {},
+      },
+    });
+    expect(written).toBe(
+      path.join(tmpDir, "data", "trips", "trip-step6-artifact", "step6.plan-overview.json"),
+    );
+    const raw = JSON.parse(readFileSync(written, "utf8")) as {
+      schema_version: number;
+      trip_id: string;
+      route_overview_text: string;
+      daily_overview: Array<{ day: number }>;
+    };
+    expect(raw.schema_version).toBe(1);
+    expect(raw.trip_id).toBe("trip-step6-artifact");
+    expect(raw.route_overview_text).toBe("A B");
+    expect(raw.daily_overview[0]?.day).toBe(1);
+  });
+
+  it("plan-generator CLI rejects --cmd=plan_overview with --trip-json (unexpected flag)", () => {
+    const r = spawnSync(
+      process.execPath,
+      [
+        planGeneratorScript,
+        `--trip-json=${JSON.stringify({
+          id: "cli-step6",
+          destination: { country: "China" },
+          duration_days: 2,
+        })}`,
+        "--cmd=plan_overview",
+      ],
+      { encoding: "utf8" },
+    );
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/trip-json|unexpected flag/i);
+  });
+
+  it("plan-generator CLI requires --cmd", () => {
+    const id = addTrip(
+      {
+        destination_text: "No cmd",
+        destination: { country: "China" },
+        duration_days: 1,
+      },
+      "current",
+    );
+    const r = spawnSync(process.execPath, [planGeneratorScript, `--trip-id=${id}`], {
+      env: { ...process.env, TRAVEL_PLANNER_DB_DIR: tmpDir },
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/--cmd/);
+  });
+
+  it("plan-generator CLI --cmd=plan_overview writes step6.plan-overview.json", () => {
+    const id = addTrip(
+      {
+        destination_text: "Step6 persist",
+        destination: { country: "China" },
+        duration_days: 2,
+      },
+      "current",
+    );
+    const r = spawnSync(
+      process.execPath,
+      [planGeneratorScript, `--trip-id=${id}`, "--cmd=plan_overview"],
+      {
+        env: { ...process.env, TRAVEL_PLANNER_DB_DIR: tmpDir },
+        encoding: "utf8",
+      },
+    );
+    expect(r.status).toBe(0);
+    const artifact = path.join(
+      tmpDir,
+      "data",
+      "trips",
+      String(id),
+      "step6.plan-overview.json",
+    );
+    expect(readFileSync(artifact, "utf8")).toMatch(/"schema_version"\s*:\s*1/);
+    expect(r.stderr).toMatch(/plan_overview 已落盘/);
+  });
+
+  it("plan-generator CLI rejects unknown --cmd", () => {
+    const id = addTrip(
+      {
+        destination_text: "Bad cmd",
+        destination: { country: "China" },
+        duration_days: 1,
+      },
+      "current",
+    );
+    const r = spawnSync(
+      process.execPath,
+      [planGeneratorScript, `--trip-id=${id}`, "--cmd=step_8_legacy"],
+      {
+        env: { ...process.env, TRAVEL_PLANNER_DB_DIR: tmpDir },
+        encoding: "utf8",
+      },
+    );
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/未知 --cmd 值/);
+  });
+
   it("generateTripPlan returns core sections but withholds itinerary before route confirmation", () => {
     const plan = generateTripPlan({
       id: "t1",
@@ -470,9 +586,164 @@ describe("travel-planner JS modules", () => {
       travelers: 2,
     });
     expect(plan.route_plan).toBeTruthy();
-    expect(plan.route_validation?.tool_plan).toBeTruthy();
+    expect(plan.route_plan).toMatchObject({ source: "none", plan_output: null });
+    expect(plan.route_validation_status).toBe("missing");
     expect(plan.itinerary?.length).toBe(0);
     expect(plan.budget?.breakdown).toBeTruthy();
-    expect(plan.pre_trip_brief?.type).toBe("pre_trip");
+    expect(plan).not.toHaveProperty("pre_trip_brief");
+    expect(plan).not.toHaveProperty("booking_ready");
+  });
+
+  it("generateTripPlan step6_summary weather_table_rows prefers step5.route-validation.json", () => {
+    const id = "trip-step5-weather";
+    const tripDir = path.join(tmpDir, "data", "trips", id);
+    mkdirSync(tripDir, { recursive: true });
+    const step5 = {
+      verdict: "go",
+      checked_at: "2026-04-17T00:00:00.000Z",
+      transport_result: {
+        required: false,
+        mode: "",
+        checked: true,
+        raw: {},
+        status: "not_required",
+      },
+      weather_result: {
+        locations_checked: ["康定"],
+        status: "go",
+        raw: {
+          locations: [
+            {
+              location: "康定",
+              date: "2026-08-01",
+              condition: "多云",
+              temperature: "18-24°C",
+              risk: "低",
+            },
+          ],
+        },
+      },
+    };
+    writeFileSync(
+      path.join(tripDir, "step5.route-validation.json"),
+      JSON.stringify(step5, null, 2),
+      "utf8",
+    );
+    const plan = generateTripPlan({
+      id,
+      destination: { region: "川西", country: "China" },
+      duration_days: 2,
+      departure_date: "2026-08-01",
+      route_choice_confirmed: true,
+      chosen_route_id: "r1",
+      route_options: [{ route_id: "r1", title: "Loop", stops: ["康定", "新都桥"] }],
+      route_validation: {
+        stage: "",
+        transport_result: {
+          required: false,
+          mode: "",
+          checked: false,
+          raw: {},
+          status: "",
+        },
+        weather_result: { locations_checked: [], raw: {}, status: "" },
+        verdict: "",
+        verdict_reasons: [],
+        checked_at: "",
+      },
+    });
+    expect(plan.step6_summary?.weather_table_rows?.[0]).toMatchObject({
+      location: "康定",
+      condition: "多云",
+      temperature: "18-24°C",
+      risk: "低",
+    });
+    expect(plan.step6_summary?.transport_snapshot?.flight).toMatch(/无需机票验证/);
+    expect(plan.step6_summary?.transport_snapshot?.train).toMatch(/无需高铁验证/);
+  });
+
+  it("generateTripPlan transport_snapshot uses step5.route-validation.json flight raw", () => {
+    const id = "trip-step5-transport";
+    const tripDir = path.join(tmpDir, "data", "trips", id);
+    mkdirSync(tripDir, { recursive: true });
+    const step5 = {
+      verdict: "go",
+      checked_at: "2026-04-17T12:00:00.000Z",
+      transport_result: {
+        required: true,
+        mode: "flight",
+        checked: true,
+        status: "ok",
+        raw: { flights: [{ from: "SHA", to: "KGT" }] },
+      },
+      weather_result: { locations_checked: [], raw: {}, status: "go" },
+    };
+    writeFileSync(
+      path.join(tripDir, "step5.route-validation.json"),
+      JSON.stringify(step5, null, 2),
+      "utf8",
+    );
+    const plan = generateTripPlan({
+      id,
+      destination: { region: "川西", country: "China" },
+      duration_days: 2,
+      departure_date: "2026-08-01",
+      route_choice_confirmed: true,
+      chosen_route_id: "r1",
+      route_options: [{ route_id: "r1", title: "Loop", stops: ["康定"] }],
+      route_validation: {
+        stage: "",
+        transport_result: {
+          required: true,
+          mode: "flight",
+          checked: false,
+          raw: {},
+          status: "",
+        },
+        weather_result: { locations_checked: ["康定"], raw: {}, status: "go" },
+        verdict: "",
+        verdict_reasons: [],
+        checked_at: "",
+      },
+    });
+    expect(plan.step6_summary?.transport_snapshot?.flight).toBe("已验证（存在机票候选）");
+  });
+
+  it("generateTripPlan route_plan.plan_output reads step4.plan-output.json via ref", () => {
+    const id = addTrip(
+      {
+        destination_text: "川西",
+        destination: { country: "China" },
+        duration_days: 3,
+      },
+      "current",
+    );
+    const planFull = {
+      route_tool_ui_ready: true,
+      route_options: [{ route_id: "r1", title: "Loop", stops: ["A", "B"] }],
+    };
+    updateTrip(id, {
+      step4_plan_output_full: planFull,
+      chosen_route_id: "r1",
+      route_choice_confirmed: true,
+      route_plan: {
+        recommended_route_id: "r1",
+        alternative_ids: [],
+        rejected_route_ids: [],
+        used_platform: "xhs",
+        fallback_count: 0,
+        fallback_reason: "",
+        decision_summary: { headline: "ok" },
+      },
+    });
+    const trip = getTripById(id);
+    expect(trip).toBeTruthy();
+    const plan = generateTripPlan(trip!);
+    expect(plan.route_plan).toMatchObject({ source: "step4.plan-output.json" });
+    expect(plan.route_plan.plan_output).toMatchObject({
+      route_tool_ui_ready: true,
+      route_options: [{ route_id: "r1" }],
+    });
+    expect(plan.route_plan.decision).toMatchObject({ recommended_route_id: "r1" });
   });
 });

@@ -90,18 +90,18 @@ export const AssistantMessage: FC = () => {
 
   return (
     <MessagePrimitive.Root
-      className="relative mx-auto w-full max-w-3xl data-[role=assistant]:animate-in data-[role=assistant]:fade-in data-[role=assistant]:slide-in-from-bottom-1"
+      className="flex mx-auto w-full max-w-3xl data-[role=assistant]:animate-in data-[role=assistant]:fade-in data-[role=assistant]:slide-in-from-bottom-1"
       data-role="assistant"
     >
       {/* Avatar row — loading state is handled inside AgentAvatar (spinning ring) */}
-      <div className="flex items-center gap-3">
+      <div className="flex gap-3 items-self-start">
         <div className="shrink-0">
-          {isFirstInTurn && <AgentAvatar showLoading={showLoading} />}
+          {isFirstInTurn ? <AgentAvatar showLoading={showLoading} /> : <div className="w-8"/>}
         </div>
       </div>
 
       {/* Content column — indented to align with avatar */}
-      <div className="pl-11 min-w-0">
+      <div className="pl-4 w-full min-w-0">
         <div className="wrap-break-word text-foreground leading-relaxed">
           {textParts.map((part, index) => (
             <AssistantMarkdownPart key={`text-${index}`} text={part.text} />

@@ -90,7 +90,7 @@ export const AgentAvatar: FC<AgentAvatarProps> = ({ size = "md", showLoading = f
   );
 
   return (
-    <div className="flex justify-center items-center gap-2">
+    <div className="flex flex-col justify-center items-center gap-2">
       {inner}
       {showLoading && <AssistantLoadingIndicator />}
     </div>

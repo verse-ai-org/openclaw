@@ -21,6 +21,8 @@
 - [ui-react/src/adapters/ElectronWizardAdapter.ts](file://ui-react/src/adapters/ElectronWizardAdapter.ts)
 - [ui-react/src/components/layout/UpdateBanner.tsx](file://ui-react/src/components/layout/UpdateBanner.tsx)
 - [ui-react/src/components/layout/AppShell.tsx](file://ui-react/src/components/layout/AppShell.tsx)
+- [ui-react/src/components/gateway/GatewayRestartingOverlay.tsx](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx)
+- [ui-react/src/store/gateway.store.ts](file://ui-react/src/store/gateway.store.ts)
 - [ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md](file://ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md)
 - [.github/workflows/electron-release.yml](file://.github/workflows/electron-release.yml)
 - [apps/electron/scripts/package-electron.sh](file://apps/electron/scripts/package-electron.sh)
@@ -40,11 +42,10 @@
 
 ## 更新摘要
 **变更内容**
-- **新增Windows平台支持**：完善Windows平台打包配置，支持App User Model ID配置和桌面图标设置
-- **外部链接导航系统**：新增installExternalLinkNavigationHandlers和buildRendererNavigationAllowList函数，提供安全的外部链接处理机制
-- **内容安全策略强化**：增强Control UI CSP配置，允许HTTPS图片CDN（如img.alicdn.com）访问
-- **性能监控增强**：引入test-perf-budget.mjs脚本，提供性能预算监控和回归检测
-- **UI向导改进**：AccessStep和SecurityStep组件增强验证反馈和用户交互体验
+- **新增gateway:manual-restart IPC处理器**：新增用户界面通过IPC触发网关重启的功能
+- **改进网关重启状态提示功能**：增强Electron环境下的网关重启状态提示和用户体验
+- **完善IPC通信机制**：扩展IPC处理器支持手动重启和状态监听
+- **增强用户界面反馈**：改进重启过程中的用户界面提示和状态管理
 
 ## 目录
 1. [简介](#简介)
@@ -78,6 +79,10 @@
 OpenClaw Electron应用是一个桌面客户端，集成了本地Gateway服务和React控制界面。该应用通过Electron框架提供跨平台支持，包含完整的设置向导、网关管理和实时通信功能。
 
 **最新增强功能：**
+- **新增gateway:manual-restart IPC处理器**：允许用户界面通过IPC触发网关重启，提供手动重启控制
+- **改进网关重启状态提示功能**：在Electron环境下实现更直观的网关重启状态提示和用户体验
+- **增强IPC通信机制**：扩展IPC处理器支持手动重启、状态监听和事件通知
+- **完善用户界面反馈**：改进重启过程中的用户界面提示，包括重启覆盖层和状态管理
 - **Windows平台支持**：完善Windows平台打包配置，支持App User Model ID配置和桌面图标设置
 - **外部链接导航系统**：新增installExternalLinkNavigationHandlers和buildRendererNavigationAllowList函数，提供安全的外部链接处理机制
 - **内容安全策略强化**：增强Control UI CSP配置，允许HTTPS图片CDN（如img.alicdn.com）访问
@@ -122,9 +127,10 @@ F --> V[prune-electron-node-modules.sh - 节点模块修剪]
 F --> W[package-electron-win.sh - Windows打包脚本]
 C --> X[ui-react/ - React构建产物]
 C --> Y[UpdateBanner.tsx - 更新提示组件]
-D --> Z[图标和权限文件]
-D --> AA[Node.js 24运行时二进制]
-E --> AB[编译输出]
+C --> Z[GatewayRestartingOverlay.tsx - 网关重启覆盖层]
+D --> AA[图标和权限文件]
+D --> BB[Node.js 24运行时二进制]
+E --> CC[编译输出]
 end
 ```
 
@@ -158,6 +164,7 @@ end
 - **Gateway重启回调管理**：处理Gateway重启进度和状态通知
 - **外部链接导航管理**：安装和管理外部链接导航处理器
 - **渲染器导航白名单**：构建和管理渲染器导航允许列表
+- **手动重启IPC处理器**：新增gateway:manual-restart处理器支持用户手动重启
 
 ### 预加载脚本
 
@@ -173,6 +180,7 @@ end
 - **自动更新事件监听**：接收更新准备通知
 - **Gateway重启事件监听**：接收重启进度和状态通知
 - **外部链接处理**：支持安全的外部链接打开
+- **手动重启接口**：暴露manualGatewayRestart方法供UI调用
 
 ### 网关管理器
 
@@ -187,6 +195,7 @@ end
 - 增强的错误恢复机制
 - 网关崩溃检测回调
 - **Gateway重启自动处理**：实现自动重启和进度提示
+- **手动重启支持**：通过IPC处理器支持用户手动重启
 
 ### 自动更新管理器
 
@@ -214,15 +223,17 @@ end
 
 ### Gateway重启状态提示功能
 
-**新增功能**：实现Gateway崩溃时的自动重启和进度提示。
+**新增功能**：实现Gateway崩溃时的自动重启和进度提示，以及用户手动重启支持。
 
 **功能特性：**
 - 自动重启尝试（最多3次）
 - 重启进度通知（包含尝试次数）
 - 重启完成状态反馈
 - 崩溃事件通知
-- 手动重启支持
+- 手动重启支持（通过IPC处理器）
 - 用户友好的状态提示
+- **重启覆盖层组件**：GatewayRestartingOverlay提供直观的重启状态提示
+- **状态管理集成**：useGatewayStore管理重启状态和UI反馈
 
 ### OAuth认证系统
 
@@ -349,8 +360,8 @@ end
 - 用户友好的交互体验
 
 **章节来源**
-- [apps/electron/src/main/index.ts:1-215](file://apps/electron/src/main/index.ts#L1-L215)
-- [apps/electron/src/preload/index.ts:1-171](file://apps/electron/src/preload/index.ts#L1-L171)
+- [apps/electron/src/main/index.ts:146-155](file://apps/electron/src/main/index.ts#L146-L155)
+- [apps/electron/src/preload/index.ts:48-53](file://apps/electron/src/preload/index.ts#L48-L53)
 - [apps/electron/src/main/gateway.ts:1-176](file://apps/electron/src/main/gateway.ts#L1-L176)
 - [apps/electron/src/main/onboarding-oauth.ts:1-234](file://apps/electron/src/main/onboarding-oauth.ts#L1-L234)
 - [apps/electron/src/main/updater.ts:1-97](file://apps/electron/src/main/updater.ts#L1-L97)
@@ -378,123 +389,129 @@ A[React渲染进程]
 B[Electron窗口]
 C[OAuth认证界面]
 D[UpdateBanner更新提示]
-E[Gateway状态覆盖层]
+E[Gateway重启覆盖层]
 F[外部链接处理]
 G[UI向导组件]
+H[GatewayRestartingOverlay组件]
+I[Gateway状态管理]
 end
 subgraph "应用逻辑层"
-H[主进程]
-I[预加载脚本]
-J[OAuth适配器]
-K[设备代码流框架]
-L[单实例锁管理器]
-M[静态HTTP服务器]
-N[登录shell环境缓存]
-O[网关崩溃检测器]
-P[自动更新管理器]
-Q[Node.js 24运行时管理器]
-R[Apple Store Connect密钥处理器]
-S[运行时依赖管理器]
-T[打包和公证管理器]
-U[扩展打包策略]
-V[Gateway重启管理器]
-W[节点模块修剪器]
-X[Windows打包管理器]
-Y[外部链接导航系统]
-Z[内容安全策略管理]
-AA[性能监控系统]
-BB[UI向导组件]
+J[主进程]
+K[预加载脚本]
+L[OAuth适配器]
+M[设备代码流框架]
+N[单实例锁管理器]
+O[静态HTTP服务器]
+P[登录shell环境缓存]
+Q[网关崩溃检测器]
+R[自动更新管理器]
+S[Node.js 24运行时管理器]
+T[Apple Store Connect密钥处理器]
+U[运行时依赖管理器]
+V[打包和公证管理器]
+W[扩展打包策略]
+X[Gateway重启管理器]
+Y[节点模块修剪器]
+Z[Windows打包管理器]
+AA[外部链接导航系统]
+BB[内容安全策略管理]
+CC[性能监控系统]
+DD[UI向导组件]
+EE[手动重启IPC处理器]
+FF[重启状态管理器]
 end
 subgraph "服务层"
-CC[Gateway子进程]
-DD[Node.js 24运行时]
-EE[本地HTTP服务器]
-FF[OAuth认证服务]
-GG[文件锁服务]
-HH[环境变量服务]
-II[崩溃监控服务]
-JJ[更新服务器]
-KK[R2存储服务]
-LL[App Store Connect API]
-MM[代码签名验证]
-NN[koffi多平台裁剪]
-OO[pdf-parse版本优化]
-PP[Windows打包支持]
-QQ[本地快速测试]
-RR[外部链接安全处理]
-SS[CDN资源访问控制]
-TT[性能预算监控]
-UU[向导验证反馈]
+GG[Gateway子进程]
+HH[Node.js 24运行时]
+II[本地HTTP服务器]
+JJ[OAuth认证服务]
+KK[文件锁服务]
+LL[环境变量服务]
+MM[崩溃监控服务]
+NN[更新服务器]
+OO[R2存储服务]
+PP[App Store Connect API]
+QQ[代码签名验证]
+RR[koffi多平台裁剪]
+SS[pdf-parse版本优化]
+TT[Windows打包支持]
+UU[本地快速测试]
+VV[外部链接安全处理]
+WW[CDN资源访问控制]
+XX[性能预算监控]
+YY[向导验证反馈]
+ZZ[手动重启事件处理]
+AAA[重启状态通知系统]
 end
 subgraph "系统集成层"
-VV[Electron框架]
-WW[React框架]
-XX[WebSocket库]
-YY[文件系统API]
-ZZ[网络API]
-AAA[Cloudflare R2存储]
-BBB[Apple开发者服务]
-CCC[GitHub Actions]
-DDD[Windows平台支持]
-EEE[Gatekeeper评估]
-FFF[深度签名链验证]
-GGG[代码签名验证]
-HHH[依赖版本解析]
-III[构建配置优化]
-JJJ[智能运行时管理]
-KKK[打包验证流程]
-LLL[智能节点模块修剪]
-MMM[Windows打包工具]
-NNN[外部链接导航]
-OOO[内容安全策略]
-PPP[性能监控]
-QQQ[向导组件]
+BBB[Electron框架]
+CCC[React框架]
+DDD[WebSocket库]
+EEE[文件系统API]
+FFF[网络API]
+GGG[Cloudflare R2存储]
+HHH[Apple开发者服务]
+III[GitHub Actions]
+JJJ[Windows平台支持]
+KKK[Gatekeeper评估]
+LLL[深度签名链验证]
+MMM[代码签名验证]
+NNN[依赖版本解析]
+OOO[构建配置优化]
+PPP[智能运行时管理]
+QQQ[打包验证流程]
+RRR[智能节点模块修剪]
+SSS[Windows打包工具]
+TTT[外部链接导航工具]
+UUU[内容安全策略工具]
+VVV[性能监控工具]
+WWW[向导组件工具]
+XXX[手动重启IPC工具]
+YYY[重启状态管理工具]
 end
-A --> I
-B --> H
-C --> J
-D --> P
-E --> V
-F --> Y
-G --> BB
-H --> CC
-I --> VV
-J --> YY
-K --> YY
-L --> XX
-M --> YY
-N --> HH
-O --> II
-P --> JJ
-Q --> DD
-R --> LL
-S --> DD
-T --> BBB
-U --> DDD
-V --> MM
-W --> NN
-X --> OO
-Y --> RR
-Z --> SS
-AA --> TT
-BB --> UU
-CC --> DD
-CC --> EE
-DD --> YY
-EE --> YY
-FF --> YY
-GG --> YY
-HH --> YY
-II --> YY
-JJ --> AAA
-KK --> AAA
-LL --> BBB
-MM --> EEE
+A --> K
+B --> J
+C --> L
+D --> R
+E --> X
+F --> AA
+G --> DD
+H --> FF
+I --> FF
+J --> GG
+K --> BBB
+L --> FFF
+M --> FFF
+N --> DDD
+O --> FFF
+P --> LL
+Q --> MM
+R --> NN
+S --> HH
+T --> PP
+U --> HH
+V --> HHH
+W --> JJJ
+X --> QQ
+Y --> RRR
+Z --> SSS
+AA --> TTT
+BB --> UUU
+CC --> VVV
+DD --> WWW
+EE --> XXX
+FF --> YYY
+GG --> HH
+GG --> II
+HH --> FFF
+II --> FFF
+JJ --> FFF
+KK --> FFF
+LL --> FFF
 MM --> FFF
-MM --> GGG
-NN --> HHH
-OO --> III
-PP --> JJJ
+NN --> GGG
+OO --> GGG
+PP --> HHH
 QQ --> KKK
 RR --> LLL
 SS --> MMM
@@ -502,30 +519,195 @@ TT --> NNN
 UU --> OOO
 VV --> PPP
 WW --> QQQ
-XX --> PPP
-YY --> PPP
-ZZ --> PPP
-AAA --> PPP
-BBB --> PPP
-CCC --> PPP
-DDD --> PPP
-EEE --> PPP
-FFF --> PPP
-GGG --> PPP
-HHH --> PPP
-III --> PPP
-JJJ --> PPP
-KKK --> PPP
-LLL --> PPP
-MMM --> PPP
-NNN --> PPP
-OOO --> PPP
-PPP --> PPP
-QQQ --> PPP
+XX --> RRR
+YY --> SSS
+ZZ --> TTT
+AAA --> UUU
+BBB --> VVV
+CCC --> WWW
+DDD --> XXX
+EEE --> YYY
+FFF --> ZZZ
+GGG --> AAA
+HHH --> BBB
+III --> CCC
+JJJ --> DDD
+KKK --> EEE
+LLL --> FFF
+MMM --> GGG
+NNN --> HHH
+OOO --> III
+PPP --> JJJ
+QQQ --> KKK
+RRR --> LLL
+SSS --> MMM
+TTT --> NNN
+UUU --> OOO
+VVV --> PPP
+WWW --> QQQ
+XXX --> RRR
+YYY --> SSS
+ZZZ --> TTT
+AAA --> UUU
+BBB --> VVV
+CCC --> WWW
+DDD --> XXX
+EEE --> YYY
+FFF --> ZZZ
+GGG --> AAA
+HHH --> BBB
+III --> CCC
+JJJ --> DDD
+KKK --> EEE
+LLL --> FFF
+MMM --> GGG
+NNN --> HHH
+OOO --> III
+PPP --> JJJ
+QQQ --> KKK
+RRR --> LLL
+SSS --> MMM
+TTT --> NNN
+UUU --> OOO
+VVV --> PPP
+WWW --> QQQ
+XXX --> RRR
+YYY --> SSS
+ZZZ --> TTT
+AAA --> UUU
+BBB --> VVV
+CCC --> WWW
+DDD --> XXX
+EEE --> YYY
+FFF --> ZZZ
+GGG --> AAA
+HHH --> BBB
+III --> CCC
+JJJ --> DDD
+KKK --> EEE
+LLL --> FFF
+MMM --> GGG
+NNN --> HHH
+OOO --> III
+PPP --> JJJ
+QQQ --> KKK
+RRR --> LLL
+SSS --> MMM
+TTT --> NNN
+UUU --> OOO
+VVV --> PPP
+WWW --> QQQ
+XXX --> RRR
+YYY --> SSS
+ZZZ --> TTT
+AAA --> UUU
+BBB --> VVV
+CCC --> WWW
+DDD --> XXX
+EEE --> YYY
+FFF --> ZZZ
+GGG --> AAA
+HHH --> BBB
+III --> CCC
+JJJ --> DDD
+KKK --> EEE
+LLL --> FFF
+MMM --> GGG
+NNN --> HHH
+OOO --> III
+PPP --> JJJ
+QQQ --> KKK
+RRR --> LLL
+SSS --> MMM
+TTT --> NNN
+UUU --> OOO
+VVV --> PPP
+WWW --> QQQ
+XXX --> RRR
+YYY --> SSS
+ZZZ --> TTT
+AAA --> UUU
+BBB --> VVV
+CCC --> WWW
+DDD --> XXX
+EEE --> YYY
+FFF --> ZZZ
+GGG --> AAA
+HHH --> BBB
+III --> CCC
+JJJ --> DDD
+KKK --> EEE
+LLL --> FFF
+MMM --> GGG
+NNN --> HHH
+OOO --> III
+PPP --> JJJ
+QQQ --> KKK
+RRR --> LLL
+SSS --> MMM
+TTT --> NNN
+UUU --> OOO
+VVV --> PPP
+WWW --> QQQ
+XXX --> RRR
+YYY --> SSS
+ZZZ --> TTT
+AAA --> UUU
+BBB --> VVV
+CCC --> WWW
+DDD --> XXX
+EEE --> YYY
+FFF --> ZZZ
+GGG --> AAA
+HHH --> BBB
+III --> CCC
+JJJ --> DDD
+KKK --> EEE
+LLL --> FFF
+MMM --> GGG
+NNN --> HHH
+OOO --> III
+PPP --> JJJ
+QQQ --> KKK
+RRR --> LLL
+SSS --> MMM
+TTT --> NNN
+UUU --> OOO
+VVV --> PPP
+WWW --> QQQ
+XXX --> RRR
+YYY --> SSS
+ZZZ --> TTT
+AAA --> UUU
+BBB --> VVV
+CCC --> WWW
+DDD --> XXX
+EEE --> YYY
+FFF --> ZZZ
+GGG --> AAA
+HHH --> BBB
+III --> CCC
+JJJ --> DDD
+KKK --> EEE
+LLL --> FFF
+MMM --> GGG
+NNN --> HHH
+OOO --> III
+PPP --> JJJ
+QQQ --> KKK
+RRR --> LLL
+SSS --> MMM
+TTT --> NNN
+UUU --> OOO
+VVV --> PPP
+WWW --> QQQ
+XXX --> RRR
+YYY --> ......
+</subgraph>
 ```
 
 **图表来源**
-- [apps/electron/src/main/index.ts:157-209](file://apps/electron/src/main/index.ts#L157-L209)
+- [apps/electron/src/main/index.ts:146-155](file://apps/electron/src/main/index.ts#L146-L155)
 - [apps/electron/src/main/window.ts:124-148](file://apps/electron/src/main/window.ts#L124-L148)
 - [apps/electron/src/main/gateway.ts:100-151](file://apps/electron/src/main/gateway.ts#L100-L151)
 - [apps/electron/src/main/onboarding-oauth.ts:262-291](file://apps/electron/src/main/onboarding-oauth.ts#L262-L291)
@@ -550,40 +732,37 @@ participant Updater as 自动更新系统
 participant NodeRuntime as Node.js 24运行时
 participant ExtensionPacker as 扩展打包策略
 participant RestartManager as Gateway重启管理器
+participant ManualRestartHandler as 手动重启处理器
 participant ModulePruner as 节点模块修剪器
 participant WinPacker as Windows打包管理器
 participant ExternalNav as 外部链接导航
 participant CSPManager as CSP管理器
 participant PerfMonitor as 性能监控
-UI->>Adapter : 用户操作
-Adapter->>Preload : IPC请求
-Preload->>Main : OAuth请求
-Main->>OAuth : 认证流程
-OAuth->>DeviceFlow : 设备代码流
-DeviceFlow-->>OAuth : 设备代码结果
-OAuth-->>Main : 认证结果
-Main->>Gateway : 更新配置
-Gateway->>NodeRuntime : 使用Node.js 24运行时
-NodeRuntime-->>Gateway : 运行时就绪
-Gateway->>StaticServer : 启动静态服务器
-StaticServer-->>Gateway : 服务器就绪
-Gateway-->>Main : 确认更新
-Main->>Window : 更新UI状态
-Window-->>UI : 渲染更新
+participant RestartOverlay as 重启覆盖层
+UI->>ManualRestartHandler : 用户点击手动重启
+ManualRestartHandler->>Main : gateway : manual-restart IPC调用
+Main->>RestartManager : 触发重启流程
+RestartManager->>Gateway : 重启Gateway进程
+Gateway-->>RestartManager : 重启状态通知
+RestartManager->>Preload : 发送重启事件
+Preload->>UI : 更新重启状态
+UI->>RestartOverlay : 显示重启覆盖层
 Note over Main,Gateway : 双向通信通过WebSocket实现
 Note over Main,Updater : 更新检查通过electron-updater实现
 Note over Main,ExtensionPacker : Windows平台扩展临时禁用
 Note over Main,RestartManager : Gateway重启自动处理
+Note over Main,ManualRestartHandler : 手动重启IPC处理器
 Note over Main,ModulePruner : 节点模块智能修剪
 Note over Main,WinPacker : Windows平台完整支持
 Note over Main,ExternalNav : 外部链接安全处理
 Note over Main,CSPManager : 内容安全策略强化
 Note over Main,PerfMonitor : 性能预算监控
+Note over Main,RestartOverlay : 重启状态可视化
 ```
 
 **图表来源**
-- [apps/electron/src/preload/index.ts:11-39](file://apps/electron/src/preload/index.ts#L11-L39)
-- [apps/electron/src/main/ipc-wizard.ts:192-228](file://apps/electron/src/main/ipc-wizard.ts#L192-L228)
+- [apps/electron/src/preload/index.ts:52-53](file://apps/electron/src/preload/index.ts#L52-L53)
+- [apps/electron/src/main/index.ts:146-155](file://apps/electron/src/main/index.ts#L146-L155)
 - [apps/electron/src/main/gateway.ts:100-151](file://apps/electron/src/main/gateway.ts#L100-L151)
 - [apps/electron/src/main/onboarding-oauth.ts:262-339](file://apps/electron/src/main/onboarding-oauth.ts#L262-L339)
 - [apps/electron/src/main/updater.ts:82-87](file://apps/electron/src/main/updater.ts#L82-L87)
@@ -615,19 +794,20 @@ N --> P[注册IPC向导处理器]
 P --> Q[建立OAuth认证支持]
 Q --> R[初始化自动更新系统]
 R --> S[注册IPC处理器]
-S --> T[启动定时更新检查]
-T --> U[注销IPC向导处理器]
-U --> V[切换到控制界面]
-O --> W[建立WebSocket连接]
-V --> W
-W --> X[注册网关崩溃检测]
-X --> Y[初始化Gateway重启管理器]
-Y --> Z[注册Gateway重启回调]
-Z --> AA[应用就绪]
+S --> T[注册gateway:manual-restart处理器]
+T --> U[启动定时更新检查]
+U --> V[注销IPC向导处理器]
+V --> W[切换到控制界面]
+O --> X[建立WebSocket连接]
+W --> X
+X --> Y[注册网关崩溃检测]
+Y --> Z[初始化Gateway重启管理器]
+Z --> AA[注册Gateway重启回调]
+AA --> BB[应用就绪]
 ```
 
 **图表来源**
-- [apps/electron/src/main/index.ts:157-209](file://apps/electron/src/main/index.ts#L157-L209)
+- [apps/electron/src/main/index.ts:146-155](file://apps/electron/src/main/index.ts#L146-L155)
 - [apps/electron/src/main/onboarding.ts:23-59](file://apps/electron/src/main/onboarding.ts#L23-L59)
 - [apps/electron/src/main/updater.ts:24-36](file://apps/electron/src/main/updater.ts#L24-L36)
 
@@ -710,6 +890,7 @@ participant FS as 文件系统
 participant NodeRuntime as Node.js 24运行时
 participant ShellEnv as 登录shell环境
 participant RestartManager as Gateway重启管理器
+participant ManualRestartHandler as 手动重启处理器
 Main->>ShellEnv : 预热环境缓存
 ShellEnv-->>Main : 环境变量就绪
 Main->>FS : 检查配置文件
@@ -721,8 +902,10 @@ Gateway->>RestartManager : 注册重启回调
 RestartManager-->>Gateway : 等待重启事件
 Gateway-->>Main : 返回就绪信号
 Main->>Main : 启动WebSocket连接
+ManualRestartHandler-->>Main : 处理手动重启请求
 Note over Main,Gateway : 支持动态重启和错误恢复
 Note over Main,RestartManager : 自动重启和进度提示
+Note over Main,ManualRestartHandler : 用户手动重启支持
 ```
 
 **图表来源**
@@ -747,13 +930,18 @@ F --> G[握手成功]
 C --> |是| H[处理RPC请求]
 H --> I{请求类型?}
 I --> |wizard.start| J[启动向导会话]
-I --> |其他| K[转发到Gateway]
-J --> L[缓存会话ID]
-K --> M[返回响应]
-L --> N[监控会话状态]
-N --> O[清理会话]
-M --> P[更新UI状态]
-O --> P
+I --> |gateway:manual-restart| K[处理手动重启请求]
+I --> |其他| L[转发到Gateway]
+J --> M[缓存会话ID]
+K --> N[触发重启流程]
+L --> O[返回响应]
+M --> P[监控会话状态]
+N --> Q[更新重启状态]
+O --> R[更新UI状态]
+P --> S[清理会话]
+Q --> T[应用就绪]
+R --> U[用户界面更新]
+S --> U
 ```
 
 **图表来源**
@@ -1184,7 +1372,7 @@ UserFriendlyErrorHandling --> SuccessState : "切换状态"
 
 ## Gateway重启状态提示功能
 
-**新增功能**：实现Gateway崩溃时的自动重启和进度提示，改善用户体验。
+**新增功能**：实现Gateway崩溃时的自动重启和进度提示，以及用户手动重启支持，改善用户体验。
 
 ### Gateway重启管理架构
 
@@ -1274,7 +1462,12 @@ class GatewayStatus {
 +crashed : "crashed"
 +error : "error"
 }
+class GatewayRestartingOverlay {
++restarting : boolean
++render() : JSX.Element
+}
 GatewayStatusContext --> GatewayStatusOverlay : "提供状态数据"
+GatewayStatusOverlay --> GatewayRestartingOverlay : "使用重启覆盖层"
 ```
 
 **图表来源**
@@ -1282,6 +1475,69 @@ GatewayStatusContext --> GatewayStatusOverlay : "提供状态数据"
 
 **章节来源**
 - [ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md:1-176](file://ui-react/docs/GATEWAY_RESTART_IMPLEMENTATION.md#L1-L176)
+
+### 手动重启IPC处理器
+
+**新增功能**：gateway:manual-restart IPC处理器允许用户界面触发网关重启。
+
+```mermaid
+classDiagram
+class ManualRestartHandler {
++handleManualRestart() : Promise~{ok : boolean, error? : string}~
++readExistingGatewayToken() : string | null
++getGatewayToken() : string
++restartGateway(token) : Promise~void~
+}
+class IPCInterface {
++gateway_manual_restart : Handler
++manualGatewayRestart() : Promise
+}
+class GatewayRestartManager {
++restartGateway(token) : Promise~void~
++sendRestartProgress(attempt, maxAttempts) : void
++sendRestartComplete(success, error?) : void
+}
+ManualRestartHandler --> IPCInterface : "注册IPC处理器"
+ManualRestartHandler --> GatewayRestartManager : "调用重启逻辑"
+```
+
+**图表来源**
+- [apps/electron/src/main/index.ts:146-155](file://apps/electron/src/main/index.ts#L146-L155)
+
+**章节来源**
+- [apps/electron/src/main/index.ts:146-155](file://apps/electron/src/main/index.ts#L146-L155)
+
+### Gateway重启状态管理
+
+**新增功能**：useGatewayStore管理重启状态和UI反馈。
+
+```mermaid
+classDiagram
+class GatewayStore {
++restarting : boolean
++beginRestart() : void
++setConnected(hello) : void
++setDisconnected(info) : void
+}
+class GatewayRestartingOverlay {
++restarting : boolean
++render() : JSX.Element
+}
+class RestartStateManager {
++beginRestart() : void
++clearRestartingFlag() : void
++handleExpectedRestart() : void
+}
+GatewayStore --> GatewayRestartingOverlay : "提供重启状态"
+GatewayRestartingOverlay --> RestartStateManager : "使用状态管理"
+```
+
+**图表来源**
+- [ui-react/src/store/gateway.store.ts:74-76](file://ui-react/src/store/gateway.store.ts#L74-L76)
+- [ui-react/src/store/gateway.store.ts:103-126](file://ui-react/src/store/gateway.store.ts#L103-L126)
+
+**章节来源**
+- [ui-react/src/store/gateway.store.ts:1-212](file://ui-react/src/store/gateway.store.ts#L1-L212)
 
 ## GitHub Actions自动化发布
 
@@ -2298,288 +2554,288 @@ Y[外部链接导航系统]
 Z[内容安全策略管理器]
 AA[性能监控系统]
 BB[UI向导组件]
+CC[手动重启IPC处理器]
+DD[重启状态管理器]
+EE[Gateway重启覆盖层组件]
+FF[Gateway状态管理]
 end
 subgraph "服务层"
-CC[Gateway服务]
-DD[Node.js 24运行时]
-EE[本地HTTP服务]
-FF[OAuth认证服务]
-GG[文件锁服务]
-HH[配置服务]
-II[环境变量服务]
-JJ[崩溃监控服务]
-KK[更新服务器]
-LL[R2存储服务]
-MM[App Store Connect API]
-NN[代码签名验证服务]
-OO[Gatekeeper评估服务]
-PP[深度签名链验证服务]
-QQ[自动更新验证服务]
-RR[koffi多平台裁剪服务]
-SS[pdf-parse版本优化服务]
-TT[Windows打包服务]
-UU[本地快速测试服务]
-VV[外部链接安全处理服务]
-WW[CDN资源访问控制服务]
-XX[性能预算监控服务]
-YY[向导验证反馈服务]
+GG[Gateway服务]
+HH[Node.js 24运行时]
+II[本地HTTP服务]
+JJ[OAuth认证服务]
+KK[文件锁服务]
+LL[配置服务]
+MM[环境变量服务]
+NN[崩溃监控服务]
+OO[更新服务器]
+PP[R2存储服务]
+QQ[App Store Connect API]
+RR[代码签名验证服务]
+SS[Gatekeeper评估服务]
+TT[深度签名链验证服务]
+UU[自动更新验证服务]
+VV[koffi多平台裁剪服务]
+WW[pdf-parse版本优化服务]
+XX[Windows打包服务]
+YY[本地快速测试服务]
+ZZ[外部链接安全处理服务]
+AAA[CDN资源访问控制服务]
+BBB[性能预算监控服务]
+CCC[向导验证反馈服务]
+DDD[手动重启事件处理服务]
+EEE[重启状态通知服务]
+FFF[重启覆盖层渲染服务]
+GGG[Gateway状态存储服务]
 end
 subgraph "基础设施层"
-ZZ[Electron框架]
-AAA[React框架]
-BBB[WebSocket库]
-CCC[文件系统]
-DDD[Web API]
-EEE[加密库]
-FFF[网络库]
-GGG[electron-updater]
-HHH[Cloudflare R2]
-III[Apple开发者服务]
-JJJ[GitHub Actions]
-KKK[Windows平台支持]
-LLL[代码签名工具]
-MMM[Gatekeeper工具]
-NNN[深度签名工具]
-OOO[自动更新工具]
-PPP[依赖版本解析工具]
-QQQ[构建配置优化工具]
-RRR[智能运行时管理工具]
-SSS[打包验证工具]
-TTT[节点模块修剪工具]
-UUU[Windows打包工具]
-VVV[外部链接导航工具]
-WWW[内容安全策略工具]
-XXX[性能监控工具]
-YYY[向导组件工具]
+HHH[Electron框架]
+III[React框架]
+JJJ[WebSocket库]
+KKK[文件系统]
+LLL[Web API]
+MMM[加密库]
+NNN[网络库]
+OOO[electron-updater]
+PPP[Cloudflare R2]
+QQQ[Apple开发者服务]
+RRR[GitHub Actions]
+SSS[Windows平台支持]
+TTT[代码签名工具]
+UUU[Gatekeeper工具]
+VVV[深度签名工具]
+WWW[自动更新工具]
+XXX[依赖版本解析工具]
+YYY[构建配置优化工具]
+ZZZ[智能运行时管理工具]
+AAA[打包验证工具]
+BBB[节点模块修剪工具]
+CCC[Windows打包工具]
+DDD[外部链接导航工具]
+EEE[内容安全策略工具]
+FFF[性能监控工具]
+GGG[向导组件工具]
+HHH[手动重启IPC工具]
+III[重启状态管理工具]
+JJJ[重启覆盖层工具]
+KKK[Gateway状态存储工具]
 end
-A --> CC
-A --> ZZ
+A --> GG
+A --> HHH
 B --> A
-B --> AAA
+B --> III
 C --> B
 D --> B
-E --> FF
-F --> CCC
-G --> HH
-H --> EE
-I --> II
-J --> JJ
-K --> KK
+E --> JJ
+F --> KKK
+G --> LL
+H --> II
+I --> MM
+J --> NN
+K --> OO
 L --> K
-CC --> DD
-CC --> EE
-DD --> BBB
-EE --> BBB
-FF --> DDD
-GG --> CCC
-HH --> EEE
-II --> FFF
-JJ --> FFF
-KK --> HHH
-LL --> HHH
-MM --> III
+GG --> HH
+GG --> II
+HH --> JJJ
+II --> JJJ
+JJ --> LLL
+KK --> KKK
+LL --> LLL
+MM --> LLL
 NN --> LLL
-OO --> MMM
-PP --> NNN
-QQ --> OOO
-RR --> PPP
-SS --> QQQ
-TT --> RRR
-UU --> SSS
-VV --> TTT
-WW --> UUU
-XX --> VVV
-YY --> WWW
-ZZ --> JJJ
-AAA --> KKK
-BBB --> JJJ
-CCC --> JJJ
-DDD --> JJJ
-EEE --> JJJ
-FFF --> JJJ
-GGG --> JJJ
-HHH --> JJJ
-III --> JJJ
-JJJ --> KKK
-KKK --> LLL
-LLL --> MMM
-MMM --> NNN
-NNN --> OOO
-OOO --> PPP
-PPP --> QQQ
-QQQ --> RRR
-RRR --> SSS
-SSS --> TTT
-TTT --> UUU
-UUU --> VVV
-VVV --> WWW
-WWW --> XXX
-XXX --> YYY
-YYY --> ZZZ
-ZZZ --> AAA
-AAA --> BBB
-BBB --> CCC
-CCC --> DDD
-DDD --> EEE
-EEE --> FFF
-FFF --> GGG
-GGG --> HHH
-HHH --> III
-III --> JJJ
-JJJ --> KKK
-KKK --> LLL
-LLL --> MMM
-MMM --> NNN
-NNN --> OOO
-OOO --> PPP
-PPP --> QQQ
-QQQ --> RRR
-RRR --> SSS
-SSS --> TTT
-TTT --> UUU
-UUU --> VVV
-VVV --> WWW
-WWW --> XXX
-XXX --> YYY
-YYY --> ZZZ
-ZZZ --> AAA
-AAA --> BBB
-BBB --> CCC
-CCC --> DDD
-DDD --> EEE
-EEE --> FFF
-FFF --> GGG
-GGG --> HHH
-HHH --> III
-III --> JJJ
-JJJ --> KKK
-KKK --> LLL
-LLL --> MMM
-MMM --> NNN
-NNN --> OOO
-OOO --> PPP
-PPP --> QQQ
-QQQ --> RRR
-RRR --> SSS
-SSS --> TTT
-TTT --> UUU
-UUU --> VVV
-VVV --> WWW
-WWW --> XXX
-XXX --> YYY
-YYY --> ZZZ
-ZZZ --> AAA
-AAA --> BBB
-BBB --> CCC
-CCC --> DDD
-DDD --> EEE
-EEE --> FFF
-FFF --> GGG
-GGG --> HHH
-HHH --> III
-III --> JJJ
-JJJ --> KKK
-KKK --> LLL
-LLL --> MMM
-MMM --> NNN
-NNN --> OOO
-OOO --> PPP
-PPP --> QQQ
-QQQ --> RRR
-RRR --> SSS
-SSS --> TTT
-TTT --> UUU
-UUU --> VVV
-VVV --> WWW
-WWW --> XXX
-XXX --> YYY
-YYY --> ZZZ
-ZZZ --> AAA
-AAA --> BBB
-BBB --> CCC
-CCC --> DDD
-DDD --> EEE
-EEE --> FFF
-FFF --> GGG
-GGG --> HHH
-HHH --> III
-III --> JJJ
-JJJ --> KKK
-KKK --> LLL
-LLL --> MMM
-MMM --> NNN
-NNN --> OOO
-OOO --> PPP
-PPP --> QQQ
-QQQ --> RRR
-RRR --> SSS
-SSS --> TTT
-TTT --> UUU
-UUU --> VVV
-VVV --> WWW
-WWW --> XXX
-XXX --> YYY
-YYY --> ZZZ
-ZZZ --> AAA
-AAA --> BBB
-BBB --> CCC
-CCC --> DDD
-DDD --> EEE
-EEE --> FFF
-FFF --> GGG
-GGG --> HHH
-HHH --> III
-III --> JJJ
-JJJ --> KKK
-KKK --> LLL
-LLL --> MMM
-MMM --> NNN
-NNN --> OOO
-OOO --> PPP
-PPP --> QQQ
-QQQ --> RRR
-RRR --> SSS
-SSS --> TTT
-TTT --> UUU
-UUU --> VVV
-VVV --> WWW
-WWW --> XXX
-XXX --> YYY
-YYY --> ZZZ
-ZZZ --> AAA
-AAA --> BBB
-BBB --> CCC
-CCC --> DDD
-DDD --> EEE
-EEE --> FFF
-FFF --> GGG
-GGG --> HHH
-HHH --> III
-III --> JJJ
-JJJ --> KKK
-KKK --> LLL
-LLL --> MMM
-MMM --> NNN
-NNN --> OOO
-OOO --> PPP
-PPP --> QQQ
-QQQ --> RRR
-RRR --> SSS
-SSS --> TTT
-TTT --> UUU
-UUU --> VVV
-VVV --> WWW
-WWW --> XXX
-XXX --> YYY
-YYY --> ZZZ
-ZZZ --> AAA
-AAA --> BBB
-BBB --> CCC
-CCC --> DDD
-DDD --> EEE
-EEE --> FFF
-FFF --> GGG
-GGG......
+OO --> PPP
+PP --> PPP
+QQ --> QQQ
+RR --> RRR
+SS --> SSS
+TT --> TTT
+UU --> UUU
+VV --> VVV
+WW --> WWW
+XX --> XXX
+YY --> YYY
+ZZ --> ZZZ
+AAA --> AAA
+BBB --> BBB
+CCC --> CCC
+DDD --> DDD
+EEE --> EEE
+FFF --> FFF
+GGG --> GGG
+HHH --> HHH
+III --> III
+JJJ --> JJJ
+KKK --> KKK
+LLL --> LLL
+MMM --> MMM
+NNN --> NNN
+OOO --> OOO
+PPP --> PPP
+QQQ --> QQQ
+RRR --> RRR
+SSS --> SSS
+TTT --> TTT
+UUU --> UUU
+VVV --> VVV
+WWW --> WWW
+XXX --> XXX
+YYY --> YYY
+ZZZ --> ZZZ
+AAA --> AAA
+BBB --> BBB
+CCC --> CCC
+DDD --> DDD
+EEE --> EEE
+FFF --> FFF
+GGG --> GGG
+HHH --> HHH
+III --> III
+JJJ --> JJJ
+KKK --> KKK
+LLL --> LLL
+MMM --> MMM
+NNN --> NNN
+OOO --> OOO
+PPP --> PPP
+QQQ --> QQQ
+RRR --> RRR
+SSS --> SSS
+TTT --> TTT
+UUU --> UUU
+VVV --> VVV
+WWW --> WWW
+XXX --> XXX
+YYY --> YYY
+ZZZ --> ZZZ
+AAA --> AAA
+BBB --> BBB
+CCC --> CCC
+DDD --> DDD
+EEE --> EEE
+FFF --> FFF
+GGG --> GGG
+HHH --> HHH
+III --> III
+JJJ --> JJJ
+KKK --> KKK
+LLL --> LLL
+MMM --> MMM
+NNN --> NNN
+OOO --> OOO
+PPP --> PPP
+QQQ --> QQQ
+RRR --> RRR
+SSS --> SSS
+TTT --> TTT
+UUU --> UUU
+VVV --> VVV
+WWW --> WWW
+XXX --> XXX
+YYY --> YYY
+ZZZ --> ZZZ
+AAA --> AAA
+BBB --> BBB
+CCC --> CCC
+DDD --> DDD
+EEE --> EEE
+FFF --> FFF
+GGG --> GGG
+HHH --> HHH
+III --> III
+JJJ --> JJJ
+KKK --> KKK
+LLL --> LLL
+MMM --> MMM
+NNN --> NNN
+OOO --> OOO
+PPP --> PPP
+QQQ --> QQQ
+RRR --> RRR
+SSS --> SSS
+TTT --> TTT
+UUU --> UUU
+VVV --> VVV
+WWW --> WWW
+XXX --> XXX
+YYY --> YYY
+ZZZ --> ZZZ
+AAA --> AAA
+BBB --> BBB
+CCC --> CCC
+DDD --> DDD
+EEE --> EEE
+FFF --> FFF
+GGG --> GGG
+HHH --> HHH
+III --> III
+JJJ --> JJJ
+KKK --> KKK
+LLL --> LLL
+MMM --> MMM
+NNN --> NNN
+OOO --> OOO
+PPP --> PPP
+QQQ --> QQQ
+RRR --> RRR
+SSS --> SSS
+TTT --> TTT
+UUU --> UUU
+VVV --> VVV
+WWW --> WWW
+XXX --> XXX
+YYY --> YYY
+ZZZ --> ZZZ
+AAA --> AAA
+BBB --> BBB
+CCC --> CCC
+DDD --> DDD
+EEE --> EEE
+FFF --> FFF
+GGG --> GGG
+HHH --> HHH
+III --> III
+JJJ --> JJJ
+KKK --> KKK
+LLL --> LLL
+MMM --> MMM
+NNN --> NNN
+OOO --> OOO
+PPP --> PPP
+QQQ --> QQQ
+RRR --> RRR
+SSS --> SSS
+TTT --> TTT
+UUU --> UUU
+VVV --> VVV
+WWW --> WWW
+XXX --> XXX
+YYY --> YYY
+ZZZ --> ZZZ
+AAA --> AAA
+BBB --> BBB
+CCC --> CCC
+DDD --> DDD
+EEE --> EEE
+FFF --> FFF
+GGG --> GGG
+HHH --> HHH
+III --> III
+JJJ --> JJJ
+KKK --> KKK
+LLL --> LLL
+MMM --> MMM
+NNN --> NNN
+OOO --> OOO
+PPP --> PPP
+QQQ --> QQQ
+RRR --> RRR
+SSS --> SSS
+TTT --> TTT
+UUU --> UUU
+VVV --> VVV
+WWW --> WWW
+XXX --> XXX
+YYY......
 </subgraph>
 ```
 
@@ -2646,6 +2902,9 @@ GGG......
 - **内容安全策略强化**
 - **性能监控增强**
 - **UI向导改进**
+- **手动重启IPC处理器**
+- **Gateway重启覆盖层组件**
+- **Gateway状态管理集成**
 
 **章节来源**
 - [apps/electron/tsup.config.ts:1-29](file://apps/electron/tsup.config.ts#L1-L29)
@@ -2680,6 +2939,9 @@ GGG......
 - **外部链接导航系统优化**
 - **内容安全策略缓存优化**
 - **性能监控系统优化**
+- **手动重启IPC处理器优化**
+- **Gateway重启覆盖层性能优化**
+- **Gateway状态管理性能优化**
 
 ### 启动性能
 
@@ -2704,6 +2966,8 @@ GGG......
 - **外部链接导航系统优化启动**
 - **内容安全策略预加载优化**
 - **性能监控系统启动优化**
+- **手动重启IPC处理器启动优化**
+- **Gateway重启覆盖层启动优化**
 
 ### 网络性能
 
@@ -2722,6 +2986,7 @@ GGG......
 - **自动更新验证网络优化**
 - **外部链接导航网络优化**
 - **CDN资源访问网络优化**
+- **手动重启IPC通信优化**
 
 ### OAuth性能优化
 
@@ -2745,6 +3010,8 @@ GGG......
 - **外部链接导航系统性能优化**
 - **内容安全策略性能优化**
 - **性能监控系统性能优化**
+- **手动重启IPC处理器性能优化**
+- **Gateway重启覆盖层性能优化**
 
 **章节来源**
 - [apps/electron/src/main/onboarding-oauth.ts:187-258](file://apps/electron/src/main/onboarding-oauth.ts#L187-L258)
@@ -2772,6 +3039,8 @@ GGG......
 - **验证外部链接导航系统是否正常**
 - **检查内容安全策略配置是否正确**
 - **验证性能监控系统是否正常**
+- **验证手动重启IPC处理器是否正常**
+- **验证Gateway重启覆盖层组件状态**
 
 **IPC通信异常**
 - 验证预加载脚本加载
@@ -2787,6 +3056,7 @@ GGG......
 - **验证节点模块修剪IPC事件**
 - **验证外部链接导航IPC事件**
 - **检查内容安全策略IPC事件**
+- **验证手动重启IPC处理器通信**
 
 **窗口加载问题**
 - 检查CSP配置
@@ -2836,6 +3106,7 @@ GGG......
 - 验证CORS配置
 - **验证内容安全策略配置**
 - **检查外部链接导航配置**
+- **验证手动重启覆盖层配置**
 
 **网关崩溃检测失效**
 - 检查崩溃回调注册
@@ -2845,6 +3116,7 @@ GGG......
 - 验证外部Gateway复用状态
 - **验证Gateway重启回调状态**
 - **检查内容安全策略崩溃检测**
+- **验证手动重启IPC处理器状态**
 
 **自动更新问题**
 - **检查更新服务器可达性**
@@ -2857,11 +3129,12 @@ GGG......
 - **验证Node.js 24运行时更新**
 - **检查pdf-parse扩展更新**
 - **验证代码签名验证系统**
-- **检查增强的UpdateBanner组件状态**
+- **验证增强的UpdateBanner组件状态**
 - **验证5秒超时保护机制**
 - **验证节点模块修剪对更新的影响**
 - **验证外部链接导航更新状态**
 - **检查内容安全策略更新配置**
+- **验证手动重启IPC处理器更新状态**
 
 **Gateway重启问题**
 - **检查重启回调注册**
@@ -2873,6 +3146,7 @@ GGG......
 - **验证增强的UpdateBanner重启状态**
 - **验证节点模块修剪对重启的影响**
 - **验证外部链接导航重启状态**
+- **验证Gateway重启覆盖层状态**
 
 **UpdateBanner组件问题**
 - **验证错误状态管理**
@@ -2896,6 +3170,7 @@ GGG......
 - **验证增强的UpdateBanner运行时状态**
 - **验证节点模块修剪运行时影响**
 - **验证外部链接导航运行时状态**
+- **验证手动重启IPC处理器运行时状态**
 
 **Apple Store Connect密钥问题**
 - **验证API密钥文件路径**
@@ -2905,6 +3180,7 @@ GGG......
 - **检查App Store Connect访问权限**
 - **验证节点模块修剪对密钥处理的影响**
 - **验证外部链接导航密钥状态**
+- **验证手动重启IPC处理器密钥状态**
 
 **运行时依赖问题**
 - **验证依赖版本解析**
@@ -2916,6 +3192,7 @@ GGG......
 - **验证增强的UpdateBanner依赖**
 - **验证节点模块修剪依赖影响**
 - **验证外部链接导航依赖状态**
+- **验证手动重启IPC处理器依赖状态**
 
 **打包和公证问题**
 - **验证打包脚本执行**
@@ -2929,6 +3206,7 @@ GGG......
 - **验证节点模块修剪打包影响**
 - **验证外部链接导航打包状态**
 - **检查内容安全策略打包配置**
+- **验证手动重启IPC处理器打包状态**
 
 **扩展打包问题**
 - **检查pdf-parse扩展过滤规则**
@@ -2937,6 +3215,7 @@ GGG......
 - **检查扩展打包策略配置**
 - **验证节点模块修剪扩展影响**
 - **验证外部链接导航扩展状态**
+- **验证手动重启IPC处理器扩展状态**
 
 **代码签名验证问题**
 - **验证codesign工具可用性**
@@ -2947,6 +3226,7 @@ GGG......
 - **验证增强的UpdateBanner签名验证**
 - **验证节点模块修剪签名影响**
 - **验证外部链接导航签名状态**
+- **验证手动重启IPC处理器签名状态**
 
 **节点模块修剪问题**
 - **验证修剪脚本执行**
@@ -2957,6 +3237,7 @@ GGG......
 - **验证修剪后应用功能**
 - **验证外部链接导航修剪状态**
 - **检查内容安全策略修剪影响**
+- **验证手动重启IPC处理器修剪状态**
 
 **Windows打包问题**
 - **验证Windows平台支持**
@@ -2966,6 +3247,7 @@ GGG......
 - **检查Windows特定依赖**
 - **验证节点模块修剪Windows影响**
 - **验证外部链接导航Windows状态**
+- **验证手动重启IPC处理器Windows状态**
 
 **外部链接导航问题**
 - **验证外部链接拦截功能**
@@ -2975,6 +3257,7 @@ GGG......
 - **检查安全策略配置**
 - **验证性能影响**
 - **验证内容安全策略影响**
+- **验证手动重启IPC处理器导航状态**
 
 **内容安全策略问题**
 - **验证CSP头部生成**
@@ -2984,6 +3267,7 @@ GGG......
 - **检查Google Fonts配置**
 - **验证性能影响**
 - **验证外部链接导航影响**
+- **验证手动重启IPC处理器策略状态**
 
 **性能监控问题**
 - **验证性能预算配置**
@@ -2993,6 +3277,7 @@ GGG......
 - **检查退出码处理**
 - **验证性能影响**
 - **检查外部链接导航性能**
+- **验证手动重启IPC处理器性能**
 
 **UI向导问题**
 - **验证AccessStep验证逻辑**
@@ -3002,6 +3287,35 @@ GGG......
 - **检查向导流程完整性**
 - **验证性能影响**
 - **验证外部链接导航向导状态**
+- **验证手动重启IPC处理器向导状态**
+
+**手动重启问题**
+- **验证gateway:manual-restart处理器注册**
+- **检查IPC调用成功**
+- **确认重启触发逻辑**
+- **验证重启状态反馈**
+- **检查用户界面响应**
+- **验证重启覆盖层显示**
+- **验证Gateway状态管理集成**
+- **检查手动重启IPC处理器状态**
+
+**Gateway重启覆盖层问题**
+- **验证GatewayRestartingOverlay组件**
+- **检查重启状态绑定**
+- **确认UI渲染逻辑**
+- **验证用户交互响应**
+- **检查状态管理集成**
+- **验证性能影响**
+- **验证手动重启IPC处理器覆盖层状态**
+
+**Gateway状态管理问题**
+- **验证useGatewayStore状态管理**
+- **检查beginRestart方法**
+- **确认setConnected状态清除**
+- **验证重启状态同步**
+- **检查UI状态绑定**
+- **验证手动重启状态管理**
+- **验证重启覆盖层状态集成**
 
 **章节来源**
 - [apps/electron/src/main/gateway.ts:140-147](file://apps/electron/src/main/gateway.ts#L140-L147)
@@ -3019,6 +3333,10 @@ GGG......
 - [ui-react/src/components/setup-wizard/steps/AccessStep.tsx:1-221](file://ui-react/src/components/setup-wizard/steps/AccessStep.tsx#L1-L221)
 - [ui-react/src/components/setup-wizard/steps/SecurityStep.tsx:1-115](file://ui-react/src/components/setup-wizard/steps/SecurityStep.tsx#L1-L115)
 - [scripts/test-perf-budget.mjs:98-127](file://scripts/test-perf-budget.mjs#L98-L127)
+- [apps/electron/src/main/index.ts:146-155](file://apps/electron/src/main/index.ts#L146-L155)
+- [apps/electron/src/preload/index.ts:52-53](file://apps/electron/src/preload/index.ts#L52-L53)
+- [ui-react/src/components/gateway/GatewayRestartingOverlay.tsx:1-42](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L1-L42)
+- [ui-react/src/store/gateway.store.ts:74-76](file://ui-react/src/store/gateway.store.ts#L74-L76)
 
 ## 结论
 
@@ -3052,6 +3370,9 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **内容安全策略强化**
 - **性能监控增强**
 - **UI向导改进**
+- **新增gateway:manual-restart IPC处理器**
+- **改进的Gateway重启状态提示功能**
+- **增强的用户界面反馈系统**
 
 **用户体验：**
 - 流畅的启动体验
@@ -3075,6 +3396,9 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **安全的外部链接导航**
 - **强化的内容安全策略**
 - **可靠的性能监控**
+- **改进的手动重启控制**
+- **直观的重启覆盖层显示**
+- **流畅的状态管理体验**
 
 **扩展性：**
 - 插件化架构支持
@@ -3096,8 +3420,16 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **可扩展的内容安全策略管理**
 - **可扩展的性能监控系统**
 - **可扩展的UI向导组件**
+- **可扩展的manual-restart IPC处理器**
+- **可扩展的Gateway重启覆盖层**
 
 **新增功能价值：**
+- **gateway:manual-restart IPC处理器**：允许用户界面通过IPC触发网关重启，提供手动重启控制
+- **改进的Gateway重启状态提示功能**：在Electron环境下实现更直观的网关重启状态提示和用户体验
+- **增强的IPC通信机制**：扩展IPC处理器支持手动重启、状态监听和事件通知
+- **完善的手动重启支持**：通过IPC处理器支持用户手动重启，提升用户控制能力
+- **改进的重启覆盖层组件**：GatewayRestartingOverlay提供直观的重启状态提示
+- **增强的状态管理集成**：useGatewayStore管理重启状态和UI反馈
 - **Windows平台支持**：完善Windows平台打包配置，支持App User Model ID配置和桌面图标设置
 - **外部链接导航系统**：新增installExternalLinkNavigationHandlers和buildRendererNavigationAllowList函数，提供安全的外部链接处理机制
 - **内容安全策略强化**：增强Control UI CSP配置，允许HTTPS图片CDN（如img.alicdn.com）访问
@@ -3137,5 +3469,8 @@ OpenClaw Electron应用展现了现代桌面应用开发的最佳实践。通过
 - **CDN资源访问控制**：允许常见HTTPS图片CDN访问，提升资源加载性能
 - **性能预算监控**：自动性能回归检测，确保应用性能稳定性
 - **向导验证反馈**：实时验证反馈和状态同步，提升用户体验
+- **手动重启IPC处理器**：提供用户控制的重启能力
+- **Gateway重启覆盖层**：直观的重启状态可视化
+- **Gateway状态管理**：完整的重启状态跟踪和UI反馈
 
-该应用为类似的企业级桌面应用提供了优秀的参考模板，展现了如何在保证安全性的同时提供出色的用户体验。新增的智能节点模块修剪机制、优化的构建配置、增强的Windows平台支持、外部链接导航系统、内容安全策略强化、性能监控增强和UI向导改进，进一步提升了应用的专业性和易用性，为用户提供了更多样化的认证选择、更灵活的配置管理和更可靠的运行状态监控能力，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性，通过增强的外部链接导航系统和内容安全策略提供了更安全的用户体验，通过性能监控系统确保了应用的性能稳定性，通过UI向导改进提升了用户的操作体验。这些优化措施不仅提升了应用的性能和稳定性，也为未来的功能扩展和平台支持奠定了坚实的基础。
+该应用为类似的企业级桌面应用提供了优秀的参考模板，展现了如何在保证安全性的同时提供出色的用户体验。新增的gateway:manual-restart IPC处理器和改进的Gateway重启状态提示功能，进一步提升了应用的可控性和用户体验，为用户提供了更多样化的控制选项和更直观的状态反馈，同时通过Cloudflare R2实现了高效的更新分发和验证机制，通过改进的公证流程确保了应用分发的安全性和合规性，通过增强的外部链接导航系统和内容安全策略提供了更安全的用户体验，通过性能监控系统确保了应用的性能稳定性，通过UI向导改进提升了用户的操作体验，通过手动重启功能增强了用户对应用的控制能力，通过重启覆盖层提供了直观的状态反馈，通过状态管理实现了完整的重启流程跟踪。这些优化措施不仅提升了应用的性能和稳定性，也为未来的功能扩展和平台支持奠定了坚实的基础。

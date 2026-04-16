@@ -3,7 +3,7 @@
   "files.insertFinalNewline": true,
   "files.trimFinalNewlines": true,
   "[javascript]": {
-    "editor.defaultFormatter": "oxc.oxc-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
