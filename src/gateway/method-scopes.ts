@@ -81,6 +81,7 @@ const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
     "node.list",
     "node.describe",
     "chat.history",
+    "chat.status",
     "config.get",
     "config.schema.lookup",
     "talk.config",
@@ -136,7 +137,12 @@ const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
   ],
 };
 
-const ADMIN_METHOD_PREFIXES = ["exec.approvals.", "config.", "wizard.", "update."] as const;
+const ADMIN_METHOD_PREFIXES = [
+  "exec.approvals.",
+  "config.",
+  "wizard.",
+  "update.",
+] as const;
 
 const METHOD_SCOPE_BY_NAME = new Map<string, OperatorScope>(
   Object.entries(METHOD_SCOPE_GROUPS).flatMap(([scope, methods]) =>
@@ -179,11 +185,15 @@ export function isAdminOnlyMethod(method: string): boolean {
   return resolveScopedMethod(method) === ADMIN_SCOPE;
 }
 
-export function resolveRequiredOperatorScopeForMethod(method: string): OperatorScope | undefined {
+export function resolveRequiredOperatorScopeForMethod(
+  method: string,
+): OperatorScope | undefined {
   return resolveScopedMethod(method);
 }
 
-export function resolveLeastPrivilegeOperatorScopesForMethod(method: string): OperatorScope[] {
+export function resolveLeastPrivilegeOperatorScopesForMethod(
+  method: string,
+): OperatorScope[] {
   const requiredScope = resolveRequiredOperatorScopeForMethod(method);
   if (requiredScope) {
     return [requiredScope];
@@ -199,7 +209,8 @@ export function authorizeOperatorScopesForMethod(
   if (scopes.includes(ADMIN_SCOPE)) {
     return { allowed: true };
   }
-  const requiredScope = resolveRequiredOperatorScopeForMethod(method) ?? ADMIN_SCOPE;
+  const requiredScope =
+    resolveRequiredOperatorScopeForMethod(method) ?? ADMIN_SCOPE;
   if (requiredScope === READ_SCOPE) {
     if (scopes.includes(READ_SCOPE) || scopes.includes(WRITE_SCOPE)) {
       return { allowed: true };

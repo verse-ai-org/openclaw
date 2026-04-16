@@ -39,7 +39,9 @@ export interface ToolStreamEntry {
 }
 
 /** Text shown on tool-call cards (streaming finalize + live row). */
-export function toolStreamEntryToResultText(entry: ToolStreamEntry): string | undefined {
+export function toolStreamEntryToResultText(
+  entry: ToolStreamEntry,
+): string | undefined {
   if (typeof entry.output === "string") {
     return entry.output;
   }
@@ -50,7 +52,11 @@ export function toolStreamEntryToResultText(entry: ToolStreamEntry): string | un
       return String(entry.output);
     }
   }
-  if (entry.phase === "error" && typeof entry.error === "string" && entry.error.trim()) {
+  if (
+    entry.phase === "error" &&
+    typeof entry.error === "string" &&
+    entry.error.trim()
+  ) {
     return entry.error;
   }
   return undefined;
@@ -79,7 +85,10 @@ export type ContentBlock =
       payload: SerializableQuestionFlow | SerializableOptionList;
     };
 
-export type InteractiveContentBlock = Extract<ContentBlock, { type: "interactive" }>;
+export type InteractiveContentBlock = Extract<
+  ContentBlock,
+  { type: "interactive" }
+>;
 
 export interface InteractiveSummaryPair {
   question: string;
@@ -184,11 +193,15 @@ interface ChatState {
   resetStream: () => void;
   commitCurrentText: () => void;
   finalizeStream: () => void;
+  commitStreamAsMessage: (msg: ChatMessage) => void;
   upsertToolStream: (entry: ToolStreamEntry) => void;
   resetToolStream: () => void;
   upsertInteractiveStream: (entry: InteractiveContentBlock) => void;
   resetInteractiveStream: () => void;
-  setInteractiveSummary: (interactiveId: string, pairs: InteractiveSummaryPair[]) => void;
+  setInteractiveSummary: (
+    interactiveId: string,
+    pairs: InteractiveSummaryPair[],
+  ) => void;
   clearInteractiveSummary: (interactiveId: string) => void;
   setPendingHistoryReloadKey: (key: string | null) => void;
   triggerSessionsReload: () => void;
@@ -270,12 +283,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       interactiveStreamOrder,
     } = get();
 
-    // Build ordered content blocks: committed text segments + current stream text + interactive inputs + tool calls
+    // Build ordered content blocks: committed text segments + interactive inputs + tool calls + trailing stream text
+    // Order matches the `chat final` path in useChatEventBridge for consistent rendering.
     const contentBlocks: ContentBlock[] = [...committedBlocks];
-
-    if (stream && stream.trim()) {
-      contentBlocks.push({ type: "text", text: stream });
-    }
 
     for (const id of interactiveStreamOrder) {
       const entry = interactiveStreamById.get(id);
@@ -294,10 +304,23 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         type: "tool-call",
         toolCallId: entry.id,
         toolName: entry.toolName ?? "tool",
-        argsText: entry.input != null ? JSON.stringify(entry.input, null, 2) : undefined,
+        argsText:
+          entry.input != null
+            ? JSON.stringify(entry.input, null, 2)
+            : undefined,
         result: toolStreamEntryToResultText(entry),
-        phase: entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
+        phase:
+          entry.phase === "result"
+            ? "result"
+            : entry.phase === "error"
+              ? "error"
+              : "call",
       });
+    }
+
+    // Trailing text goes last, consistent with chat-final merge order.
+    if (stream && stream.trim()) {
+      contentBlocks.push({ type: "text", text: stream });
     }
 
     // Only persist if there is something to save
@@ -353,6 +376,18 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       interactiveStreamOrder: [],
     }),
 
+  commitStreamAsMessage: (msg) =>
+    set((state) => ({
+      messages: [...state.messages, msg],
+      stream: null,
+      runId: null,
+      committedBlocks: [],
+      toolStreamById: new Map(),
+      toolStreamOrder: [],
+      interactiveStreamById: new Map(),
+      interactiveStreamOrder: [],
+    })),
+
   upsertToolStream: (entry) => {
     set((state) => {
       const next = new Map(state.toolStreamById);
@@ -364,7 +399,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     });
   },
 
-  resetToolStream: () => set({ toolStreamById: new Map(), toolStreamOrder: [] }),
+  resetToolStream: () =>
+    set({ toolStreamById: new Map(), toolStreamOrder: [] }),
 
   upsertInteractiveStream: (entry) => {
     set((state) => {
@@ -393,12 +429,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       if (!(interactiveId in state.interactiveSummaryById)) {
         return {};
       }
-      const { [interactiveId]: _removed, ...rest } = state.interactiveSummaryById;
+      const { [interactiveId]: _removed, ...rest } =
+        state.interactiveSummaryById;
       return { interactiveSummaryById: rest };
     }),
 
   setPendingHistoryReloadKey: (key) => set({ pendingHistoryReloadKey: key }),
-  triggerSessionsReload: () => set((state) => ({ pendingSessionsReloadSeq: state.pendingSessionsReloadSeq + 1 })),
+  triggerSessionsReload: () =>
+    set((state) => ({
+      pendingSessionsReloadSeq: state.pendingSessionsReloadSeq + 1,
+    })),
 
   setLastError: (msg) => set({ lastError: msg }),
 

@@ -33,6 +33,7 @@ const preferencesFile = () => path.join(dbDir(), "preferences.json");
 const tripsFile = () => path.join(dbDir(), "trips.json");
 const dataDir = () => path.join(dbDir(), "data");
 const evidenceDir = () => path.join(dataDir(), "evidence");
+const poiCacheFile = () => path.join(dataDir(), "poi-cache.json");
 
 const DEFAULT_TRIP_STAGE = "intake";
 const STAGE_VALUES = {
@@ -203,6 +204,15 @@ export function ensureDbFiles() {
     };
     fs.writeFileSync(tripsFile(), JSON.stringify(defaultTrips, null, 2), "utf8");
   }
+
+  if (!fs.existsSync(poiCacheFile())) {
+    const defaultPoiCache = {
+      schema_version: 1,
+      entries: {},
+      updated_at: new Date().toISOString(),
+    };
+    fs.writeFileSync(poiCacheFile(), JSON.stringify(defaultPoiCache, null, 2), "utf8");
+  }
 }
 
 function loadJson(filePath) {
@@ -218,6 +228,137 @@ function loadJson(filePath) {
 function saveJson(filePath, data) {
   ensureDbFiles();
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+}
+
+function normalizePoiCacheKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\|+/g, "|");
+}
+
+function toFiniteNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return NaN;
+  const parsed = Number.parseFloat(value.trim());
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function loadPoiCacheStore() {
+  const raw = loadJson(poiCacheFile());
+  const entries = raw?.entries && typeof raw.entries === "object" ? raw.entries : {};
+  return {
+    schema_version: Number(raw?.schema_version || 1),
+    entries,
+    updated_at: String(raw?.updated_at || ""),
+  };
+}
+
+function savePoiCacheStore(store) {
+  saveJson(poiCacheFile(), {
+    schema_version: 1,
+    entries: store.entries || {},
+    updated_at: new Date().toISOString(),
+  });
+}
+
+function normalizePoiCacheEntry(key, value, ttlHours = 72) {
+  const now = new Date();
+  const fallbackFetchedAt = now.toISOString();
+  const fetchedAtRaw = String(value?.fetched_at || "").trim();
+  const fetchedAt = fetchedAtRaw || fallbackFetchedAt;
+  const ttl = Number.isFinite(Number(ttlHours)) ? Number(ttlHours) : 72;
+  const expiresAt = new Date(now.getTime() + Math.max(1, ttl) * 3600_000).toISOString();
+  const lat = toFiniteNumber(value?.lat);
+  const lng = toFiniteNumber(value?.lng);
+  return {
+    key,
+    name: String(value?.name || ""),
+    destination_text: String(value?.destination_text || ""),
+    provider: String(value?.provider || "flyai"),
+    image: String(value?.image || ""),
+    subtitle: String(value?.subtitle || ""),
+    source_url: String(value?.source_url || ""),
+    ...(Number.isFinite(lat) ? { lat } : {}),
+    ...(Number.isFinite(lng) ? { lng } : {}),
+    fetched_at: fetchedAt,
+    expires_at: String(value?.expires_at || expiresAt),
+    raw: value?.raw && typeof value.raw === "object" ? value.raw : {},
+  };
+}
+
+function isPoiCacheEntryExpired(entry, now = new Date()) {
+  const expiresAt = String(entry?.expires_at || "").trim();
+  if (!expiresAt) return true;
+  const ts = Date.parse(expiresAt);
+  if (Number.isNaN(ts)) return true;
+  return ts <= now.getTime();
+}
+
+export function getPoiCache(keys, includeExpired = false) {
+  const normalizedKeys = (Array.isArray(keys) ? keys : [])
+    .map((key) => normalizePoiCacheKey(key))
+    .filter(Boolean);
+  const store = loadPoiCacheStore();
+  const entries = {};
+  const misses = [];
+  const now = new Date();
+  for (const key of normalizedKeys) {
+    const hit = store.entries[key];
+    if (!hit) {
+      misses.push(key);
+      continue;
+    }
+    const expired = isPoiCacheEntryExpired(hit, now);
+    if (expired && !includeExpired) {
+      misses.push(key);
+      continue;
+    }
+    entries[key] = { ...hit, expired };
+  }
+  return {
+    ok: true,
+    keys_requested: normalizedKeys.length,
+    hit_count: Object.keys(entries).length,
+    miss_count: misses.length,
+    misses,
+    entries,
+  };
+}
+
+export function savePoiCache(payload, defaultTtlHours = 72) {
+  const store = loadPoiCacheStore();
+  const now = new Date().toISOString();
+  const upsertCandidates = [];
+  if (Array.isArray(payload?.entries)) {
+    for (const item of payload.entries) {
+      if (!item || typeof item !== "object") continue;
+      const key = normalizePoiCacheKey(item.key);
+      if (!key) continue;
+      upsertCandidates.push([key, item]);
+    }
+  } else if (payload?.entries && typeof payload.entries === "object") {
+    for (const [rawKey, item] of Object.entries(payload.entries)) {
+      const key = normalizePoiCacheKey(rawKey);
+      if (!key || !item || typeof item !== "object") continue;
+      upsertCandidates.push([key, item]);
+    }
+  }
+  let upserted = 0;
+  for (const [key, item] of upsertCandidates) {
+    const ttlHours = Number(item.ttl_hours || defaultTtlHours);
+    store.entries[key] = normalizePoiCacheEntry(key, item, ttlHours);
+    upserted++;
+  }
+  store.updated_at = now;
+  savePoiCacheStore(store);
+  return {
+    ok: true,
+    upserted,
+    total_entries: Object.keys(store.entries).length,
+    updated_at: now,
+  };
 }
 
 function sanitizeFileToken(value) {
@@ -928,6 +1069,8 @@ const CMD_FLAGS = {
   save_live_results: ["cmd", "trip-id", "payload"],
   save_booking_ready: ["cmd", "trip-id", "payload"],
   save_route_evidence: ["cmd", "trip-id", "platform", "payload"],
+  get_poi_cache: ["cmd", "keys", "include-expired"],
+  save_poi_cache: ["cmd", "payload", "ttl-hours"],
   get_route_evidence: ["cmd", "trip-id", "platform"],
   check_step_gate: ["cmd", "trip-id", "step"],
   save_route_plan: [
@@ -1025,6 +1168,18 @@ runScript({
         console.error(`Error: trip not found: ${tripId}`);
         process.exit(1);
       }
+    } else if (command === "get_poi_cache") {
+      const keysRaw = readJsonFromCliValue("keys", args.keys, []);
+      const keys = Array.isArray(keysRaw) ? keysRaw : [];
+      const includeExpired =
+        String(args["include-expired"] || "")
+          .trim()
+          .toLowerCase() === "true";
+      console.log(JSON.stringify(getPoiCache(keys, includeExpired), null, 2));
+    } else if (command === "save_poi_cache") {
+      const payload = readJsonFromCliValue("save_poi_cache", args.payload, {});
+      const ttlHours = Number(args["ttl-hours"] || 72);
+      console.log(JSON.stringify(savePoiCache(payload, ttlHours), null, 2));
     } else if (command === "get_route_evidence") {
       const tripId = requireFlag(args, "trip-id");
       const platform = String(args.platform || "");

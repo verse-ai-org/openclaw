@@ -4,12 +4,17 @@ import type {
   ToolCallPart,
   InteractiveContentBlock,
 } from "@/store/chat.store";
-import { isInteractiveToolName, createInteractiveBlock } from "./interactive-blocks";
+import {
+  isInteractiveToolName,
+  createInteractiveBlock,
+} from "./interactive-blocks";
 
 /**
  * Merge consecutive tool-call-only assistant ChatMessages into one.
  */
-export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] {
+export function consolidateToolMessages(
+  messages: ChatMessage[],
+): ChatMessage[] {
   const result: ChatMessage[] = [];
   let i = 0;
 
@@ -56,7 +61,9 @@ export function consolidateToolMessages(messages: ChatMessage[]): ChatMessage[] 
   return result;
 }
 
-function extractTextFromToolResultBlock(block: Record<string, unknown>): string | undefined {
+function extractTextFromToolResultBlock(
+  block: Record<string, unknown>,
+): string | undefined {
   if (typeof block.text === "string") {
     return block.text;
   }
@@ -65,7 +72,9 @@ function extractTextFromToolResultBlock(block: Record<string, unknown>): string 
   }
   if (Array.isArray(block.content)) {
     return (block.content as Array<Record<string, unknown>>)
-      .filter((b) => (b.type as string) === "text" && typeof b.text === "string")
+      .filter(
+        (b) => (b.type as string) === "text" && typeof b.text === "string",
+      )
       .map((b) => b.text as string)
       .join("");
   }
@@ -73,7 +82,9 @@ function extractTextFromToolResultBlock(block: Record<string, unknown>): string 
 }
 
 /** Error UI follows server/toolResult `isError` only — no client-side inference. */
-function resolveToolResultPhase(block: Record<string, unknown>): "result" | "error" {
+function resolveToolResultPhase(
+  block: Record<string, unknown>,
+): "result" | "error" {
   return block.isError === true ? "error" : "result";
 }
 
@@ -109,19 +120,30 @@ export function mergeToolResults(rawMessages: unknown[]): unknown[] {
             .map((b) => b.toolCallId as string)
             .filter(Boolean),
         );
+
+        // Prefer the toolCallId carried by the toolResult message itself.
+        // This correctly handles multiple parallel tool calls in one assistant turn.
+        const explicitToolCallId =
+          typeof msg.toolCallId === "string" && msg.toolCallId.trim()
+            ? (msg.toolCallId as string)
+            : undefined;
+
         const unpaired = prevContent.find(
           (b) =>
             (b.type as string) === "toolCall" &&
             typeof b.id === "string" &&
             !pairedIds.has(b.id),
         );
-        const toolCallId = unpaired?.id as string | undefined;
+        const toolCallId =
+          explicitToolCallId ?? (unpaired?.id as string | undefined);
 
         const rawContent = Array.isArray(msg.content)
           ? (msg.content as Array<Record<string, unknown>>)
           : [];
         const resultText = rawContent
-          .filter((b) => (b.type as string) === "text" && typeof b.text === "string")
+          .filter(
+            (b) => (b.type as string) === "text" && typeof b.text === "string",
+          )
           .map((b) => b.text as string)
           .join("");
         const resultBlock: Record<string, unknown> = {
@@ -174,7 +196,8 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
       (typeof block.id === "string" ? block.id : undefined) ??
       (typeof block.toolCallId === "string" ? block.toolCallId : undefined) ??
       crypto.randomUUID();
-    const toolName = (typeof block.name === "string" ? block.name : undefined) ?? "tool";
+    const toolName =
+      (typeof block.name === "string" ? block.name : undefined) ?? "tool";
     const argsRaw = block.arguments ?? block.args;
     let argsText: string | undefined;
     if (typeof argsRaw === "string") {
@@ -206,7 +229,9 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
     const resultText = extractTextFromToolResultBlock(block);
     const resPhase = resolveToolResultPhase(block);
 
-    const existing = toolCallId ? parts.find((p) => p.toolCallId === toolCallId) : null;
+    const existing = toolCallId
+      ? parts.find((p) => p.toolCallId === toolCallId)
+      : null;
     if (existing) {
       existing.result = resultText;
       existing.phase = resPhase;
@@ -230,14 +255,19 @@ export function extractToolCallParts(rawContent: unknown): ToolCallPart[] {
 /**
  * Extract ordered ContentBlocks (text + tool-call) from a raw message content array.
  */
-export function extractContentBlocks(rawContent: unknown): ContentBlock[] | undefined {
+export function extractContentBlocks(
+  rawContent: unknown,
+): ContentBlock[] | undefined {
   if (!Array.isArray(rawContent)) {
     return undefined;
   }
 
   const blocks = rawContent as Array<Record<string, unknown>>;
 
-  const resultMap = new Map<string, { result?: string; phase: "result" | "error" }>();
+  const resultMap = new Map<
+    string,
+    { result?: string; phase: "result" | "error" }
+  >();
   const interactiveMap = new Map<string, InteractiveContentBlock>();
   for (const block of blocks) {
     if (!block || typeof block !== "object") {
@@ -264,7 +294,9 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
       (typeof block.toolName === "string" ? block.toolName : undefined) ??
       (() => {
         const toolCallId =
-          (typeof block.toolCallId === "string" ? block.toolCallId : undefined) ??
+          (typeof block.toolCallId === "string"
+            ? block.toolCallId
+            : undefined) ??
           (typeof block.id === "string" ? block.id : undefined);
         if (!toolCallId) {
           return undefined;
@@ -273,7 +305,9 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
           if (!candidate || typeof candidate !== "object") {
             return false;
           }
-          const candidateKind = (typeof candidate.type === "string" ? candidate.type : "")
+          const candidateKind = (
+            typeof candidate.type === "string" ? candidate.type : ""
+          )
             .toLowerCase()
             .replace(/_/g, "");
           if (candidateKind !== "toolcall" && candidateKind !== "tooluse") {
@@ -281,10 +315,14 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
           }
           const candidateId =
             (typeof candidate.id === "string" ? candidate.id : undefined) ??
-            (typeof candidate.toolCallId === "string" ? candidate.toolCallId : undefined);
+            (typeof candidate.toolCallId === "string"
+              ? candidate.toolCallId
+              : undefined);
           return candidateId === toolCallId;
         }) as Record<string, unknown> | undefined;
-        return typeof matchingCall?.name === "string" ? matchingCall.name : undefined;
+        return typeof matchingCall?.name === "string"
+          ? matchingCall.name
+          : undefined;
       })();
     if (!isInteractiveToolName(toolName)) {
       continue;
@@ -308,7 +346,11 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
       .toLowerCase()
       .replace(/_/g, "");
 
-    if (kind === "text" && typeof block.text === "string" && block.text.trim()) {
+    if (
+      kind === "text" &&
+      typeof block.text === "string" &&
+      block.text.trim()
+    ) {
       out.push({ type: "text", text: block.text });
       continue;
     }
@@ -325,7 +367,8 @@ export function extractContentBlocks(rawContent: unknown): ContentBlock[] | unde
       (typeof block.id === "string" ? block.id : undefined) ??
       (typeof block.toolCallId === "string" ? block.toolCallId : undefined) ??
       crypto.randomUUID();
-    const toolName = (typeof block.name === "string" ? block.name : undefined) ?? "tool";
+    const toolName =
+      (typeof block.name === "string" ? block.name : undefined) ?? "tool";
     const argsRaw = block.arguments ?? block.args;
     let argsText: string | undefined;
     if (typeof argsRaw === "string") {

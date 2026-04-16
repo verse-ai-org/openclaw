@@ -106,13 +106,16 @@ const BASE_METHODS = [
   // WebChat WebSocket-native chat methods
   "chat.history",
   "chat.abort",
+  "chat.status",
   "chat.send",
   // Profile feature
   "profile.parse",
 ];
 
 export function listGatewayMethods(): string[] {
-  const channelMethods = listChannelPlugins().flatMap((plugin) => plugin.gatewayMethods ?? []);
+  const channelMethods = listChannelPlugins().flatMap(
+    (plugin) => plugin.gatewayMethods ?? [],
+  );
   return Array.from(new Set([...BASE_METHODS, ...channelMethods]));
 }
 

@@ -31,25 +31,27 @@ export interface SessionEntry {
  * noise from a raw session text string, then collapse whitespace.
  */
 export function cleanSessionText(raw: string): string {
-  return raw
-    // Fallback: strip <<<EXTERNAL_UNTRUSTED_CONTENT ...>>> blocks and everything after
-    .replace(/<<<EXTERNAL_UNTRUSTED_CONTENT[\s\S]*/, "")
-    // Drop "Untrusted context (metadata, ...)" header lines
-    .replace(/^Untrusted context \(metadata[^\n]*/gim, "")
-    // Drop inbound metadata prefix blocks: "Sender (untrusted metadata):", json fence, closing ```
-    .replace(
-      /^(?:Sender|Conversation info|Thread starter|Replied message|Forwarded message context|Chat history since last reply)\s*\([^)]*untrusted[^)]*\):[\s\S]*?```\s*$/gim,
-      "",
-    )
-    // Remove XML-like tags: <final>, <cron:7d1b...>, etc.
-    .replace(/<[^>]*>/g, "")
-    // Remove Markdown bold/italic markers ** * __ _
-    .replace(/\*{1,2}|_{1,2}/g, "")
-    // Remove Markdown heading prefixes # ## ###
-    .replace(/^#{1,6}\s*/gm, "")
-    // Collapse whitespace
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    raw
+      // Fallback: strip <<<EXTERNAL_UNTRUSTED_CONTENT ...>>> blocks and everything after
+      .replace(/<<<EXTERNAL_UNTRUSTED_CONTENT[\s\S]*/, "")
+      // Drop "Untrusted context (metadata, ...)" header lines
+      .replace(/^Untrusted context \(metadata[^\n]*/gim, "")
+      // Drop inbound metadata prefix blocks: "Sender (untrusted metadata):", json fence, closing ```
+      .replace(
+        /^(?:Sender|Conversation info|Thread starter|Replied message|Forwarded message context|Chat history since last reply)\s*\([^)]*untrusted[^)]*\):[\s\S]*?```\s*$/gim,
+        "",
+      )
+      // Remove XML-like tags: <final>, <cron:7d1b...>, etc.
+      .replace(/<[^>]*>/g, "")
+      // Remove Markdown bold/italic markers ** * __ _
+      .replace(/\*{1,2}|_{1,2}/g, "")
+      // Remove Markdown heading prefixes # ## ###
+      .replace(/^#{1,6}\s*/gm, "")
+      // Collapse whitespace
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /**
@@ -58,7 +60,9 @@ export function cleanSessionText(raw: string): string {
  */
 export function resolveSessionDisplayName(session: SessionEntry): string {
   const best = session.displayName ?? session.derivedTitle ?? session.label;
-  if (best) { return cleanSessionText(best); }
+  if (best) {
+    return cleanSessionText(best);
+  }
   // Key fallback: take the last colon-separated segment.
   // e.g. "agent:abc123:8a3f1b2c" → "8a3f1b2c"
   return session.key.split(":").at(-1) ?? session.key;
@@ -78,7 +82,9 @@ export function useSessionManager() {
   // Using Zustand state instead of a global mutable function avoids
   // the single-registration limitation of the old _reloadHistory pattern.
   const pendingReloadKey = useChatStore((s) => s.pendingHistoryReloadKey);
-  const pendingSessionsReloadSeq = useChatStore((s) => s.pendingSessionsReloadSeq);
+  const pendingSessionsReloadSeq = useChatStore(
+    (s) => s.pendingSessionsReloadSeq,
+  );
 
   // Load session list from gateway
   const loadSessions = useCallback(async () => {
@@ -136,12 +142,16 @@ export function useSessionManager() {
             let content = rawContent;
             let attachments: MessageAttachment[] | undefined;
             if (role === "user") {
-              const fromGateway = normalizeHistoryAttachmentHints(msg.attachments);
+              const fromGateway = normalizeHistoryAttachmentHints(
+                msg.attachments,
+              );
               const stripped = stripAttachmentContent(rawContent);
               content = stripped.prompt;
               attachments =
                 fromGateway ??
-                (stripped.attachments.length > 0 ? stripped.attachments : undefined);
+                (stripped.attachments.length > 0
+                  ? stripped.attachments
+                  : undefined);
             }
             return {
               id: (msg.id as string) ?? crypto.randomUUID(),
@@ -187,6 +197,21 @@ export function useSessionManager() {
 
           useChatStore.getState().setMessages(consolidated);
           useChatStore.getState().setMessagesLoading(false);
+
+          // If the latest message is a completed assistant turn, clear any stale
+          // in-progress state — but only if chat.status has NOT already confirmed the
+          // gateway still has an active run for this session. If a runId was restored
+          // via chat.status, history may just be slightly behind; preserve the running
+          // indicator so the user can see the task is still in progress.
+          const latestMsg = consolidated.at(-1);
+          if (latestMsg?.role === "assistant") {
+            const pending =
+              useChatStore.getState().pendingGenerationBySession[key];
+            const hasActiveRun = pending?.runId != null;
+            if (!hasActiveRun) {
+              useChatStore.getState().clearSessionGenerating(key);
+            }
+          }
         }
       } catch (err) {
         console.error("[session] load history failed:", err);
@@ -267,7 +292,7 @@ export function useSessionManager() {
     if (pendingSessionsReloadSeq > 0) {
       void loadSessions();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingSessionsReloadSeq]);
 
   // Load sessions & history when connected
@@ -275,6 +300,25 @@ export function useSessionManager() {
     if (gatewayStatus === "connected") {
       void loadSessions();
       void loadHistory(sessionKey);
+      // Restore in-progress indicator after page refresh / reconnect.
+      // chat.status returns the active runId if the gateway still has an in-flight generation
+      // for this session. markSessionGenerating sets pendingGenerationBySession so
+      // GatewayChatRuntimeProvider shows the streaming placeholder immediately.
+      void (async () => {
+        try {
+          const result = await client?.request<{
+            activeRunId: string | null;
+            startedAtMs: number | null;
+          }>("chat.status", { sessionKey });
+          if (result?.activeRunId) {
+            useChatStore
+              .getState()
+              .markSessionGenerating(sessionKey, result.activeRunId);
+          }
+        } catch {
+          // Non-critical: silently ignore (older gateway versions may not support chat.status).
+        }
+      })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gatewayStatus]);

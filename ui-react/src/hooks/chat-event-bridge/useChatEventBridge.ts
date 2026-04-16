@@ -51,7 +51,10 @@ function extractInteractivePayload(data: Record<string, unknown>): unknown {
         (entry as { type?: unknown }).type === "text" &&
         typeof (entry as { text?: unknown }).text === "string",
     )
-    .filter((entry): entry is { type: "text"; text: string } => entry.type === "text" && typeof entry.text === "string")
+    .filter(
+      (entry): entry is { type: "text"; text: string } =>
+        entry.type === "text" && typeof entry.text === "string",
+    )
     .map((entry) => entry.text.trim())
     .filter(Boolean)
     .join("\n");
@@ -61,11 +64,18 @@ function extractInteractivePayload(data: Record<string, unknown>): unknown {
 export function useChatEventBridge() {
   useEffect(() => {
     const pendingInteractiveHydrationRuns = new Set<string>();
+    // Buffer for out-of-order tool events: result/error may arrive before start.
+    const pendingToolResults = new Map<
+      string,
+      { phase: "result" | "error"; data: Record<string, unknown> }
+    >();
 
     const dispatch = (event: string, payload: unknown) => {
       const p = payload as Record<string, unknown> | undefined;
 
-      console.log(`[ChatEventBridge] ${event}`, payload);
+      if (import.meta.env.DEV) {
+        console.log(`[ChatEventBridge] ${event}`, payload);
+      }
 
       switch (event) {
         case "chat": {
@@ -155,7 +165,6 @@ export function useChatEventBridge() {
                 if (text.trim()) {
                   contentBlocks.push({ type: "text", text });
                 }
-                storeState.resetStream();
                 const finalMsg: ChatMessage = {
                   id: crypto.randomUUID(),
                   role: "assistant",
@@ -165,11 +174,9 @@ export function useChatEventBridge() {
                   contentBlocks:
                     contentBlocks.length > 0 ? contentBlocks : undefined,
                 };
-                useChatStore
-                  .getState()
-                  .setMessages([...useChatStore.getState().messages, finalMsg]);
+                // Atomic: append message + clear stream state in one Zustand set()
+                useChatStore.getState().commitStreamAsMessage(finalMsg);
               } else {
-                storeState.resetStream();
                 const finalMsg: ChatMessage = {
                   id: crypto.randomUUID(),
                   role: "assistant",
@@ -177,19 +184,17 @@ export function useChatEventBridge() {
                   ts: Date.now(),
                   runId: chatPayload?.runId,
                 };
-                useChatStore
-                  .getState()
-                  .setMessages([...useChatStore.getState().messages, finalMsg]);
+                // Atomic: append message + clear stream state in one Zustand set()
+                useChatStore.getState().commitStreamAsMessage(finalMsg);
               }
               if (
                 finalRunId &&
                 pendingInteractiveHydrationRuns.has(finalRunId)
               ) {
-                const rawKey =
-                  typeof chatPayload?.sessionKey === "string"
-                    ? chatPayload.sessionKey
-                    : (useChatStore.getState().sessionKey ?? "main");
-                useChatStore.getState().setPendingHistoryReloadKey(rawKey);
+                const rawKey = chatPayload?.sessionKey ?? "";
+                if (rawKey) {
+                  useChatStore.getState().setPendingHistoryReloadKey(rawKey);
+                }
                 pendingInteractiveHydrationRuns.delete(finalRunId);
               }
             } else if (
@@ -201,20 +206,18 @@ export function useChatEventBridge() {
                 finalRunId &&
                 pendingInteractiveHydrationRuns.has(finalRunId)
               ) {
-                const rawKey =
-                  typeof chatPayload?.sessionKey === "string"
-                    ? chatPayload.sessionKey
-                    : (useChatStore.getState().sessionKey ?? "main");
-                useChatStore.getState().setPendingHistoryReloadKey(rawKey);
+                const rawKey = chatPayload?.sessionKey ?? "";
+                if (rawKey) {
+                  useChatStore.getState().setPendingHistoryReloadKey(rawKey);
+                }
                 pendingInteractiveHydrationRuns.delete(finalRunId);
               }
             } else {
               useChatStore.getState().resetStream();
-              const rawKey =
-                typeof chatPayload?.sessionKey === "string"
-                  ? chatPayload.sessionKey
-                  : (useChatStore.getState().sessionKey ?? "main");
-              useChatStore.getState().setPendingHistoryReloadKey(rawKey);
+              const rawKey = chatPayload?.sessionKey ?? "";
+              if (rawKey) {
+                useChatStore.getState().setPendingHistoryReloadKey(rawKey);
+              }
             }
             useChatStore.getState().setSending(false);
             useChatStore.getState().setRunId(null);
@@ -272,7 +275,10 @@ export function useChatEventBridge() {
             const toolName = data.name as string | undefined;
 
             if (isInteractiveToolName(toolName)) {
-              if (phase === "result") {
+              if (phase === "start") {
+                // Freeze any pending text so it stays visually above the interactive block.
+                useChatStore.getState().commitCurrentText();
+              } else if (phase === "result") {
                 const interactivePayload = extractInteractivePayload(data);
                 const block = createInteractiveBlock({
                   interactiveId: toolCallId ?? crypto.randomUUID(),
@@ -297,23 +303,44 @@ export function useChatEventBridge() {
                   pendingInteractiveHydrationRuns.add(agentPayload.runId);
                 }
               }
-              break;
+              break; // All interactive phases handled above — skip regular tool logic
             }
 
             if (phase === "start") {
               useChatStore.getState().commitCurrentText();
 
+              const entryId = toolCallId ?? crypto.randomUUID();
               const entry: ToolStreamEntry = {
-                id: toolCallId ?? crypto.randomUUID(),
+                id: entryId,
                 toolName: toolName,
                 phase: "start",
                 input: data.args,
               };
               useChatStore.getState().upsertToolStream(entry);
+
+              // Apply any buffered result/error that arrived before start (out-of-order).
+              const buffered = pendingToolResults.get(entryId);
+              if (buffered) {
+                pendingToolResults.delete(entryId);
+                const isError = buffered.phase === "error";
+                useChatStore.getState().upsertToolStream({
+                  ...entry,
+                  phase: isError ? "error" : "result",
+                  error: isError
+                    ? typeof buffered.data.error === "string"
+                      ? buffered.data.error
+                      : "unknown error"
+                    : undefined,
+                  output: isError
+                    ? undefined
+                    : (buffered.data.meta ?? buffered.data.result ?? undefined),
+                });
+              }
             } else if (phase === "result") {
+              const resolvedId = toolCallId ?? "";
               const existing = useChatStore
                 .getState()
-                .toolStreamById.get(toolCallId ?? "");
+                .toolStreamById.get(resolvedId);
               if (existing) {
                 const isError = Boolean(data.isError);
                 if (isError) {
@@ -331,17 +358,24 @@ export function useChatEventBridge() {
                     output: data.meta ?? data.result ?? undefined,
                   });
                 }
+              } else if (resolvedId) {
+                // start not yet received — buffer for later
+                pendingToolResults.set(resolvedId, { phase: "result", data });
               }
             } else if (phase === "error") {
+              const resolvedId = toolCallId ?? "";
               const existing = useChatStore
                 .getState()
-                .toolStreamById.get(toolCallId ?? "");
+                .toolStreamById.get(resolvedId);
               if (existing) {
                 useChatStore.getState().upsertToolStream({
                   ...existing,
                   phase: "error",
                   error: (data.error as string) ?? "unknown error",
                 });
+              } else if (resolvedId) {
+                // start not yet received — buffer for later
+                pendingToolResults.set(resolvedId, { phase: "error", data });
               }
             }
           }

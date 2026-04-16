@@ -42,14 +42,19 @@
 - [聊天侧边栏](file://ui-react/src/components/chat/ChatSidebar.tsx)
 - [会话管理器](file://ui-react/src/hooks/useSessionManager.ts)
 - [聊天事件桥接实现](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts)
+- [代理身份编辑组件](file://ui-react/src/components/settings/provider-model/ProviderModelSection.tsx)
+- [代理配置编辑对话框](file://ui-react/src/components/settings/provider-model/ProviderModelEditDialog.tsx)
+- [代理配置映射](file://ui-react/src/components/settings/provider-model/config-mapping.ts)
+- [代理配置类型定义](file://ui-react/src/components/settings/provider-model/types.ts)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 术语更新：聊天界面中的"Agents"统一更新为"Employees"，体现更贴近业务场景的表述
-- 搜索功能改进：聊天侧边栏搜索占位符从"Search agents"更新为"Search employees"，提升用户体验一致性
-- 会话同步逻辑增强：通过useSessionManager和useChatEventBridge的协同，实现更精确的会话状态同步
-- 状态管理优化：聊天存储中的pendingHistoryReloadKey和pendingSessionsReloadSeq机制，确保会话历史和标题的及时更新
+- 代理管理界面增强：新增代理身份编辑功能，支持代理认证方式的选择和配置
+- 重构配置文件保存流程：通过buildProviderModelPatchOps实现增量配置更新
+- 新增代理只读模式：支持锁定内置代理配置，防止意外修改
+- 增强的代理身份验证：支持OAuth、API Key、代理等多种认证方式
+- 代理配置状态管理：通过deriveProviderModelState实现配置状态推断
 
 ## 目录
 1. [简介](#简介)
@@ -66,7 +71,7 @@
 ## 简介
 本文件面向使用浏览器操作网关（Gateway）的用户与开发者，系统化介绍控制面板（Control UI）、仪表盘（Dashboard）与 WebChat 的使用方法、配置项与交互流程；同时覆盖界面定制、主题与响应式设计、开发与构建流程、API 接口与集成方式、浏览器兼容性、性能优化与安全注意事项。
 
-**更新** 本版本文档反映了UI React前端的全面重构，引入了全新的@assistant-ui/react库生态系统，包括AssistantMessage、Composer、GatewayChatRuntimeProvider等核心组件，以及useChatEventBridge钩子和增强的聊天存储系统。新增的员工管理、通道管理、配置管理、定时任务管理、计划任务管理等核心功能页面。新增的员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。新增的会话作用域聊天事件桥接机制确保跨会话通信的安全性和准确性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化。
+**更新** 本版本文档反映了UI React前端的全面重构，引入了全新的@assistant-ui/react库生态系统，包括AssistantMessage、Composer、GatewayChatRuntimeProvider等核心组件，以及useChatEventBridge钩子和增强的聊天存储系统。新增的员工管理、通道管理、配置管理、定时任务管理、计划任务管理等核心功能页面。新增的员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。新增的代理身份编辑功能增强了代理配置管理能力，支持多种认证方式和增量配置更新。新增的会话作用域聊天事件桥接机制确保跨会话通信的安全性和准确性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化。
 
 ## 项目结构
 Web 界面由"文档指引 + React前端应用 + 状态管理 + 组件库"构成：
@@ -210,6 +215,7 @@ SSM["useSessionManager<br/>会话管理器"]
   - 全局配置和员工特定配置
   - 实时配置编辑和应用
   - 支持模型选择、工具配置、技能管理
+  - **新增** 代理身份编辑功能，支持多种认证方式
 - 定时任务管理（Cron）
   - 可视化定时任务管理
   - 支持多种调度模式（Cron表达式、固定间隔、一次性）
@@ -228,7 +234,7 @@ SSM["useSessionManager<br/>会话管理器"]
 - 调试（Debug）
   - 快照状态、健康检查、模型列表、事件日志与手动 RPC 调用
 
-**更新** 新的React架构引入了@assistant-ui-react组件库，提供了更丰富的UI组件和更好的开发者体验。新增的员工管理、通道管理、配置管理、定时任务管理和计划任务管理页面提供了完整的系统控制能力。新增的员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化。
+**更新** 新的React架构引入了@assistant-ui-react组件库，提供了更丰富的UI组件和更好的开发者体验。新增的员工管理、通道管理、配置管理、定时任务管理和计划任务管理页面提供了完整的系统控制能力。新增的员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。新增的代理身份编辑功能增强了代理配置管理能力，支持OAuth、API Key、代理等多种认证方式和增量配置更新。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化。
 
 **章节来源**
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)
@@ -256,7 +262,7 @@ SSM["useSessionManager<br/>会话管理器"]
 - [会话管理器:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 
 ## 架构总览
-前端通过React组件树与@assistant-ui-react生态系统的协作，实现与网关的WebSocket通信；应用外壳统一管理连接状态，聊天运行时提供者桥接Zustand状态与@assistant-ui的外部存储运行时；组件层基于@assistant-ui的可组合组件实现丰富的聊天功能。新增的页面通过统一的状态管理架构实现数据共享和状态同步。会话作用域事件桥接机制确保只有匹配当前活动会话的事件才会更新UI状态。**新增** 员工资料抽屉系统通过独立的组件架构提供完整的员工资料管理功能，支持响应式设计和流畅的动画效果。
+前端通过React组件树与@assistant-ui-react生态系统的协作，实现与网关的WebSocket通信；应用外壳统一管理连接状态，聊天运行时提供者桥接Zustand状态与@assistant-ui的外部存储运行时；组件层基于@assistant-ui的可组合组件实现丰富的聊天功能。新增的页面通过统一的状态管理架构实现数据共享和状态同步。会话作用域事件桥接机制确保只有匹配当前活动会话的事件才会更新UI状态。**新增** 员工资料抽屉系统通过独立的组件架构提供完整的员工资料管理功能，支持响应式设计和流畅的动画效果。**新增** 代理身份编辑系统通过专门的组件架构提供完整的代理配置管理功能，支持多种认证方式和增量配置更新。
 
 ```mermaid
 sequenceDiagram
@@ -468,21 +474,27 @@ SaveProfile --> UpdateList["更新员工列表"]
   - 实时编辑：支持配置的实时编辑和保存
   - 配置验证：提供配置表单的验证和错误提示
   - 原始配置查看：提供完整的配置对象查看界面
+  - **新增** 代理身份编辑：支持多种认证方式的代理配置
 - 页面架构
   - 全局默认设置：管理全局范围的配置项
   - 员工模型配置：为每个员工设置主要模型
   - 原始配置查看：显示完整的配置对象
+  - **新增** 代理配置编辑：提供代理身份的配置界面
 - 配置管理
   - 配置表单：动态生成的配置编辑界面
   - 配置保存：支持增量更新和完整保存
   - 配置重载：支持从网关重新加载配置
   - 配置应用：支持配置的即时应用和重启
+  - **新增** 代理配置映射：通过buildProviderModelPatchOps实现增量更新
 
-**更新** 新增的配置管理页面提供了完整的配置管理功能，支持全局和员工特定的配置设置。
+**更新** 新增的配置管理页面提供了完整的配置管理功能，支持全局和员工特定的配置设置。新增的代理身份编辑功能增强了代理配置管理能力，支持OAuth、API Key、代理等多种认证方式和增量配置更新。
 
 **章节来源**
 - [配置管理页面:1-169](file://ui-react/src/pages/ConfigPage.tsx#L1-L169)
 - [员工存储:238-290](file://ui-react/src/store/agents.store.ts#L238-L290)
+- [代理身份编辑组件:1-523](file://ui-react/src/components/settings/provider-model/ProviderModelSection.tsx#L1-L523)
+- [代理配置编辑对话框:1-219](file://ui-react/src/components/settings/provider-model/ProviderModelEditDialog.tsx#L1-L219)
+- [代理配置映射:1-130](file://ui-react/src/components/settings/provider-model/config-mapping.ts#L1-L130)
 
 ### 定时任务管理（Cron）页面
 - 功能特性
@@ -833,6 +845,110 @@ App-->>App : 显示错误或自动重连
 - [网关连接钩子:1-502](file://ui-react/src/hooks/useGateway.ts#L1-L502)
 - [网关存储:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 
+### 代理身份编辑系统
+- 功能概述
+  - **新增** 全新的代理身份配置和管理系统
+  - 支持多种认证方式：OAuth、API Key、代理认证
+  - 提供代理配置的编辑、验证和保存功能
+  - 支持代理配置的增量更新和状态推断
+- 核心组件
+  - **代理配置编辑对话框**：提供三步配置流程（选择提供商、认证、选择模型）
+  - **代理配置节**：支持OAuth、API Key、代理等多种认证方式的配置
+  - **代理配置映射**：通过buildProviderModelPatchOps实现增量配置更新
+  - **代理配置状态推断**：通过deriveProviderModelState推断当前配置状态
+- 认证方式支持
+  - OAuth：支持设备代码认证流程
+  - API Key：支持API密钥验证和测试连接
+  - 代理认证：支持代理访问令牌和密钥
+  - 自定义：支持自定义基础URL和API密钥
+- 配置管理
+  - 增量更新：通过构建补丁操作实现配置的增量更新
+  - 配置验证：支持配置的实时验证和错误提示
+  - 配置状态：支持配置状态的推断和显示
+  - 配置应用：支持配置的即时应用和重启
+
+**更新** 新增的代理身份编辑系统提供了完整的代理配置管理功能，支持OAuth、API Key、代理等多种认证方式和增量配置更新。通过deriveProviderModelState实现配置状态推断，通过buildProviderModelPatchOps实现增量配置更新。
+
+**章节来源**
+- [代理身份编辑组件:1-523](file://ui-react/src/components/settings/provider-model/ProviderModelSection.tsx#L1-L523)
+- [代理配置编辑对话框:1-219](file://ui-react/src/components/settings/provider-model/ProviderModelEditDialog.tsx#L1-L219)
+- [代理配置映射:1-130](file://ui-react/src/components/settings/provider-model/config-mapping.ts#L1-L130)
+- [代理配置类型定义:1-42](file://ui-react/src/components/settings/provider-model/types.ts#L1-L42)
+
+### 代理配置编辑对话框
+- 功能特性
+  - **新增** 三步配置流程：选择提供商 → 选择认证方式 → 选择默认模型
+  - 支持配置的实时验证和错误提示
+  - 提供配置应用和取消功能
+  - 支持配置步骤的前进和后退
+- 配置流程
+  - 第一步：选择提供商和认证方式
+  - 第二步：配置认证凭据和测试连接
+  - 第三步：选择默认模型并应用配置
+- 验证机制
+  - 实时验证：支持配置的实时验证和错误提示
+  - 连接测试：支持配置的连接测试和状态显示
+  - 步骤验证：支持步骤间的验证和错误提示
+- 应用机制
+  - 增量应用：通过buildProviderModelPatchOps实现增量配置更新
+  - 状态推断：通过deriveProviderModelState推断配置状态
+  - 错误处理：提供详细的错误信息和处理建议
+
+**更新** 新增的代理配置编辑对话框提供了完整的代理配置管理功能，支持三步配置流程和实时验证机制。
+
+**章节来源**
+- [代理配置编辑对话框:1-219](file://ui-react/src/components/settings/provider-model/ProviderModelEditDialog.tsx#L1-L219)
+
+### 代理配置映射
+- 功能概述
+  - **新增** 代理配置的增量更新和状态推断系统
+  - 通过buildProviderModelPatchOps实现配置的增量更新
+  - 通过deriveProviderModelState推断当前配置状态
+  - 支持代理配置的验证和错误处理
+- 增量更新机制
+  - 补丁操作：通过构建补丁操作实现配置的增量更新
+  - 路径映射：支持配置路径的映射和更新
+  - 值处理：支持配置值的处理和验证
+- 状态推断机制
+  - 配置解析：解析配置文件并提取相关信息
+  - 方法选择：根据配置选择合适的认证方法
+  - 状态推断：推断当前的配置状态和标签
+- 验证机制
+  - 类型验证：验证配置的类型和格式
+  - 值验证：验证配置的值和范围
+  - 错误处理：提供详细的错误信息和处理建议
+
+**更新** 新增的代理配置映射系统提供了完整的代理配置管理功能，支持增量更新和状态推断机制。
+
+**章节来源**
+- [代理配置映射:1-130](file://ui-react/src/components/settings/provider-model/config-mapping.ts#L1-L130)
+
+### 代理配置状态推断
+- 功能概述
+  - **新增** 代理配置状态的自动推断系统
+  - 通过deriveProviderModelState推断当前配置状态
+  - 支持配置状态的解析和标签提取
+  - 提供配置状态的验证和错误处理
+- 状态推断逻辑
+  - 配置解析：解析配置文件并提取相关信息
+  - 提供商识别：识别当前使用的提供商
+  - 方法选择：根据配置选择合适的认证方法
+  - 状态推断：推断当前的配置状态和标签
+- 配置信息提取
+  - 全局模型：提取全局默认模型信息
+  - 提供商配置：提取提供商特定的配置信息
+  - 认证信息：提取认证相关的配置信息
+  - 标签信息：提取配置的标签和描述信息
+- 错误处理
+  - 配置验证：验证配置的完整性和有效性
+  - 默认值：提供默认值和回退机制
+  - 错误提示：提供详细的错误信息和处理建议
+
+**更新** 新增的代理配置状态推断系统提供了完整的代理配置状态管理功能，支持配置状态的自动推断和验证。
+
+**章节来源**
+- [代理配置状态推断:48-99](file://ui-react/src/components/settings/provider-model/config-mapping.ts#L48-L99)
+
 ### 界面定制、主题与响应式设计
 - 主题
   - 基于Tailwind CSS的现代化主题系统
@@ -919,6 +1035,7 @@ App-->>App : 显示错误或自动重连
   - 新增页面通过统一的状态管理架构实现数据共享
   - 会话作用域事件桥接确保事件处理的准确性
   - **新增** 员工资料抽屉系统通过独立的组件架构提供完整的员工资料管理功能
+  - **新增** 代理身份编辑系统通过专门的组件架构提供完整的代理配置管理功能
 - 外部依赖
   - @assistant-ui-react：现代化聊天UI组件库
   - React 19 + TypeScript：现代前端开发栈
@@ -930,7 +1047,7 @@ App-->>App : 显示错误或自动重连
   - Lucide React：图标库
   - React Router 7：路由管理
 
-**更新** 新的依赖关系体现了现代化的前端技术栈和组件化架构，新增页面通过统一的状态管理实现更好的数据一致性。会话作用域事件桥接机制确保了跨会话通信的安全性。新增的员工资料抽屉系统通过独立的组件架构提供完整的员工资料管理功能。
+**更新** 新的依赖关系体现了现代化的前端技术栈和组件化架构，新增页面通过统一的状态管理实现更好的数据一致性。会话作用域事件桥接机制确保了跨会话通信的安全性。新增的员工资料抽屉系统通过独立的组件架构提供完整的员工资料管理功能。新增的代理身份编辑系统通过专门的组件架构提供完整的代理配置管理功能。
 
 ```mermaid
 graph LR
@@ -971,6 +1088,11 @@ EmployeeDetailDrawer --> CoreSkills["核心技能模块<br/>CoreSkillsSection"]
 EmployeeDetailDrawer --> ToolsSection["工具能力模块<br/>ToolsSection"]
 EmployeeDetailDrawer --> SoulSection["灵魂文件模块<br/>SoulSection"]
 ChatSidebar["聊天侧边栏<br/>ChatSidebar"] --> EmployeeDetailDrawer
+ConfigPage --> ProviderModelSection["代理配置编辑<br/>ProviderModelSection"]
+ConfigPage --> ProviderModelEditDialog["代理配置对话框<br/>ProviderModelEditDialog"]
+ProviderModelSection --> ProviderModelEditDialog
+ProviderModelEditDialog --> ConfigMapping["代理配置映射<br/>config-mapping"]
+ConfigMapping --> ProviderModelTypes["代理配置类型<br/>types"]
 ```
 
 **图表来源**
@@ -1002,6 +1124,10 @@ ChatSidebar["聊天侧边栏<br/>ChatSidebar"] --> EmployeeDetailDrawer
 - [员工资料-工具能力:1-554](file://ui-react/src/components/agents/tools.tsx#L1-L554)
 - [员工资料-灵魂文件:1-136](file://ui-react/src/components/agents/soul.tsx#L1-L136)
 - [聊天侧边栏:1-169](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L169)
+- [代理身份编辑组件:1-523](file://ui-react/src/components/settings/provider-model/ProviderModelSection.tsx#L1-L523)
+- [代理配置编辑对话框:1-219](file://ui-react/src/components/settings/provider-model/ProviderModelEditDialog.tsx#L1-L219)
+- [代理配置映射:1-130](file://ui-react/src/components/settings/provider-model/config-mapping.ts#L1-L130)
+- [代理配置类型定义:1-42](file://ui-react/src/components/settings/provider-model/types.ts#L1-L42)
 
 **章节来源**
 - [UI包依赖定义:1-57](file://ui-react/package.json#L1-L57)
@@ -1020,16 +1146,18 @@ ChatSidebar["聊天侧边栏<br/>ChatSidebar"] --> EmployeeDetailDrawer
   - 分离的聊天状态、网关状态、员工状态、通道状态和计划任务状态
   - 新增页面通过统一的状态管理实现更好的性能
   - **新增** 员工资料抽屉的状态管理优化，避免不必要的重新渲染
+  - **新增** 代理配置映射的状态管理优化，支持增量更新和状态推断
 - 组件优化
   - @assistant-ui-react的虚拟化和优化支持
   - Memo化的消息组件和工具调用组件
   - 会话作用域事件桥接减少事件处理开销
   - **新增** 员工资料抽屉的组件优化，支持响应式设计和动画效果
+  - **新增** 代理配置编辑组件的优化，支持实时验证和状态推断
 - 主题与布局
   - Tailwind CSS的原子化类名，减少CSS体积
   - 响应式设计的媒体查询优化
 
-**更新** 新的架构在性能方面有了显著提升，特别是在状态管理和组件渲染方面。新增页面通过统一的状态管理实现了更好的数据共享和性能优化。会话作用域事件桥接机制减少了不必要的状态更新，提升了整体性能。新增的员工资料抽屉系统通过优化的组件设计和响应式布局提升了用户体验。
+**更新** 新的架构在性能方面有了显著提升，特别是在状态管理和组件渲染方面。新增页面通过统一的状态管理实现了更好的数据共享和性能优化。会话作用域事件桥接机制减少了不必要的状态更新，提升了整体性能。新增的员工资料抽屉系统通过优化的组件设计和响应式布局提升了用户体验。新增的代理配置编辑系统通过优化的状态管理和增量更新机制提升了配置管理的性能。
 
 **章节来源**
 - [Vite构建配置:21-28](file://ui-react/vite.config.ts#L21-L28)
@@ -1038,6 +1166,7 @@ ChatSidebar["聊天侧边栏<br/>ChatSidebar"] --> EmployeeDetailDrawer
 - [员工存储:134-170](file://ui-react/src/store/agents.store.ts#L134-L170)
 - [通道存储:89-111](file://ui-react/src/store/channels.store.ts#L89-L111)
 - [员工资料抽屉:99-142](file://ui-react/src/components/agents/detail-drawer.tsx#L99-L142)
+- [代理配置映射:1-130](file://ui-react/src/components/settings/provider-model/config-mapping.ts#L1-L130)
 
 ## 故障排查指南
 - "未授权"/1008 错误
@@ -1081,8 +1210,13 @@ ChatSidebar["聊天侧边栏<br/>ChatSidebar"] --> EmployeeDetailDrawer
   - 验证员工资料抽屉的打开/关闭逻辑
   - 确认员工资料编辑功能的正常工作
   - 检查员工删除确认对话框的显示状态
+- **新增** 代理配置编辑问题
+  - 检查代理配置数据的加载状态
+  - 验证代理配置编辑对话框的打开/关闭逻辑
+  - 确认代理配置验证功能的正常工作
+  - 检查代理配置增量更新的触发和应用
 
-**更新** 新的故障排查指南涵盖了React架构特有的问题和解决方案，包括新增页面、会话作用域事件桥接、会话同步逻辑、剪贴板复制功能和员工资料抽屉系统的故障排查。
+**更新** 新的故障排查指南涵盖了React架构特有的问题和解决方案，包括新增页面、会话作用域事件桥接、会话同步逻辑、剪贴板复制功能、员工资料抽屉系统和代理配置编辑系统的故障排查。
 
 **章节来源**
 - [仪表盘（浏览器）:45-55](file://docs/web/dashboard.md#L45-L55)
@@ -1093,9 +1227,10 @@ ChatSidebar["聊天侧边栏<br/>ChatSidebar"] --> EmployeeDetailDrawer
 - [会话管理器:266-271](file://ui-react/src/hooks/useSessionManager.ts#L266-L271)
 - [剪贴板复制钩子:1-20](file://ui-react/src/hooks/useCopyToClipboard.ts#L1-L20)
 - [员工资料抽屉:50-91](file://ui-react/src/components/agents/detail-drawer.tsx#L50-L91)
+- [代理配置编辑对话框:1-219](file://ui-react/src/components/settings/provider-model/ProviderModelEditDialog.tsx#L1-L219)
 
 ## 结论
-该 Web 界面以轻量、安全与易用为目标：通过React 19 + @assistant-ui-react的现代化架构，提供完整的控制与调试能力；配合响应式布局与主题系统，适配多终端场景；完善的认证与安全策略确保管理员面的安全边界。新的架构引入了更好的组件化设计、状态管理和开发体验，为未来的功能扩展奠定了坚实的基础。新增的员工管理、通道管理、配置管理、定时任务管理、计划任务管理页面提供了完整的系统控制能力，支持多渠道通信、员工生命周期管理、自动化任务调度和会话作用域事件处理。**新增** 员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化，搜索功能改进提升了用户体验一致性。对于开发者，清晰的模块划分与现代化的技术栈便于二次开发与集成。
+该 Web 界面以轻量、安全与易用为目标：通过React 19 + @assistant-ui-react的现代化架构，提供完整的控制与调试能力；配合响应式布局与主题系统，适配多终端场景；完善的认证与安全策略确保管理员面的安全边界。新的架构引入了更好的组件化设计、状态管理和开发体验，为未来的功能扩展奠定了坚实的基础。新增的员工管理、通道管理、配置管理、定时任务管理、计划任务管理页面提供了完整的系统控制能力，支持多渠道通信、员工生命周期管理、自动化任务调度和会话作用域事件处理。**新增** 员工资料抽屉系统提供了完整的员工资料查看和管理功能，包括个人资料、核心技能、工具能力和灵魂文件的集中展示。**新增** 代理身份编辑系统提供了完整的代理配置管理功能，支持OAuth、API Key、代理等多种认证方式和增量配置更新。会话作用域聊天事件桥接机制确保了跨会话通信的安全性，剪贴板复制功能提升了用户交互体验。术语更新体现了从"Agents"到"Employees"的业务场景优化，搜索功能改进提升了用户体验一致性。对于开发者，清晰的模块划分与现代化的技术栈便于二次开发与集成。
 
 ## 附录
 - 快速链接
@@ -1111,10 +1246,12 @@ ChatSidebar["聊天侧边栏<br/>ChatSidebar"] --> EmployeeDetailDrawer
   - 会话同步逻辑的优化和故障排查
   - 剪贴板复制功能的兼容性处理
   - **新增** 员工资料抽屉系统的使用和故障排查
-  - **新增** 术语更新和搜索功能改进的使用指南
+  - **新增** 代理配置编辑系统的使用和故障排查
+  - **新增** 代理配置映射的状态推断和增量更新机制
 
 **章节来源**
 - [控制UI（浏览器）:11-269](file://docs/web/control-ui.md#L11-L269)
 - [仪表盘（浏览器）:8-55](file://docs/web/dashboard.md#L8-L55)
 - [Vite构建配置:29-34](file://ui-react/vite.config.ts#L29-L34)
 - [员工资料抽屉:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [代理配置编辑对话框:1-219](file://ui-react/src/components/settings/provider-model/ProviderModelEditDialog.tsx#L1-L219)

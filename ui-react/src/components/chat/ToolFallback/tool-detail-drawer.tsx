@@ -82,7 +82,7 @@ export function ToolDetailDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
       <DrawerContent
-        className="h-full w-full lg:w-[72vw]"
+        className="h-full w-full bg-muted lg:w-[72vw]"
         style={{ width: "72vw", maxWidth: "72vw" }}
       >
         <DrawerHeader className="border-b">
@@ -220,22 +220,22 @@ export function ToolDetailDrawer({
               }
             >
               {richContent && statusType === "complete" && canPromoteRichContent && (
-                <div className="mb-3 overflow-hidden rounded-lg border bg-background shadow-sm">
+                <div className="mb-3 overflow-hidden rounded-3xl border bg-background shadow-sm">
                   {richContent}
                 </div>
               )}
               {showResultPreview && resultPreviewText && (
                 <div className="relative">
-                  <pre className="overflow-x-auto rounded-lg border border-border bg-white px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
+                  <pre className="overflow-x-auto bg-background rounded-3xl p-4 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
                     {resultPreviewText}
                   </pre>
                   {isLongResult && (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent" />
+                    <div className="pointer-events-none absolute inset-x-0 rounded-b-3xl bottom-0 h-16 bg-linear-to-t from-background to-transparent" />
                   )}
                 </div>
               )}
               {isResultExpanded && hasResult && (
-                <pre className="overflow-x-auto rounded-lg border border-border bg-white px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
+                <pre className="overflow-x-auto rounded-lg border border-border bg-background px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
                   {resultStr}
                 </pre>
               )}

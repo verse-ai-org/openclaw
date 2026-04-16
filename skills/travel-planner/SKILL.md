@@ -197,8 +197,8 @@ node {baseDir}/scripts/db.mjs --cmd=add_trip --payload='{"destination_text":"新
 {
   "id": "route-platform-choice",
   "options": [
-    { "id": "search", "label": "搜索" },
-    { "id": "xhs",    "label": "小红书" }
+    { "id": "search", "label": "搜索(全网搜索，推荐)" },
+    { "id": "xhs",    "label": "小红书(抄作业，有小红书登录流程)" }
   ],
   "selectionMode": "single"
 }
@@ -253,13 +253,13 @@ node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <rout
 1. 先生成基础候选路线（无图版）：
 
 ```bash
-node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json>' > /tmp/route-base.json
+node {baseDir}/scripts/route-plan.mjs --input='<trip_request_json>' > ~/.openclaw/agents/travel-planner/data/route-base.json
 ```
 
 2. 用 `flyai/amap` 的 POI 结果做图文与坐标增强映射：
 
 ```bash
-node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <route_options_json>, "flyai_pois": <flyai_poi_json>, "amap_pois": <amap_poi_json> }' > /tmp/route-enrichment.json
+node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <route_options_json>, "flyai_pois": <flyai_poi_json>, "amap_pois": <amap_poi_json> }' > ~/.openclaw/agents/travel-planner/data/route-enrichment.json
 ```
 
 3. 将增强字段回填，再次调用 `route-plan.mjs` 生成最终候选：
@@ -295,6 +295,46 @@ node {baseDir}/scripts/route-ui-enrichment.mjs --input='{ "route_options": <rout
    - 持久化建议（推荐）：将二次 `route-plan.mjs` 输出中的 `route_options`（含 `stop_cards`）、`route_stop_media`、`route_stop_points` 一并保存到路线规划结果中，供后续 Step 6/7/8 复用，避免重复检索图片。
 
 4. 仅当仍无图时，再降级到纯文本卡片（不得伪造图片 URL）。
+
+#### Step 4 POI 缓存优先链路（新增，默认必须执行）
+
+为了避免重复 `search-poi`、减少外部波动导致的“有结果但未落盘”，默认按以下顺序执行：
+
+1. 从 `route_options[*].stops` 生成缓存 key（建议规范：`<destination_text>|<stop>|flyai`）。
+2. 先查缓存（可批量）：
+
+```bash
+node {baseDir}/scripts/db.mjs --cmd=get_poi_cache --keys='["川西|新都桥|flyai","川西|墨石公园|flyai"]'
+```
+
+3. 对 `misses` 再执行 `flyai search-poi`，并将结果汇总到 `flyai_pois`。
+4. 用缓存命中 + 新查询结果合并为 `route_stop_media/route_stop_points`：
+
+```bash
+node {baseDir}/scripts/poi-cache-merge.mjs --input=@~/.openclaw/agents/travel-planner/data/poi-merge-input.json
+```
+
+`~/.openclaw/agents/travel-planner/data/poi-merge-input.json` 结构示例：
+
+```json
+{
+  "destination_text": "川西",
+  "provider": "flyai",
+  "route_options": [],
+  "cache_entries": {},
+  "flyai_pois": {}
+}
+```
+
+5. 将 `cache_upserts` 回写缓存：
+
+```bash
+node {baseDir}/scripts/db.mjs --cmd=save_poi_cache --ttl-hours=72 --payload=@~/.openclaw/agents/travel-planner/data/poi-cache-upserts.json
+```
+
+6. 再次调用 `route-plan.mjs`（必须带上合并后的 `route_stop_media/route_stop_points`），生成最终图文版本。
+
+> 强约束：Step 4 所有大 JSON 参数（`--input`/`--payload`）必须使用 `@file` 传递，禁止直接内联超长 JSON，避免 shell 转义/长度问题导致二次 `route-plan` 失败。
 
 执行守卫（必须满足）：
 
@@ -681,6 +721,7 @@ node {baseDir}/scripts/db.mjs --cmd=start_trip --trip-id=<trip_id>
 | `scripts/route-plan.mjs` | 路线候选结构化输出 |
 | `scripts/route-validation.mjs` | 对实时技能结果做可行性裁决（`go/caution/block`），不再生成 tool_plan |
 | `scripts/route-ui-enrichment.mjs` | 将 flyai/amap POI 原始结果映射为 `route_stop_media/route_stop_points` 增强输入 |
+| `scripts/poi-cache-merge.mjs` | 合并 POI 缓存与实时 POI 结果，输出 `route_stop_media/route_stop_points` 与缓存回写增量 |
 | `scripts/plan-generator.mjs` | 读取已持久化的 trip，输出骨架计划、每日卡片、打包建议（不主动调用其他计算模块） |
 | `scripts/xhs-evidence-builder.mjs` | 规范化小红书搜索结果，输出 `route_evidence` 对象（其中 `platform=xhs`，第四步 xhs 链路必走） |
 | `scripts/booking-ready.mjs` | 合并实时结果生成 booking-ready 包 |

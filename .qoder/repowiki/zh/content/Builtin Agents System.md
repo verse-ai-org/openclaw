@@ -45,13 +45,11 @@
 
 ## 更新摘要
 **所做更改**
-- 新增视频URL等身份字段，增强代理展示能力
-- 扩展内置代理身份配置，支持视频展示功能
-- 完善代理身份文件解析，支持视频字段处理
-- 更新前端代理详情页面，支持视频展示组件
-- 增强代理身份配置的完整性和一致性
-- 改进身份字段的条件检查和验证逻辑
-- 优化视频字段的更新和合并机制
+- 主代理身份配置完善：增强主代理(Popeye)的身份配置，包括视频URL和头像更新
+- 旅行规划代理视频URL更新：更新旅行规划代理(Tom)的视频URL为最新的猫主题视频
+- 办公助手代理重命名为Felix：将办公助手代理的显示名称从"Office Helper"更新为"Felix"
+- 增强的同步逻辑：区分主代理和锁定代理的同步策略，主代理仅回填缺失字段，锁定代理强制同步更新
+- 完善的视频展示功能：支持视频URL字段的身份配置和前端展示
 
 ## 目录
 1. [简介](#简介)
@@ -73,7 +71,7 @@
 
 该系统采用模块化设计，每个组件都有明确的职责分工，同时通过标准化的接口实现松耦合集成。系统支持代理的动态创建、销毁、状态监控和资源回收，确保在高并发场景下的稳定性和可靠性。
 
-**更新** 新增视频URL等身份字段，扩展了代理的身份配置能力，支持更丰富的视觉展示效果，包括视频展示功能和增强的代理外观定制。系统现在具备完整的身份字段验证和更新逻辑，确保代理配置的一致性和完整性。
+**更新** 最新版本显著增强了内置代理系统的配置能力，包括主代理身份配置的完善、旅行规划代理视频URL的更新、办公助手代理名称的重命名，以及增强的同步逻辑来区分主代理和锁定代理。这些改进为用户提供了更丰富、更个性化的代理体验，同时保持了系统的稳定性和一致性。
 
 ## 项目结构
 
@@ -107,6 +105,8 @@ EE[视频处理] --> FF[媒体解析]
 EE --> GG[URL验证]
 HH[配置管理] --> II[代理配置]
 HH --> JJ[身份合并]
+KK[同步逻辑增强] --> LL[主代理同步]
+KK --> MM[锁定代理同步]
 end
 ```
 
@@ -418,7 +418,7 @@ DenyAccess --> CleanupScope
 
 ### 内置代理定义
 
-内置代理系统通过集中配置管理所有内置代理，包括Office Helper和旅行规划代理：
+内置代理系统通过集中配置管理所有内置代理，包括主代理、Office Helper和旅行规划代理：
 
 ```mermaid
 classDiagram
@@ -426,9 +426,18 @@ class BUILTIN_AGENTS {
 +BUILTIN_AGENTS array
 +ensureBuiltinAgents() Promise~OpenClawConfig~
 }
+class MainAgent {
++id : "main"
++name : "Popeye"
++workspace : undefined
++templateSubdir : undefined
++skills : undefined
++tools : undefined
++identity : IdentityConfig
+}
 class OfficeHelperAgent {
 +id : "my-office-helper"
-+name : "Office Helper"
++name : "Felix"
 +workspace : "~/.openclaw/agents/my-office-helper"
 +templateSubdir : "agents/my-office-helper"
 +skills : ["word-docx", "excel-xlsx", "my-pdf", "office-document-specialist-suite"]
@@ -444,33 +453,52 @@ class TravelPlannerAgent {
 +tools : {profile : "full", deny : []}
 +identity : IdentityConfig
 }
+BUILTIN_AGENTS --> MainAgent
 BUILTIN_AGENTS --> OfficeHelperAgent
 BUILTIN_AGENTS --> TravelPlannerAgent
 ```
 
 **图表来源**
-- [builtin-agents.ts:37-70](file://src/agents/builtin-agents.ts#L37-L70)
+- [builtin-agents.ts:43-96](file://src/agents/builtin-agents.ts#L43-L96)
+
+**更新** 主代理身份配置已完善，包括：
+- **名称**：Popeye（保持不变）
+- **头像**：更新为最新的狗主题头像
+- **视频**：添加了专门的展示视频URL
+
+**更新** 办公助手代理已重命名为Felix：
+- **显示名称**：从"Office Helper"更新为"Felix"
+- **代理ID**：保持"my-office-helper"不变
+- **身份配置**：更新为Felix的视频URL和生物描述
+
+**更新** 旅行规划代理的视频URL已更新为最新的猫主题视频，提供更好的视觉体验。
 
 ### 代理模板系统
 
 代理模板系统为每个内置代理提供完整的配置和行为指导：
 
-**Office Helper代理模板**
+**主代理模板 (Popeye)**
+- **核心身份**：Popeye，狗主题头像和视频
+- **工作空间**：使用默认工作空间配置
+- **无技能限制**：作为主代理不绑定特定技能
+- **身份配置**：包含名称、头像、视频URL
+
+**Office Helper代理模板 (Felix)**
 - **核心哲学**：文档是手段而非目的，精确性即尊重
 - **技能配置**：专门的Office文档处理技能组合
 - **工作流程**：先阅读相关技能文档再执行操作
 - **格式转换原则**：确认保留内容，警告有损转换
-- **身份配置**：支持视频展示功能
+- **身份配置**：支持视频展示功能，显示名称为"Felix"
 
 **旅行规划代理模板**
 - **核心理念**：成为你想跟随的旅行者
 - **技能配置**：旅行规划、地图服务、预订系统等综合技能
 - **个性化服务**：根据用户预算和偏好调整详细程度
 - **安全第一**：关注目的地安全警告和风险
-- **身份配置**：支持视频展示功能
+- **身份配置**：支持视频展示功能，显示名称为"Travel Planner"
 
 **章节来源**
-- [builtin-agents.ts:37-70](file://src/agents/builtin-agents.ts#L37-L70)
+- [builtin-agents.ts:43-96](file://src/agents/builtin-agents.ts#L43-L96)
 - [SOUL.md:1-115](file://docs/reference/templates/agents/my-office-helper/SOUL.md#L1-L115)
 - [SOUL.md:1-72](file://docs/reference/templates/agents/travel-planner/SOUL.md#L1-L72)
 
@@ -478,7 +506,7 @@ BUILTIN_AGENTS --> TravelPlannerAgent
 
 ### Office文档处理技能
 
-Office Helper代理集成了完整的Office文档处理技能生态系统：
+Office Helper代理(Felix)集成了完整的Office文档处理技能生态系统：
 
 ```mermaid
 graph TB
@@ -499,7 +527,7 @@ end
 ```
 
 **图表来源**
-- [builtin-agents.ts:62-67](file://src/agents/builtin-agents.ts#L62-L67)
+- [builtin-agents.ts:81-86](file://src/agents/builtin-agents.ts#L81-L86)
 - [SKILL.md](file://skills/word-docx/SKILL.md)
 - [SKILL.md](file://skills/excel-xlsx/SKILL.md)
 - [SKILL.md](file://skills/my-pdf/SKILL.md)
@@ -529,7 +557,7 @@ end
 ```
 
 **图表来源**
-- [builtin-agents.ts:47-54](file://src/agents/builtin-agents.ts#L47-L54)
+- [builtin-agents.ts:58-66](file://src/agents/builtin-agents.ts#L58-L66)
 - [SKILL.md](file://skills/travel-planner/SKILL.md)
 
 ### 技能协作机制
@@ -542,8 +570,8 @@ end
 4. **性能优化**：并行处理可并行的任务
 
 **章节来源**
-- [builtin-agents.ts:62-67](file://src/agents/builtin-agents.ts#L62-L67)
-- [builtin-agents.ts:47-54](file://src/agents/builtin-agents.ts#L47-L54)
+- [builtin-agents.ts:81-86](file://src/agents/builtin-agents.ts#L81-L86)
+- [builtin-agents.ts:58-66](file://src/agents/builtin-agents.ts#L58-L66)
 
 ## 身份配置增强
 
@@ -596,6 +624,34 @@ VideoShowcase --> AgentIdentityFile : renders
 - **avatar**: 头像图片（支持本地路径、HTTP URL、数据URI）
 - **video**: 视频URL（仅支持HTTP/HTTPS）
 - **bio**: 简短介绍/说明文本
+
+### 增强的同步逻辑
+
+系统现在具备区分主代理和锁定代理的同步策略：
+
+```mermaid
+flowchart TD
+IdentityUpdate[身份字段更新] --> CheckAgentType{"检查代理类型"}
+CheckAgentType --> |主代理(main)| MainAgentLogic["主代理逻辑"]
+CheckAgentType --> |锁定代理| LockedAgentLogic["锁定代理逻辑"]
+MainAgentLogic --> MissingFields{"检查缺失字段"}
+MissingFields --> |仅缺失字段| BackfillOnly["仅回填缺失字段"]
+MissingFields --> |有冲突字段| SkipUpdate["跳过更新"]
+BackfillOnly --> ApplyUpdate["应用更新"]
+SkipUpdate --> End([结束])
+LockedAgentLogic --> ForceSync["强制同步更新"]
+ForceSync --> ApplyUpdate
+ApplyUpdate --> Success["更新成功"]
+Success --> End
+```
+
+**图表来源**
+- [builtin-agents.ts:131-185](file://src/agents/builtin-agents.ts#L131-L185)
+
+**更新** 同步逻辑增强包括：
+- **主代理(main)**：仅回填缺失的身份字段，不强制覆盖用户已编辑的内容
+- **锁定代理**：强制同步更新，确保与内置定义保持一致
+- **字段差异检测**：智能检测字段变化并决定更新策略
 
 ### 会话工具集成
 
@@ -950,6 +1006,12 @@ GracefulShutdown --> End
    - 确认视频资源的可访问性
    - 实施视频字段的条件检查
 
+8. **同步逻辑问题**
+   - 验证代理类型识别逻辑
+   - 检查字段差异检测机制
+   - 确认更新策略的应用
+   - 测试主代理和锁定代理的不同行为
+
 **章节来源**
 - [auth-health.ts:1-250](file://src/agents/auth-health.ts#L1-L250)
 - [anthropic-payload-log.ts:1-250](file://src/agents/anthropic-payload-log.ts#L1-L250)
@@ -960,7 +1022,7 @@ GracefulShutdown --> End
 
 内置代理系统作为 OpenClaw 平台的核心组件，展现了优秀的架构设计和实现质量。系统通过模块化的组件设计、清晰的职责分离和完善的错误处理机制，为平台提供了稳定可靠的代理管理能力。
 
-**更新** 最新版本显著增强了身份配置能力，通过新增视频URL等身份字段，系统现在能够提供更丰富、更直观的代理展示效果。这一增强不仅提升了用户体验，还为代理的个性化定制提供了更多可能性。系统现在具备完整的身份字段验证和更新逻辑，确保代理配置的一致性和完整性。
+**更新** 最新版本显著增强了内置代理系统的功能和用户体验。通过主代理身份配置的完善、旅行规划代理视频URL的更新、办公助手代理名称的重命名，以及增强的同步逻辑来区分主代理和锁定代理，系统现在提供了更加丰富和个性化的代理体验。
 
 系统的主要优势包括：
 - **高度模块化**：每个组件都有明确的职责和接口
@@ -969,6 +1031,7 @@ GracefulShutdown --> End
 - **完善的错误处理**：具备自愈能力和故障恢复机制
 - **专业的技能生态**：提供针对特定领域的专业技能组合
 - **丰富的身份配置**：支持视频展示等高级外观定制
+- **智能同步逻辑**：区分主代理和锁定代理的更新策略
 - **优化的性能表现**：视频展示功能经过专门的性能优化
 - **健壮的身份验证**：完整的字段验证和更新机制
 
@@ -981,5 +1044,6 @@ GracefulShutdown --> End
 - **多媒体展示增强**：支持更多类型的媒体内容展示
 - **个性化体验提升**：提供更丰富的代理外观和行为定制选项
 - **身份配置优化**：进一步完善身份字段的验证和更新机制
+- **同步逻辑增强**：继续优化主代理和锁定代理的同步策略
 
-内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的视频展示功能和增强的身份验证机制进一步丰富了系统的能力矩阵，为用户提供更加生动和个性化的服务体验。
+内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的视频展示功能、增强的身份验证机制以及智能的同步逻辑进一步丰富了系统的能力矩阵，为用户提供更加生动和个性化的服务体验。
