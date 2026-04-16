@@ -143,6 +143,17 @@ ipcMain.handle("gateway:restart", async () => {
   }
 });
 
+// IPC：渲染进程手动重启 Gateway（用户从 UI 主动触发）
+ipcMain.handle("gateway:manual-restart", async () => {
+  try {
+    const token = readExistingGatewayToken() || getGatewayToken();
+    await restartGateway({ token });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 // IPC：渲染进程获取当前 Gateway 连接信息
 ipcMain.handle("gateway:info", () => {
   const port = getGatewayPort();

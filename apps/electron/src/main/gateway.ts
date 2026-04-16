@@ -596,6 +596,12 @@ async function spawnGateway(opts: {
       // Token 通过环境变量注入，不出现在进程参数里
       OPENCLAW_GATEWAY_TOKEN: opts.token,
       OPENCLAW_GATEWAY_PORT: String(opts.port),
+      // Disable supervisor-based self-respawn (launchd/systemd) inside the
+      // subprocess. When Gateway is managed as an Electron child process it
+      // must stay alive in-process on SIGUSR1 config changes rather than
+      // exiting with code 0 and expecting launchd to restart it — which
+      // never happens because the subprocess is not registered with launchd.
+      OPENCLAW_NO_RESPAWN: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -613,16 +619,15 @@ async function spawnGateway(opts: {
     gatewayProcess = null;
     // Distinguish deliberate stop (SIGTERM from stopGateway) from unexpected crashes.
     // Reusing an external Gateway is never managed by us, so no crash notification.
-    if (
-      !_intentionalStop &&
-      !reusingExternalGateway &&
-      (code !== 0 || (signal !== null && signal !== "SIGTERM"))
-    ) {
-      logEvent("crash", {
+    if (!_intentionalStop && !reusingExternalGateway) {
+      // code=0 means Gateway exited cleanly — this normally shouldn't happen
+      // when OPENCLAW_NO_RESPAWN=1 is set (in-process restart keeps the
+      // process alive). Guard against edge cases (e.g. older Gateway binary)
+      // by auto-respawning on any unexpected clean exit too.
+      logEvent("unexpected-exit", {
         code,
         signal,
-        intentionalStop: _intentionalStop,
-        reusingExternal: reusingExternalGateway,
+        isCrash: code !== 0 || (signal !== null && signal !== "SIGTERM"),
       });
       _onGatewayCrash?.(code, signal);
     }

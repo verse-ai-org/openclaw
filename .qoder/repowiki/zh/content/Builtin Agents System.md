@@ -41,15 +41,25 @@
 - [parse.ts](file://src/media/parse.ts)
 - [nodes-camera.ts](file://src/cli/nodes-camera.ts)
 - [video.ts](file://src/media-understanding/video.ts)
+- [agent-avatar.tsx](file://ui-react/src/components/assistant-ui/agent-avatar.tsx)
+- [assistant-message.tsx](file://ui-react/src/components/chat/AssistantMessage.tsx)
+- [agents.store.ts](file://ui-react/src/store/agents.store.ts)
+- [chat.store.ts](file://ui-react/src/store/chat.store.ts)
+- [settings.store.ts](file://ui-react/src/store/settings.store.ts)
+- [gateway.store.ts](file://ui-react/src/store/gateway.store.ts)
+- [agents.types.ts](file://ui-react/src/types/agents.ts)
+- [assistant-loading-indicator.tsx](file://ui-react/src/components/assistant-ui/assistant-loading-indicator.tsx)
+- [utils.ts](file://ui-react/src/lib/utils.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 主代理身份配置完善：增强主代理(Popeye)的身份配置，包括视频URL和头像更新
-- 旅行规划代理视频URL更新：更新旅行规划代理(Tom)的视频URL为最新的猫主题视频
-- 办公助手代理重命名为Felix：将办公助手代理的显示名称从"Office Helper"更新为"Felix"
-- 增强的同步逻辑：区分主代理和锁定代理的同步策略，主代理仅回填缺失字段，锁定代理强制同步更新
-- 完善的视频展示功能：支持视频URL字段的身份配置和前端展示
+- 新增AgentAvatar组件：引入专用的代理头像渲染组件，替代原有的通用头像处理逻辑
+- 增强代理身份渲染：AgentAvatar组件专门处理代理身份信息的解析和渲染
+- 改进代理头像显示：支持头像URL和表情符号的智能切换，提供更好的用户体验
+- 优化加载指示器：集成AssistantLoadingIndicator组件，提供准确的生成状态反馈
+- 完善会话键解析：支持"agent:<agentId>:<sessionId>"格式的会话键解析
+- 增强代理卡片功能：AgentCard组件支持视频展示和悬停动画效果
 
 ## 目录
 1. [简介](#简介)
@@ -60,10 +70,11 @@
 6. [代理配置与管理](#代理配置与管理)
 7. [技能生态系统](#技能生态系统)
 8. [身份配置增强](#身份配置增强)
-9. [依赖关系分析](#依赖关系分析)
-10. [性能考虑](#性能考虑)
-11. [故障排除指南](#故障排除指南)
-12. [结论](#结论)
+9. [代理头像渲染系统](#代理头像渲染系统)
+10. [依赖关系分析](#依赖关系分析)
+11. [性能考虑](#性能考虑)
+12. [故障排除指南](#故障排除指南)
+13. [结论](#结论)
 
 ## 简介
 
@@ -71,7 +82,7 @@
 
 该系统采用模块化设计，每个组件都有明确的职责分工，同时通过标准化的接口实现松耦合集成。系统支持代理的动态创建、销毁、状态监控和资源回收，确保在高并发场景下的稳定性和可靠性。
 
-**更新** 最新版本显著增强了内置代理系统的配置能力，包括主代理身份配置的完善、旅行规划代理视频URL的更新、办公助手代理名称的重命名，以及增强的同步逻辑来区分主代理和锁定代理。这些改进为用户提供了更丰富、更个性化的代理体验，同时保持了系统的稳定性和一致性。
+**更新** 最新版本显著增强了内置代理系统的配置能力，包括主代理身份配置的完善、旅行规划代理视频URL的更新、办公助手代理名称的重命名，以及增强的同步逻辑来区分主代理和锁定代理。新增的AgentAvatar组件进一步提升了代理头像渲染的专业性和用户体验。
 
 ## 项目结构
 
@@ -107,6 +118,14 @@ HH[配置管理] --> II[代理配置]
 HH --> JJ[身份合并]
 KK[同步逻辑增强] --> LL[主代理同步]
 KK --> MM[锁定代理同步]
+NN[代理头像渲染] --> OO[AgentAvatar组件]
+NN --> PP[AgentCard组件]
+NN --> QQ[AssistantMessage集成]
+RR[状态管理] --> SS[agents.store.ts]
+RR --> TT[chat.store.ts]
+RR --> UU[settings.store.ts]
+VV[类型定义] --> WW[agents.types.ts]
+XX[加载指示器] --> YY[AssistantLoadingIndicator]
 end
 ```
 
@@ -146,6 +165,14 @@ end
 - 媒体解析：`src/media/parse.ts`
 - 相机节点：`src/cli/nodes-camera.ts`
 - 视频理解：`src/media-understanding/video.ts`
+- 代理头像组件：`ui-react/src/components/assistant-ui/agent-avatar.tsx`
+- 助手消息组件：`ui-react/src/components/chat/AssistantMessage.tsx`
+- 代理状态管理：`ui-react/src/store/agents.store.ts`
+- 聊天状态管理：`ui-react/src/store/chat.store.ts`
+- 设置状态管理：`ui-react/src/store/settings.store.ts`
+- 网关状态管理：`ui-react/src/store/gateway.store.ts`
+- 代理类型定义：`ui-react/src/types/agents.ts`
+- 加载指示器组件：`ui-react/src/components/assistant-ui/assistant-loading-indicator.tsx`
 
 **章节来源**
 - [builtin-agents.ts:1-100](file://src/agents/builtin-agents.ts#L1-L100)
@@ -750,6 +777,170 @@ Success --> End
 - [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
 - [agents.config.ts:136-192](file://src/commands/agents.config.ts#L136-L192)
 
+## 代理头像渲染系统
+
+### AgentAvatar组件架构
+
+新增的AgentAvatar组件是代理头像渲染系统的核心组件，专门处理代理身份信息的解析和渲染：
+
+```mermaid
+classDiagram
+class AgentAvatar {
++props AgentAvatarProps
++size AgentAvatarSize
++showLoading boolean
++render() JSX.Element
++resolveSessionKey() string
++extractAgentId(sessionKey) string
++getAgentIdentity() AgentIdentity
+}
+class AgentAvatarProps {
++size AgentAvatarSize
++showLoading boolean
+}
+class AgentIdentity {
++emoji string
++avatarUrl string
++name string
+}
+class AssistantLoadingIndicator {
++render() JSX.Element
+}
+AgentAvatar --> AgentAvatarProps : uses
+AgentAvatar --> AgentIdentity : resolves
+AgentAvatar --> AssistantLoadingIndicator : renders
+```
+
+**图表来源**
+- [agent-avatar.tsx:24-99](file://ui-react/src/components/assistant-ui/agent-avatar.tsx#L24-L99)
+
+### 代理头像渲染流程
+
+AgentAvatar组件实现了智能的代理头像渲染逻辑：
+
+```mermaid
+flowchart TD
+Start([组件渲染]) --> CheckSessionKey["检查sessionKey"]
+CheckSessionKey --> ParseKey["解析会话键格式"]
+ParseKey --> ExtractAgentId["提取agentId"]
+ExtractAgentId --> GetAgent["获取代理信息"]
+GetAgent --> CheckAvatarUrl{"检查avatarUrl"}
+CheckAvatarUrl --> |存在| RenderImage["渲染头像图片"]
+CheckAvatarUrl --> |不存在| CheckEmoji{"检查emoji"}
+CheckEmoji --> |存在| RenderEmoji["渲染表情符号"]
+CheckEmoji --> |不存在| RenderFallback["渲染默认头像"]
+RenderImage --> CheckLoading{"检查showLoading"}
+RenderEmoji --> CheckLoading
+RenderFallback --> CheckLoading
+CheckLoading --> |true| RenderLoading["渲染加载指示器"]
+CheckLoading --> |false| End([完成])
+RenderLoading --> End
+```
+
+**图表来源**
+- [agent-avatar.tsx:60-99](file://ui-react/src/components/assistant-ui/agent-avatar.tsx#L60-L99)
+
+### 会话键解析机制
+
+AgentAvatar组件支持多种会话键格式的智能解析：
+
+```mermaid
+flowchart TD
+SessionKey[会话键] --> CheckFormat{"检查格式"}
+CheckFormat --> |"agent:<agentId>:<sessionId>"| ParseAgentKey["解析代理会话键"]
+CheckFormat --> |其他格式| ParseOtherKey["解析其他会话键"]
+ParseAgentKey --> ExtractAgentId["提取agentId"]
+ExtractAgentId --> ValidateAgentId{"验证agentId"}
+ValidateAgentId --> |有效| LoadAgent["加载代理信息"]
+ValidateAgentId --> |无效| UseFallback["使用回退方案"]
+ParseOtherKey --> UseFallback
+LoadAgent --> ReturnIdentity["返回代理身份"]
+UseFallback --> ReturnDefault["返回默认身份"]
+```
+
+**图表来源**
+- [agent-avatar.tsx:60-74](file://ui-react/src/components/assistant-ui/agent-avatar.tsx#L60-L74)
+
+### 头像渲染策略
+
+AgentAvatar组件实现了灵活的头像渲染策略：
+
+```mermaid
+flowchart TD
+AvatarRender[头像渲染] --> CheckAvatarUrl{"检查avatarUrl"}
+CheckAvatarUrl --> |存在| RenderImg["渲染<img>标签"]
+CheckAvatarUrl --> |不存在| CheckEmoji{"检查emoji"}
+CheckEmoji --> |存在| RenderEmojiBadge["渲染表情符号徽章"]
+CheckEmoji --> |不存在| RenderRobot["渲染默认机器人头像"]
+RenderImg --> ImgProps["设置图片属性"]
+RenderEmojiBadge --> BadgeProps["设置徽章样式"]
+RenderRobot --> RobotProps["设置默认样式"]
+ImgProps --> SizeClass["应用尺寸类"]
+BadgeProps --> SizeClass
+RobotProps --> SizeClass
+SizeClass --> End([完成])
+```
+
+**图表来源**
+- [agent-avatar.tsx:78-90](file://ui-react/src/components/assistant-ui/agent-avatar.tsx#L78-L90)
+
+### 加载状态管理
+
+AgentAvatar组件与AssistantMessage组件协同工作，提供准确的加载状态反馈：
+
+```mermaid
+flowchart TD
+MessageRender[消息渲染] --> CheckFirstInTurn{"检查是否首次出现"}
+CheckFirstInTurn --> |是| CheckSessionRunning{"检查会话运行状态"}
+CheckFirstInTurn --> |否| SkipAvatar["跳过头像渲染"]
+CheckSessionRunning --> |运行中| CheckIsLastMessage{"检查是否最后一条消息"}
+CheckSessionRunning --> |未运行| SkipAvatar
+CheckIsLastMessage --> |是| ShowLoading["显示加载指示器"]
+CheckIsLastMessage --> |否| HideLoading["隐藏加载指示器"]
+ShowLoading --> RenderAvatar["渲染AgentAvatar"]
+HideLoading --> RenderAvatar
+SkipAvatar --> End([完成])
+RenderAvatar --> End
+```
+
+**图表来源**
+- [assistant-message.tsx:55-64](file://ui-react/src/components/chat/AssistantMessage.tsx#L55-L64)
+
+### AgentCard组件增强
+
+AgentCard组件现在支持视频展示和悬停动画效果：
+
+```mermaid
+flowchart TD
+AgentCard[代理卡片] --> CheckAvatar{"检查avatar"}
+CheckAvatar --> |存在| RenderAvatarImg["渲染头像图片"]
+CheckAvatar --> |不存在| RenderEmoji["渲染表情符号"]
+CheckAvatar --> CheckVideo{"检查video"}
+CheckVideo --> |存在| RenderVideo["渲染视频元素"]
+CheckVideo --> |不存在| SkipVideo["跳过视频渲染"]
+RenderAvatarImg --> HoverEffects["设置悬停效果"]
+RenderEmoji --> HoverEffects
+RenderVideo --> VideoEffects["设置视频悬停效果"]
+HoverEffects --> NameOverlay["渲染名称遮罩"]
+VideoEffects --> NameOverlay
+SkipVideo --> NameOverlay
+NameOverlay --> End([完成])
+```
+
+**图表来源**
+- [card.tsx:50-82](file://ui-react/src/components/agents/card.tsx#L50-L82)
+
+**章节来源**
+- [agent-avatar.tsx:1-99](file://ui-react/src/components/assistant-ui/agent-avatar.tsx#L1-L99)
+- [assistant-message.tsx:1-120](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L120)
+- [agents.store.ts:362-383](file://ui-react/src/store/agents.store.ts#L362-L383)
+- [chat.store.ts:476-506](file://ui-react/src/store/chat.store.ts#L476-L506)
+- [settings.store.ts:214-223](file://ui-react/src/store/settings.store.ts#L214-L223)
+- [gateway.store.ts:80-124](file://ui-react/src/store/gateway.store.ts#L80-L124)
+- [agents.types.ts:7-24](file://ui-react/src/types/agents.ts#L7-L24)
+- [assistant-loading-indicator.tsx:1-12](file://ui-react/src/components/assistant-ui/assistant-loading-indicator.tsx#L1-L12)
+- [card.tsx:1-99](file://ui-react/src/components/agents/card.tsx#L1-L99)
+
 ## 依赖关系分析
 
 内置代理系统的依赖关系相对简单且清晰，主要依赖于核心的运行时环境和标准库：
@@ -787,6 +978,15 @@ SID[session-identity.ts]
 PARSE[media parse.ts]
 CAM[nodes-camera.ts]
 VID[video.ts]
+AA[AgentAvatar]
+AMSG[AssistantMessage]
+ASTORE[agents.store.ts]
+CSTORE[chat.store.ts]
+SSTORE[settings.store.ts]
+GSTORE[gateway.store.ts]
+ATYPES[agents.types.ts]
+ALI[AssistantLoadingIndicator]
+UTILS[utils.ts]
 end
 subgraph "外部依赖"
 Node[node: fs, path, child_process]
@@ -833,6 +1033,16 @@ AMP --> PARSE
 ZS --> CAM
 SID --> VID
 VID --> PARSE
+AA --> ASTORE
+AA --> SSTORE
+AA --> GSTORE
+AA --> ALI
+AMSG --> AA
+AMSG --> CSTORE
+ASTORE --> GSTORE
+CSTORE --> GSTORE
+SSTORE --> GSTORE
+ALI --> UTILS
 ```
 
 **图表来源**
@@ -876,6 +1086,7 @@ VID --> PARSE
 - **配置缓存**：缓存代理配置信息
 - **身份缓存**：缓存代理身份信息（包括视频URL）
 - **媒体缓存**：缓存视频和音频媒体资源
+- **头像缓存**：缓存代理头像和表情符号
 
 ### 技能执行优化
 
@@ -903,10 +1114,30 @@ VID --> PARSE
 - **批量验证**：多个字段同时验证时使用批量处理
 - **增量更新**：仅更新发生变化的字段
 
+### 代理头像渲染优化
+
+AgentAvatar组件的性能优化：
+- **会话键解析缓存**：避免重复解析相同的会话键
+- **代理信息缓存**：缓存已解析的代理身份信息
+- **条件渲染优化**：根据条件选择最优的渲染路径
+- **懒加载策略**：仅在需要时加载头像资源
+- **尺寸类复用**：复用已计算的尺寸类名
+
+### 状态管理优化
+
+状态管理的性能优化：
+- **状态选择器优化**：使用useMemo避免不必要的重新计算
+- **状态订阅优化**：精确订阅所需的状态片段
+- **批量更新**：合并多个状态更新操作
+- **防抖处理**：对频繁的状态变化进行防抖处理
+
 **章节来源**
+- [agent-avatar.tsx:36-74](file://ui-react/src/components/assistant-ui/agent-avatar.tsx#L36-L74)
+- [assistant-message.tsx:55-64](file://ui-react/src/components/chat/AssistantMessage.tsx#L55-L64)
+- [agents.store.ts:362-383](file://ui-react/src/store/agents.store.ts#L362-L383)
+- [chat.store.ts:476-506](file://ui-react/src/store/chat.store.ts#L476-L506)
 - [profile.tsx:112-136](file://ui-react/src/components/agents/profile.tsx#L112-L136)
-- [session-utils.ts:382-418](file://src/gateway/session-utils.ts#L382-L418)
-- [agents.config.ts:136-192](file://src/commands/agents.config.ts#L136-L192)
+- [card.tsx:26-38](file://ui-react/src/components/agents/card.tsx#L26-L38)
 
 ## 故障排除指南
 
@@ -934,6 +1165,12 @@ VID --> PARSE
    - 验证头像URL的格式
    - 确认身份配置文件的完整性
    - 验证身份字段的格式和长度
+
+5. **代理头像渲染问题**
+   - 检查会话键格式是否正确
+   - 验证代理身份信息的可用性
+   - 确认头像URL的可访问性
+   - 分析头像渲染的错误日志
 
 ### 错误处理机制
 
@@ -1012,17 +1249,34 @@ GracefulShutdown --> End
    - 确认更新策略的应用
    - 测试主代理和锁定代理的不同行为
 
+9. **代理头像渲染问题**
+   - 验证会话键解析逻辑
+   - 检查代理身份信息的获取
+   - 确认头像URL的格式和可访问性
+   - 分析头像渲染的性能瓶颈
+   - 优化头像缓存策略
+
+10. **加载指示器问题**
+    - 验证会话运行状态检测
+    - 检查最后一条消息的判断逻辑
+    - 确认加载指示器的显示时机
+    - 优化状态管理的性能
+
 **章节来源**
 - [auth-health.ts:1-250](file://src/agents/auth-health.ts#L1-L250)
 - [anthropic-payload-log.ts:1-250](file://src/agents/anthropic-payload-log.ts#L1-L250)
 - [identity-file.ts:5-12](file://src/agents/identity-file.ts#L5-L12)
 - [agents.config.ts:136-192](file://src/commands/agents.config.ts#L136-L192)
+- [agent-avatar.tsx:36-74](file://ui-react/src/components/assistant-ui/agent-avatar.tsx#L36-L74)
+- [assistant-message.tsx:55-64](file://ui-react/src/components/chat/AssistantMessage.tsx#L55-L64)
 
 ## 结论
 
 内置代理系统作为 OpenClaw 平台的核心组件，展现了优秀的架构设计和实现质量。系统通过模块化的组件设计、清晰的职责分离和完善的错误处理机制，为平台提供了稳定可靠的代理管理能力。
 
 **更新** 最新版本显著增强了内置代理系统的功能和用户体验。通过主代理身份配置的完善、旅行规划代理视频URL的更新、办公助手代理名称的重命名，以及增强的同步逻辑来区分主代理和锁定代理，系统现在提供了更加丰富和个性化的代理体验。
+
+**更新** 新增的AgentAvatar组件进一步提升了代理头像渲染的专业性和用户体验。该组件专门处理代理身份信息的解析和渲染，支持头像URL和表情符号的智能切换，提供准确的加载状态反馈，并与AssistantMessage组件协同工作。
 
 系统的主要优势包括：
 - **高度模块化**：每个组件都有明确的职责和接口
@@ -1034,6 +1288,8 @@ GracefulShutdown --> End
 - **智能同步逻辑**：区分主代理和锁定代理的更新策略
 - **优化的性能表现**：视频展示功能经过专门的性能优化
 - **健壮的身份验证**：完整的字段验证和更新机制
+- **专业的头像渲染**：AgentAvatar组件提供专业的代理头像显示
+- **智能状态管理**：完善的会话键解析和状态跟踪机制
 
 未来的发展方向可能包括：
 - **智能化代理管理**：引入机器学习算法优化代理调度
@@ -1044,6 +1300,8 @@ GracefulShutdown --> End
 - **多媒体展示增强**：支持更多类型的媒体内容展示
 - **个性化体验提升**：提供更丰富的代理外观和行为定制选项
 - **身份配置优化**：进一步完善身份字段的验证和更新机制
-- **同步逻辑增强**：继续优化主代理和锁定代理的同步策略
+- **头像渲染优化**：继续改进AgentAvatar组件的性能和功能
+- **状态管理增强**：优化状态管理的性能和可靠性
+- **加载指示器改进**：提供更准确和友好的加载状态反馈
 
-内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的视频展示功能、增强的身份验证机制以及智能的同步逻辑进一步丰富了系统的能力矩阵，为用户提供更加生动和个性化的服务体验。
+内置代理系统为 OpenClaw 平台奠定了坚实的技术基础，为后续的功能扩展和性能优化提供了良好的平台支撑。新增的AgentAvatar组件、增强的身份验证机制以及智能的同步逻辑进一步丰富了系统的能力矩阵，为用户提供更加生动和个性化的服务体验。
