@@ -137,7 +137,7 @@ export function AgentDetailDrawer({
           <div className="flex-1 overflow-hidden">
             <ScrollArea className="h-[calc(100vh-100px)]">
               <div className="px-6 pt-2 pb-10 max-w-3xl mx-auto flex flex-col gap-4">
-                <ProfileHeroSection agentId={agentId} onChatClick={onChatClick} />
+                <ProfileHeroSection agentId={agentId} onChatClick={onChatClick} readOnly={LOCKED_AGENT_IDS.has(agentId)} />
                 <IntroSection agentId={agentId} onChatClick={onChatClick} />
                 <CoreSkillsSection agentId={agentId} />
                 <ToolsSection agentId={agentId} />

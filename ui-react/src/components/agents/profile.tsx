@@ -138,10 +138,13 @@ function VideoShowcase({ videoUrl }: { videoUrl: string }) {
 export function ProfileHeroSection({
   agentId,
   onChatClick,
+  readOnly = false,
 }: {
   agentId: string;
   /** If provided, overrides the default navigate-to-chat behavior (used when inside a drawer on the Chat page) */
   onChatClick?: (sessionKey: string) => void;
+  /** When true, the Edit Identity button opens a read-only info card (used for locked built-in agents). */
+  readOnly?: boolean;
 }) {
   const agentsList = useAgentsStore((s) => s.agentsList);
   const identity = useAgentsStore((s) => s.agentIdentityById[agentId]);
@@ -312,40 +315,71 @@ export function ProfileHeroSection({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Edit Identity</DialogTitle>
+            <DialogTitle>{readOnly ? "Identity" : "Edit Identity"}</DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-[120px_1fr] gap-y-3 gap-x-4 items-center text-[14px] py-2">
-            {IDENTITY_KEYS.map((k) => (
-              <div key={k} className="contents">
-                <p className="text-[#8E8E93] font-semibold capitalize">{k}</p>
-                <input
-                  type="text"
-                  value={draft[k] ?? ""}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, [k]: e.target.value }))}
-                  className="h-9 rounded-xl bg-white border border-[#E5E7EB] px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#BA0034]/20"
-                  placeholder={placeholderByKey[k]}
-                />
-              </div>
-            ))}
-          </div>
+          {readOnly ? (
+            /* Read-only info card for locked built-in agents */
+            <div className="grid grid-cols-[120px_1fr] gap-y-3 gap-x-4 items-center text-[14px] py-2">
+              {([
+                { label: "Name", value: name },
+                { label: "Creature", value: creature },
+                { label: "Vibe", value: vibe },
+                { label: "Emoji", value: emoji },
+                { label: "Avatar", value: avatar ?? "" },
+                { label: "Video", value: video ?? "" },
+              ] as Array<{ label: string; value: string }>).map(({ label, value }) => value ? (
+                <div key={label} className="contents">
+                  <p className="text-[#8E8E93] font-semibold">{label}</p>
+                  <p className="text-[13px] text-[#1A1A1A] break-all">{value}</p>
+                </div>
+              ) : null)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-[120px_1fr] gap-y-3 gap-x-4 items-center text-[14px] py-2">
+              {IDENTITY_KEYS.map((k) => (
+                <div key={k} className="contents">
+                  <p className="text-[#8E8E93] font-semibold capitalize">{k}</p>
+                  <input
+                    type="text"
+                    value={draft[k] ?? ""}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, [k]: e.target.value }))}
+                    className="h-9 rounded-xl bg-white border border-[#E5E7EB] px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#BA0034]/20"
+                    placeholder={placeholderByKey[k]}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setEditOpen(false)}
-              disabled={agentFileSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={agentFileSaving}
-              onClick={() => void handleSaveIdentity()}
-            >
-              {agentFileSaving ? "Saving…" : "Save"}
-            </Button>
+            {readOnly ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditOpen(false)}
+              >
+                Close
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditOpen(false)}
+                  disabled={agentFileSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={agentFileSaving}
+                  onClick={() => void handleSaveIdentity()}
+                >
+                  {agentFileSaving ? "Saving…" : "Save"}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

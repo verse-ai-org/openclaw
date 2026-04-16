@@ -44,6 +44,11 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
   {
     // main is always the default; no workspace/name override — uses agents.defaults.workspace
     id: "main",
+    identity: {
+      name: "Popeye",
+      avatar: "https://files.aiverser.com/bossim/images/dog_front_1.0.webp",
+      video: "https://files.aiverser.com/bossim/vedio/dog_kling_20260416_2901_0.mp4",
+    },
   },
   {
     id: "travel-planner",
@@ -64,8 +69,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
       name: "Tom",
       emoji: "✈️",
       avatar: "https://files.aiverser.com/bossim/images/travel-planner.webp",
-      video:
-        "https://files.aiverser.com/bossim/vedio/kling_20260331_%E4%BD%9C%E5%93%81_%E4%B8%80%E5%8F%AA%E6%A9%98%E8%89%B2%E8%99%8E%E6%96%91%E7%8C%AB_%E5%8D%A1%E5%85%B6_5614_0.mp4",
+      video: "https://files.aiverser.com/bossim/vedio/cat_travel_planner.mp4",
       bio: 'Plan complete trips — flights, hotels, transport, and local activities in one go.\nReal-time search so you always get current availability and accurate pricing.\nDay-by-day itineraries tailored to your destination, pace, and interests.\n💬 Try: "Plan a 5-day trip to Shanghai in October, budget $2,000"',
     },
   },
@@ -82,10 +86,10 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     ],
     tools: { profile: "full", deny: [] },
     identity: {
-      name: "Office Helper",
+      name: "Felix",
       emoji: "💼",
       avatar: "https://files.aiverser.com/bossim/images/office-helper.webp",
-      video: "https://files.aiverser.com/bossim/vedio/cat_office.mp4",
+      video: "https://files.aiverser.com/bossim/vedio/cat_office_2.0.mp4",
       bio: 'Create, edit, and convert Word, Excel, and PDF files with a simple description.\nComplex formatting, formulas, and multi-page layouts handled automatically.\nExport polished, ready-to-share documents in any format you need.\n💬 Try: "Create a project proposal in Word with a budget table"',
     },
   },
@@ -124,36 +128,65 @@ export async function ensureBuiltinAgents(
         const missingAvatar =
           builtin.identity.avatar && !entry?.identity?.avatar;
         const missingVideo = builtin.identity.video && !entry?.identity?.video;
-        // bio is always overwritten to keep it in sync with the built-in definition
-        // (it is not user-editable, so overwriting is safe and ensures updates propagate).
+        // For non-main built-in agents (travel-planner, my-office-helper), video/bio/name are
+        // always overwritten to keep them in sync with the canonical built-in definition.
+        // These fields are not user-editable for locked agents.
+        const isMainAgent = id === "main";
+        const missingName = builtin.identity.name && !entry?.identity?.name;
+        const nameChanged =
+          !isMainAgent &&
+          builtin.identity.name &&
+          entry?.identity?.name !== builtin.identity.name;
+        const videoChanged =
+          !isMainAgent &&
+          builtin.identity.video &&
+          entry?.identity?.video !== builtin.identity.video;
         const bioDiffers =
-          builtin.identity.bio && entry?.identity?.bio !== builtin.identity.bio;
+          !isMainAgent &&
+          builtin.identity.bio &&
+          entry?.identity?.bio !== builtin.identity.bio;
         const missingBio = builtin.identity.bio && !entry?.identity?.bio;
         if (
           noIdentity ||
           missingAvatar ||
           missingVideo ||
+          missingName ||
+          nameChanged ||
+          videoChanged ||
           missingBio ||
           bioDiffers
         ) {
           next = applyAgentConfig(next, {
             agentId: id,
             identity: {
-              // Preserve existing fields; only fill in what is missing.
+              // Preserve existing fields; only fill in what is missing or force-update locked fields.
               ...entry?.identity,
               ...(noIdentity
                 ? builtin.identity
                 : {
+                    // name: backfill when missing for all; force-sync for locked built-ins.
+                    ...(missingName || nameChanged
+                      ? { name: builtin.identity.name }
+                      : {}),
                     ...(missingAvatar
                       ? { avatar: builtin.identity.avatar }
                       : {}),
-                    ...(missingVideo ? { video: builtin.identity.video } : {}),
+                    // For main: only backfill when missing. For locked built-ins: always sync.
+                    ...(missingVideo || videoChanged
+                      ? { video: builtin.identity.video }
+                      : {}),
                     ...(missingBio || bioDiffers
                       ? { bio: builtin.identity.bio }
                       : {}),
                   }),
             },
           });
+          dirty = true;
+        }
+
+        // Backfill the top-level name field when missing (used as subtitle in the agent list).
+        if (builtin.name && !entry?.name) {
+          next = applyAgentConfig(next, { agentId: id, name: builtin.name });
           dirty = true;
         }
       }
