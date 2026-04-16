@@ -88,7 +88,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     identity: {
       name: "Felix",
       emoji: "💼",
-      avatar: "https://files.aiverser.com/bossim/images/office-helper.webp",
+      avatar: "https://files.aiverser.com/bossim/images/cat_office_2.0.webp",
       video: "https://files.aiverser.com/bossim/vedio/cat_office_2.0.mp4",
       bio: 'Create, edit, and convert Word, Excel, and PDF files with a simple description.\nComplex formatting, formulas, and multi-page layouts handled automatically.\nExport polished, ready-to-share documents in any format you need.\n💬 Try: "Create a project proposal in Word with a budget table"',
     },

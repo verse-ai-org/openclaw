@@ -59,7 +59,7 @@ export function AgentCard({
             src={avatar}
             alt={name}
             className={cn(
-              "h-full w-full object-contain transition-opacity duration-200",
+              "h-full w-full object-cover transition-opacity duration-200",
               video ? "opacity-100 group-hover:opacity-0" : "opacity-100",
             )}
           />
