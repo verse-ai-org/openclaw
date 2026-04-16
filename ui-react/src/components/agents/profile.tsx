@@ -154,6 +154,9 @@ export function ProfileHeroSection({
   const loadFileContent = useAgentsStore((s) => s.loadFileContent);
   const changeFileDraft = useAgentsStore((s) => s.changeFileDraft);
   const saveFile = useAgentsStore((s) => s.saveFile);
+  const configForm = useAgentsStore((s) => s.configForm);
+  const patchConfig = useAgentsStore((s) => s.patchConfig);
+  const saveConfig = useAgentsStore((s) => s.saveConfig);
   const row = agentsList?.agents.find((a) => a.id === agentId);
   const ident = row?.identity;
   const [editOpen, setEditOpen] = useState(false);
@@ -232,9 +235,35 @@ export function ProfileHeroSection({
   };
 
   const handleSaveIdentity = async () => {
+    // 1. Save identity fields to IDENTITY.md (name, creature, vibe, emoji, avatar)
     const nextContent = upsertIdentityMarkdown(agentFileContents["IDENTITY.md"] ?? "", draft);
     changeFileDraft("IDENTITY.md", nextContent);
     await saveFile("IDENTITY.md");
+
+    // 2. Sync name + avatar into the agent config so Employee list reflects changes immediately.
+    //    We update configForm in-place (same pattern as changeAgentModel) then call saveConfig.
+    if (configForm) {
+      const agents = (configForm.agents as Record<string, unknown>) ?? {};
+      const list = [...((agents.list as Record<string, unknown>[]) ?? [])];
+      let idx = list.findIndex((a) => a.id === agentId);
+      if (idx === -1) {
+        // Agent entry not in list yet — create a minimal one
+        list.push({ id: agentId });
+        idx = list.length - 1;
+      }
+      const entry = { ...list[idx] } as Record<string, unknown>;
+      const existingIdentity = (entry.identity as Record<string, unknown>) ?? {};
+      entry.identity = {
+        ...existingIdentity,
+        ...(draft.name ? { name: draft.name } : {}),
+        ...(draft.avatar !== undefined ? { avatar: draft.avatar } : {}),
+        ...(draft.emoji ? { emoji: draft.emoji } : {}),
+      };
+      list[idx] = entry;
+      patchConfig(["agents", "list"], list);
+      await saveConfig();
+    }
+
     setEditOpen(false);
   };
 
