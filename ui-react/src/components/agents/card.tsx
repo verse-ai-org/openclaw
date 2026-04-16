@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 interface AgentCardProps {
   id: string;
   name: string;
+  bioName?: string;
   emoji?: string;
   avatar?: string;
   video?: string;
@@ -13,6 +14,7 @@ interface AgentCardProps {
 
 export function AgentCard({
   name,
+  bioName,
   emoji,
   avatar,
   video,
@@ -22,7 +24,7 @@ export function AgentCard({
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleMouseEnter = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current) { return; }
     videoRef.current.currentTime = 0;
     void videoRef.current.play().catch(() => {
       // Ignore autoplay errors and keep image fallback visible.
@@ -30,7 +32,7 @@ export function AgentCard({
   };
 
   const handleMouseLeave = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current) { return; }
     videoRef.current.pause();
     videoRef.current.currentTime = 0;
   };
@@ -80,8 +82,9 @@ export function AgentCard({
       </div>
 
       {/* Name */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/35 to-transparent px-3 pb-2 pt-6 text-center">
-        <h3 className="truncate text-sm font-medium text-white drop-shadow-sm">{name}</h3>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/65 via-black/35 to-transparent px-3 pb-2 pt-6 text-center">
+        <h3 className="truncate text-sm font-medium text-white drop-shadow-sm">{bioName}</h3>
+        <p className="truncate text-xs text-white/75 drop-shadow-sm">{name}</p>
       </div>
 
       {/* Selected indicator */}

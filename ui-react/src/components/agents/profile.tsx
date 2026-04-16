@@ -272,7 +272,7 @@ export function ProfileHeroSection({
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-3 mb-1">
+        <div className="flex flex-col items-center gap-2">
           <h1 className="text-[36px] font-extrabold text-black leading-none flex items-center gap-2 whitespace-nowrap">
             <span>{emoji}</span>
             <span>{name}</span>
@@ -303,7 +303,7 @@ export function ProfileHeroSection({
         {/* <p className="text-[11px] font-bold text-[#BA0034] font-mono mb-3">{agentId}</p> */}
 
         {vibe && (
-          <p className="text-lg font-medium text-muted-foreground text-center max-w-xl leading-snug mb-5">
+          <p className="font-medium text-muted-foreground text-center max-w-xl leading-snug">
             "{vibe}"
           </p>
         )}

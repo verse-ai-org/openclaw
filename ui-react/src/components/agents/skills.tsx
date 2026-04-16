@@ -106,7 +106,7 @@ function AddSkillsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) { onClose(); }}}>
       <DialogContent className="w-[60vw] max-w-[60vw] sm:max-w-[60vw] h-[70vh] flex flex-col gap-0 p-0 overflow-hidden rounded-3xl">
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle className="text-[15px] font-bold">Add Skills</DialogTitle>

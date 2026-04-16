@@ -215,8 +215,8 @@ function ToolsDialog({
 
   const isDirty =
     draftProfile !== initialProfile ||
-    JSON.stringify([...draftAlsoAllow].sort()) !== JSON.stringify([...initialAlsoAllow].sort()) ||
-    JSON.stringify([...draftDeny].sort()) !== JSON.stringify([...initialDeny].sort());
+    JSON.stringify([...draftAlsoAllow].toSorted()) !== JSON.stringify([...initialAlsoAllow].toSorted()) ||
+    JSON.stringify([...draftDeny].toSorted()) !== JSON.stringify([...initialDeny].toSorted());
 
   const handleSave = async () => {
     if (hasDestructiveChange) {

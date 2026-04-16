@@ -110,8 +110,8 @@ export function AgentDetailDrawer({
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-        <DrawerContent className="h-full w-[80vw] bg-[#F7F7F7]" style={{ maxWidth: "80vw" }}>
-          <DrawerHeader className="px-8 py-3 bg-[#F7F7F7] border-b border-[#EFEFEF]">
+        <DrawerContent className="h-full w-[80vw] bg-muted" style={{ maxWidth: "80vw" }}>
+          <DrawerHeader className="px-8 py-2">
             <DialogTitle className="hidden">{selectedName}</DialogTitle>
             <div className="flex items-start justify-end gap-4">
               <div className="flex items-center gap-2">

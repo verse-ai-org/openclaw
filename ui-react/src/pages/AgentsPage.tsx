@@ -221,12 +221,15 @@ export function AgentsPage() {
                   const agentEmoji = ident?.emoji;
                   const agentAvatar = ident?.avatarUrl;
                   const agentVideo = ident?.video;
+                  const bioName = agent?.identity?.name;
+                  // console.log(agent)
 
                   return (
                     <AgentCard
                       key={agent.id}
                       id={agent.id}
                       name={agentName}
+                      bioName={bioName}
                       emoji={agentEmoji}
                       avatar={agentAvatar}
                       video={agentVideo}

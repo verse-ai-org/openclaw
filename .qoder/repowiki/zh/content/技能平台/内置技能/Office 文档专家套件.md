@@ -15,11 +15,11 @@
 
 ## 更新摘要
 **变更内容**
-- 新增 Office Document Specialist Suite Python CLI 工具套件
-- 添加 ods.py 主要 CLI 脚本，提供模板报告生成和文档样式应用功能
-- 新增 requirements.txt 依赖管理文件，明确指定 python-docx 和 lxml 依赖
-- 新增 setup.sh 安装设置脚本，支持虚拟环境创建和依赖安装
-- 更新技能描述，强调新的 CLI 工具套件和专业文档处理能力
+- 新增智能DOCX到PDF转换系统，支持优先级转换流程
+- 特别增强了中日韩(CJK)字体支持，包括自动字体检测和注册
+- 新增LibreOffice CLI和reportlab回退方案
+- 添加嵌入字体文件支持，包括NotoSansSC-Regular.otf
+- 扩展了跨格式转换功能，包括PDF文本提取到DOCX
 
 ## 目录
 1. [项目概述](#项目概述)
@@ -38,7 +38,7 @@ Office 文档专家套件是 OpenClaw 个人 AI 助手项目中的一个专业�
 
 OpenClaw 是一个运行在用户本地设备上的个人 AI 助手，支持 WhatsApp、Telegram、Slack、Discord、Google Chat、Signal、iMessage、BlueBubbles、IRC、Microsoft Teams、Matrix、Feishu、LINE、Mattermost、Nextcloud Talk、Nostr、Synology Chat、Tlon、Twitch、Zalo、Zalo Personal 和 WebChat 等多种通信渠道。它可以在 macOS/iOS/Android 上进行语音交互，并能够渲染实时画布界面。
 
-**更新** 新增了完整的 Python CLI 工具套件，提供专业级的文档处理能力和自动化工作流程。
+**更新** 新增了完整的 Python CLI 工具套件，提供专业级的文档处理能力和自动化工作流程，特别增强了CJK字体支持和智能转换系统。
 
 ## 项目结构
 
@@ -69,6 +69,8 @@ O[ClawHub 技能注册表]
 P[工作空间技能]
 Q[内置技能]
 R[Office Document Specialist Suite CLI]
+S[智能DOCX到PDF转换系统]
+T[CJK字体支持]
 end
 A --> F
 A --> G
@@ -83,6 +85,10 @@ A --> O
 A --> P
 A --> Q
 A --> R
+A --> S
+A --> T
+R --> S
+S --> T
 ```
 
 **图表来源**
@@ -111,10 +117,22 @@ Office 文档专家套件现在包含一个完整的 Python CLI 工具套件，�
 - 支持横向/纵向页面方向切换
 - 自动添加页码和专业排版
 
+#### 智能DOCX到PDF转换系统
+
+**优先级转换流程**：
+1. **LibreOffice CLI**（最佳质量，保留格式）
+2. **reportlab与嵌入字体**（回退方案，无需外部依赖）
+
+**CJK字体支持增强**：
+- 自动检测和注册系统字体
+- 嵌入字体文件支持
+- 跨平台字体优先级：嵌入字体 → 系统字体 → Helvetica回退
+
 #### 依赖管理系统
 
 - **python-docx >= 1.1.2**：用于 Word 文档处理和样式管理
 - **lxml >= 5.3.0**：用于 XML 处理和图表创建
+- **reportlab**：用于PDF生成和字体管理
 
 #### 安装设置脚本：setup.sh
 
@@ -151,24 +169,35 @@ participant User as 用户
 participant Gateway as Gateway 控制平面
 participant Skill as Office Document Specialist Suite
 participant CLI as ods.py CLI
+participant Converter as 智能转换系统
+participant LibreOffice as LibreOffice
+participant ReportLab as ReportLab
 participant Python as Python 环境
 participant Office as Office 应用程序
 User->>Gateway : 发送文档处理请求
 Gateway->>Skill : 路由到 Office 文档技能
 Skill->>CLI : 执行 CLI 命令
-CLI->>Python : 加载虚拟环境和依赖
-Python->>Office : 使用 python-docx/lxml
-Office-->>Python : 返回处理结果
-Python-->>CLI : 返回文档对象
-CLI-->>Skill : 返回处理后的文档
-Skill-->>Gateway : 返回处理结果
+CLI->>Converter : 调用智能转换函数
+alt LibreOffice可用
+Converter->>LibreOffice : 使用LibreOffice CLI
+LibreOffice-->>Converter : 返回高质量PDF
+else 回退到reportlab
+Converter->>ReportLab : 使用reportlab + 嵌入字体
+ReportLab->>Python : 自动字体检测和注册
+Python-->>ReportLab : 返回注册字体
+ReportLab-->>Converter : 返回PDF文件
+end
+Converter-->>CLI : 返回处理后的文档
+CLI-->>Skill : 返回处理结果
+Skill-->>Gateway : 返回最终文档
 Gateway-->>User : 发送最终文档
 Note over User,Gateway : 支持 Word/Excel/PowerPoint 处理
+Note over Converter,LibreOffice : CJK字体支持增强
 ```
 
 **图表来源**
 - [src/index.ts: 1-94:1-94](file://src/index.ts#L1-L94)
-- [skills/office-document-specialist-suite/SKILL.md: 42-66:42-66](file://skills/office-document-specialist-suite/SKILL.md#L42-L66)
+- [skills/office-document-specialist-suite/SKILL.md: 192-220:192-220](file://skills/office-document-specialist-suite/SKILL.md#L192-L220)
 
 ## 详细组件分析
 
@@ -187,20 +216,75 @@ CLI --> Template[template-report 命令]
 CLI --> Style[style-doc 命令]
 Template --> WordOps[创建报告模板]
 Style --> WordOps2[应用文档样式]
+WordOps --> SmartConvert[智能转换系统]
+WordOps2 --> SmartConvert
+SmartConvert --> PriorityCheck{LibreOffice可用?}
+PriorityCheck --> |是| LibreOfficeConvert[LibreOffice CLI转换]
+PriorityCheck --> |否| ReportLabConvert[ReportLab回退转换]
+LibreOfficeConvert --> CJKSupport[CJK字体支持]
+ReportLabConvert --> CJKSupport
+CJKSupport --> FontDetection[自动字体检测]
+FontDetection --> FontRegistration[字体注册]
+FontRegistration --> PDFGeneration[PDF生成]
 ExcelProcess --> ExcelOps[单元格/公式/格式化]
 PPTProcess --> PPTOps[幻灯片/图表/布局]
-WordOps --> WordSave[保存 Word 文档]
-WordOps2 --> WordSave
+PDFGeneration --> WordSave[保存 Word 文档]
+WordSave --> End([完成])
 ExcelOps --> ExcelSave[保存 Excel 文档]
 PPTOps --> PPtSave[保存 PowerPoint 文档]
-WordSave --> End([完成])
-ExcelSave --> End
-PPtSave --> End
+End
 ```
 
 **图表来源**
-- [skills/office-document-specialist-suite/SKILL.md: 42-66:42-66](file://skills/office-document-specialist-suite/SKILL.md#L42-L66)
+- [skills/office-document-specialist-suite/SKILL.md: 192-220:192-220](file://skills/office-document-specialist-suite/SKILL.md#L192-L220)
 - [skills/office-document-specialist-suite/ods.py: 99-136:99-136](file://skills/office-document-specialist-suite/ods.py#L99-L136)
+
+### 智能DOCX到PDF转换系统
+
+```mermaid
+flowchart LR
+SmartConvert[智能转换系统] --> PriorityOrder[优先级顺序]
+PriorityOrder --> LibreOffice[LibreOffice CLI]
+PriorityOrder --> ReportLab[ReportLab回退]
+LibreOffice --> QualityCheck{质量检查}
+QualityCheck --> |成功| OutputPDF[输出PDF]
+QualityCheck --> |失败| Fallback[触发回退]
+Fallback --> ReportLab
+ReportLab --> CJKFontSupport[增强CJK字体支持]
+CJKFontSupport --> FontDetection[字体检测]
+FontDetection --> FontRegistration[字体注册]
+FontRegistration --> PDFGeneration[PDF生成]
+OutputPDF --> End([完成])
+PDFGeneration --> End
+```
+
+**图表来源**
+- [skills/office-document-specialist-suite/SKILL.md: 205-220:205-220](file://skills/office-document-specialist-suite/SKILL.md#L205-L220)
+- [skills/office-document-specialist-suite/SKILL.md: 612-670:612-670](file://skills/office-document-specialist-suite/SKILL.md#L612-L670)
+
+### CJK字体支持增强
+
+```mermaid
+flowchart TD
+CJKSupport[增强CJK字体支持] --> FontPriority[字体优先级]
+FontPriority --> EmbeddedFont[嵌入字体]
+EmbeddedFont --> NotoSansSC[NotoSansSC-Regular.otf]
+NotoSansSC --> FontRegistration[字体注册]
+FontRegistration --> FontAvailable{字体可用?}
+FontAvailable --> |是| FontSuccess[字体注册成功]
+FontAvailable --> |否| SystemFont[系统字体检测]
+SystemFont --> Darwin[macOS STHeiti]
+SystemFont --> Windows[Windows 微软雅黑]
+SystemFont --> Linux[Linux Noto]
+Darwin --> FontSuccess
+Windows --> FontSuccess
+Linux --> FontSuccess
+FontSuccess --> HelveticaFallback[Helvetica回退]
+HelveticaFallback --> GarbledCharacters[字符乱码]
+```
+
+**图表来源**
+- [skills/office-document-specialist-suite/SKILL.md: 612-670:612-670](file://skills/office-document-specialist-suite/SKILL.md#L612-L670)
 
 ### Python 依赖管理
 
@@ -213,6 +297,9 @@ class OfficeDocumentSuite {
 +style_doc()
 +apply_advanced_layout()
 +configure_styles()
++convert_docx_to_pdf()
++_convert_with_reportlab()
++_find_cjk_font()
 }
 class PythonDocx {
 +Document()
@@ -225,6 +312,12 @@ class Lxml {
 +XML()
 +tostring()
 }
+class ReportLab {
++SimpleDocTemplate()
++Paragraph()
++TTFont()
++pdfmetrics()
+}
 class SetupScript {
 +create_virtual_env()
 +install_dependencies()
@@ -232,8 +325,10 @@ class SetupScript {
 }
 OfficeDocumentSuite --> PythonDocx : 使用
 OfficeDocumentSuite --> Lxml : 使用
+OfficeDocumentSuite --> ReportLab : 使用
 SetupScript --> PythonDocx : 依赖
 SetupScript --> Lxml : 依赖
+SetupScript --> ReportLab : 依赖
 ```
 
 **图表来源**
@@ -337,19 +432,21 @@ M[pandas]
 N[PyPDF2]
 O[lxml]
 P[docxtpl]
+Q[reportlab]
+R[fontconfig]
 end
 subgraph "平台特定依赖"
-Q[@whiskeysockets/baileys]
-R[@grammyjs/transformer-throttler]
-S[@slack/bolt]
-T[@discordjs/voice]
-U[@line/bot-sdk]
+S[@whiskeysockets/baileys]
+T[@grammyjs/transformer-throttler]
+U[@slack/bolt]
+V[@discordjs/voice]
+W[@line/bot-sdk]
 end
 subgraph "开发工具"
-V[typescript]
-W[vitest]
-X[oxlint]
-Y[tsx]
+X[typescript]
+Y[vitest]
+Z[oxlint]
+AA[tsx]
 end
 A --> J
 B --> K
@@ -358,6 +455,7 @@ D --> M
 E --> N
 J --> O
 K --> P
+Q --> R
 ```
 
 **图表来源**
@@ -376,6 +474,20 @@ K --> P
 3. **缓存策略**：频繁访问的模板和样式可以缓存以减少重复加载时间
 4. **增量更新**：对于已存在的文档，只处理变更部分而非整个文档
 
+### 智能转换系统优化
+
+1. **LibreOffice优先级**：系统会优先尝试LibreOffice转换，因为其质量最佳
+2. **超时控制**：转换过程设置了60秒超时，避免长时间阻塞
+3. **回退机制**：当LibreOffice不可用时，自动切换到reportlab回退方案
+4. **字体缓存**：注册的字体会在内存中缓存，避免重复注册开销
+
+### CJK字体支持优化
+
+1. **嵌入字体优先**：优先使用技能目录中的嵌入字体文件
+2. **系统字体检测**：按平台优先级检测系统字体
+3. **字体注册缓存**：注册成功的字体会被缓存，避免重复注册
+4. **回退策略**：如果所有字体都不可用，使用Helvetica作为最后回退
+
 ### Python 环境优化
 
 1. **虚拟环境**：为 Office 文档处理创建独立的 Python 虚拟环境
@@ -383,7 +495,7 @@ K --> P
 3. **预编译模块**：利用 Python 的 .pyc 编译文件提高加载速度
 4. **CLI 工具优化**：ods.py 脚本采用命令行参数解析，支持快速批量处理
 
-**更新** 新增了 CLI 工具套件的性能优化考虑，包括虚拟环境管理和依赖包版本控制。
+**更新** 新增了智能转换系统的性能优化考虑，包括LibreOffice优先级、超时控制和回退机制。
 
 ## 故障排除指南
 
@@ -399,21 +511,34 @@ K --> P
    - 确认 LibreOffice 已正确安装
    - 检查文件路径和权限
    - 验证输入文件格式的有效性
+   - 查看转换超时日志
 
-3. **Excel 公式计算问题**
+3. **CJK字体显示乱码**
+   - 确认嵌入字体文件存在（NotoSansSC-Regular.otf）
+   - 检查系统字体是否正确安装
+   - 验证字体注册是否成功
+   - 确认字体文件权限正确
+
+4. **Excel 公式计算问题**
    - 使用 `data_only=True` 参数读取缓存值
    - 检查公式依赖关系
    - 确认单元格引用的正确性
 
-4. **PowerPoint 图表创建失败**
+5. **PowerPoint 图表创建失败**
    - 确保 lxml 库已安装
    - 验证图表数据格式
    - 检查幻灯片布局兼容性
 
-5. **CLI 工具执行错误**
+6. **CLI 工具执行错误**
    - 确认已激活虚拟环境
    - 检查 Python 版本兼容性
    - 验证输入文件路径和权限
+
+7. **智能转换系统异常**
+   - 检查LibreOffice是否可用
+   - 验证reportlab依赖是否正确安装
+   - 确认字体文件路径和权限
+   - 查看转换日志获取详细错误信息
 
 **章节来源**
 - [skills/office-document-specialist-suite/SKILL.md: 184-192:184-192](file://skills/office-document-specialist-suite/SKILL.md#L184-L192)
@@ -421,13 +546,15 @@ K --> P
 
 ## 结论
 
-Office 文档专家套件作为 OpenClaw 生态系统的重要组成部分，现在提供了一个完整的 Python CLI 工具套件，显著增强了专业级的 Office 文档处理能力。通过集成 ods.py CLI 脚本、requirements.txt 依赖管理和 setup.sh 安装脚本，该套件能够：
+Office 文档专家套件作为 OpenClaw 生态系统的重要组成部分，现在提供了一个完整的 Python CLI 工具套件，显著增强了专业级的 Office 文档处理能力。通过集成 ods.py CLI 脚本、requirements.txt 依赖管理和 setup.sh 安装脚本，以及新增的智能DOCX到PDF转换系统和CJK字体支持，该套件能够：
 
 1. **自动化报告生成**：通过 template-report 命令快速创建专业的报告模板
 2. **批量文档样式应用**：通过 style-doc 命令为大量文档应用统一的专业样式
-3. **隔离环境管理**：通过虚拟环境确保依赖包的稳定性和安全性
-4. **标准化工作流程**：提供一致的命令行接口和参数规范
+3. **智能格式转换**：通过优先级转换流程实现最佳质量的DOCX到PDF转换
+4. **CJK字体支持增强**：通过自动字体检测和注册实现中日韩文字的正确显示
+5. **隔离环境管理**：通过虚拟环境确保依赖包的稳定性和安全性
+6. **标准化工作流程**：提供一致的命令行接口和参数规范
 
-该套件的设计体现了 OpenClaw 平台的核心理念：通过技能系统实现功能的模块化和可扩展性。新增的 CLI 工具套件为开发者和用户提供了更高效、更专业的文档处理解决方案，进一步丰富了平台的功能生态。
+该套件的设计体现了 OpenClaw 平台的核心理念：通过技能系统实现功能的模块化和可扩展性。新增的智能转换系统和CJK字体支持为开发者和用户提供了更高效、更专业的文档处理解决方案，进一步丰富了平台的功能生态。
 
-随着 AI 技术的发展，Office 文档专家套件有望与 OpenClaw 的其他组件深度集成，为用户提供更加智能化和自动化的文档处理体验。新的 CLI 工具套件为未来的功能扩展奠定了坚实的基础，支持更多的自动化工作流程和批量处理场景。
+随着 AI 技术的发展，Office 文档专家套件有望与 OpenClaw 的其他组件深度集成，为用户提供更加智能化和自动化的文档处理体验。新的智能转换系统和CJK字体支持为未来的功能扩展奠定了坚实的基础，支持更多的自动化工作流程和批量处理场景。
