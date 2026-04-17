@@ -122,8 +122,8 @@ export function AccessStep({onNextManual, onVerificationChange }: AccessStepProp
         <div className="w-full rounded-3xl p-6 flex flex-col gap-6 bg-[rgba(255,255,255,0.85)] shadow-[0px_2px_24px_rgba(0,0,0,0.06)]">
           {/* Input */}
           <input
-            type="text"
-            placeholder="XXXX - XXXX - XXXX"
+            type="password"
+            placeholder="BOSS-XXXX-XXXX"
             value={inviteCode}
             onChange={(e) => {
               setInviteCode(e.target.value.toUpperCase());
