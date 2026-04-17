@@ -7,7 +7,10 @@ import type { IdentityConfig } from "../config/types.base.js";
 import type { ToolProfileId } from "../config/types.tools.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import { listAgentEntries } from "./agent-scope.js";
-import { ensureAgentWorkspace } from "./workspace.js";
+import {
+  DEFAULT_AGENT_WORKSPACE_DIR,
+  ensureAgentWorkspace,
+} from "./workspace.js";
 
 /**
  * Built-in agent definitions.
@@ -44,6 +47,8 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
   {
     // main is always the default; no workspace/name override — uses agents.defaults.workspace
     id: "main",
+    name: "Your Assistant",
+    templateSubdir: "agents/main",
     identity: {
       name: "Popeye",
       avatar: "https://files.aiverser.com/bossim/images/dog_front_1.0.webp",
@@ -83,6 +88,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
       "excel-xlsx",
       "my-pdf",
       "office-document-specialist-suite",
+      "openclaw-tool-ui"
     ],
     tools: { profile: "full", deny: [] },
     identity: {
@@ -200,6 +206,16 @@ export async function ensureBuiltinAgents(
           ensureBootstrapFiles: true,
           templateSubdir: builtin.templateSubdir,
         });
+      } else if (id === "main") {
+        // main has no explicit workspace — use agents.defaults.workspace or the global default.
+        // Ensure bootstrap files (including IDENTITY.md) are written from the main template.
+        const mainWorkspaceDir =
+          cfg.agents?.defaults?.workspace?.trim() || DEFAULT_AGENT_WORKSPACE_DIR;
+        await ensureAgentWorkspace({
+          dir: mainWorkspaceDir,
+          ensureBootstrapFiles: true,
+          templateSubdir: builtin.templateSubdir,
+        });
       }
       continue;
     }
@@ -226,6 +242,14 @@ export async function ensureBuiltinAgents(
     if (builtin.workspace) {
       await ensureAgentWorkspace({
         dir: builtin.workspace,
+        ensureBootstrapFiles: true,
+        templateSubdir: builtin.templateSubdir,
+      });
+    } else if (id === "main") {
+      const mainWorkspaceDir =
+        cfg.agents?.defaults?.workspace?.trim() || DEFAULT_AGENT_WORKSPACE_DIR;
+      await ensureAgentWorkspace({
+        dir: mainWorkspaceDir,
         ensureBootstrapFiles: true,
         templateSubdir: builtin.templateSubdir,
       });

@@ -17,7 +17,7 @@ function resolveAgentDisplayName(agent: GatewayAgentRow): string {
 }
 
 function resolveAgentBio(agent: GatewayAgentRow): string {
-  return agent?.name ?? agent.identity?.bio ?? "Your assistant";
+  return agent?.name ?? agent.identity?.bio ?? "Your Assistant";
 }
 
 function AgentItem({
