@@ -60,7 +60,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   channels: "/channels",
   skills: "/skills",
   plugins: "/plugins",
-  "scheduled-tasks": "/scheduled-tasks",
+  scheduled: "/scheduled-tasks",
   chat: "/chat",
   config: "/config",
   settings: "/settings",
