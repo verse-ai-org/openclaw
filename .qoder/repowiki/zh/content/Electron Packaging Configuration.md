@@ -40,15 +40,21 @@
 - [scripts/sync-plugin-versions.ts](file://scripts/sync-plugin-versions.ts)
 - [scripts/codesign-mac-app.sh](file://scripts/codesign-mac-app.sh)
 - [apps/electron/.env.example](file://apps/electron/.env.example)
+- [apps/electron/resources/prod-node_modules/package.json](file://apps/electron/resources/prod-node_modules/package.json)
+- [apps/electron/resources/prod-node_modules/node_modules/date-fns/package.json](file://apps/electron/resources/prod-node_modules/node_modules/date-fns/package.json)
+- [ui-react/src/lib/relative-time.ts](file://ui-react/src/lib/relative-time.ts)
+- [src/infra/format-time/format-relative.ts](file://src/infra/format-time/format-relative.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
+- 新增 Apple 时间戳服务器配置，增强 macOS 应用公证安全性，确保所有二进制文件包含安全时间戳
 - 新增智能版本管理系统（bump-version目标），支持自动版本号递增和同步
 - 引入代码签名验证系统，提供完整的签名和权限验证流程
 - 扩展macOS权限配置，新增临时例外权限和动态库环境变量支持
 - 增强Windows打包系统，完善跨平台构建流程
 - 优化扩展版本同步机制，确保插件版本与核心版本一致
+- **新增date-fns依赖到核心运行时依赖配置**，版本为4.1.0，用于现代化JavaScript日期处理
 
 ## 目录
 1. [简介](#简介)
@@ -79,6 +85,8 @@ OpenClaw 项目的 Electron 打包配置经过重大增强，从单一平台支�
 - **macOS权限扩展**：更新 `entitlements.mac.plist`，新增临时例外权限和动态库环境变量
 - **Windows打包系统增强**：完善跨平台构建流程，支持更灵活的打包配置
 - **扩展版本同步**：新增 `scripts/sync-plugin-versions.ts`，确保插件版本与核心版本一致
+- **date-fns依赖集成**：新增现代化JavaScript日期处理库，版本4.1.0
+- **Apple时间戳服务器配置**：新增 `timestamp: "http://timestamp.apple.com/ts01"` 配置，确保所有二进制文件包含安全时间戳
 
 **智能版本管理系统**：
 - 支持 `major`、`minor`、`patch`、`beta` 四种版本类型递增
@@ -97,6 +105,19 @@ OpenClaw 项目的 Electron 打包配置经过重大增强，从单一平台支�
 - 添加 `com.apple.security.temporary-exception.files.home-relative-path.read-write` 临时例外
 - 支持动态库环境变量和系统目录访问权限
 - 完善的权限配置和验证机制
+
+**Apple时间戳服务器配置**：
+- **新增时间戳服务器**：配置 `timestamp: "http://timestamp.apple.com/ts01"`
+- **公证要求满足**：确保所有二进制文件（包括 Squirrel.framework/ShipIt）包含安全时间戳
+- **合规性保障**：符合 Apple 公证服务的严格要求
+- **安全性增强**：提供时间戳验证，防止二进制文件被篡改
+
+**date-fns依赖集成**：
+- **新增现代化日期处理库**：版本4.1.0，提供现代化JavaScript日期工具
+- **模块化设计**：支持按需导入，减少打包体积
+- **TypeScript支持**：完整的类型定义和类型安全
+- **国际化支持**：内置多语言本地化功能
+- **零副作用**：ES模块支持，Tree Shaking友好
 
 ## 项目结构概览
 
@@ -177,12 +198,18 @@ BS --> BU[sync-plugin-versions 脚本]
 BT --> BV[自动版本递增]
 BU --> BW[插件版本同步]
 end
+subgraph "date-fns 依赖系统"
+BX[date-fns 4.1.0] --> BY[现代化日期处理]
+BY --> BZ[模块化导入]
+BY --> CA[TypeScript支持]
+BY --> CB[国际化功能]
+end
 ```
 
 **图表来源**
 - [apps/electron/package.json:1-44](file://apps/electron/package.json#L1-L44)
-- [apps/electron/electron-builder.yml:1-317](file://apps/electron/electron-builder.yml#L1-L317)
-- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
+- [apps/electron/electron-builder.yml:1-321](file://apps/electron/electron-builder.yml#L1-L321)
+- [apps/electron/packaged-runtime.json:1-159](file://apps/electron/packaged-runtime.json#L1-L159)
 - [apps/electron/scripts/package-electron.sh:1-232](file://apps/electron/scripts/package-electron.sh#L1-L232)
 - [apps/electron/scripts/package-electron-win.sh:1-198](file://apps/electron/scripts/package-electron-win.sh#L1-L198)
 - [apps/electron/Makefile:96-164](file://apps/electron/Makefile#L96-L164)
@@ -190,8 +217,8 @@ end
 
 **章节来源**
 - [apps/electron/package.json:1-44](file://apps/electron/package.json#L1-L44)
-- [apps/electron/electron-builder.yml:1-317](file://apps/electron/electron-builder.yml#L1-L317)
-- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
+- [apps/electron/electron-builder.yml:1-321](file://apps/electron/electron-builder.yml#L1-L321)
+- [apps/electron/packaged-runtime.json:1-159](file://apps/electron/packaged-runtime.json#L1-L159)
 - [apps/electron/BUILDING.md:1-244](file://apps/electron/BUILDING.md#L1-L244)
 - [apps/electron/Makefile:1-284](file://apps/electron/Makefile#L1-L284)
 
@@ -298,81 +325,85 @@ K[Windows 打包系统]
 L[智能版本管理]
 M[代码签名验证]
 N[macOS权限扩展]
+O[date-fns 日期处理]
+P[Apple时间戳服务器]
 end
 subgraph "资源层"
-O[React 控制界面]
-P[静态资源]
-Q[配置文件]
-R[基础设施扩展]
-S[认证扩展]
-T[通信渠道扩展]
-U[可移植Node运行时]
-V[依赖包生成器]
-W[跨平台打包脚本]
-X[自动公证脚本]
-Y[WeChat 登录界面]
-Z[二维码生成器]
-AA[消息处理系统]
-AB[Windows 资源处理]
-AC[Node.exe 可执行文件]
-AD[NSIS 安装程序]
-AE[Windows 架构支持]
-AF[版本同步机制]
-AG[签名验证工具]
-AH[权限配置文件]
+Q[React 控制界面]
+R[静态资源]
+S[配置文件]
+T[基础设施扩展]
+U[认证扩展]
+V[通信渠道扩展]
+W[可移植Node运行时]
+X[依赖包生成器]
+Y[跨平台打包脚本]
+Z[自动公证脚本]
+AA[WeChat 登录界面]
+AB[二维码生成器]
+AC[消息处理系统]
+AD[Windows 资源处理]
+AE[NSIS 安装程序]
+AF[Windows 架构支持]
+AG[版本同步机制]
+AH[签名验证工具]
+AI[权限配置文件]
+AJ[date-fns 4.1.0]
+AK[时间戳服务器配置]
 end
 A --> D
 A --> E
 A --> F
 A --> G
-B --> O
+B --> Q
 C --> A
-D --> P
-E --> Q
-G --> R
-G --> S
+D --> R
+E --> S
 G --> T
-H --> U
-H --> V
-I --> W
-I --> X
-R --> AJ[memory-core]
-R --> AK[device-pair]
-S --> AL[qwen-portal-auth]
-S --> AM[minimax-portal-auth]
-S --> AN[google-gemini-cli-auth]
-S --> AO[copilot-proxy]
-T --> AP[telegram]
-T --> AQ[discord]
-T --> AR[slack]
-T --> AS[signal]
-T --> AT[whatsapp]
-T --> AU[imessage]
-T --> AV[matrix]
-T --> AW[msteams]
-T --> AX[feishu]
-T --> AY[googlechat]
-T --> AZ[irc]
-T --> BA[line]
-T --> BB[mattermost]
-T --> BC[nextcloud-talk]
-T --> BD[nostr]
-T --> BE[synology-chat]
-T --> BF[zalo]
-T --> BG[zalouser]
-T --> BH[twitch]
-T --> BI[bluebubbles]
-T --> BJ[openclaw-weixin]
-J --> Y
-J --> Z
+G --> U
+G --> V
+H --> W
+H --> X
+I --> Y
+I --> Z
+S --> AO[memory-core]
+S --> AP[device-pair]
+T --> AQ[qwen-portal-auth]
+T --> AR[minimax-portal-auth]
+T --> AS[google-gemini-cli-auth]
+T --> AT[copilot-proxy]
+U --> AU[telegram]
+U --> AV[discord]
+U --> AW[slack]
+U --> AX[signal]
+U --> AY[whatsapp]
+U --> AZ[imessage]
+U --> BA[matrix]
+U --> BB[msteams]
+U --> BC[feishu]
+U --> BD[googlechat]
+U --> BE[irc]
+U --> BF[line]
+U --> BG[mattermost]
+U --> BH[nextcloud-talk]
+U --> BI[nostr]
+U --> BJ[synology-chat]
+U --> BK[zalo]
+U --> BL[zalouser]
+U --> BM[twitch]
+U --> BN[bluebubbles]
+U --> BO[openclaw-weixin]
 J --> AA
-K --> AB
-K --> AC
+J --> AB
+J --> AC
 K --> AD
 K --> AE
-L --> AF
-M --> AG
-N --> AH
+K --> AF
+L --> AG
+M --> AH
+N --> AI
+O --> AJ
+P --> AK
 ```
 
 **图表来源**
@@ -388,7 +419,7 @@ N --> AH
 
 ### 打包配置详解
 
-electron-builder.yml 定义了完整的打包配置，现已支持更全面的扩展捆绑和运行时管理，包括新增的 WeChat 扩展和 Windows 平台支持：
+electron-builder.yml 定义了完整的打包配置，现已支持更全面的扩展捆绑和运行时管理，包括新增的 WeChat 扩展、Windows 平台支持和 Apple 时间戳服务器配置：
 
 ```mermaid
 flowchart TD
@@ -437,16 +468,23 @@ AP --> AQ[安装核心运行时依赖]
 AQ --> AR[安装额外运行时依赖]
 AR --> AS[裁剪原生模块]
 AS --> AT[配置公证钩子]
-AT --> AU[配置 Windows 特定选项]
-AU --> AV[设置 NSIS 安装程序]
-AV --> AW[配置 Windows 资源]
-AW --> AX[区分 node.exe 可执行文件]
-AX --> AY[配置 URL Scheme]
-AY --> AZ[完成打包]
-AZ --> BA[Windows 产物输出]
-BA --> BB[.exe 安装包]
-BA --> BC[.zip 压缩包]
+AT --> AU[配置 Apple 时间戳服务器]
+AU --> AV[配置 Windows 特定选项]
+AV --> AW[设置 NSIS 安装程序]
+AW --> AX[配置 Windows 资源]
+AX --> AY[区分 node.exe 可执行文件]
+AY --> AZ[配置 URL Scheme]
+AZ --> BA[完成打包]
+BA --> BB[Windows 产物输出]
+BB --> BC[.exe 安装包]
+BB --> BD[.zip 压缩包]
 ```
+
+**更新** 新增的 Apple 时间戳服务器配置：
+- **时间戳服务器**：配置 `timestamp: "http://timestamp.apple.com/ts01"`
+- **公证要求满足**：确保所有二进制文件（包括 Squirrel.framework/ShipIt）包含安全时间戳
+- **合规性保障**：符合 Apple 公证服务的严格要求
+- **安全性增强**：提供时间戳验证，防止二进制文件被篡改
 
 **更新** 新增的 Windows 平台配置：
 - **win 配置块**：完整的 Windows 平台打包配置
@@ -456,6 +494,7 @@ BA --> BC[.zip 压缩包]
 - **架构支持**：固定支持 x64 架构（可扩展为 arm64）
 
 **图表来源**
+- [apps/electron/electron-builder.yml:261-262](file://apps/electron/electron-builder.yml#L261-L262)
 - [apps/electron/electron-builder.yml:286-317](file://apps/electron/electron-builder.yml#L286-L317)
 - [apps/electron/packaged-runtime.json:145-147](file://apps/electron/packaged-runtime.json#L145-L147)
 
@@ -481,7 +520,7 @@ BA --> BC[.zip 压缩包]
 - **智能依赖排除**：自动排除 electron、sharp、playwright-core 等原生模块
 
 **章节来源**
-- [apps/electron/electron-builder.yml:1-317](file://apps/electron/electron-builder.yml#L1-L317)
+- [apps/electron/electron-builder.yml:1-321](file://apps/electron/electron-builder.yml#L1-L321)
 - [apps/electron/tsdown.config.electron.ts:14-28](file://apps/electron/tsdown.config.electron.ts#L14-L28)
 - [apps/electron/packaged-runtime.json:2-16](file://apps/electron/packaged-runtime.json#L2-L16)
 
@@ -842,7 +881,7 @@ O --> P[验证通过]
 
 ### 运行时依赖配置
 
-packaged-runtime.json 定义了 Electron 应用的运行时依赖配置，现已包含 WeChat 扩展的支持：
+**更新** packaged-runtime.json 定义了 Electron 应用的运行时依赖配置，现已包含 WeChat 扩展和支持的 date-fns 依赖：
 
 ```mermaid
 graph TB
@@ -874,51 +913,60 @@ C --> U[@buape/carbon]
 C --> V[@clack/prompts]
 C --> W[... 多个核心依赖]
 C --> X[openclaw-weixin]
+C --> Y[date-fns]
 end
 subgraph "runtimeDependencies"
 D --> X[openclaw-weixin]
-D --> Y[koffi]
-D --> Z[@matrix-org/matrix-sdk-crypto-nodejs]
-D --> AA[esbuild]
-D --> AB[jiti]
+D --> Y[date-fns]
+D --> Z[koffi]
+D --> AA[@matrix-org/matrix-sdk-crypto-nodejs]
+D --> AB[esbuild]
+D --> AC[jiti]
 end
 subgraph "preinstalledExtensions"
-E --> AC[memory-core]
-E --> AD[device-pair]
-E --> AE[qwen-portal-auth]
-E --> AF[minimax-portal-auth]
-E --> AG[google-gemini-cli-auth]
-E --> AH[copilot-proxy]
-E --> AI[telegram]
-E --> AJ[discord]
-E --> AK[slack]
-E --> AL[signal]
-E --> AM[whatsapp]
-E --> AN[imessage]
-E --> AO[matrix]
-E --> AP[msteams]
-E --> AQ[feishu]
-E --> AR[googlechat]
-E --> AS[irc]
-E --> AT[line]
-E --> AU[mattermost]
-E --> AV[nextcloud-talk]
-E --> AW[nostr]
-E --> AX[synology-chat]
-E --> AY[zalo]
-E --> AZ[zalouser]
-E --> BA[twitch]
-E --> BB[bluebubbles]
-E --> BC[openclaw-weixin]
+E --> AD[memory-core]
+E --> AE[device-pair]
+E --> AF[qwen-portal-auth]
+E --> AG[minimax-portal-auth]
+E --> AH[google-gemini-cli-auth]
+E --> AI[copilot-proxy]
+E --> AJ[telegram]
+E --> AK[discord]
+E --> AL[slack]
+E --> AM[signal]
+E --> AN[whatsapp]
+E --> AO[imessage]
+E --> AP[matrix]
+E --> AQ[msteams]
+E --> AR[feishu]
+E --> AS[googlechat]
+E --> AT[irc]
+E --> AU[line]
+E --> AV[mattermost]
+E --> AW[nextcloud-talk]
+E --> AX[nostr]
+E --> AY[synology-chat]
+E --> AZ[zalo]
+E --> BA[zalouser]
+E --> BB[twitch]
+E --> BC[bluebubbles]
+E --> BD[openclaw-weixin]
 end
 ```
 
+**更新** 新增的 date-fns 依赖：
+- **版本**：4.1.0，现代化 JavaScript 日期处理库
+- **用途**：提供现代化的日期计算和格式化功能
+- **模块化**：支持按需导入，减少打包体积
+- **TypeScript**：完整的类型定义和类型安全
+- **国际化**：内置多语言本地化支持
+
 **图表来源**
-- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
+- [apps/electron/packaged-runtime.json:1-159](file://apps/electron/packaged-runtime.json#L1-L159)
 
 ### 运行时包生成器
 
-**更新** generate-runtime-package.mjs 实现了运行时依赖的精确版本解析，现已支持 WeChat 扩展：
+**更新** generate-runtime-package.mjs 实现了运行时依赖的精确版本解析，现已支持 WeChat 扩展和 date-fns 依赖：
 
 ```mermaid
 flowchart TD
@@ -946,8 +994,8 @@ N --> O
 4. **优先级4**：从 pnpm-lock.yaml 的锁定版本解析
 
 **章节来源**
-- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
-- [apps/electron/scripts/generate-runtime-package.mjs:19-115](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L115)
+- [apps/electron/packaged-runtime.json:1-159](file://apps/electron/packaged-runtime.json#L1-L159)
+- [apps/electron/scripts/generate-runtime-package.mjs:19-119](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L119)
 
 ### Node.js 运行时管理
 
@@ -1306,7 +1354,7 @@ O --> P
 
 ### 签名配置管理
 
-**更新** electron-builder.yml 中的签名配置，现已包含 WeChat 扩展：
+**更新** electron-builder.yml 中的签名配置，现已包含 WeChat 扩展和 Apple 时间戳服务器配置：
 
 ```mermaid
 graph TB
@@ -1315,18 +1363,19 @@ A[mac 配置] --> B[hardenedRuntime: true]
 A --> C[entitlements: entitlements.mac.plist]
 A --> D[identity: CBFA4655YD]
 A --> E[category: public.app-category.productivity]
+F[timestamp: "http://timestamp.apple.com/ts01"] --> G[Apple 时间戳服务器]
 end
 subgraph "公证配置"
-F[afterSign: scripts/notarize.cjs] --> G[自动调用公证脚本]
+H[afterSign: scripts/notarize.cjs] --> I[自动调用公证脚本]
 end
 subgraph "协议配置"
-H[protocols] --> I[name: OpenClaw OAuth]
-H --> J[schemes: openclaw]
+J[protocols] --> K[name: OpenClaw OAuth]
+J --> L[schemes: openclaw]
 end
 subgraph "WeChat 扩展配置"
-K[openclaw-weixin] --> L[二维码登录]
-L --> M[消息收发]
-M --> N[账户管理]
+M[openclaw-weixin] --> N[二维码登录]
+N --> O[消息收发]
+O --> P[账户管理]
 end
 ```
 
@@ -1334,11 +1383,13 @@ end
 - **硬化运行时**：启用 macOS 硬化运行时保护
 - **权限配置**：通过 entitlements 文件管理应用权限
 - **证书标识**：使用固定的开发者证书标识
+- **Apple 时间戳服务器**：配置 `timestamp: "http://timestamp.apple.com/ts01"`
 - **自动公证**：配置打包后的自动公证钩子
 
 **章节来源**
 - [apps/electron/electron-builder.yml:249-266](file://apps/electron/electron-builder.yml#L249-L266)
 - [apps/electron/electron-builder.yml:258-261](file://apps/electron/electron-builder.yml#L258-L261)
+- [apps/electron/electron-builder.yml:261-262](file://apps/electron/electron-builder.yml#L261-L262)
 
 ## WeChat 扩展集成
 
@@ -1353,14 +1404,14 @@ flowchart TD
 A[WeChat 扩展] --> B[扩展注册]
 B --> C[配置模式]
 C --> D[Channel ID: openclaw-weixin]
-D --> E[插件 ID: openclaw-weixin]
-E --> F[标签: openclaw-weixin]
-F --> G[文档路径: /channels/openclaw-weixin]
-G --> H[安装配置]
+D --> E[Plugin ID: openclaw-weixin]
+E --> F[Label: openclaw-weixin]
+F --> G[Docs Path: /channels/openclaw-weixin]
+G --> H[Install Config]
 H --> I[npmSpec: @tencent-weixin/openclaw-weixin]
-I --> J[本地路径: extensions/openclaw-weixin]
-J --> K[默认选择: npm]
-K --> L[最小主机版本: >=2026.3.9]
+I --> J[Local Path: extensions/openclaw-weixin]
+J --> K[Default: npm]
+K --> L[Min Host Version: >=2026.3.9]
 end
 ```
 
@@ -1546,68 +1597,93 @@ AU[Windows 打包依赖]
 AV[版本同步机制]
 AW[签名验证系统]
 end
-subgraph "微信扩展依赖"
-AT --> AX[qrcode-terminal@0.12.0]
-AT --> AY[zod@4.3.6]
-AT --> AZ[silk-wasm]
+subgraph "date-fns 依赖系统"
+AX[date-fns 4.1.0] --> AY[现代化日期处理]
+AY --> AZ[模块化导入]
+AY --> BA[TypeScript支持]
+AY --> BB[国际化功能]
 end
 subgraph "Windows 打包依赖"
-AU --> BA[NSIS 安装程序]
-AU --> BB[Windows 资源处理]
-AU --> BC[Node.exe 可执行文件]
+AT --> BC[NSIS 安装程序]
+AT --> BD[Windows 资源处理]
+AT --> BE[Node.exe 可执行文件]
 end
 subgraph "版本管理系统"
-AV --> BD[bump-version 目标]
-AV --> BE[sync-plugin-versions 脚本]
-BD --> BF[自动版本递增]
-BE --> BG[插件版本同步]
+AV --> BF[bump-version 目标]
+AV --> BG[sync-plugin-versions 脚本]
+BF --> BH[自动版本递增]
+BG --> BI[插件版本同步]
 end
 subgraph "签名验证系统"
-AW --> BH[codesign-mac-app.sh]
-BH --> BI[签名身份验证]
-BH --> BJ[权限配置验证]
-BH --> BK[团队ID审计]
+AW --> BJ[codesign-mac-app.sh]
+BJ --> BK[签名身份验证]
+BJ --> BL[权限配置验证]
+BJ --> BM[团队ID审计]
 end
 subgraph "运行时管理系统"
-BL[packaged-runtime.json]
-BM[generate-runtime-package.mjs]
-BN[download-node.sh]
-BO[package-electron.sh]
-BP[package-electron-win.sh]
-BQ[notarize.cjs]
+BN[packaged-runtime.json]
+BO[generate-runtime-package.mjs]
+BP[download-node.sh]
+BQ[package-electron.sh]
+BR[package-electron-win.sh]
+BS[notarize.cjs]
+end
+subgraph "Apple 时间戳服务器"
+BK --> BL[http://timestamp.apple.com/ts01]
+BL --> BM[安全时间戳服务]
+BM --> BN[公证要求满足]
+BN --> BO[二进制文件时间戳]
 end
 A --> O
 B --> F
 C --> L
 E --> P
+BN --> BO
+BO --> BP
+BP --> BQ
+BQ --> A
+BR --> A
+BS --> F
+AS --> AT
+AU --> BC
+AV --> BJ
+AX --> AY
+BK --> BL
 BL --> BM
 BM --> BN
 BN --> BO
-BO --> A
-BP --> A
-BQ --> F
-AS --> AT
-AU --> BA
-AV --> BH
 ```
+
+**更新** 新增的 Apple 时间戳服务器配置：
+- **时间戳服务器**：配置 `timestamp: "http://timestamp.apple.com/ts01"`
+- **公证要求满足**：确保所有二进制文件（包括 Squirrel.framework/ShipIt）包含安全时间戳
+- **合规性保障**：符合 Apple 公证服务的严格要求
+- **安全性增强**：提供时间戳验证，防止二进制文件被篡改
+
+**更新** 新增的 date-fns 依赖系统：
+- **版本**：4.1.0，现代化 JavaScript 日期处理库
+- **模块化设计**：支持按需导入，Tree Shaking 友好
+- **TypeScript 支持**：完整的类型定义和类型安全
+- **国际化功能**：内置多语言本地化支持
+- **零副作用**：ES 模块支持，适合 Electron 环境
 
 **图表来源**
 - [apps/electron/package.json:18-44](file://apps/electron/package.json#L18-L44)
-- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
-- [apps/electron/scripts/generate-runtime-package.mjs:19-115](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L115)
+- [apps/electron/packaged-runtime.json:1-159](file://apps/electron/packaged-runtime.json#L1-L159)
+- [apps/electron/scripts/generate-runtime-package.mjs:19-119](file://apps/electron/scripts/generate-runtime-package.mjs#L19-L119)
 - [apps/electron/Makefile:96-164](file://apps/electron/Makefile#L96-L164)
 - [scripts/sync-plugin-versions.ts:41-101](file://scripts/sync-plugin-versions.ts#L41-L101)
 - [scripts/codesign-mac-app.sh:1-290](file://scripts/codesign-mac-app.sh#L1-L290)
 
 **章节来源**
 - [apps/electron/package.json:18-44](file://apps/electron/package.json#L18-L44)
-- [apps/electron/packaged-runtime.json:1-157](file://apps/electron/packaged-runtime.json#L1-L157)
+- [apps/electron/packaged-runtime.json:1-159](file://apps/electron/packaged-runtime.json#L1-L159)
 
 ## 性能考虑
 
 ### 打包优化策略
 
-**更新** 新增的运行时依赖管理系统和 WeChat 扩展带来了显著的性能提升：
+**更新** 新增的运行时依赖管理系统、WeChat 扩展和 Apple 时间戳服务器配置带来了显著的性能提升：
 
 1. **智能依赖排除**：通过 neverBundle 配置避免内联大型原生模块
 2. **精确版本控制**：使用 pnpm 锁文件确保依赖版本的一致性
@@ -1619,6 +1695,8 @@ AV --> BH
 8. **Windows 打包优化**：交叉编译和资源处理的性能优化
 9. **版本管理优化**：智能版本递增减少手动配置错误
 10. **签名验证优化**：批量权限配置减少重复验证
+11. **date-fns 优化**：模块化导入减少打包体积
+12. **Apple 时间戳服务器优化**：确保公证流程的稳定性和可靠性
 
 ### 内存管理
 
@@ -1632,6 +1710,8 @@ AV --> BH
 - **Windows 资源管理**：优化 Windows 平台的资源使用
 - **版本同步优化**：批量处理插件版本减少处理时间
 - **签名验证优化**：智能权限配置减少验证开销
+- **date-fns 模块化**：按需导入减少内存占用
+- **Apple 时间戳服务器**：确保公证流程的稳定性和可靠性
 
 ### 运行时依赖优化
 
@@ -1646,6 +1726,8 @@ AV --> BH
 - **Windows 打包优化**：交叉编译和资源处理的性能优化
 - **版本管理优化**：智能版本递增算法提高效率
 - **签名验证优化**：批量权限配置减少重复工作
+- **Apple 时间戳服务器**：确保公证流程的稳定性和可靠性
+- **date-fns 优化**：模块化设计支持 Tree Shaking
 
 **章节来源**
 - [apps/electron/scripts/generate-runtime-package.mjs:33-89](file://apps/electron/scripts/generate-runtime-package.mjs#L33-L89)
@@ -1657,7 +1739,7 @@ AV --> BH
 
 ### 常见问题及解决方案
 
-**更新** 新增的跨平台和签名相关问题，以及 WeChat 扩展特有的问题：
+**更新** 新增的跨平台、签名和 Apple 时间戳服务器相关问题，以及 WeChat 扩展特有的问题：
 
 | 问题类型 | 症状 | 解决方案 |
 |----------|------|----------|
@@ -1666,6 +1748,7 @@ AV --> BH
 | OAuth 重定向失败 | 回调 URL 无效 | 验证 URL Scheme 配置 |
 | 权限问题 | 文件访问被拒绝 | 检查 entitlements 配置 |
 | 网络连接失败 | Gateway 无法连接 | 验证防火墙设置 |
+| **Apple 时间戳服务器错误** | 公证失败或时间戳验证失败 | 检查 `timestamp: "http://timestamp.apple.com/ts01"` 配置 |
 | **Windows 打包失败** | 交叉编译错误 | 检查目标架构配置 |
 | **公证失败** | 公证超时或失败 | 验证 API Key 和网络连接 |
 | **签名问题** | 证书无效 | 检查 Keychain 中的证书 |
@@ -1690,10 +1773,12 @@ AV --> BH
 | **版本管理错误** | 版本号递增失败 | 检查 bump-version 目标配置 |
 | **签名验证失败** | 权限配置错误 | 检查 entitlements.mac.plist 配置 |
 | **权限审计失败** | 团队ID不匹配 | 检查签名证书和权限配置 |
+| **date-fns 导入失败** | 日期处理功能异常 | 检查 date-fns 4.1.0 版本兼容性 |
+| **Apple 时间戳服务器连接失败** | 公证流程中断 | 检查网络连接和服务器可用性 |
 
 ### 跨平台打包调试
 
-**更新** 新增的跨平台打包调试方法，包含 WeChat 扩展的调试：
+**更新** 新增的跨平台打包调试方法，包含 WeChat 扩展和 Apple 时间戳服务器的调试：
 
 1. **日志查看**：检查 `~/.openclaw/electron-onboarding.log`
 2. **开发者工具**：使用 `Ctrl+Shift+I` 打开开发者工具
@@ -1707,17 +1792,20 @@ AV --> BH
 10. **OAuth URL Scheme**：验证 'openclaw' URL Scheme 配置
 11. **Windows 资源验证**：确认 Windows 特定资源正确打包
 12. **公证配置检查**：验证 notarize.cjs 环境变量设置
-13. **跨平台兼容性**：测试不同平台的安装和运行
-14. **WeChat 扩展调试**：检查 openclaw-weixin 扩展加载
-15. **二维码功能验证**：测试二维码生成和显示
-16. **微信登录调试**：验证完整的微信登录流程
-17. **消息处理调试**：验证微信消息的收发功能
-18. **Windows 打包调试**：验证 package-electron-win.sh 的执行流程
-19. **NSIS 安装程序调试**：检查安装包创建过程
-20. **架构特定问题**：验证不同架构下的运行时依赖
-21. **版本管理调试**：验证 bump-version 目标的版本递增逻辑
-22. **签名验证调试**：检查 codesign-mac-app.sh 的权限配置
-23. **权限审计调试**：验证团队ID审计和签名验证流程
+13. **Apple 时间戳服务器验证**：检查 `timestamp: "http://timestamp.apple.com/ts01"` 配置
+14. **跨平台兼容性**：测试不同平台的安装和运行
+15. **WeChat 扩展调试**：检查 openclaw-weixin 扩展加载
+16. **二维码功能验证**：测试二维码生成和显示
+17. **微信登录调试**：验证完整的微信登录流程
+18. **消息处理调试**：验证微信消息的收发功能
+19. **Windows 打包调试**：验证 package-electron-win.sh 的执行流程
+20. **NSIS 安装程序调试**：检查安装包创建过程
+21. **架构特定问题**：验证不同架构下的运行时依赖
+22. **版本管理调试**：验证 bump-version 目标的版本递增逻辑
+23. **签名验证调试**：检查 codesign-mac-app.sh 的权限配置
+24. **权限审计调试**：验证团队ID审计和签名验证流程
+25. **date-fns 调试**：验证 4.1.0 版本的功能和兼容性
+26. **Apple 时间戳服务器调试**：验证时间戳服务器配置和连接
 
 **更新** 运行时相关调试：
 - 查看 `[main] patchConfigForElectron: non-bundled plugin entries present (kept)` 日志
@@ -1730,6 +1818,7 @@ AV --> BH
 - **验证品牌配置**：确认应用ID、产品名称、版权信息已更新
 - **Windows 打包调试**：验证 package-electron-win.sh 的执行流程
 - **公证流程验证**：检查 notarize.cjs 的环境变量和证书配置
+- **Apple 时间戳服务器验证**：确认 `timestamp: "http://timestamp.apple.com/ts01"` 配置正确
 - **WeChat 扩展验证**：确认 openclaw-weixin 扩展正确打包
 - **二维码功能验证**：测试二维码生成和显示
 - **微信登录验证**：验证完整的微信登录流程
@@ -1738,6 +1827,8 @@ AV --> BH
 - **版本管理验证**：检查 bump-version 目标的版本递增逻辑
 - **签名验证验证**：确认 codesign-mac-app.sh 的权限配置正确
 - **权限审计验证**：验证团队ID审计和签名验证流程
+- **date-fns 验证**：确认 4.1.0 版本正确安装和使用
+- **Apple 时间戳服务器验证**：确认时间戳服务器配置和连接正常
 
 **章节来源**
 - [apps/electron/src/main/index.ts:77-85](file://apps/electron/src/main/index.ts#L77-L85)
@@ -1752,7 +1843,7 @@ AV --> BH
 
 ## 结论
 
-OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新特别引入了智能版本管理系统、代码签名验证系统和macOS权限扩展等重大增强功能，显著提升了打包的安全性、自动化程度和用户体验。
+OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发展为完整的跨平台打包解决方案。本次更新特别引入了智能版本管理系统、代码签名验证系统、Apple 时间戳服务器配置和macOS权限扩展等重大增强功能，显著提升了打包的安全性、自动化程度和用户体验。
 
 **更新总结** 重大增强的核心改进：
 
@@ -1771,6 +1862,14 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 3. **团队ID审计**：自动检查所有嵌入组件的团队ID一致性
 4. **签名完整性验证**：使用 codesign 工具验证签名完整性
 5. **公证状态验证**：使用 spctl 工具验证公证状态
+
+### Apple 时间戳服务器配置
+
+1. **时间戳服务器配置**：新增 `timestamp: "http://timestamp.apple.com/ts01"` 配置
+2. **公证要求满足**：确保所有二进制文件（包括 Squirrel.framework/ShipIt）包含安全时间戳
+3. **合规性保障**：符合 Apple 公证服务的严格要求
+4. **安全性增强**：提供时间戳验证，防止二进制文件被篡改
+5. **稳定性提升**：确保公证流程的稳定性和可靠性
 
 ### macOS权限扩展
 
@@ -1800,6 +1899,15 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 6. **配置管理**：基于 Zod 的类型安全配置系统
 7. **腾讯技术支持**：官方支持和维护
 
+### date-fns 依赖集成
+
+1. **现代化日期处理**：新增 date-fns 4.1.0，提供现代化 JavaScript 日期工具
+2. **模块化设计**：支持按需导入，Tree Shaking 友好，减少打包体积
+3. **TypeScript 支持**：完整的类型定义和类型安全
+4. **国际化功能**：内置多语言本地化支持
+5. **零副作用**：ES 模块支持，适合 Electron 环境
+6. **性能优化**：相比旧版 date-fns，提供更好的性能和更小的包体积
+
 ### 跨平台打包统一
 
 1. **统一脚本设计**：macOS 和 Windows 使用相似的打包逻辑
@@ -1814,6 +1922,7 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 2. **环境变量管理**：完善的 API Key 和证书配置支持
 3. **错误处理机制**：全面的错误检测和用户提示
 4. **传统公证支持**：保留手动公证选项和脚本
+5. **Apple 时间戳服务器**：确保公证流程的稳定性和可靠性
 
 ### 完整的构建指南
 
@@ -1826,16 +1935,20 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 
 1. **智能版本管理**：新增 `make bump-version` 目标，支持自动版本号递增和同步
 2. **代码签名验证**：引入 `scripts/codesign-mac-app.sh`，提供完整的签名和权限验证
-3. **macOS权限扩展**：更新 `entitlements.mac.plist`，新增临时例外和动态库支持
-4. **Windows 打包支持**：新增 package-electron-win.sh 脚本，支持在 macOS/Linux 上交叉编译 Windows 版本
-5. **Makefile 增强**：新增 Windows 打包目标和版本管理目标，统一构建流程
-6. **electron-builder 配置更新**：支持 Windows 平台特定配置和资源处理
-7. **WeChat 扩展支持**：新增微信消息通道，支持二维码登录和消息收发
-8. **跨平台兼容性**：从单一平台发展为完整的多平台支持
-9. **自动化程度大幅提升**：从手动配置转向完全自动化的打包流程
-10. **版本控制更加精确**：通过多种源解析确保依赖版本的一致性
-11. **部署灵活性增强**：支持本地快速测试和生产发布的不同需求
-12. **安全性显著提升**：智能签名验证和权限管理确保应用安全运行
+3. **Apple 时间戳服务器配置**：新增 `timestamp: "http://timestamp.apple.com/ts01"` 配置，确保所有二进制文件包含安全时间戳
+4. **macOS权限扩展**：更新 `entitlements.mac.plist`，新增临时例外和动态库支持
+5. **Windows 打包支持**：新增 package-electron-win.sh 脚本，支持在 macOS/Linux 上交叉编译 Windows 版本
+6. **Makefile 增强**：新增 Windows 打包目标和版本管理目标，统一构建流程
+7. **electron-builder 配置更新**：支持 Windows 平台特定配置和资源处理
+8. **WeChat 扩展支持**：新增微信消息通道，支持二维码登录和消息收发
+9. **date-fns 依赖集成**：新增现代化 JavaScript 日期处理库，版本4.1.0
+10. **跨平台兼容性**：从单一平台发展为完整的多平台支持
+11. **自动化程度大幅提升**：从手动配置转向完全自动化的打包流程
+12. **版本控制更加精确**：通过多种源解析确保依赖版本的一致性
+13. **部署灵活性增强**：支持本地快速测试和生产发布的不同需求
+14. **安全性显著提升**：智能签名验证、权限管理和 Apple 时间戳服务器确保应用安全运行
+15. **性能优化**：date-fns 的模块化设计减少打包体积和内存占用
+16. **公证流程稳定性**：Apple 时间戳服务器确保公证流程的稳定性和可靠性
 
 **技术架构优势**：
 
@@ -1850,6 +1963,13 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 - **完整权限配置**：支持新增的动态库环境变量和临时例外权限
 - **团队ID审计**：确保所有组件使用相同的团队ID
 - **签名完整性验证**：使用系统工具验证签名的完整性和有效性
+
+**Apple 时间戳服务器配置**：
+- **时间戳服务器**：配置 `timestamp: "http://timestamp.apple.com/ts01"`
+- **公证要求满足**：确保所有二进制文件包含安全时间戳
+- **合规性保障**：符合 Apple 公证服务的严格要求
+- **安全性增强**：提供时间戳验证，防止二进制文件被篡改
+- **稳定性提升**：确保公证流程的稳定性和可靠性
 
 **macOS权限扩展**：
 - **动态库支持**：允许原生模块访问环境变量
@@ -1870,6 +1990,13 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 - **消息处理**：完整的微信消息收发和处理能力
 - **账户管理**：支持多微信账户的配置和管理
 - **UI 集成**：完整的 React 组件支持
+
+**date-fns 依赖系统**：
+- **现代化设计**：版本4.1.0提供现代化 JavaScript 日期处理
+- **模块化导入**：支持按需导入，Tree Shaking 友好
+- **TypeScript 支持**：完整的类型定义和类型安全
+- **国际化功能**：内置多语言本地化支持
+- **性能优化**：相比旧版本提供更好的性能和更小的包体积
 
 **跨平台打包系统**：
 - **统一脚本**：macOS 和 Windows 使用相似的打包逻辑
@@ -1899,27 +2026,32 @@ OpenClaw 的 Electron 打包配置经过重大增强，从单一平台支持发�
 **新增功能的技术价值**：
 - **智能版本管理**：提升版本控制效率，减少手动配置错误
 - **代码签名验证**：增强应用安全性，确保权限配置正确性
+- **Apple 时间戳服务器配置**：确保所有二进制文件包含安全时间戳，符合 Apple 公证要求
 - **macOS权限扩展**：提升系统集成功能，支持更复杂的权限需求
 - **Windows 打包**：支持在 macOS/Linux 上构建 Windows 版本，扩大部署范围
+- **date-fns 依赖**：提供现代化的日期处理功能，替代旧版依赖
 - **开发效率提升**：跨平台打包减少重复工作，统一构建流程
-- **部署可靠性增强**：自动化的签名和公证流程，支持 Windows 平台
+- **部署可靠性增强**：自动化的签名、公证和时间戳流程，支持 Windows 平台
 - **维护成本降低**：统一的构建和配置管理，支持多平台
 - **用户体验改善**：更快的启动速度和更稳定的运行表现
 - **跨平台兼容性**：支持 macOS、Windows、Linux 多个平台
-- **品牌管理优化**：统一的品牌标识提升专业度
 - **消息通道多样化**：支持超过 25 种不同的消息通道
-- **安全性显著提升**：智能签名验证和权限管理确保应用安全运行
+- **安全性显著提升**：智能签名验证、权限管理和 Apple 时间戳服务器确保应用安全运行
+- **性能优化**：date-fns 的模块化设计减少打包体积和内存占用
+- **公证流程稳定性**：Apple 时间戳服务器确保公证流程的稳定性和可靠性
 
 这一改进体现了现代软件工程中"约定优于配置"的设计理念，通过智能化的默认行为减少了开发者的配置负担，同时保持了系统的灵活性和可扩展性。
 
 **运行时依赖配置列表**：
 - **不能内联的依赖**：electron、sharp、playwright-core、sqlite-vec、opusscript、@lydell/node-pty、@napi-rs/canvas、node-llama-cpp、koffi、@matrix-org/matrix-sdk-crypto-nodejs、@whiskeysockets/baileys、esbuild、jiti
-- **核心运行时依赖**：包含 openclaw CLI 和 Gateway 所需的 70+ 个核心依赖
-- **额外运行时依赖**：koffi、@matrix-org/matrix-sdk-crypto-nodejs、esbuild、jiti 等必须真实安装的依赖
+- **核心运行时依赖**：包含 openclaw CLI 和 Gateway 所需的 70+ 个核心依赖，**新增 date-fns 4.1.0**
+- **额外运行时依赖**：koffi、@matrix-org/matrix-sdk-crypto-nodejs、esbuild、jiti 等必须真实安装的依赖，**新增 date-fns 4.1.0**
 - **预装扩展**：memory-core、device-pair、qwen-portal-auth、minimax-portal-auth、google-gemini-cli-auth、copilot-proxy、telegram、discord、slack、signal、whatsapp、imessage、matrix、msteams、feishu、googlechat、irc、line、mattermost、nextcloud-talk、nostr、synology-chat、twitch、zalo、zalouser、voice-call、talk-voice、phone-control、acpx、bluebubbles、openclaw-weixin
 - **WeChat 扩展依赖**：qrcode-terminal、zod、silk-wasm 等微信扩展专用依赖
 - **Windows 打包依赖**：NSIS 安装程序、Windows 资源处理、Node.exe 可执行文件
 - **版本管理工具**：bump-version 目标、sync-plugin-versions 脚本
 - **签名验证工具**：codesign-mac-app.sh、entitlements.mac.plist
+- **Apple 时间戳服务器**：`timestamp: "http://timestamp.apple.com/ts01"`
+- **date-fns 依赖**：4.1.0 版本，现代化 JavaScript 日期处理库
 
-这些配置的自动化管理确保用户在安装时即可获得完整的 Bossim 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道，同时为开发者提供了灵活的部署和调试选项。Windows 打包系统的加入进一步增强了 OpenClaw 的跨平台支持和用户覆盖能力。智能版本管理系统和代码签名验证系统的引入显著提升了应用的安全性和可靠性，为用户提供了更好的使用体验。
+这些配置的自动化管理确保用户在安装时即可获得完整的 Bossim 功能体验，无需额外配置即可使用核心 AI 模型认证和多种消息通道，同时为开发者提供了灵活的部署和调试选项。Windows 打包系统的加入进一步增强了 OpenClaw 的跨平台支持和用户覆盖能力。智能版本管理系统、代码签名验证系统和 Apple 时间戳服务器配置的引入显著提升了应用的安全性和可靠性，为用户提供了更好的使用体验。date-fns 依赖的集成为应用提供了现代化的日期处理能力，替代了旧版依赖，提升了性能和功能完整性。Apple 时间戳服务器配置的引入确保了所有二进制文件包含安全时间戳，符合 Apple 公证服务的要求，为应用的安全性和合规性提供了重要保障。

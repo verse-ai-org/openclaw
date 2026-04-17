@@ -266,15 +266,13 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=save_route_evidence \
 
 **目录约定**：
 - POI 临时产物写入 `data/poi/` 子目录
-- 路线中间产物直接写入 `data/trips/<trip_id>/`（如 `step4.stop-media.json`、`step4.plan-input.json`、`step4.plan-output.json`；Step 6 调用 `plan-generator.mjs --trip-id=<id> --cmd=plan_overview` 时**必须**写入 `step6.plan-overview.json`）
+- 路线中间产物直接写入 `data/trips/<trip_id>/`（如 `step4.plan-input.json`、`step4.plan-output.json`；`step4.stop-media.json` 仅调试时可选保留）
 - trip 级长期数据统一写入 `data/trips/<trip_id>/`（含 `trip.json`、`evidence.<platform>.json`、`step*.json`）
-- A-8 完成后仅清理 `data/poi/` 的临时文件；**保留** `data/trips/<trip_id>/step4.plan-input.json` 与 `step4.plan-output.json`（含 `route_tool_ui` 等 Step4 完整输出，作为该步权威数据；`trip.json` 只存 `step4_plan_output_ref` 引用）
 
 **A-3.5-1** 读取 evidence 中的景点列表，批量查 POI 缓存（key 直接使用 evidence 地名作为主键）：
 
 ```bash
-node {baseDir}/scripts/poi-cache.mjs --cmd=get \
-  --keys='["四姑娘山","新都桥","丹巴"]'
+node {baseDir}/scripts/poi-cache.mjs --cmd=get --keys='["四姑娘山","新都桥","丹巴"]'
 ```
 
 **A-3.5-2** 对缓存未命中（`misses`）的每个景点调用 `flyai search-poi`，选最匹配条目后，**一步写入缓存**：
@@ -284,8 +282,7 @@ flyai search-poi --city-name "<目的地城市>" --keyword "<景点名>"
 ```
 
 ```bash
-node {baseDir}/scripts/poi-cache.mjs --cmd=save --ttl-hours=72 \
-  --payload='{"entries":{"四姑娘山":{"key":"四姑娘山","name":"四姑娘山","evidence_name":"四姑娘山","source_poi_name":"四姑娘山景区","image":"https://...","subtitle":"...","lat":31.08,"lng":102.84}}}'
+node {baseDir}/scripts/poi-cache.mjs --cmd=save --ttl-hours=72 --payload='{"entries":{"四姑娘山":{"key":"四姑娘山","name":"四姑娘山","evidence_name":"四姑娘山","source_poi_name":"四姑娘山景区","image":"https://...","subtitle":"...","lat":31.08,"lng":102.84}}}'
 ```
 
 - 图片提取优先级：`mainPic -> picUrl -> image -> imageUrl -> photo`
@@ -293,16 +290,20 @@ node {baseDir}/scripts/poi-cache.mjs --cmd=save --ttl-hours=72 \
 - 景点名应使用 `key_destinations` 中的规范短名（如"四姑娘山"），避免使用含描述的长名
 - flyai 返回首条不一定名称最匹配（如搜"丹巴"可能首条是无关景点），需从 `itemList` 中选名称含景点关键字的条目
 - 缓存写入时 `name/evidence_name` 使用 evidence 地名；flyai 命中名称写入 `source_poi_name` 仅用于来源追踪
-- entries 过长（>1KB）时写入 `data/poi/cache-upserts.json`（临时）再用 `@file` 传入，A-8 后清理
+- entries 过长（>5KB）时写入 `data/poi/cache-upserts.json`（临时）再用 `@file` 传入，A-8 后清理
 
-**A-3.5-3** 所有景点写入缓存后，一条命令输出 `stop_media` + `stop_points` 平铺映射（供 A-4 组装 `step4.plan-input.json`）。**必须写入当前 trip 目录**，避免多行程共用一个全局文件：
+**A-3.5-3** 所有景点写入缓存后，直接生成 `step4.plan-input.json`（内含 `stop_media` + `stop_points` 平铺映射）。默认不再强制落 `step4.stop-media.json`：
 
 ```bash
 mkdir -p ~/.openclaw/agents/travel-planner/data/trips/<trip_id>
-node {baseDir}/scripts/poi-cache.mjs --cmd=build-stop-media \
-  --destination="川西" \
-  > ~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step4.stop-media.json
+# 1) 先产出 stop-media JSON 到临时变量/临时文件（可管道）
+node {baseDir}/scripts/poi-cache.mjs --cmd=build-stop-media --destination="川西" > /tmp/stop-media.json
+
+# 2) 组装进 step4.plan-input.json（包含 route_evidence + stop_media + stop_points）
+# route_evidence 必须读取 get_route_evidence 返回的 meta.evidence_file 文件内容
 ```
+
+> 调试需要时，可额外保存一份 `data/trips/<trip_id>/step4.stop-media.json` 作为快照；不是主流程必需产物。
 
 输出结构：
 
@@ -323,7 +324,7 @@ node {baseDir}/scripts/poi-cache.mjs --cmd=build-stop-media \
 
 **A-4｜调用 route-plan.mjs（一次调用生成带图路线）**
 
-将 evidence + **`step4.stop-media.json` 中的 `stop_media` / `stop_points`** 组装写入 `data/trips/<trip_id>/step4.plan-input.json`，输出到 `data/trips/<trip_id>/step4.plan-output.json`：
+将 evidence + **A-3.5-3 生成的 `stop_media` / `stop_points`** 组装写入 `data/trips/<trip_id>/step4.plan-input.json`，输出到 `data/trips/<trip_id>/step4.plan-output.json`：
 
 ```bash
 mkdir -p ~/.openclaw/agents/travel-planner/data/trips/<trip_id>
@@ -457,235 +458,401 @@ rm -f ~/.openclaw/agents/travel-planner/data/poi/cache-upserts.json
 - 候选路线选择阶段必须用 `option_list` 让用户点选具体 `route_id`
 - 最后说明下一步将调研目的地的交通与天气情况
 
-### 第五步：调研交通和天气
+### 第五步：验证交通天气 + 确认计划骨架
 
-#### 必须顺序（不可跳步）
+#### 目标
 
-1. 确认 `route_choice_confirmed=true` 且存在 `chosen_route_id`。
-2. 从 `route_options` 取出 `chosen_route_id` 对应的路线，读取 `stops`。
+- 调研出发交通与关键站点天气，输出 `verdict`（go / caution / block）。
+- 调研完成后立即生成计划骨架并一次性输出，等待用户确认。
 
-**调研交通情况**（出发城市 ≠ `stops[0]` 时执行）：
+#### 进入条件
 
-3. 从 `trip.departure_city` 或 `preferences.departure_city` 确定出发城市。
-4. 判断出行方式（分两段）：
-   - **进入段**（出发城市 → `stops[0]`）：无论 `trip.constraints` 是否包含「自驾」，若两地跨省或距离显著（> 500km），使用 `@skills/flyai search-flight` 查询航班；若同省或中短途（< 500km），使用 `@skills/amap-lbs-skill` 评估驾车/高铁可行性。
-   - **游览段**（`stops` 内部转场）：若 `trip.constraints` 包含「自驾」，用 `@skills/amap-lbs-skill` 查询关键相邻 stop 之间的驾车时长，评估单日转场是否现实（超过 4 小时需提醒）；否则说明以公共交通/包车为主，无需单独验证。
-5. 将原始结果写入 `route_validation.transport_result`，并记录 `status: ok / unavailable / not_required`。
+- `route_choice_confirmed=true` 且 `chosen_route_id` 已存在。
 
-**调研天气情况**（始终执行）：
+#### 执行主干（严格按序，不可跳步）
 
-6. 从 `stops` 中选取 2-3 个有代表性的地点（首站、中间高海拔/偏远站、末站）。
-7. 使用 `@skills/weather` 查询每个地点在 `trip.departure_date ~ trip.return_date` 内的天气预报。
-8. 将原始结果写入 `route_validation.weather_result`，并按以下规则裁决 `status`：
-   - `go`：无明显风险
-   - `caution`：2 天以上连续强降雨/大雪/风力预警，或极端高温/低温影响户外活动
-   - `block`：核心路段（如折多山、高原公路）因天气存在通行安全风险
+---
 
-**裁决与持久化**（必须在向用户回复前完成）：
+**B-1｜读取路线数据**
 
-9. 综合交通 + 天气结果，写入 `verdict: go / caution / block` 和 `verdict_reasons`。
-   - 可选辅助：将已填好的 `transport_result` / `weather_result`（及可选 `live_results`）交给 `route-validation.mjs` 做一致性推导，输出建议的 `verdict` / `verdict_reasons`（**仍需人工确认**后再写入）：
-   ```bash
-   node {baseDir}/scripts/route-validation.mjs \
-     --validation=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step5.route-validation.partial.json
-   ```
-   若 `trip.live_results` 已存在，可追加 `--results=@.../step8.live-results.json` 做兜底推断（`transport_result.status` / `weather_result.status` 未写满时）。
-10. 持久化：
+从 `step4.plan-output.json` 的 `route_options` 中取出 `chosen_route_id` 对应路线，读取 `stops` 列表。从 `trip.departure_city` 或 `preferences.departure_city` 确定出发城市。
+
+---
+
+**B-2｜调研进入段交通**（出发城市 ≠ `stops[0]` 时执行）
+
+- 跨省或距离 > 500km：
+  - 用 `flyai search-flight --origin <出发城市> --destination <stops[0]> --dep-date <departure_date>` 查询航班；
+  - 用 `flyai search-train --origin <出发城市> --destination <stops[0]> --dep-date <departure_date>` 查询高铁；
+  - 从各结果 `itemList` 中取前 2 条最优选项，提取 `jumpUrl`、航班号/车次、价格存入 `booking_links`。
+- 同省或距离 ≤ 500km：
+  - 使用 `@skills/amap-lbs-skill` 评估驾车/高铁可行性；
+  - 高铁可行时仍用 `flyai search-train` 补充查询并提取 `jumpUrl`。
+
+将查询结果写入 `transport_result`，记录字段：
+- `status`：`ok` / `unavailable` / `not_required`
+- `mode`：`flight` / `train` / `drive` / `mixed`
+- `booking_links`：从 `itemList` 提取前 2 条最优结果，格式为 `[{ "label": "航班/车次描述", "url": "jumpUrl 原值", "price": "¥xxx" }]`
+- `raw`：完整原始返回（供 plan-generator 读取）
+
+---
+
+**B-3｜调研游览段转场**（仅 `trip.constraints` 包含「自驾」时执行）
+
+使用 `@skills/amap-lbs-skill` 查询 `stops` 中关键相邻站点的驾车时长。单日转场 > 4 小时须在骨架中标注提醒。不含「自驾」约束时跳过此步。
+
+---
+
+**B-4｜调研天气**（始终执行）
+
+从 `stops` 中选 2-3 个代表性地点（首站、中间高海拔或偏远站、末站），使用 `@skills/weather` 查询各地点在 `trip.departure_date ~ trip.return_date` 内的天气预报。
+
+写入 `weather_result.raw`，裁决 `status`：
+- `go`：无明显风险
+- `caution`：2 天以上连续强降雨/大雪/风力预警，或极端高温/低温影响户外活动
+- `block`：核心路段（如折多山、高原公路）因天气存在通行安全风险
+
+---
+
+**B-5｜综合裁决并持久化**（必须在输出前完成）
+
+综合 B-2/B-3/B-4 结果，写入 `verdict` 和 `verdict_reasons`，将完整结构写入临时文件后持久化：
 
 ```bash
-node {baseDir}/scripts/trips.mjs --cmd=patch_trip --trip-id=<trip_id> --payload='{"route_validation": <route_validation_json>}'
+node {baseDir}/scripts/trips.mjs --cmd=patch_trip \
+  --trip-id=<trip_id> \
+  --payload=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step5.route-validation.json
 ```
 
-11. **必须向用户发起确认**：输出验证结论后，以「接下来我会总结当前的计划骨架行程，需要您确认」收尾；未收到用户明确确认不得进入 Step 6。
-
-#### `route_validation` 写入结构
+`route_validation` 结构：
 
 ```json
 {
   "stage": "validated",
   "transport_result": {
-    "required": true,
+    "status": "ok",
     "mode": "flight",
-    "checked": true,
-    "raw": {},
-    "status": "ok"
+    "booking_links": [
+      { "label": "成都→稻城（CA4506）经济舱", "url": "https://...", "price": "¥680" },
+      { "label": "成都→稻城（3U8876）经济舱", "url": "https://...", "price": "¥720" }
+    ],
+    "raw": {}
   },
-  "weather_result": {
-    "locations_checked": ["成都", "四姑娘山", "康定"],
-    "raw": {},
-    "status": "caution"
-  },
+  "weather_result": { "locations_checked": ["成都","四姑娘山","康定"], "status": "caution", "raw": {} },
   "verdict": "caution",
   "verdict_reasons": ["5月初四姑娘山有降雪风险"],
   "checked_at": ""
 }
 ```
 
-#### 兜底处理
+---
 
-若技能调用失败：
-1. 明确说明哪一项失败（`flyai` / `amap-lbs-skill` / `weather`）。
-2. 仍可给路线框定与骨架方案，但价格/时刻/天气必须标注为**未验证**。
-3. 有阶段性结果时优先用 `trips.mjs --cmd=patch_trip` 写入 `route_validation` 便于续跑，命令同步骤 10。
-
-
-### 第六步：确认计划骨架
-
-**进入条件**：用户已对 Step 5 验证结论明确确认（如「需要」/ 「是」/ 「总结一下」等等效表达）。
-
-总结计划骨架，并二次确认：
-
-- 选中的路线是否最终确认
-- 交通策略 + 住宿区域策略是否确认
-- 是否进入每日执行卡片生成
-
-> 完整对话示例见 `references/example_dialogue.md`；触发/不触发回归场景见 `references/trigger_regression.md`。
-
-骨架来源：
+**B-6｜生成计划骨架**（B-5 持久化成功后立即执行）
 
 ```bash
-node {baseDir}/scripts/plan-generator.mjs --cmd=plan_overview --trip-id=<id>
+node {baseDir}/scripts/plan-generator.mjs --cmd=plan_overview --trip-id=<trip_id>
 ```
 
-> **强制落盘**：上述命令会在 `data/trips/<trip_id>/step6.plan-overview.json` 写入总结摘要，便于续跑与审计；**不可省略**。
+> 强制落盘 `data/trips/<trip_id>/step6.plan-overview.json`，不可省略。
 
-#### 输出格式（硬约束）
-
-Step 6 回复必须严格按以下顺序与标题输出，不得改名、不得省略：
-
-1. `路线总览：<完整链路，用 "→" 连接>`
-2. `每日计划：`
-   - 每天必须使用以下 4 行结构（可复制）：
-     - `Day N ｜ A → B（约Xkm，Yh）`
-     - `主锚点：...`
-     - `🌿 次锚点：...（可选）`
-     - `🏨 住宿：...`
-3. `交通情况：`
-   - `机票：...`
-   - `高铁：...`
-   - `自驾：...`
-   - 若暂无验证结果，必须显式写“暂无已验证...信息”。
-4. `天气情况：`
-   - 必须输出“主锚点天气表格”，至少包含：`Day / 地点 / 日期 / 天气 / 温度 / 风险`
-
-渲染时优先读取 `plan-generator.mjs` 返回的 `step6_summary`：
-
+读取返回的 `step6_summary` 字段用于渲染：
 - `step6_summary.route_overview_text`
 - `step6_summary.daily_overview[]`
 - `step6_summary.transport_snapshot`
 - `step6_summary.weather_table_rows[]`
 
-**必须先展示以上总结卡片**，再等用户确认；未完成确认不进入 Step 7。这一步必须是一个**独立回复回合**，不得与 Step 7 合并。
+---
 
-完成门槛（全部满足才可进入 Step 7）：
+**B-7｜输出骨架卡片并等待用户确认**
 
-- 已输出 Step 6 总结卡片；
-- 已收到用户明确确认（如"确认/继续/按这个走"）；
-- 已在上下文中记录 `light_validation_confirmed = true`（或等效确认状态）。
+回复必须严格按以下顺序输出，不得改名、不得省略：
 
-### 第七步：生成详细计划
+1. `路线总览：<完整链路，用 → 连接>`
+2. `交通情况：`
+   - 按 `mode` 输出：`机票：...` / `高铁：...` / `自驾：...`
+   - 每个已验证方案下方附预订跳转链接，取自 `transport_result.booking_links[]`，格式：`[点击预订]({url})`（每个选项单独一行）
+   - 未验证项必须显式写"暂无已验证...信息"
+3. `天气情况：`（主锚点天气表格，列：Day / 地点 / 日期 / 天气 / 温度 / 风险）
+4. verdict 为 `block` 时：末尾显著标注安全风险，征询用户是否继续。
 
-必须满足：
+守卫：骨架展示后等待用户明确确认（如"确认/继续/按这个走"），未确认不得进入第六步。
 
-- `route_choice_confirmed === true`
-- `chosen_route_id` 已存在
-- 用户已确认 Step 6 结论
-- 本步仅生成“简要每日计划骨架”，不考虑机票/高铁/酒店选择。
+#### 兜底处理
 
-本步输出目标（仅简要每日计划）：
+| 失败项 | 处理 |
+|--------|------|
+| `flyai` / `amap-lbs-skill` 失败 | 标注交通为"未验证"，`status=unavailable`，继续生成骨架 |
+| `weather` 失败 | 标注天气为"未验证"，verdict 降级为 `caution`，继续生成骨架 |
+| 两项均失败 | 骨架仍可生成，所有验证项标注"未验证"，在骨架末尾说明 |
 
-- 按天给出：主目标、次目标、核心景点/区域、建议出发时段、体力负荷、天气风险提醒。
-- 保留路线节奏与关键转场（仅说明长途/短途，不给具体班次与预订信息）。
-- 明确标注：交通与住宿细化将在 Step 8 完成。
+> 完整对话示例见 `references/example_dialogue.md`；触发/不触发回归场景见 `references/trigger_regression.md`。
 
-本步禁止事项：
+### 第六步：生成每日计划详情
 
-- 不输出机票/高铁/酒店候选；
-- 不输出预订链接；
-- 不给“可直接下单”结论。
+#### 目标
 
-建议命令（骨架生成）：
+- 基于已确认的路线和 Step 5 验证结论，按天生成可执行的计划骨架。
+- 给出每天的去向、节奏、住宿区域，不含具体班次和预订信息。
+
+#### 进入条件
+
+- 用户已对 Step 5 骨架明确确认。
+
+#### 执行主干（严格按序，不可跳步）
+
+---
+
+**C-1｜生成每日骨架**
 
 ```bash
 node {baseDir}/scripts/plan-generator.mjs --trip-id=<trip_id> --cmd=itinerary_skeleton
 ```
 
-本步回复顺序与每日计划必含字段见 `references/reply-templates.md` — 第七步。
+---
 
-### 第八步：行前服务（用户开始预订后）
+**C-2｜输出每日计划**
 
-进入条件：
+按天输出，每天必含以下字段：
 
-- 用户已确认进入 Step 8；
-- 已存在 Step 7 的简要每日计划骨架。
+- 主目标（核心景区/区域）
+- 次目标（可选备选点）
+- 建议出发时段（上午/下午/全天）
+- 关键转场说明（长途/短途，不给具体班次）
+- 体力负荷（轻松/适中/紧凑）
+- 天气风险提醒（来自 Step 5 验证结果）
+- 住宿区域（不给具体酒店，详细推荐在 Step 7）
 
-本步目标（补齐详细计划）：
+#### 禁止事项
 
-- 基于 Step 7 每日骨架，补齐“每日住宿建议（区域或候选酒店）+ 每日交通建议（自驾段/高铁/航班/接驳）”；
-- 形成“正常详细每日计划”（执行卡片 + 住宿 + 交通 + 风险）；
-- 仅给候选与筛选建议，不替用户做最终下单决策。
+- 不输出机票/高铁班次候选
+- 不输出酒店名称或预订链接
+- 不给"可直接下单"结论
 
-实时查询来源（强约束，必须优先）：
+完成本步后询问用户是否进入 Step 7（补齐交通酒店细节）。
 
-- `flights`：使用 `flyai search-flight`
-- `hotels`：使用 `flyai search-hotel`
-- `pois`：使用 `flyai search-poi`
-- `food` / `dining`：优先使用 `flyai search-poi` 餐饮结果；若不可用可用 `@skills/amap-lbs-skill` 餐饮结果补充
+> 回复格式细节见 `references/reply-templates.md` — 第六步。
 
-真实性要求（必须执行）：
+### 第七步：制定每日计划详情
 
-- Step 8 的交通/酒店/餐饮推荐必须基于实时查询结果，不得凭经验臆造价格、班次、库存、评分。
-- 若任一类实时查询失败，必须明确标注该类为“未实时验证”，并给补查动作，不得伪装为已验证结果。
-- `live_results_json` 必须保留工具原始输出，供 `booking-ready.mjs` 消费与追溯。
+#### 目标
+
+- 基于 Step 6 每日骨架，通过实时查询补齐每日的具体交通方案与住宿候选。
+- 所有推荐必须来自实时查询，不得臆造价格、班次、库存、评分。
+
+#### 进入条件
+
+- 用户已确认进入 Step 7。
+- Step 6 的每日计划骨架已存在。
+
+#### 执行主干（严格按序，不可跳步）
+
+---
+
+**D-1｜实时查询交通与住宿**
+
+按每日骨架的转场节点逐段查询：
+
+- 进入段航班：复用 Step 5 `transport_result.booking_links` 中的结果（已含 `jumpUrl`）；若用户要求重新查询则调用 `flyai search-flight --origin <出发城市> --destination <stops[0]> --dep-date <departure_date>`
+- 游览段驾车/接驳：`@skills/amap-lbs-skill`（含自驾约束时）
+- **每日住宿**（核心，按天逐一查询）：
 
 ```bash
-node {baseDir}/scripts/booking-ready.mjs --trip='<trip_json>' --route='<route_json>' --validation='<route-validation_json>' --results='<live_results_json>'
-node {baseDir}/scripts/trip-workflow.mjs --cmd=save_live_results --trip-id=<trip_id> --payload='<live_results_json>'
-node {baseDir}/scripts/trip-workflow.mjs --cmd=save_booking_ready --trip-id=<trip_id> --payload='<booking_ready_json>'
+flyai search-hotel --dest-name <当晚住宿城市> \
+  --check-in-date <YYYY-MM-DD> --check-out-date <次日YYYY-MM-DD> \
+  --sort rate_desc
 ```
 
-若用户确认具体预订项，再执行：
+- 餐饮/POI：`flyai search-poi --city <城市> --keyword <关键词>`
+
+查询结果按天组装写入 `step7.live-results.json`：
+
+```json
+{
+  "hotels_by_day": [
+    {
+      "day": 1,
+      "city": "成都",
+      "date": "2026-05-01",
+      "raw": { "<flyai search-hotel 原始返回>" }
+    },
+    {
+      "day": 2,
+      "city": "康定",
+      "date": "2026-05-02",
+      "raw": { "<flyai search-hotel 原始返回>" }
+    }
+  ],
+  "flights": { "<B-2 transport_result 中 booking_links 原样复用>" },
+  "pois": {},
+  "dining": {}
+}
+```
+
+守卫：任一类查询失败时，必须标注该类为"未实时验证"，不得用经验数据填充。
+
+---
+
+**D-2｜生成 booking-ready 包并持久化**
 
 ```bash
-node {baseDir}/scripts/trip-workflow.mjs --cmd=confirm_booking --trip-id=<trip_id> --category=hotel --payload='<selected_hotel_json>'
+node {baseDir}/scripts/booking-ready.mjs \
+  --trip=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/trip.json \
+  --route=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step4.plan-output.json \
+  --validation=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step5.route-validation.json \
+  --results=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step7.live-results.json
+
+node {baseDir}/scripts/trip-workflow.mjs --cmd=save_live_results \
+  --trip-id=<trip_id> \
+  --payload=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step7.live-results.json
+
+node {baseDir}/scripts/trip-workflow.mjs --cmd=save_booking_ready \
+  --trip-id=<trip_id> \
+  --payload=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step7.booking-ready.json
 ```
 
-最终答复顺序（7项，必须遵守）及链接输出规范见 `references/reply-templates.md` — 第八步。
+---
+
+**D-3｜输出详细每日计划**
+
+在 Step 6 骨架基础上补充，输出分为两层：
+
+**层一：按天嵌入（每天末尾）**
+
+每天输出完景点/活动内容后，紧接着输出住宿推荐区块：
+
+```
+🏨 今晚住宿推荐（{城市}）
+  1. {酒店名}  {价格}/晚  ★{评分}  {区域说明}
+     [点击查看]({detailUrl})
+  2. {酒店名}  {价格}/晚  ★{评分}
+     [点击查看]({detailUrl})
+```
+
+- 每天最多展示 2 个候选，取 `hotels_by_day[day].candidates`
+- 无可用链接时标注：`暂无实时链接，建议搜索"{酒店名}"`
+- 每日交通：若当天有转场，给出推荐班次/路线 + 1 个备选（来自实时查询）
+
+**层二：末尾汇总表（所有天完成后输出一次）**
+
+```markdown
+## 住宿 & 交通汇总
+
+| Day | 城市   | 日期  | 推荐住宿         | 参考价    | 链接              |
+|-----|--------|-------|------------------|-----------|-------------------|
+| D1  | 成都   | 05-01 | 锦里精品民宿     | ¥320/晚   | [预订](...)       |
+| D2  | 康定   | 05-02 | 情歌主题酒店     | ¥380/晚   | [预订](...)       |
+
+| 交通        | 班次/方式  | 出发时间 | 参考价 | 链接          |
+|-------------|------------|----------|--------|---------------|
+| 进入段（机票） | CA4506   | 08:00    | ¥680   | [预订](...)   |
+```
+
+数据来源：`booking-ready.mjs` 返回的 `accommodation_summary_table` 和 `transport_options`。
+
+- 注明哪些项"未实时验证"
+
+---
+
+**D-4｜持久化用户确认的预订项**（用户选定后执行）
+
+```bash
+node {baseDir}/scripts/trip-workflow.mjs --cmd=confirm_booking \
+  --trip-id=<trip_id> --category=hotel \
+  --payload=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step7.booking-confirmed.json
+```
 
 > 行前清单、打包建议、安全应急细则见 `references/travel_guidelines.md`。
 > 礼仪与文化注意事项见 `references/cultural_etiquette.md`。
+> 回复格式细节见 `references/reply-templates.md` — 第七步。
 
-推荐阶段值枚举与状态字段说明见 `references/route-protocol.md`。
+### 第八步：行中支持
 
-### 第九步：行中支持
+#### 目标
 
-支持行中场景：
+- 在用户出行途中，响应突发情况，给出实时调整建议。
 
-- 天气突变改线
-- 误车/误点后的重排
-- 附近备选点位
-- 当日简报与支出跟踪
+#### 进入条件
 
-```bash
-node {baseDir}/scripts/briefing.mjs --mode=pre_trip --trip='<trip_json>' --plan='<plan_json>'
-node {baseDir}/scripts/briefing.mjs --mode=daily --trip='<trip_json>' --plan='<plan_json>' --day=2
-```
+- 用户已出发（或明确表示正在行程中）。
 
-已出发先标记：
+#### 执行主干
+
+---
+
+**E-1｜标记出发**
 
 ```bash
 node {baseDir}/scripts/trip-workflow.mjs --cmd=start_trip --trip-id=<trip_id>
 ```
 
-### 第十步：行后沉淀
+---
 
-程序接口：
+**E-2｜按场景响应**
 
-- `moveTripToPast(tripId)`
-- `addPreviousDestination("城市, 国家")`
-- `updatePreference` / `savePreferences`
+| 场景 | 处理方式 |
+|------|----------|
+| 天气突变/路段封闭 | 调用 `@skills/weather` 重新查询，给出改线建议（替换受影响的 stop） |
+| 误车/误点 | 调用 `@skills/amap-lbs-skill` 或 `flyai search-flight` 查补救方案，重排当日计划 |
+| 附近备选点位 | 调用 `flyai search-poi` 查当前位置附近景点/餐饮 |
+| 当日简报 | 生成当日行程摘要与天气/路况提醒 |
 
-更新可复用偏好：真实节奏承受、酒店风格偏好、是否厌恶频繁换酒店、兴趣权重变化等。
+---
+
+**E-3｜生成简报**
+
+```bash
+# 出发前简报
+node {baseDir}/scripts/briefing.mjs --mode=pre_trip \
+  --trip=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/trip.json \
+  --plan=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step6.plan-overview.json
+
+# 每日简报
+node {baseDir}/scripts/briefing.mjs --mode=daily \
+  --trip=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/trip.json \
+  --plan=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step6.plan-overview.json \
+  --day=<N>
+```
+
+### 第九步：行后沉淀
+
+#### 目标
+
+- 归档行程，更新用户偏好，为下次规划提供更准确的初始数据。
+
+#### 执行主干
+
+---
+
+**F-1｜归档行程**
+
+```bash
+node {baseDir}/scripts/trips.mjs --cmd=move_to_past --trip-id=<trip_id>
+```
+
+---
+
+**F-2｜更新已访问目的地**
+
+```bash
+node {baseDir}/scripts/preferences.mjs --cmd=add_previous_destination \
+  --payload='{"destination": "<城市, 国家>"}'
+```
+
+---
+
+**F-3｜更新复用偏好**
+
+根据本次行程的真实反馈，更新以下字段后调用 `save_preferences` 写入：
+
+- `pace_preference`：实际节奏是否与预设匹配
+- `hotel_style`：住宿风格偏好（民宿/连锁/精品）
+- `hotel_switch_tolerance`：是否厌恶频繁换酒店
+- `interests`：兴趣权重变化（如实际对摄影兴趣更高）
+
+```bash
+node {baseDir}/scripts/preferences.mjs --cmd=save_preferences \
+  --payload='{"pace_preference":"relaxed","hotel_switch_tolerance":"low"}'
+```
 
 ## 示例与回归
 

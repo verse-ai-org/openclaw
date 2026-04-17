@@ -80,6 +80,17 @@ function createOAuthHandler(region: MiniMaxRegion) {
                 api: "anthropic-messages",
                 models: [
                   buildModelDefinition({
+                    id: "MiniMax-M2.5",
+                    name: "MiniMax M2.5",
+                    input: ["text"],
+                  }),
+                  buildModelDefinition({
+                    id: "MiniMax-M2.5-highspeed",
+                    name: "MiniMax M2.5 Highspeed",
+                    input: ["text"],
+                    reasoning: true,
+                  }),
+                  buildModelDefinition({
                     id: "MiniMax-M2.7",
                     name: "MiniMax M2.7",
                     input: ["text"],
@@ -90,12 +101,6 @@ function createOAuthHandler(region: MiniMaxRegion) {
                     input: ["text"],
                     reasoning: true,
                   }),
-                  buildModelDefinition({
-                    id: "MiniMax-M2.7-Lightning",
-                    name: "MiniMax M2.7 Lightning",
-                    input: ["text"],
-                    reasoning: true,
-                  }),
                 ],
               },
             },
@@ -103,12 +108,16 @@ function createOAuthHandler(region: MiniMaxRegion) {
           agents: {
             defaults: {
               models: {
-                [modelRef("MiniMax-M2.7")]: { alias: "minimax-m2.5" },
-                [modelRef("MiniMax-M2.7-highspeed")]: {
+                [modelRef("MiniMax-M2.5")]: { alias: "minimax-m2.5" },
+                [modelRef("MiniMax-M2.5-highspeed")]: {
                   alias: "minimax-m2.5-highspeed",
                 },
+                [modelRef("MiniMax-M2.7")]: { alias: "minimax-m2.7" },
+                [modelRef("MiniMax-M2.7-highspeed")]: {
+                  alias: "minimax-m2.7-highspeed",
+                },
                 [modelRef("MiniMax-M2.7-Lightning")]: {
-                  alias: "minimax-m2.5-lightning",
+                  alias: "minimax-m2.7-lightning",
                 },
               },
             },

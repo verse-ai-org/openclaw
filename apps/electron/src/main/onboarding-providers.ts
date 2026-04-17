@@ -67,35 +67,26 @@ const MINIMAX_API_COST: ModelCost = {
 // ─── Shared model lists ───────────────────────────────────────────────────────
 // Extracted to avoid duplication between registry keys that share the same models.
 
-// const MINIMAX_M25_MODELS: ModelEntry[] = [
-//   {
-//     id: "MiniMax-M2.7",
-//     name: "MiniMax M2.7",
-//     reasoning: true,
-//     input: ["text"],
-//     cost: MINIMAX_API_COST,
-//     contextWindow: 200000,
-//     maxTokens: 8192,
-//   },
-//   {
-//     id: "MiniMax-M2.7-highspeed",
-//     name: "MiniMax M2.7 Highspeed",
-//     reasoning: true,
-//     input: ["text"],
-//     cost: MINIMAX_API_COST,
-//     contextWindow: 200000,
-//     maxTokens: 8192,
-//   },
-//   {
-//     id: "MiniMax-M2.7-Lightning",
-//     name: "MiniMax M2.7 Lightning",
-//     reasoning: false,
-//     input: ["text"],
-//     cost: MINIMAX_API_COST,
-//     contextWindow: 200000,
-//     maxTokens: 8192,
-//   },
-// ];
+const MINIMAX_M25_MODELS: ModelEntry[] = [
+  {
+    id: "MiniMax-M2.5",
+    name: "MiniMax M2.5",
+    reasoning: true,
+    input: ["text"],
+    cost: MINIMAX_API_COST,
+    contextWindow: 200000,
+    maxTokens: 8192,
+  },
+  {
+    id: "MiniMax-M2.5-highspeed",
+    name: "MiniMax M2.5 Highspeed",
+    reasoning: true,
+    input: ["text"],
+    cost: MINIMAX_API_COST,
+    contextWindow: 200000,
+    maxTokens: 8192,
+  },
+];
 
 const MINIMAX_M27_MODELS: ModelEntry[] = [
   {
@@ -111,15 +102,6 @@ const MINIMAX_M27_MODELS: ModelEntry[] = [
     id: "MiniMax-M2.7-highspeed",
     name: "MiniMax M2.7 Highspeed",
     reasoning: true,
-    input: ["text"],
-    cost: MINIMAX_API_COST,
-    contextWindow: 200000,
-    maxTokens: 8192,
-  },
-  {
-    id: "MiniMax-M2.7-Lightning",
-    name: "MiniMax M2.7 Lightning",
-    reasoning: false,
     input: ["text"],
     cost: MINIMAX_API_COST,
     contextWindow: 200000,
@@ -186,7 +168,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderApiConfig> = {
     baseUrl: "https://api.minimax.io/anthropic",
     api: "anthropic-messages",
     authHeader: true,
-    models: MINIMAX_M27_MODELS,
+    models: [...MINIMAX_M25_MODELS, ...MINIMAX_M27_MODELS],
   },
 
   // ── MiniMax OAuth plugin (Global) — provider id used by minimax-portal-auth ──
@@ -195,7 +177,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderApiConfig> = {
     baseUrl: "https://api.minimax.io/anthropic",
     api: "anthropic-messages",
     authHeader: true,
-    models: MINIMAX_M27_MODELS,
+    models: [...MINIMAX_M25_MODELS, ...MINIMAX_M27_MODELS],
   },
 
   // ── MiniMax (China) ───────────────────────────────────────────────────────
@@ -204,7 +186,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderApiConfig> = {
     baseUrl: "https://api.minimaxi.com/anthropic",
     api: "anthropic-messages",
     authHeader: true,
-    models: MINIMAX_M27_MODELS,
+    models: [...MINIMAX_M25_MODELS, ...MINIMAX_M27_MODELS],
   },
 
   // ── Mistral ───────────────────────────────────────────────────────────────

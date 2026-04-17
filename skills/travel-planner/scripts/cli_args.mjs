@@ -8,6 +8,7 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -62,7 +63,9 @@ export function assertOnlyFlags(record, allowed) {
   const keys = Object.keys(record);
   const bad = keys.filter((k) => !allowed.includes(k));
   if (bad.length) {
-    console.error(`Error: unexpected flag(s): ${bad.map((k) => `--${k}`).join(", ")}`);
+    console.error(
+      `Error: unexpected flag(s): ${bad.map((k) => `--${k}`).join(", ")}`,
+    );
     process.exit(1);
   }
 }
@@ -104,7 +107,10 @@ export function readJsonFromCliValue(label, raw, fallback) {
   }
   let text = raw;
   if (raw.startsWith("@")) {
-    const filePath = path.resolve(process.cwd(), raw.slice(1));
+    const rawPath = raw.slice(1).replace(/^~(?=\/|$)/, os.homedir());
+    const filePath = path.isAbsolute(rawPath)
+      ? rawPath
+      : path.resolve(process.cwd(), rawPath);
     try {
       text = fs.readFileSync(filePath, "utf8");
     } catch (e) {
@@ -152,7 +158,15 @@ export function readJsonFromCliValue(label, raw, fallback) {
  * @param {(args: Record<string, string>) => void} config.run - Business logic.
  * @param {string} [config.callerUrl]  - Pass `import.meta.url` to enable auto-run guard.
  */
-export function runScript({ name, usage, description, flags = [], required = [], run, callerUrl }) {
+export function runScript({
+  name,
+  usage,
+  description,
+  flags = [],
+  required = [],
+  run,
+  callerUrl,
+}) {
   // Auto-run guard: only execute when this file is the entry point.
   if (callerUrl !== undefined) {
     const __filename = fileURLToPath(callerUrl);

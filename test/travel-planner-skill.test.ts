@@ -709,6 +709,67 @@ describe("travel-planner JS modules", () => {
     expect(plan.step6_summary?.transport_snapshot?.flight).toBe("已验证（存在机票候选）");
   });
 
+  it("generateTripPlan parses step5 object-style raw for weather and transport", () => {
+    const id = "trip-step5-object-raw";
+    const tripDir = path.join(tmpDir, "data", "trips", id);
+    mkdirSync(tripDir, { recursive: true });
+    const step5 = {
+      stage: "validated",
+      transport_result: {
+        required: true,
+        mode: "flight_plus_self_drive",
+        checked: true,
+        raw: {
+          进入段: "上海→成都：航班约2.5-3小时，每日多班",
+          自驾段: {
+            "成都→四姑娘山": "约220km/4-5h",
+          },
+        },
+        status: "ok",
+      },
+      weather_result: {
+        locations_checked: ["成都", "四姑娘山"],
+        raw: {
+          成都: {
+            "Fri Apr 17": "晴 14-26°C",
+          },
+          四姑娘山: {
+            "Fri Apr 17": "雨 -8-12°C",
+          },
+        },
+        status: "caution",
+      },
+      verdict: "caution",
+      verdict_reasons: ["山区有雨"],
+      checked_at: "2026-04-17T02:30:00.000Z",
+    };
+    writeFileSync(
+      path.join(tripDir, "step5.route-validation.json"),
+      JSON.stringify(step5, null, 2),
+      "utf8",
+    );
+    const plan = generateTripPlan({
+      id,
+      destination: { region: "川西", country: "China" },
+      duration_days: 3,
+      departure_date: "2026-08-01",
+      route_choice_confirmed: true,
+      chosen_route_id: "r1",
+      route_options: [{ route_id: "r1", title: "Loop", stops: ["四姑娘山", "丹巴"] }],
+      route_validation: {},
+    });
+    expect(plan.step6_summary?.transport_snapshot?.flight).toBe("已验证（存在机票候选）");
+    expect(plan.step6_summary?.transport_snapshot?.drive).toMatch(/已验证/);
+    expect(plan.step6_summary?.weather_table_rows?.[0]).toMatchObject({
+      location: "成都",
+      date: "Fri Apr 17",
+    });
+    expect(plan.step6_summary?.weather_table_rows?.[1]).toMatchObject({
+      location: "四姑娘山",
+      condition: "雨 -8-12°C",
+    });
+  });
+
   it("generateTripPlan route_plan.plan_output reads step4.plan-output.json via ref", () => {
     const id = addTrip(
       {

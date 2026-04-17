@@ -101,7 +101,7 @@ export const AssistantMessage: FC = () => {
       </div>
 
       {/* Content column — indented to align with avatar */}
-      <div className="pl-4 w-full min-w-0">
+      <div className="pl-2 w-full min-w-0">
         <div className="wrap-break-word text-foreground leading-relaxed">
           {textParts.map((part, index) => (
             <AssistantMarkdownPart key={`text-${index}`} text={part.text} />

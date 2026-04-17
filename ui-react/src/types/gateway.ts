@@ -31,7 +31,7 @@ export type Tab =
   | "sessions"
   | "usage"
   | "cron"
-  | "scheduled-tasks"
+  | "scheduled"
   | "skills"
   | "plugins"
   | "nodes"
@@ -49,7 +49,7 @@ export type TabGroup = {
 export const TAB_GROUPS: TabGroup[] = [
   { label: "Message", tabs: ["chat"] },
   { label: "Team", tabs: ["employees", "skills"] },
-  { label: "Tools", tabs: ["channels", "plugins", "scheduled-tasks"] },
+  { label: "Tools", tabs: ["channels", "plugins", "scheduled"] },
   { label: "System", tabs: ["overview", "settings"] },
 ];
 

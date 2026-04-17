@@ -33,7 +33,7 @@ export function tabIcon(tab: Tab) {
       return BarChart;
     case "cron":
       return Loader;
-    case "scheduled-tasks":
+    case "scheduled":
       return CalendarClock;
     case "agents":
       return FolderOpen;
@@ -67,7 +67,7 @@ export function tabLabel(tab: Tab): string {
     sessions: "Sessions",
     usage: "Usage",
     cron: "Cron",
-    "scheduled-tasks": "Scheduled Tasks",
+    scheduled: "Scheduled",
     agents: "Agents",
     employees: "Employees",
     plugins: "Plugins",

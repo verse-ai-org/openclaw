@@ -18,6 +18,10 @@
 - [skills/travel-planner/scripts/briefing.mjs](file://skills/travel-planner/scripts/briefing.mjs)
 - [skills/travel-planner/scripts/booking-ready.mjs](file://skills/travel-planner/scripts/booking-ready.mjs)
 - [skills/travel-planner/scripts/xhs-evidence-builder.mjs](file://skills/travel-planner/scripts/xhs-evidence-builder.mjs)
+- [skills/travel-planner/scripts/preferences.mjs](file://skills/travel-planner/scripts/preferences.mjs)
+- [skills/travel-planner/scripts/poi-cache.mjs](file://skills/travel-planner/scripts/poi-cache.mjs)
+- [skills/travel-planner/scripts/trips.mjs](file://skills/travel-planner/scripts/trips.mjs)
+- [skills/travel-planner/scripts/trip-workflow.mjs](file://skills/travel-planner/scripts/trip-workflow.mjs)
 - [skills/travel-planner/package.json](file://skills/travel-planner/package.json)
 - [skills/flyai/SKILL.md](file://skills/flyai/SKILL.md)
 - [ui/src/ui/controllers/skills.ts](file://ui/src/ui/controllers/skills.ts)
@@ -30,6 +34,7 @@
 - [ui-react/src/pages/ScheduledTasksPage.tsx](file://ui-react/src/pages/ScheduledTasksPage.tsx)
 - [ui-react/src/components/scheduled-tasks/TaskCard.tsx](file://ui-react/src/components/scheduled-tasks/TaskCard.tsx)
 - [ui-react/docs/scheduled-tasks.md](file://ui-react/docs/scheduled-tasks.md)
+- [test/travel-planner-skill.test.ts](file://test/travel-planner-skill.test.ts)
 </cite>
 
 ## 更新摘要
@@ -38,6 +43,9 @@
 - 更新rerunCronJob函数返回布尔值以改善错误处理和用户反馈
 - 新增定时任务调度模块的详细技术文档和UI组件分析
 - 增强代理循环与定时任务的集成说明
+- **重大更新**：删除旅行规划技能的Python实现描述，全面更新为JavaScript架构
+- **重大更新**：更新数据库管理器、POI缓存合并器等组件的说明
+- **重大更新**：新增完整的JavaScript旅行规划技能架构文档
 
 ## 目录
 1. [简介](#简介)
@@ -54,7 +62,7 @@
 12. [附录](#附录)
 
 ## 简介
-本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成新的旅行规划技能，该技能已从Python架构完全迁移到JavaScript架构，提供更丰富的旅行相关服务和更好的用户体验。同时，系统新增了完善的定时任务调度功能，支持复杂的调度策略和错误处理机制。
+本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成全新的JavaScript旅行规划技能，该技能完全替代了原有的Python实现，提供更现代化、更高效的架构设计。同时，系统新增了完善的定时任务调度功能，支持复杂的调度策略和错误处理机制。
 
 ## 项目结构
 OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Telegram、Discord等），并通过网关（Gateway）作为统一控制平面，协调会话、工具与事件。系统采用"本地优先"的设计，强调在用户设备上运行，确保低延迟与隐私保护。
@@ -121,6 +129,7 @@ Channels --> WS
   - 定义从入口到生命周期事件、流式输出、工具执行与持久化的完整链路；支持队列化与并发控制。
 - **新增** JavaScript旅行规划技能
   - 基于Node.js的全新架构，提供完整的旅行计划生成、偏好管理和数据库管理功能。
+  - 采用模块化设计，每个功能模块都有清晰的职责分工。
 - **新增** CLI参数解析系统
   - 统一的`--key=value`参数解析，支持JSON值内联和文件路径引用。
 - **新增** 数据库管理器
@@ -299,7 +308,7 @@ Wait-->>RPC : "状态/时间戳"
 
 ### JavaScript旅行规划技能架构
 
-**更新** 旅行规划技能已从Python架构完全迁移到JavaScript架构，提供更现代化的模块化设计和更好的性能表现。
+**重大更新** 旅行规划技能已从Python架构完全迁移到JavaScript架构，提供更现代化的模块化设计和更好的性能表现。
 
 旅行规划技能现在采用纯JavaScript实现，基于Node.js生态系统，提供完整的旅行计划生成、偏好管理和数据库管理功能。新架构采用模块化设计，每个功能模块都有清晰的职责分工和统一的CLI参数解析系统。
 
@@ -396,13 +405,13 @@ Stats --> StatsFile["stats.json"]
 **章节来源**
 - [skills/travel-planner/SKILL.md:13-447](file://skills/travel-planner/SKILL.md#L13-L447)
 - [skills/travel-planner/scripts/cli_args.mjs:1-187](file://skills/travel-planner/scripts/cli_args.mjs#L1-L187)
-- [skills/travel-planner/scripts/db.mjs:1-837](file://skills/travel-planner/scripts/db.mjs#L1-L837)
+- [skills/travel-planner/scripts/db.mjs:1-566](file://skills/travel-planner/scripts/db.mjs#L1-L566)
 
 ### 旅行规划技能核心模块
 
 #### 计划生成器（Plan Generator）
 
-**更新** 计划生成器现在完全基于JavaScript实现，提供更高效的旅行计划生成能力。
+**重大更新** 计划生成器现在完全基于JavaScript实现，提供更高效的旅行计划生成能力。
 
 计划生成器负责将已持久化的行程数据转换为结构化的旅行计划骨架，支持以下功能：
 
@@ -428,7 +437,7 @@ GenerateBrief --> OutputPlan["输出完整计划"]
 
 #### 路线规划器（Route Planner）
 
-**更新** 路线规划器采用新的JavaScript实现，提供更灵活的路线选择和验证功能。
+**重大更新** 路线规划器采用新的JavaScript实现，提供更灵活的路线选择和验证功能。
 
 路线规划器负责根据用户偏好和平台证据生成候选路线：
 
@@ -439,7 +448,7 @@ GenerateBrief --> OutputPlan["输出完整计划"]
 
 #### 路线验证器（Route Validator）
 
-**更新** 路线验证器提供实时的旅行可行性验证，确保计划的可执行性。
+**重大更新** 路线验证器提供实时的旅行可行性验证，确保计划的可执行性。
 
 路线验证器负责验证旅行计划的可行性：
 
@@ -450,7 +459,7 @@ GenerateBrief --> OutputPlan["输出完整计划"]
 
 #### 简报生成器（Briefing Generator）
 
-**更新** 简报生成功能现在支持行前和每日两种模式，提供个性化的旅行指导。
+**重大更新** 简报生成功能现在支持行前和每日两种模式，提供个性化的旅行指导。
 
 简报生成器负责生成旅行过程中的重要信息：
 
@@ -460,7 +469,7 @@ GenerateBrief --> OutputPlan["输出完整计划"]
 
 #### 预订准备器（Booking Ready）
 
-**更新** 预订准备器整合实时搜索结果，生成可执行的预订决策包。
+**重大更新** 预订准备器整合实时搜索结果，生成可执行的预订决策包。
 
 预订准备器负责将实时查询结果转换为可执行的预订建议：
 
@@ -471,7 +480,7 @@ GenerateBrief --> OutputPlan["输出完整计划"]
 
 #### 小红书证据构建器（XHS Evidence Builder）
 
-**更新** 小红书证据构建器专门处理小红书平台的搜索结果，提取有用的旅行线索。
+**重大更新** 小红书证据构建器专门处理小红书平台的搜索结果，提取有用的旅行线索。
 
 小红书证据构建器负责处理小红书平台的旅行内容：
 
@@ -480,6 +489,31 @@ GenerateBrief --> OutputPlan["输出完整计划"]
 - 热门程度评估
 - 证据质量评级
 
+#### POI缓存合并器（POI Cache Merger）
+
+**重大更新** 新增POI缓存合并器，专门处理POI缓存的合并和优化。
+
+POI缓存合并器负责：
+
+- 合并多个来源的POI数据
+- 去重和标准化处理
+- 缓存条目的优化和更新
+- 路线生成时的媒体数据整合
+
+```mermaid
+flowchart TD
+POIMerge["POI缓存合并器"] --> LoadCache["加载缓存数据"]
+LoadCache --> BuildIndex["构建POI索引"]
+BuildIndex --> Dedupe["去重处理"]
+Dedupe --> Normalize["标准化处理"]
+Normalize --> MergeResults["合并结果"]
+MergeResults --> SaveCache["保存缓存"]
+SaveCache --> Output["输出优化后的POI数据"]
+```
+
+**图示来源**
+- [skills/travel-planner/scripts/poi-cache.mjs:267-371](file://skills/travel-planner/scripts/poi-cache.mjs#L267-L371)
+
 **章节来源**
 - [skills/travel-planner/scripts/plan-generator.mjs:1-703](file://skills/travel-planner/scripts/plan-generator.mjs#L1-L703)
 - [skills/travel-planner/scripts/route-plan.mjs:1-285](file://skills/travel-planner/scripts/route-plan.mjs#L1-L285)
@@ -487,6 +521,7 @@ GenerateBrief --> OutputPlan["输出完整计划"]
 - [skills/travel-planner/scripts/briefing.mjs:1-149](file://skills/travel-planner/scripts/briefing.mjs#L1-L149)
 - [skills/travel-planner/scripts/booking-ready.mjs:1-260](file://skills/travel-planner/scripts/booking-ready.mjs#L1-L260)
 - [skills/travel-planner/scripts/xhs-evidence-builder.mjs:1-183](file://skills/travel-planner/scripts/xhs-evidence-builder.mjs#L1-L183)
+- [skills/travel-planner/scripts/poi-cache.mjs:1-549](file://skills/travel-planner/scripts/poi-cache.mjs#L1-L549)
 
 ### 定时任务调度模块
 
@@ -756,12 +791,14 @@ CronModule --> CronJobs["CronJob持久化"]
   - Node.js运行时相比Python具有更好的性能表现和更低的内存占用。
   - 模块化设计减少了不必要的依赖加载，提高了启动速度。
   - JSON文件存储比数据库操作更快，适合频繁的读写操作。
+  - POI缓存合并器优化了数据处理效率，减少了重复计算。
 - **新增** CLI参数解析系统
   - 统一的参数解析减少了重复代码，提高了脚本的一致性和可靠性。
   - 错误处理和验证机制确保了参数的正确性。
 - **新增** 数据库管理器
   - JSON文件存储提供了简单可靠的数据持久化方案。
   - 自动文件创建和默认值设置减少了初始化复杂度。
+  - 多模块协作提高了系统的整体性能。
 - **新增** 定时任务调度模块
   - Zustand状态管理器提供高性能的状态更新和订阅机制。
   - Gateway RPC调用优化，减少不必要的网络往返。
@@ -780,6 +817,9 @@ CronModule --> CronJobs["CronJob持久化"]
   - 文件权限检查：确保用户对`~/.openclaw/agents/travel-planner`目录有读写权限。
   - JSON文件格式验证：检查JSON文件的语法正确性和数据完整性。
   - 模块依赖检查：确认所有必需的Node.js模块已正确安装。
+  - CLI参数解析：检查参数格式和JSON值解析的正确性。
+  - 数据库文件：验证trips.json和preferences.json的完整性。
+  - POI缓存：检查poi-cache.json的格式和内容。
 - **新增** CLI参数解析系统
   - 参数格式验证：确保使用正确的`--key=value`格式。
   - JSON值解析：检查JSON语法错误和文件路径有效性。
@@ -815,6 +855,7 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 使用Node.js和ES模块系统开发，遵循统一的CLI参数解析规范。
   - 实现完整的错误处理和数据验证机制。
   - 使用JSON文件进行数据持久化，确保数据一致性和可靠性。
+  - 利用模块化设计，分离关注点，提高代码可维护性。
 - **新增** CLI参数解析开发
   - 使用`runScript()`工厂函数简化脚本开发。
   - 实现参数验证和错误处理。
@@ -862,6 +903,7 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 确保Node.js运行时可用，检查脚本依赖完整性。
   - 配置旅行偏好数据库目录权限，确保数据持久化正常。
   - 使用统一的CLI参数格式进行技能调用。
+  - 配置TRAVEL_PLANNER_DB_DIR环境变量指向正确的数据目录。
 - **新增** 定时任务调度配置
   - 确保Gateway连接正常，检查WebSocket认证状态。
   - 验证Cron表达式的正确性和时区设置。
@@ -890,6 +932,9 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - Node.js脚本执行需要适当的沙箱隔离，防止恶意代码执行。
   - JSON文件访问需要权限控制，避免敏感信息泄露。
   - CLI参数解析需要输入验证，防止注入攻击。
+  - 文件系统权限管理，确保数据文件的安全访问。
+  - JSON数据验证，防止损坏的数据文件。
+  - 路径遍历防护，防止恶意文件路径访问。
 - **新增** 数据库管理器安全
   - 文件系统权限管理，确保数据文件的安全访问。
   - JSON数据验证，防止损坏的数据文件。
@@ -931,8 +976,13 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 合理设置任务执行间隔，避免过度频繁的调度
   - 使用适当的投递模式，平衡通知需求和系统负载
   - 监控任务执行时间和资源使用情况
+- **测试与验证**
+  - 使用测试套件验证定时任务的正确性
+  - 检查任务调度的准确性与时序
+  - 验证错误处理和恢复机制
 
 **章节来源**
 - [ui-react/src/store/agents.store.ts:55-100](file://ui-react/src/store/agents.store.ts#L55-L100)
 - [ui-react/src/store/agents.store.ts:1050-1062](file://ui-react/src/store/agents.store.ts#L1050-L1062)
 - [ui-react/docs/scheduled-tasks.md:150-210](file://ui-react/docs/scheduled-tasks.md#L150-L210)
+- [test/travel-planner-skill.test.ts:1-750](file://test/travel-planner-skill.test.ts#L1-L750)

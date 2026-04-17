@@ -52,7 +52,8 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     identity: {
       name: "Popeye",
       avatar: "https://files.aiverser.com/bossim/images/dog_front_1.0.webp",
-      video: "https://files.aiverser.com/bossim/vedio/dog_kling_20260416_2901_0.mp4",
+      video:
+        "https://files.aiverser.com/bossim/vedio/dog_kling_20260416_2901_0.mp4",
     },
   },
   {

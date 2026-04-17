@@ -1,8 +1,9 @@
 import { ThreadPrimitive, AuiIf } from "@assistant-ui/react";
-import { ArrowDownIcon, AlertCircleIcon, XIcon } from "lucide-react";
-import type { FC } from "react";
+import { ArrowDownIcon, AlertCircleIcon, XIcon, RefreshCwIcon } from "lucide-react";
+import { type FC, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat.store";
+import { useGatewayStore } from "@/store/gateway.store";
 import { AssistantMessage } from "./AssistantMessage";
 import { Composer } from "./Composer";
 import { UserMessage } from "./UserMessage";
@@ -117,26 +118,64 @@ interface ErrorBannerProps {
   message: string;
 }
 
-const ErrorBanner: FC<ErrorBannerProps> = ({ message }) => (
-  <div
-    className={cn(
-      "flex items-start gap-2.5 rounded-xl border border-destructive/30",
-      "bg-destructive/5 px-3 py-2.5 text-sm text-destructive",
-    )}
-    role="alert"
-  >
-    <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-    <span className="flex-1 leading-5">{message}</span>
-    <button
-      type="button"
-      onClick={() => useChatStore.getState().setLastError(null)}
-      className="ml-1 shrink-0 rounded p-0.5 hover:bg-destructive/10 transition-colors"
-      aria-label="Dismiss error"
+const ErrorBanner: FC<ErrorBannerProps> = ({ message }) => {
+  const [checking, setChecking] = useState(false);
+
+  const handleCheckStatus = async () => {
+    setChecking(true);
+    try {
+      const client = useGatewayStore.getState().client;
+      const sk = useChatStore.getState().sessionKey ?? "main";
+      const res = await client?.request<{ activeRunId?: string | null }>(
+        "chat.status",
+        { sessionKey: sk },
+      );
+      if (res?.activeRunId) {
+        // Backend is still running — restore the in-progress state and clear the error.
+        useChatStore.getState().setLastError(null);
+        useChatStore.getState().markSessionGenerating(sk, res.activeRunId);
+      } else {
+        // Confirmed finished — just clear the error banner.
+        useChatStore.getState().setLastError(null);
+      }
+    } catch {
+      // Silently ignore — leave banner visible so user can dismiss manually.
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2.5 rounded-xl border border-destructive/30",
+        "bg-destructive/5 px-3 py-2.5 text-sm text-destructive",
+      )}
+      role="alert"
     >
-      <XIcon className="size-3.5" />
-    </button>
-  </div>
-);
+      <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+      <span className="flex-1 leading-5">{message}</span>
+      <button
+        type="button"
+        onClick={() => { void handleCheckStatus(); }}
+        disabled={checking}
+        className="flex items-center gap-1 shrink-0 rounded px-1.5 py-0.5 text-xs hover:bg-destructive/10 transition-colors disabled:opacity-50"
+        aria-label="Check generation status"
+      >
+        <RefreshCwIcon className={cn("size-3", checking && "animate-spin")} />
+        {checking ? "Checking..." : "Check status"}
+      </button>
+      <button
+        type="button"
+        onClick={() => useChatStore.getState().setLastError(null)}
+        className="shrink-0 rounded p-0.5 hover:bg-destructive/10 transition-colors"
+        aria-label="Dismiss error"
+      >
+        <XIcon className="size-3.5" />
+      </button>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Scroll-to-bottom button

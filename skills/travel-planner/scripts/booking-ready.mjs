@@ -53,7 +53,12 @@ function flightOption(item) {
     duration: firstJourney.totalDuration || item.totalDuration || "",
     price: item.adultPrice || "",
     price_value: cleanPrice(item.adultPrice),
-    booking_link: toNonEmptyString(item.jumpUrl, item.jump_url, item.url, item.link),
+    booking_link: toNonEmptyString(
+      item.jumpUrl,
+      item.jump_url,
+      item.url,
+      item.link,
+    ),
   };
 }
 
@@ -132,6 +137,45 @@ function trainOption(item) {
   };
 }
 
+function hotelsByDay(liveResults) {
+  const byDay = liveResults?.hotels_by_day;
+  if (!Array.isArray(byDay) || byDay.length === 0) return null;
+  return byDay.map((entry) => {
+    const items = firstList(entry.raw || {});
+    const candidates = items.slice(0, 2).map(hotelOption);
+    return {
+      day: entry.day,
+      city: entry.city || "",
+      date: entry.date || "",
+      candidates,
+    };
+  });
+}
+
+function buildAccommodationSummaryTable(hotelsByDayEntries, fallbackHotels) {
+  if (hotelsByDayEntries && hotelsByDayEntries.length > 0) {
+    return hotelsByDayEntries.map((entry) => {
+      const top = entry.candidates[0] || {};
+      return {
+        day: entry.day,
+        city: entry.city,
+        date: entry.date,
+        recommended: top.name || "",
+        price: top.price || "",
+        booking_link: top.booking_link || "",
+      };
+    });
+  }
+  return fallbackHotels.slice(0, 3).map((h, i) => ({
+    day: i + 1,
+    city: "",
+    date: "",
+    recommended: h.name || "",
+    price: h.price || "",
+    booking_link: h.booking_link || "",
+  }));
+}
+
 function topSorted(items, count, key, reverse = false) {
   return [...items]
     .sort((a, b) => {
@@ -142,7 +186,12 @@ function topSorted(items, count, key, reverse = false) {
     .slice(0, count);
 }
 
-export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation, liveResults) {
+export function buildBookingReadyPackage(
+  tripData,
+  selectedRoute,
+  liveValidation,
+  liveResults,
+) {
   const flightItems = firstList(liveResults?.flights || {}).map(flightOption);
   const hotelItems = firstList(liveResults?.hotels || {}).map(hotelOption);
   const poiItems = firstList(liveResults?.pois || {}).map(poiOption);
@@ -158,7 +207,15 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
   const topDining = diningItems.slice(0, 3);
   const topTrains = trainItems.slice(0, 3);
 
-  const hasTransportEvidence = cheapestFlights.length > 0 || topTrains.length > 0;
+  // 按天结构化的酒店候选（优先使用 hotels_by_day，降级为全局 hotel_options）
+  const hotelsByDayEntries = hotelsByDay(liveResults);
+  const accommodationSummaryTable = buildAccommodationSummaryTable(
+    hotelsByDayEntries,
+    topHotels,
+  );
+
+  const hasTransportEvidence =
+    cheapestFlights.length > 0 || topTrains.length > 0;
   const transportRequired = liveValidation?.transport_required !== false;
   const hasTransport = transportRequired ? hasTransportEvidence : true;
   const hasHotels = topHotels.length > 0;
@@ -175,23 +232,33 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
   }
   if (!hasHotels) watchouts.push("No live hotel results attached yet.");
   if (!hasDining) watchouts.push("No live dining results attached yet.");
-  if (!anchorPois.length) watchouts.push("No live POI validation attached yet.");
+  if (!anchorPois.length)
+    watchouts.push("No live POI validation attached yet.");
   if (!transportRequired) {
-    watchouts.push("Long-distance transport validation was skipped for this trip type.");
+    watchouts.push(
+      "Long-distance transport validation was skipped for this trip type.",
+    );
   }
-  watchouts.push("Hotels are deferred for detailed day planning unless user asks to validate now.");
+  watchouts.push(
+    "Hotels are deferred for detailed day planning unless user asks to validate now.",
+  );
 
   if (hasTransport) {
-    const dests = new Set(cheapestFlights.filter((f) => f.destination).map((f) => f.destination));
+    const dests = new Set(
+      cheapestFlights.filter((f) => f.destination).map((f) => f.destination),
+    );
     if (dests.size > 1)
-      watchouts.push("Multiple arrival hubs are still in contention; explain why one wins.");
+      watchouts.push(
+        "Multiple arrival hubs are still in contention; explain why one wins.",
+      );
   }
 
   if (hasHotels) {
     const expensiveHotels = topHotels.filter((h) => (h.price_value || 0) > 0);
     if (expensiveHotels.length) {
       const avgNightly =
-        expensiveHotels.reduce((s, h) => s + h.price_value, 0) / expensiveHotels.length;
+        expensiveHotels.reduce((s, h) => s + h.price_value, 0) /
+        expensiveHotels.length;
       watchouts.push(
         `Validated nightly price band is roughly ¥${avgNightly.toFixed(0)}; pressure-test against total budget.`,
       );
@@ -219,13 +286,18 @@ export function buildBookingReadyPackage(tripData, selectedRoute, liveValidation
     transport_options: cheapestFlights,
     rail_options: topTrains,
     hotel_options: topHotels,
+    hotels_by_day: hotelsByDayEntries || [],
+    accommodation_summary_table: accommodationSummaryTable,
     dining_options: topDining,
     anchor_pois: anchorPois,
     chosen_transport: cheapestFlights[0] || topTrains[0] || {},
     chosen_hotel: topHotels[0] || {},
     chosen_dining: topDining[0] || {},
     chosen_anchor_poi: anchorPois[0] || {},
-    booking_watchouts: [...watchouts, ...(liveValidation.priority_checks || [])],
+    booking_watchouts: [
+      ...watchouts,
+      ...(liveValidation.priority_checks || []),
+    ],
     next_decision:
       readiness === "ready"
         ? "Ask user to confirm light-validation result, then move to detailed day planning."
@@ -243,17 +315,28 @@ runScript({
     { name: "trip", desc: "行程对象 JSON 或 @文件路径" },
     { name: "route", desc: "路线对象 JSON 或 @文件路径" },
     { name: "validation", desc: "实时验证对象 JSON 或 @文件路径" },
-    { name: "results", desc: "实时搜索结果 JSON 或 @文件路径（可选，默认 {}）" },
+    {
+      name: "results",
+      desc: "实时搜索结果 JSON 或 @文件路径（可选，默认 {}）",
+    },
   ],
   required: ["trip", "route", "validation"],
   callerUrl: import.meta.url,
   run(args) {
     const trip = readJsonFromCliValue("trip", args.trip, undefined);
     const route = readJsonFromCliValue("route", args.route, undefined);
-    const validation = readJsonFromCliValue("validation", args.validation, undefined);
+    const validation = readJsonFromCliValue(
+      "validation",
+      args.validation,
+      undefined,
+    );
     const results = readJsonFromCliValue("results", args.results, {});
     console.log(
-      JSON.stringify(buildBookingReadyPackage(trip, route, validation, results), null, 2),
+      JSON.stringify(
+        buildBookingReadyPackage(trip, route, validation, results),
+        null,
+        2,
+      ),
     );
   },
 });

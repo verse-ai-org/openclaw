@@ -123,7 +123,26 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         defaultModelId: "minimax/MiniMax-M2.7",
       },
       {
-        id: "minimax-api",
+        id: "minimax-api-m2.5",
+        label: "MiniMax M2.5 API key",
+        type: "api-key",
+        envVar: "MINIMAX_API_KEY",
+        consoleUrl: "https://platform.minimaxi.com",
+        keyPlaceholder: "...",
+        defaultModelId: "minimax/MiniMax-M2.5",
+      },
+      {
+        id: "minimax-api-m2.5-highspeed",
+        label: "MiniMax M2.5 Highspeed",
+        hint: "Official fast tier",
+        type: "api-key",
+        envVar: "MINIMAX_API_KEY",
+        consoleUrl: "https://platform.minimaxi.com",
+        keyPlaceholder: "...",
+        defaultModelId: "minimax/MiniMax-M2.5-highspeed",
+      },
+      {
+        id: "minimax-api-m2.7",
         label: "MiniMax M2.7 API key",
         type: "api-key",
         envVar: "MINIMAX_API_KEY",
@@ -132,14 +151,14 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         defaultModelId: "minimax/MiniMax-M2.7",
       },
       {
-        id: "minimax-api-lightning",
+        id: "minimax-api-m2.7-highspeed",
         label: "MiniMax M2.7 Highspeed",
         hint: "Official fast tier",
         type: "api-key",
         envVar: "MINIMAX_API_KEY",
         consoleUrl: "https://platform.minimaxi.com",
         keyPlaceholder: "...",
-        defaultModelId: "minimax/MiniMax-M2.7-Lightning",
+        defaultModelId: "minimax/MiniMax-M2.7-highspeed",
       },
     ],
   },
@@ -156,14 +175,41 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         defaultModelId: "minimax-cn/MiniMax-M2.7",
       },
       {
-        id: "minimax-api-key-cn",
+        id: "minimax-api-cn-m2.7",
         label: "MiniMax M2.7 China API key",
         hint: "China endpoint (api.minimaxi.com)",
         type: "api-key",
         envVar: "MINIMAX_API_KEY",
         consoleUrl: "https://api.minimaxi.com",
-        keyPlaceholder: "...",
+        keyPlaceholder: "Minimax M2.7 API key",
         defaultModelId: "minimax-cn/MiniMax-M2.7",
+      },
+      {
+        id: "minimax-api-cn-m2.7-highspeed",
+        label: "MiniMax M2.7 China API key",
+        type: "api-key",
+        envVar: "MINIMAX_API_KEY",
+        consoleUrl: "https://api.minimaxi.com",
+        keyPlaceholder: "Minimax M2.7 Highspeed API key",
+        defaultModelId: "minimax-cn/MiniMax-M2.7-highspeed",
+      },
+      {
+        id: "minimax-api-cn-m2.5",
+        label: "MiniMax M2.5 China API key",
+        type: "api-key",
+        envVar: "MINIMAX_API_KEY",
+        consoleUrl: "https://api.minimaxi.com",
+        keyPlaceholder: "Minimax M2.5 API key",
+        defaultModelId: "minimax-cn/MiniMax-M2.5",
+      },
+      {
+        id: "minimax-api-cn-m2.5-highspeed",
+        label: "MiniMax M2.5 China API key",
+        type: "api-key",
+        envVar: "MINIMAX_API_KEY",
+        consoleUrl: "https://api.minimaxi.com",
+        keyPlaceholder: "Minimax M2.5 Highspeed API key",
+        defaultModelId: "minimax-cn/MiniMax-M2.5-highspeed",
       },
     ],
   },
@@ -636,7 +682,9 @@ export function findProviderGroup(
 export function findAuthMethod(methodId: string): AuthMethodDef | undefined {
   for (const group of AUTH_PROVIDER_GROUPS) {
     const method = group.methods.find((m) => m.id === methodId);
-    if (method) return method;
+    if (method) {
+      return method;
+    }
   }
   return undefined;
 }
