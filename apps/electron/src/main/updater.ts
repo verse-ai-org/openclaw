@@ -35,8 +35,8 @@ export function initAutoUpdater(
   // 允许预发布版本（beta/alpha）的自动推送
   // 当前版本包含预发布标签时会自动启用，也可显式设置
   autoUpdater.allowPrerelease = true;
-  // 设置更新通道：beta 用户可以接收 beta 和 latest 版本
-  autoUpdater.channel = "beta";
+  // 设置更新通道：使用 latest 通道，确保能找到更新文件
+  autoUpdater.channel = "latest";
 
   autoUpdater.on("checking-for-update", () => {
     _log("[updater] 检查更新中…");

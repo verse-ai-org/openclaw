@@ -243,17 +243,17 @@ upload-r2-win: r2-check ## 上传 Windows 产物到 R2（exe + zip + yml）
 	fi
 	@echo "📤 上传 Windows 安装包到 $(R2_DEST)..."
 	rclone copy $(RELEASE_DIR) $(R2_DEST) \
-		--exclude "win-unpacked/**" \
-		--include "*.exe" \
-		--include "*.zip" \
-		--include "*.blockmap" \
+		--filter "- win-unpacked/**" \
+		--filter "+ *.exe" \
+		--filter "+ *.zip" \
+		--filter "+ *.blockmap" \
 		--s3-no-check-bucket \
 		--no-update-modtime \
 		-v
 	@echo "📤 上传 Windows 更新描述文件 (latest.yml)..."
 	rclone copy $(RELEASE_DIR) $(R2_DEST) \
-		--exclude "win-unpacked/**" \
-		--include "latest.yml" \
+		--filter "- win-unpacked/**" \
+		--filter "+ *.yml" \
 		--max-depth 1 \
 		--s3-no-check-bucket \
 		--no-update-modtime \
