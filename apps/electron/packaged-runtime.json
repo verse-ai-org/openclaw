@@ -58,6 +58,7 @@
     "opusscript",
     "partial-json",
     "mammoth",
+    "date-fns",
     "osc-progress",
     "pdf-parse",
     "pdfjs-dist",
