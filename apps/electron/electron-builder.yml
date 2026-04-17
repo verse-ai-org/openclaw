@@ -258,6 +258,8 @@ mac:
   entitlementsInherit: resources/entitlements.mac.plist
   gatekeeperAssess: false
   identity: "CBFA4655YD"
+  # 公证要求：所有二进制必须含安全时间戳（包括 Squirrel.framework/ShipIt）
+  timestamp: "http://timestamp.apple.com/ts01"
   # URL Scheme for OAuth callbacks (openclaw://oauth/callback?...)
   protocols:
     - name: OpenClaw OAuth
