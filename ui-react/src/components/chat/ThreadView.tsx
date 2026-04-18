@@ -7,6 +7,7 @@ import { useGatewayStore } from "@/store/gateway.store";
 import { AssistantMessage } from "./AssistantMessage";
 import { Composer } from "./Composer";
 import { UserMessage } from "./UserMessage";
+import { UserEditComposer } from "./UserEditComposer";
 
 // ---------------------------------------------------------------------------
 // ThreadView
@@ -54,6 +55,7 @@ export const ThreadView: FC = () => {
             key={sessionKey}
             components={{
               UserMessage,
+              UserEditComposer,
               AssistantMessage,
             }}
           />

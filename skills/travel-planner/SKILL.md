@@ -769,7 +769,7 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=confirm_booking \
 
 #### 目标
 
-- 在用户出行途中，响应突发情况，给出实时调整建议。
+- 在用户出行途中，响应突发情况，给出实时调整建议；并在用户确认后启动每日行程卡片推送。
 
 #### 进入条件
 
@@ -787,7 +787,51 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=start_trip --trip-id=<trip_id>
 
 ---
 
-**E-2｜按场景响应**
+**E-2｜确认每日行程卡片推送**
+
+进入行中支持后，**必须先向用户提问**：
+
+> 要不要每天早上 8 点给你发一张当日行程卡片到微信？方便随时查看当天安排。
+
+守卫：
+- 必须等用户明确回答（“要”/“不用”）后才能继续，不得自行跳过或默认开启。
+- 用户拒绝时跳过本节点，直接进入 E-3。
+
+用户确认后，提取当前会话的微信用户 ID（`delivery.to`），然后执行：
+
+```bash
+openclaw cron add \
+  --name "每日行程卡片 <trip_id>" \
+  --cron "0 8 * * *" \
+  --tz "Asia/Shanghai" \
+  --session isolated \
+  --message "你好！请为行程 <trip_id> 生成今日行程卡片，包含：今日主题、时间轴、住宿、天气提示。请调用 briefing.mjs --mode=daily 生成并整理为 Markdown 卡片回复用户。" \
+  --announce \
+  --channel openclaw-weixin \
+  --to "<当前用户的微信ID@im.wechat>" \
+  --agent travel-planner
+```
+
+> 注意：`--to` 必须使用当前对话中用户的微信 ID（`xxx@im.wechat` 格式）。若为多账号环境，需额外指定 `accountId`：
+>
+> ```bash
+> openclaw cron edit <jobId> --set 'delivery.accountId=<AccountId>'
+> ```
+
+创建成功后，告知用户：
+
+> ✅ 已设置每日推送！从明天起每天早上 8 点发送当日行程卡片。如需取消，发送“取消行程推送”即可。
+
+用户要求取消时，执行：
+
+```bash
+openclaw cron list   # 找到任务 ID
+openclaw cron delete <jobId>
+```
+
+---
+
+**E-3｜按场景响应**
 
 | 场景 | 处理方式 |
 |------|----------|
@@ -798,7 +842,7 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=start_trip --trip-id=<trip_id>
 
 ---
 
-**E-3｜生成简报**
+**E-4｜生成简报**
 
 ```bash
 # 出发前简报
@@ -806,7 +850,7 @@ node {baseDir}/scripts/briefing.mjs --mode=pre_trip \
   --trip=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/trip.json \
   --plan=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step6.plan-overview.json
 
-# 每日简报
+# 每日简报（与 cron 推送内容一致，可手动触发）
 node {baseDir}/scripts/briefing.mjs --mode=daily \
   --trip=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/trip.json \
   --plan=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step6.plan-overview.json \

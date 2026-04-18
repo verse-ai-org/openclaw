@@ -50,16 +50,19 @@
 - [agents.types.ts](file://ui-react/src/types/agents.ts)
 - [assistant-loading-indicator.tsx](file://ui-react/src/components/assistant-ui/assistant-loading-indicator.tsx)
 - [utils.ts](file://ui-react/src/lib/utils.ts)
+- [IDENTITY.md](file://docs/reference/templates/agents/main/IDENTITY.md)
+- [IDENTITY.md](file://docs/reference/templates/agents/my-office-helper/IDENTITY.md)
+- [IDENTITY.md](file://docs/reference/templates/agents/travel-planner/IDENTITY.md)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增AgentAvatar组件：引入专用的代理头像渲染组件，替代原有的通用头像处理逻辑
-- 增强代理身份渲染：AgentAvatar组件专门处理代理身份信息的解析和渲染
-- 改进代理头像显示：支持头像URL和表情符号的智能切换，提供更好的用户体验
-- 优化加载指示器：集成AssistantLoadingIndicator组件，提供准确的生成状态反馈
-- 完善会话键解析：支持"agent:<agentId>:<sessionId>"格式的会话键解析
-- 增强代理卡片功能：AgentCard组件支持视频展示和悬停动画效果
+- 新增代理身份模板：添加了三个完整的代理身份模板文件，包括主代理(Popeye)、办公助手(Felix)和旅行规划代理(Tom)
+- 引入AgentAvatar组件：新增专用的代理头像渲染组件，替代原有的通用头像处理逻辑
+- 增强同步逻辑：实现主代理和锁定代理的差异化同步策略
+- 视频展示功能：支持代理身份的视频URL展示和自动播放
+- 悬停动画效果：AgentCard组件支持视频悬停播放和渐变过渡效果
+- 加载指示器集成：AgentAvatar与AssistantMessage组件协同提供准确的生成状态反馈
 
 ## 目录
 1. [简介](#简介)
@@ -82,7 +85,7 @@
 
 该系统采用模块化设计，每个组件都有明确的职责分工，同时通过标准化的接口实现松耦合集成。系统支持代理的动态创建、销毁、状态监控和资源回收，确保在高并发场景下的稳定性和可靠性。
 
-**更新** 最新版本显著增强了内置代理系统的配置能力，包括主代理身份配置的完善、旅行规划代理视频URL的更新、办公助手代理名称的重命名，以及增强的同步逻辑来区分主代理和锁定代理。新增的AgentAvatar组件进一步提升了代理头像渲染的专业性和用户体验。
+**更新** 最新版本显著增强了内置代理系统的配置能力，包括新增的代理身份模板、AgentAvatar组件、增强的同步逻辑、视频展示功能等。主代理身份配置已完善，包括Popeye的狗主题头像和视频；办公助手代理已重命名为Felix；旅行规划代理的视频URL已更新为最新的猫主题视频。
 
 ## 项目结构
 
@@ -126,6 +129,9 @@ RR --> TT[chat.store.ts]
 RR --> UU[settings.store.ts]
 VV[类型定义] --> WW[agents.types.ts]
 XX[加载指示器] --> YY[AssistantLoadingIndicator]
+ZZ[身份模板] --> AAA[main/IDENTITY.md]
+ZZ --> BBB[my-office-helper/IDENTITY.md]
+ZZ --> CCC[travel-planner/IDENTITY.md]
 end
 ```
 
@@ -473,7 +479,7 @@ class OfficeHelperAgent {
 }
 class TravelPlannerAgent {
 +id : "travel-planner"
-+name : "Travel Planner"
++name : "Tom"
 +workspace : "~/.openclaw/agents/travel-planner"
 +templateSubdir : "agents/travel-planner"
 +skills : ["travel-planner", "xiaohongshu", "flyai", "amap-lbs-skill", "12306", "weather"]
@@ -522,7 +528,7 @@ BUILTIN_AGENTS --> TravelPlannerAgent
 - **技能配置**：旅行规划、地图服务、预订系统等综合技能
 - **个性化服务**：根据用户预算和偏好调整详细程度
 - **安全第一**：关注目的地安全警告和风险
-- **身份配置**：支持视频展示功能，显示名称为"Travel Planner"
+- **身份配置**：支持视频展示功能，显示名称为"Tom"
 
 **章节来源**
 - [builtin-agents.ts:43-96](file://src/agents/builtin-agents.ts#L43-L96)
@@ -987,6 +993,9 @@ GSTORE[gateway.store.ts]
 ATYPES[agents.types.ts]
 ALI[AssistantLoadingIndicator]
 UTILS[utils.ts]
+ITMD[main/IDENTITY.md]
+ITMD2[my-office-helper/IDENTITY.md]
+ITMD3[travel-planner/IDENTITY.md]
 end
 subgraph "外部依赖"
 Node[node: fs, path, child_process]
@@ -1015,6 +1024,9 @@ OHT --> Skills
 TPT --> Skills
 OHT --> Templates
 TPT --> Templates
+ITMD --> IC
+ITMD2 --> IC
+ITMD3 --> IC
 AP --> Node
 AS --> Node
 ACSP --> Node
@@ -1274,9 +1286,14 @@ GracefulShutdown --> End
 
 内置代理系统作为 OpenClaw 平台的核心组件，展现了优秀的架构设计和实现质量。系统通过模块化的组件设计、清晰的职责分离和完善的错误处理机制，为平台提供了稳定可靠的代理管理能力。
 
-**更新** 最新版本显著增强了内置代理系统的功能和用户体验。通过主代理身份配置的完善、旅行规划代理视频URL的更新、办公助手代理名称的重命名，以及增强的同步逻辑来区分主代理和锁定代理，系统现在提供了更加丰富和个性化的代理体验。
+**更新** 最新版本显著增强了内置代理系统的功能和用户体验。通过新增的代理身份模板、AgentAvatar组件、增强的同步逻辑、视频展示功能等，系统现在提供了更加丰富和个性化的代理体验。
 
-**更新** 新增的AgentAvatar组件进一步提升了代理头像渲染的专业性和用户体验。该组件专门处理代理身份信息的解析和渲染，支持头像URL和表情符号的智能切换，提供准确的加载状态反馈，并与AssistantMessage组件协同工作。
+**更新** 新增的代理身份模板包括：
+- **主代理(Popeye)**：完整的狗主题身份配置，包含头像和视频URL
+- **办公助手(Felix)**：专业的办公文档处理代理，支持视频展示功能
+- **旅行规划代理(Tom)**：旅行规划专家，提供最新的猫主题视频
+
+**更新** AgentAvatar组件的引入进一步提升了代理头像渲染的专业性和用户体验。该组件专门处理代理身份信息的解析和渲染，支持头像URL和表情符号的智能切换，提供准确的加载状态反馈，并与AssistantMessage组件协同工作。
 
 系统的主要优势包括：
 - **高度模块化**：每个组件都有明确的职责和接口

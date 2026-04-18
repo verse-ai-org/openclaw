@@ -25,6 +25,8 @@
 - [AssistantMessage.tsx](file://ui-react/src/components/chat/AssistantMessage.tsx)
 - [UserMessage.tsx](file://ui-react/src/components/chat/UserMessage.tsx)
 - [ToolFallback.tsx](file://ui-react/src/components/chat/ToolFallback.tsx)
+- [ToolCallGroup.tsx](file://ui-react/src/components/chat/ToolCallGroup.tsx)
+- [assistant-tool-group.tsx](file://ui-react/src/components/assistant-ui/assistant-tool-group.tsx)
 - [AgentDetailDrawer.tsx](file://ui-react/src/components/agents/detail-drawer.tsx)
 - [ProfileHeroSection.tsx](file://ui-react/src/components/agents/profile.tsx)
 - [CoreSkillsSection.tsx](file://ui-react/src/components/agents/skills.tsx)
@@ -49,11 +51,12 @@
 
 ## 更新摘要
 **所做更改**
-- ChatSidebar组件完全重写实现自动同步功能，能够根据sessionKey自动切换到对应的代理和会话
-- AgentList和AgentSessionList组件的UI文本从"Employees"更新为"Agents"
-- 会话管理钩子增强，增加自动同步逻辑和会话标题更新功能
-- 新增代理详情抽屉的完整集成，提供代理配置和管理功能
-- 增强的会话列表过滤和搜索功能
+- ThreadView.tsx新增错误状态检查机制，提供实时生成状态检测和手动清除功能
+- AssistantMessage.tsx调整左内边距，优化消息内容对齐和视觉层次
+- ToolCallGroup.tsx移除破坏性边框样式，采用更温和的视觉设计
+- 增强工具调用分组的状态管理，支持自动展开/折叠和状态徽章显示
+- 改进消息骨架屏和欢迎界面的用户体验
+- 优化会话切换时的消息列表挂载机制，避免竞态条件
 
 ## 目录
 1. [简介](#简介)
@@ -70,7 +73,7 @@
 ## 简介
 本文件系统性阐述WebChat界面的设计与实现，覆盖实时聊天、消息收发、界面布局、消息历史、输入框功能、多媒体消息、文件传输、表情反应、聊天室与群组管理、隐私策略以及WebSocket连接、消息同步与离线处理等主题。文档基于仓库中的UI实现、网关协议、通道适配层与平台集成进行综合分析，帮助开发者与运维人员快速理解并部署WebChat。
 
-**更新** 本版本重点反映了聊天界面的重大增强，包括ChatSidebar组件完全重写实现自动同步功能、AgentList和AgentSessionList组件的UI文本更新、会话管理钩子的增强，以及代理详情抽屉的完整集成。
+**更新** 本版本重点反映了聊天界面的重大UI改进，包括ThreadView.tsx的错误状态检查机制、AssistantMessage.tsx的左内边距调整、ToolCallGroup.tsx的破坏性边框样式移除等新功能。这些改进显著提升了用户界面的可用性和视觉一致性。
 
 ## 项目结构
 WebChat界面现已迁移到React架构，由前端UI、网关客户端、通道适配层与平台集成四部分组成：
@@ -87,10 +90,11 @@ React_ChatSidebar["ChatSidebar.tsx<br/>现代化侧边栏(完全重写)"]
 React_AgentSessionList["AgentSessionList.tsx<br/>代理会话列表(UI文本更新)"]
 React_AgentList["AgentList.tsx<br/>代理列表(UI文本更新)"]
 React_Markdown["markdown-text.tsx<br/>重构的Markdown组件"]
-React_ThreadView["ThreadView.tsx<br/>线程视图"]
+React_ThreadView["ThreadView.tsx<br/>线程视图(错误状态检查)"]
 React_Session["SessionSelector.tsx<br/>会话选择器(兼容)"]
 React_Composer["Composer.tsx<br/>增强的消息composer"]
 React_Runtime["GatewayChatRuntimeProvider.tsx<br/>运行时提供者"]
+React_ErrorBanner["ErrorBanner<br/>错误状态检查机制"]
 end
 subgraph "状态管理"
 Zustand_Chat["chat.store.ts<br/>聊天状态管理"]
@@ -99,9 +103,10 @@ Zustand_Gateway["gateway.store.ts<br/>网关状态管理"]
 Zustand_Agents["agents.store.ts<br/>代理状态管理"]
 end
 subgraph "消息渲染组件"
-React_Assistant["AssistantMessage.tsx<br/>助手消息"]
+React_Assistant["AssistantMessage.tsx<br/>助手消息(左内边距调整)"]
 React_User["UserMessage.tsx<br/>用户消息(附件改进)"]
 React_Tool["ToolFallback.tsx<br/>工具降级组件"]
+React_ToolCallGroup["ToolCallGroup.tsx<br/>工具调用分组(边框样式移除)"]
 end
 subgraph "会话管理钩子"
 Hook_SessionManager["useSessionManager.ts<br/>会话管理钩子(增强)"]
@@ -127,12 +132,14 @@ React_AgentSessionList --> React_AgentDetailDrawer["AgentDetailDrawer.tsx<br/>�
 React_Markdown --> React_Assistant
 React_Markdown --> React_User
 React_ChatPage --> React_ThreadView
+React_ThreadView --> React_ErrorBanner
 React_ThreadView --> React_Runtime
 React_Session --> Hook_SessionManager
 React_Composer --> React_Runtime
 React_Runtime --> Zustand_Chat
 React_Runtime --> Zustand_Gateway
 React_Assistant --> React_Tool
+React_Assistant --> React_ToolCallGroup
 React_User --> React_Tool
 Zustand_Chat --> GW_Client
 Zustand_Settings --> GW_Client
@@ -152,6 +159,9 @@ Android_Session --> Hook_SessionManager
 - [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
 - [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
+- [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
+- [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
+- [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
 
 **章节来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
@@ -159,6 +169,9 @@ Android_Session --> Hook_SessionManager
 - [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
 - [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
+- [ThreadView.tsx:1-199](file://ui-react/src/components/chat/ThreadView.tsx#L1-L199)
+- [AssistantMessage.tsx:1-120](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L120)
+- [ToolCallGroup.tsx:1-284](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L284)
 
 ## 核心组件
 - **React聊天页面**：ChatPage作为根组件，整合会话选择器和线程视图，提供完整的聊天界面。
@@ -175,6 +188,9 @@ Android_Session --> Hook_SessionManager
 - **增强的UserMessage组件**：改进的附件显示功能，支持文件标签和预览。
 - **工具降级组件**：ToolFallback展示工具调用的分类、状态和详细信息。
 - **代理详情抽屉**：AgentDetailDrawer提供完整的代理配置界面，包括在线状态、聊天按钮、技能管理和工具配置。
+- **错误状态检查机制**：ThreadView新增ErrorBanner组件，提供实时生成状态检测和手动清除功能。
+- **左内边距调整**：AssistantMessage组件调整左内边距，优化消息内容对齐和视觉层次。
+- **工具调用分组优化**：ToolCallGroup移除破坏性边框样式，采用更温和的视觉设计。
 
 **章节来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
@@ -187,6 +203,9 @@ Android_Session --> Hook_SessionManager
 - [Composer.tsx:1-334](file://ui-react/src/components/chat/Composer.tsx#L1-L334)
 - [UserMessage.tsx:1-152](file://ui-react/src/components/chat/UserMessage.tsx#L1-L152)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
+- [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
+- [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
+- [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
 
 ## 架构总览
 WebChat采用"React前端 + Zustand状态管理 + Assistant UI组件库"的现代化架构，通过GatewayChatRuntimeProvider桥接网关事件与React组件。前端通过WebSocket与网关通信，使用标准方法如chat.history、chat.send、chat.inject进行消息同步与交互。群组策略与提及门禁在通道层统一处理，确保跨渠道一致性。
@@ -237,126 +256,90 @@ Runtime-->>UI : 重新渲染组件
 
 ## 详细组件分析
 
-### ChatSidebar组件完全重写
-**更新** ChatSidebar组件现已完全重写，实现自动同步功能，能够根据sessionKey自动切换到对应的代理和会话。
+### ThreadView组件错误状态检查机制
+**更新** ThreadView组件新增错误状态检查机制，提供实时生成状态检测和手动清除功能。
 
-- **自动同步功能**：通过useEffect监听sessionKey变化，自动解析代理ID并切换到对应的会话视图。**新增** 实现了完全的自动同步逻辑。
-- **代理详情抽屉集成**：在侧边栏底部集成AgentDetailDrawer，支持代理配置、在线状态、聊天按钮和技能管理。
-- **代理头像和名称点击**：AgentSessionList组件支持代理头像和名称点击，允许用户查看代理详细信息。
-- **滑动面板设计**：采用双面板滑动设计，左侧为代理列表，右侧为会话列表，支持平滑过渡动画。
-- **搜索功能**：支持代理和会话的搜索功能，提升用户体验。
-- **状态管理**：集成Zustand状态管理，支持代理状态和会话状态的实时更新。
-
-```mermaid
-flowchart TD
-ChatSidebar["ChatSidebar组件(完全重写)"] --> AutoSync["自动同步逻辑<br/>useEffect监听sessionKey"]
-AutoSync --> ParseAgent["解析代理ID<br/>/^agent:([^:]+):/"]
-ParseAgent --> SetActiveAgent["设置活动代理<br/>setActiveAgent"]
-SetActiveAgent --> SwitchView["切换到会话视图<br/>setView('sessions')"]
-ChatSidebar --> SearchBar["固定搜索栏<br/>跨视图共享"]
-ChatSidebar --> SlidingTrack["滑动轨道<br/>双面板布局"]
-SlidingTrack --> AgentList["代理列表面板<br/>左侧面板"]
-SlidingTrack --> SessionList["会话列表面板<br/>右侧面板"]
-AgentList --> AgentItems["代理项<br/>头像 + 名称"]
-SessionList --> SessionItems["会话项<br/>最后消息 + 时间"]
-ChatSidebar --> AgentDetailDrawer["代理详情抽屉<br/>全屏覆盖"]
-AgentDetailDrawer --> ProfileSection["个人资料<br/>在线状态 + 聊天按钮"]
-AgentDetailDrawer --> SkillsSection["技能管理<br/>绑定技能 + 添加技能"]
-AgentDetailDrawer --> ToolsSection["工具配置<br/>工具列表 + 配置"]
-```
-
-**图表来源**
-- [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
-- [ChatSidebar.tsx:104-106](file://ui-react/src/components/chat/ChatSidebar.tsx#L104-L106)
-- [AgentDetailDrawer.tsx:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
-
-**章节来源**
-- [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
-- [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
-
-### AgentSessionList组件UI文本更新
-**更新** AgentSessionList组件的UI文本从"Employees"更新为"Agents"。
-
-- **代理头像显示**：支持代理头像URL和emoji显示，提供更丰富的视觉标识。
-- **代理名称点击**：代理名称支持点击事件，允许用户查看代理详细信息。
-- **会话列表优化**：支持会话搜索、删除确认和状态显示。
-- **时间格式化**：智能时间格式化，显示相对时间而非绝对时间。
-- **交互状态管理**：支持会话切换、新建会话和删除会话操作。
-- **UI文本更新**：标题从"Employees"更新为"Agents"，会话标题从"Sessions"更新为"Agents"。
+- **错误状态检测**：通过lastError状态和handleCheckStatus函数实现实时生成状态检测，支持检查activeRunId并恢复进行中的状态。
+- **错误横幅显示**：ErrorBanner组件提供破坏性边框样式和状态徽章，支持检查状态、手动清除和旋转加载指示器。
+- **状态同步机制**：通过chat.status方法检查后端生成状态，如果仍在运行则恢复会话生成状态，否则仅清除错误横幅。
+- **用户交互优化**：提供检查状态按钮和手动清除按钮，支持禁用状态和加载指示器，提升用户体验。
+- **竞态条件防护**：通过showMessageList逻辑避免在清空加载状态下挂载消息列表，防止useMessage/tapClientLookup竞争条件。
 
 ```mermaid
 flowchart TD
-AgentSessionList["AgentSessionList组件(UI文本更新)"] --> Header["头部区域<br/>返回按钮 + 代理信息"]
-Header --> BackButton["返回按钮<br/>ArrowLeftIcon"]
-Header --> AgentInfo["代理信息<br/>头像 + 名称 + 点击事件"]
-AgentSessionList --> Content["内容区域<br/>会话列表 + 新建按钮"]
-Content --> NewSession["新建会话按钮<br/>PlusIcon"]
-Content --> SessionList["会话列表<br/>滚动容器"]
-SessionList --> SessionItem["会话项<br/>最后消息 + 时间 + 删除按钮"]
-SessionItem --> DeleteConfirm["删除确认对话框<br/>AlertDialog"]
+ThreadView["ThreadView组件"] --> ErrorBanner["ErrorBanner错误横幅"]
+ErrorBanner --> CheckStatus["检查状态按钮<br/>handleCheckStatus"]
+CheckStatus --> GetClient["获取网关客户端"]
+GetClient --> CallStatus["调用chat.status"]
+CallStatus --> HasActiveRun["检查activeRunId"]
+HasActiveRun --> |有运行ID| RestoreState["恢复生成状态<br/>setLastError(null) + markSessionGenerating"]
+HasActiveRun --> |无运行ID| ClearError["清除错误状态<br/>setLastError(null)"]
+ErrorBanner --> DismissBtn["手动清除按钮"]
+DismissBtn --> ClearError
+ThreadView --> MessageList["消息列表挂载控制<br/>showMessageList逻辑"]
+MessageList --> RaceCondition["竞态条件防护<br/>避免useMessage/tapClientLookup"]
 ```
 
 **图表来源**
-- [AgentSessionList.tsx:182](file://ui-react/src/components/chat/AgentSessionList.tsx#L182)
-- [AgentSessionList.tsx:215](file://ui-react/src/components/chat/AgentSessionList.tsx#L215)
+- [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
+- [ThreadView.tsx:27-32](file://ui-react/src/components/chat/ThreadView.tsx#L27-L32)
 
 **章节来源**
-- [AgentSessionList.tsx:1-258](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L258)
+- [ThreadView.tsx:1-199](file://ui-react/src/components/chat/ThreadView.tsx#L1-L199)
 
-### AgentList组件UI文本更新
-**更新** AgentList组件的UI文本从"Employees"更新为"Agents"。
+### AssistantMessage组件左内边距调整
+**更新** AssistantMessage组件调整左内边距，优化消息内容对齐和视觉层次。
 
-- **代理头像显示**：支持代理头像URL和emoji显示，提供更丰富的视觉标识。
-- **代理名称显示**：显示代理的友好名称或ID，支持代理搜索和过滤。
-- **代理搜索功能**：支持按名称和ID搜索代理，提升用户体验。
-- **加载状态管理**：支持代理列表的加载状态显示。
-- **UI文本更新**：标题从"Employees"更新为"Agents"。
+- **左内边距优化**：将content column的左内边距从默认值调整为pl-2，确保消息内容与头像区域正确对齐。
+- **视觉层次提升**：通过精确的内边距控制，改善消息内容的视觉层次和阅读体验。
+- **响应式设计**：保持与整体设计系统的协调，确保在不同屏幕尺寸下的一致性。
+- **内容对齐优化**：与AgentAvatar组件配合，确保头像和消息内容的垂直居中对齐。
 
 ```mermaid
 flowchart TD
-AgentList["AgentList组件(UI文本更新)"] --> Header["头部区域<br/>Agents标题"]
-Header --> AgentsTitle["Agents标题<br/>字体粗体 + 文本颜色"]
-AgentList --> Content["内容区域<br/>代理列表"]
-Content --> AgentItem["代理项<br/>头像 + 名称 + 点击事件"]
-AgentItem --> Avatar["头像<br/>图片或emoji"]
-AgentItem --> Name["名称<br/>裁剪显示"]
+AssistantMessage["AssistantMessage组件"] --> ContentColumn["内容列<br/>w-full min-w-0"]
+ContentColumn --> LeftPadding["左内边距调整<br/>pl-2"]
+LeftPadding --> ContentWrap["内容包装<br/>wrap-break-word"]
+ContentWrap --> TextRendering["文本渲染<br/>AssistantMarkdownPart"]
+ContentWrap --> ToolRendering["工具渲染<br/>AssistantToolGroup"]
+ContentWrap --> InteractiveParts["交互组件<br/>InteractiveParts"]
 ```
 
 **图表来源**
-- [AgentList.tsx:89-91](file://ui-react/src/components/chat/AgentList.tsx#L89-L91)
-- [AgentList.tsx:103-105](file://ui-react/src/components/chat/AgentList.tsx#L103-L105)
+- [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
 
 **章节来源**
-- [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
+- [AssistantMessage.tsx:1-120](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L120)
 
-### AssistantMarkdown组件重构
-**更新** AssistantMarkdown组件已重构以提升性能和功能。
+### ToolCallGroup组件破坏性边框样式移除
+**更新** ToolCallGroup组件移除破坏性边框样式，采用更温和的视觉设计。
 
-- **memoized组件系统**：使用unstable_memoizeMarkdownComponents优化组件渲染性能。
-- **代码块增强**：支持代码块复制功能，提供更好的开发体验。
-- **样式优化**：统一的Markdown样式系统，支持响应式设计和主题适配。
-- **GFM支持**：完整的GitHub Flavored Markdown支持，包括表格、任务列表等。
-- **性能提升**：通过memoization和优化的渲染策略提升渲染性能。
+- **边框样式优化**：移除destructive边框样式，采用更温和的背景色和边框设计，减少视觉冲击。
+- **状态徽章系统**：保留GroupStatusBadge组件，提供运行中、失败和完成状态的不同视觉表示。
+- **自动展开/折叠**：通过messageIsRunning状态控制自动展开/折叠行为，提升用户体验。
+- **状态管理改进**：deriveGroupStatus函数改进状态推导逻辑，支持运行中状态的特殊处理。
+- **视觉一致性**：保持与整体设计系统的协调，确保不同状态下的视觉一致性。
 
 ```mermaid
 flowchart TD
-AssistantMarkdown["AssistantMarkdown组件"] --> MemoizedComponents["memoizedComponents<br/>性能优化"]
-AssistantMarkdown --> PlainComponents["plainMdComponents<br/>独立使用"]
-MemoizedComponents --> CodeWithContext["CodeWithContext<br/>代码块 + 复制"]
-PlainComponents --> CodeHeader["CodeHeader<br/>代码块头部"]
-MemoizedComponents --> Typography["Typography<br/>标题 + 段落 + 列表"]
-PlainComponents --> Typography
-CodeWithContext --> CopyButton["复制按钮<br/>TooltipIconButton"]
-CodeHeader --> CopyButton
-Typography --> GFMPlugins["GFM插件<br/>表格 + 任务列表"]
+ToolCallGroup["ToolCallGroup组件"] --> StatusBadge["状态徽章<br/>GroupStatusBadge"]
+StatusBadge --> RunningBadge["运行中徽章<br/>LoaderIcon + Running"]
+StatusBadge --> FailedBadge["失败徽章<br/>XCircleIcon + failCount"]
+StatusBadge --> DoneBadge["完成徽章<br/>CheckIcon + Done"]
+ToolCallGroup --> AutoCollapse["自动展开/折叠<br/>messageIsRunning控制"]
+AutoCollapse --> UserToggle["用户手动切换<br/>handleToggle"]
+ToolCallGroup --> BorderStyle["边框样式优化<br/>移除destructive样式"]
+BorderStyle --> BackgroundStyle["背景样式<br/>bg-muted"]
+BorderStyle --> TransitionStyle["过渡效果<br/>transition-colors"]
 ```
 
 **图表来源**
-- [markdown-text.tsx:248-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L248-L268)
-- [markdown-text.tsx:218-246](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L218-L246)
+- [ToolCallGroup.tsx:98-130](file://ui-react/src/components/chat/ToolCallGroup.tsx#L98-L130)
+- [ToolCallGroup.tsx:186-202](file://ui-react/src/components/chat/ToolCallGroup.tsx#L186-L202)
+- [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
 
 **章节来源**
-- [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
+- [ToolCallGroup.tsx:1-284](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L284)
 
 ### 增强的Composer组件
 **更新** Composer组件现已实现拖拽上传、实时预览、文件类型验证等重大改进功能。
@@ -690,6 +673,8 @@ SkillsSection --> AddSkillsDialog["添加技能对话框<br/>搜索 + 分类 + �
 - **组件系统集成**：ChatSidebar替代SessionSelector，提供更丰富的会话管理功能。
 - **文件上传依赖**：Composer组件依赖FileReader API进行文件读取和Base64编码。
 - **代理管理集成**：AgentDetailDrawer集成到ChatSidebar，提供完整的代理管理功能。
+- **错误状态检查集成**：ThreadView与ErrorBanner组件深度集成，提供完整的错误处理机制。
+- **工具调用分组优化**：ToolCallGroup与ToolFallback组件协同工作，提供改进的工具调用可视化。
 
 ```mermaid
 graph LR
@@ -712,6 +697,9 @@ ChatSidebar["ChatSidebar.tsx"] --> AgentDetailDrawer
 ChatSidebar --> AgentSessionList["AgentSessionList.tsx"]
 Composer["Composer.tsx"] --> FileReader["FileReader API"]
 UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
+ThreadView["ThreadView.tsx"] --> ErrorBanner["ErrorBanner组件"]
+AssistantMessage["AssistantMessage.tsx"] --> ToolCallGroup["ToolCallGroup.tsx"]
+ToolCallGroup --> ToolFallback["ToolFallback.tsx"]
 ```
 
 **图表来源**
@@ -723,6 +711,9 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [agents.store.ts:1-1066](file://ui-react/src/store/agents.store.ts#L1-L1066)
+- [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
+- [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
+- [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
 
 **章节来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
@@ -733,6 +724,9 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
 - [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
 - [agents.store.ts:1-1066](file://ui-react/src/store/agents.store.ts#L1-L1066)
+- [ThreadView.tsx:1-199](file://ui-react/src/components/chat/ThreadView.tsx#L1-L199)
+- [AssistantMessage.tsx:1-120](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L120)
+- [ToolCallGroup.tsx:1-284](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L284)
 
 ## 性能考虑
 - **状态管理优化**：使用Zustand替代Redux，减少不必要的状态更新和组件重渲染。
@@ -747,6 +741,8 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - **Markdown渲染优化**：AssistantMarkdown组件使用memoization优化渲染性能。
 - **代理状态缓存**：agents.store.ts实现代理状态缓存，避免频繁的API调用。
 - **自动同步优化**：ChatSidebar的自动同步功能通过useEffect优化，避免不必要的重渲染。
+- **错误状态检查优化**：ThreadView的错误状态检查机制通过状态缓存避免重复网络请求。
+- **工具调用分组优化**：ToolCallGroup的状态推导逻辑通过memoization优化性能。
 
 **章节来源**
 - [vite.config.ts:13-14](file://ui-react/vite.config.ts#L13-L14)
@@ -757,6 +753,8 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - [markdown-text.tsx:218-222](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L218-L222)
 - [agents.store.ts:304-324](file://ui-react/src/store/agents.store.ts#L304-L324)
 - [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
+- [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
+- [ToolCallGroup.tsx:178-182](file://ui-react/src/components/chat/ToolCallGroup.tsx#L178-L182)
 
 ## 故障排除指南
 - **连接失败**：检查网关端口与认证配置，确认WebSocket握手成功，查看gateway.store的错误状态。
@@ -773,6 +771,9 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - **代理技能管理问题**：检查agents.store的技能状态管理，确认技能添加和删除操作正常。
 - **自动同步问题**：检查ChatSidebar的useEffect依赖和sessionKey解析逻辑，确认代理ID正确提取。
 - **UI文本显示问题**：检查AgentList和AgentSessionList的UI文本更新，确认从"Employees"更新为"Agents"。
+- **错误状态检查失效**：检查ThreadView的lastError状态和handleCheckStatus函数，确认错误状态正确传递。
+- **左内边距显示异常**：检查AssistantMessage的pl-2内边距设置，确认与头像区域正确对齐。
+- **工具调用分组样式问题**：检查ToolCallGroup的边框样式移除逻辑，确认破坏性样式已正确移除。
 
 **章节来源**
 - [gateway.store.ts:115-126](file://ui-react/src/store/gateway.store.ts#L115-L126)
@@ -785,13 +786,16 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 - [markdown-text.tsx:248-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L248-L268)
 - [agents.store.ts:688-741](file://ui-react/src/store/agents.store.ts#L688-L741)
 - [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
+- [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
+- [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
+- [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
 
 ## 结论
 WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，采用"React + Zustand + Assistant UI"的技术栈实现了更加现代化和可维护的聊天体验。新的架构通过组件化设计、状态管理和事件桥接机制，提供了更好的开发体验和用户体验。
 
-**更新** 本次更新重点反映了聊天界面的重大增强，包括ChatSidebar组件完全重写实现自动同步功能、AgentList和AgentSessionList组件的UI文本更新、会话管理钩子的增强，以及代理详情抽屉的完整集成。这些改进显著提升了代理管理能力和Markdown渲染性能，提供了更丰富的用户体验和更高效的界面交互。
+**更新** 本次更新重点反映了聊天界面的重大UI改进，包括ThreadView.tsx的错误状态检查机制、AssistantMessage.tsx的左内边距调整、ToolCallGroup.tsx的破坏性边框样式移除等新功能。这些改进显著提升了用户界面的可用性和视觉一致性，为未来的功能扩展奠定了坚实的基础。
 
-通过新增的ChatSidebar组件、增强的useSessionManager钩子、markdown-text.tsx组件系统，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为未来的功能扩展奠定了坚实的基础。
+通过新增的ThreadView错误状态检查机制、AssistantMessage的左内边距优化、ToolCallGroup的样式改进，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为用户提供更加流畅和直观的聊天体验。
 
 ## 附录
 - **配置参考**：WebChat使用网关端点与认证参数，React构建配置独立于传统UI，输出到独立的dist目录。
@@ -803,6 +807,9 @@ WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，�
 - **Markdown性能优化**：使用memoization优化渲染性能，支持代码块复制和GFM语法。
 - **自动同步功能**：ChatSidebar实现完全的自动同步逻辑，根据sessionKey自动切换代理和会话。
 - **UI文本更新**：AgentList和AgentSessionList的UI文本从"Employees"更新为"Agents"。
+- **错误状态检查**：ThreadView提供完整的错误状态检查和手动清除功能。
+- **左内边距优化**：AssistantMessage组件的左内边距调整提升视觉层次。
+- **工具调用分组改进**：ToolCallGroup移除破坏性边框样式，采用更温和的视觉设计。
 
 **章节来源**
 - [vite.config.ts:21-28](file://ui-react/vite.config.ts#L21-L28)
@@ -815,3 +822,6 @@ WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，�
 - [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
 - [AgentList.tsx:89-91](file://ui-react/src/components/chat/AgentList.tsx#L89-L91)
 - [AgentSessionList.tsx:182](file://ui-react/src/components/chat/AgentSessionList.tsx#L182)
+- [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
+- [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
+- [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)

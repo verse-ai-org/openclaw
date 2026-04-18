@@ -6,6 +6,9 @@
 - [AGENTS.md](file://AGENTS.md)
 - [docs/concepts/agent-loop.md](file://docs/concepts/agent-loop.md)
 - [src/agents/agent-scope.ts](file://src/agents/agent-scope.ts)
+- [src/agents/builtin-agents.ts](file://src/agents/builtin-agents.ts)
+- [src/agents/model-selection.ts](file://src/agents/model-selection.ts)
+- [src/agents/defaults.ts](file://src/agents/defaults.ts)
 - [src/memory/index.ts](file://src/memory/index.ts)
 - [src/memory/manager.ts](file://src/memory/manager.ts)
 - [src/context-engine/index.ts](file://src/context-engine/index.ts)
@@ -35,17 +38,17 @@
 - [ui-react/src/components/scheduled-tasks/TaskCard.tsx](file://ui-react/src/components/scheduled-tasks/TaskCard.tsx)
 - [ui-react/docs/scheduled-tasks.md](file://ui-react/docs/scheduled-tasks.md)
 - [test/travel-planner-skill.test.ts](file://test/travel-planner-skill.test.ts)
+- [docs/reference/templates/agents/travel-planner/SOUL.md](file://docs/reference/templates/agents/travel-planner/SOUL.md)
+- [docs/reference/templates/agents/my-office-helper/SOUL.md](file://docs/reference/templates/agents/my-office-helper/SOUL.md)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 更新agents.store中formDataToCronSchedule函数的时区处理逻辑，改进对时区感知ISO字符串的支持
-- 更新rerunCronJob函数返回布尔值以改善错误处理和用户反馈
-- 新增定时任务调度模块的详细技术文档和UI组件分析
-- 增强代理循环与定时任务的集成说明
-- **重大更新**：删除旅行规划技能的Python实现描述，全面更新为JavaScript架构
-- **重大更新**：更新数据库管理器、POI缓存合并器等组件的说明
-- **重大更新**：新增完整的JavaScript旅行规划技能架构文档
+- 更新了内置代理配置，新增了旅行规划器和办公助手代理的详细配置
+- 改进了模型选择逻辑，增强了代理级别的模型配置支持
+- 扩展了旅行规划技能的测试覆盖率，增加了更多单元测试用例
+- 更新了代理作用域与会话路由的实现细节
+- 增强了模型选择状态解析和回退机制
 
 ## 目录
 1. [简介](#简介)
@@ -62,7 +65,7 @@
 12. [附录](#附录)
 
 ## 简介
-本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成全新的JavaScript旅行规划技能，该技能完全替代了原有的Python实现，提供更现代化、更高效的架构设计。同时，系统新增了完善的定时任务调度功能，支持复杂的调度策略和错误处理机制。
+本文件面向AI代理系统的技术文档，围绕代理的创建与管理、工具执行机制、记忆存储与上下文管理进行深入解析，并覆盖代理循环、思考模式、推理过程与决策制定流程。系统现已集成全新的JavaScript旅行规划技能，该技能完全替代了原有的Python实现，提供更现代化、更高效的架构设计。同时，系统新增了完善的定时任务调度功能，支持复杂的调度策略和错误处理机制。**重大更新**：内置代理配置得到显著增强，新增了旅行规划器和办公助手两个专用代理，以及改进的模型选择逻辑。
 
 ## 项目结构
 OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Telegram、Discord等），并通过网关（Gateway）作为统一控制平面，协调会话、工具与事件。系统采用"本地优先"的设计，强调在用户设备上运行，确保低延迟与隐私保护。
@@ -75,6 +78,7 @@ OpenClaw是一个个人AI助手平台，支持多通道接入（如WhatsApp、Te
   - 工具（Tools）：浏览器控制、画布、节点、定时任务、会话间通信等。
   - **新增** 旅行规划技能：基于JavaScript的全新架构，提供完整的旅行计划生成和偏好管理。
   - **新增** 定时任务调度模块：支持复杂的调度策略和错误处理机制。
+  - **新增** 内置代理系统：提供预配置的专用代理，包括旅行规划器和办公助手。
 
 ```mermaid
 graph TB
@@ -82,6 +86,7 @@ subgraph "客户端"
 UI["控制界面/WebChat"]
 Nodes["iOS/Android 节点"]
 ScheduledTasks["定时任务界面"]
+Endorsement["代理配置界面"]
 end
 subgraph "网关(Gateway)"
 WS["WebSocket 控制平面"]
@@ -90,6 +95,7 @@ Tools["工具执行器"]
 Memory["内存索引管理器"]
 CE["上下文引擎"]
 Cron["定时任务调度器"]
+Endorsement["内置代理系统"]
 end
 subgraph "外部服务"
 Channels["多渠道适配器<br/>Telegram/WhatsApp/..."]
@@ -99,6 +105,7 @@ end
 UI --> WS
 Nodes --> WS
 ScheduledTasks --> WS
+Endorsement --> WS
 WS --> AgentLoop
 AgentLoop --> Tools
 AgentLoop --> Memory
@@ -127,6 +134,9 @@ Channels --> WS
   - 注册与解析上下文引擎工厂，支持传统引擎与初始化流程。
 - 代理循环
   - 定义从入口到生命周期事件、流式输出、工具执行与持久化的完整链路；支持队列化与并发控制。
+- **新增** 内置代理系统
+  - 提供预配置的专用代理，包括旅行规划器和办公助手，支持自动初始化和模板管理。
+  - 支持代理身份配置、工作区管理和模板文件同步。
 - **新增** JavaScript旅行规划技能
   - 基于Node.js的全新架构，提供完整的旅行计划生成、偏好管理和数据库管理功能。
   - 采用模块化设计，每个功能模块都有清晰的职责分工。
@@ -146,7 +156,7 @@ Channels --> WS
 - [docs/concepts/agent-loop.md:23-49](file://docs/concepts/agent-loop.md#L23-L49)
 
 ## 架构总览
-OpenClaw的代理循环以"单会话串行、全局可选队列"为核心，确保会话一致性与避免工具/会话竞态。代理运行时通过嵌入式Pi代理内核，订阅事件并桥接至OpenClaw的流式输出。工具执行与消息发送由工具执行器完成，记忆检索由内存索引管理器提供，上下文引擎负责系统提示词组装与压缩。定时任务调度模块通过Zustand状态管理器与Gateway进行交互，提供完整的任务生命周期管理。
+OpenClaw的代理循环以"单会话串行、全局可选队列"为核心，确保会话一致性与避免工具/会话竞态。代理运行时通过嵌入式Pi代理内核，订阅事件并桥接至OpenClaw的流式输出。工具执行与消息发送由工具执行器完成，记忆检索由内存索引管理器提供，上下文引擎负责系统提示词组装与压缩。定时任务调度模块通过Zustand状态管理器与Gateway进行交互，提供完整的任务生命周期管理。**重大更新**：内置代理系统通过ensureBuiltinAgents函数自动初始化和管理预配置代理，确保代理配置的一致性和完整性。
 
 ```mermaid
 sequenceDiagram
@@ -158,6 +168,7 @@ participant Tools as "工具执行器"
 participant Mem as "内存索引管理器"
 participant CE as "上下文引擎"
 participant Cron as "定时任务调度器"
+participant Endorsement as "内置代理系统"
 participant Travel as "旅行规划技能"
 Client->>Gateway : "agent/agent.wait 调用"
 Gateway->>Agent : "参数校验与会话解析"
@@ -175,18 +186,58 @@ Client->>Gateway : "cron.run 立即执行"
 Gateway->>Cron : "执行定时任务"
 Cron-->>Gateway : "任务执行状态"
 Gateway-->>Client : "执行结果"
+Client->>Gateway : "ensureBuiltinAgents 初始化"
+Gateway->>Endorsement : "检查内置代理配置"
+Endorsement-->>Gateway : "代理配置同步完成"
+Gateway-->>Client : "内置代理就绪"
 ```
 
 **图示来源**
 - [docs/concepts/agent-loop.md:25-44](file://docs/concepts/agent-loop.md#L25-L44)
 - [docs/concepts/agent-loop.md:127-132](file://docs/concepts/agent-loop.md#L127-L132)
+- [src/agents/builtin-agents.ts:113-265](file://src/agents/builtin-agents.ts#L113-L265)
 
 **章节来源**
 - [docs/concepts/agent-loop.md:23-49](file://docs/concepts/agent-loop.md#L23-L49)
 
 ## 详细组件分析
 
-### 组件A：代理作用域与会话路由
+### 组件A：内置代理系统与模型选择逻辑
+
+**重大更新** 内置代理系统现在提供更强大的代理配置管理，支持自动初始化、身份同步和模板管理。
+
+内置代理系统通过BUILTIN_AGENTS常量定义预配置的代理，包括：
+- **main代理**：系统默认代理，使用全局工作区设置
+- **travel-planner代理**：旅行规划专用代理，配置了完整的旅行相关技能
+- **my-office-helper代理**：办公文档处理专用代理，配置了文档处理技能
+
+**更新** 模型选择逻辑得到显著改进，现在支持代理级别的模型配置覆盖。
+
+```mermaid
+flowchart TD
+Start(["内置代理初始化"]) --> CheckExisting["检查现有代理配置"]
+CheckExisting --> HasAgent{"代理是否存在?"}
+HasAgent --> |是| Backfill["回填身份信息"]
+HasAgent --> |否| CreateAgent["创建新代理"]
+Backfill --> CheckIdentity["检查身份字段完整性"]
+CheckIdentity --> MissingFields{"缺少必要字段?"}
+MissingFields --> |是| SyncIdentity["同步内置身份配置"]
+MissingFields --> |否| EnsureWorkspace["确保工作区文件"]
+CreateAgent --> ApplyConfig["应用代理配置"]
+ApplyConfig --> EnsureWorkspace
+SyncIdentity --> EnsureWorkspace
+EnsureWorkspace --> TemplateFiles["同步模板文件"]
+TemplateFiles --> Done(["完成"])
+```
+
+**图示来源**
+- [src/agents/builtin-agents.ts:113-265](file://src/agents/builtin-agents.ts#L113-L265)
+
+**章节来源**
+- [src/agents/builtin-agents.ts:46-103](file://src/agents/builtin-agents.ts#L46-L103)
+- [src/agents/builtin-agents.ts:113-265](file://src/agents/builtin-agents.ts#L113-L265)
+
+### 组件B：代理作用域与会话路由
 - 会话键解析
   - 支持从会话键中提取代理ID，若未显式指定则回退到默认代理或根据会话键推断。
 - 代理配置解析
@@ -222,7 +273,7 @@ ModelFB --> Done(["结束"])
 - [src/agents/agent-scope.ts:256-272](file://src/agents/agent-scope.ts#L256-L272)
 - [src/agents/agent-scope.ts:273-339](file://src/agents/agent-scope.ts#L273-L339)
 
-### 组件B：内存索引管理器（MemoryIndexManager）
+### 组件C：内存索引管理器（MemoryIndexManager）
 - 功能概览
   - 向量与关键词混合检索、嵌入批处理、增量同步、只读数据库自动恢复、缓存统计与状态查询。
   - 支持按源过滤、会话监听与定时同步，提供搜索模式（FTS-only或Hybrid）与向量可用性探测。
@@ -260,7 +311,7 @@ Filter --> Out["返回结果"]
 - [src/memory/manager.ts:451-551](file://src/memory/manager.ts#L451-L551)
 - [src/memory/manager.ts:553-624](file://src/memory/manager.ts#L553-L624)
 
-### 组件C：上下文引擎（Context Engine）
+### 组件D：上下文引擎（Context Engine）
 - 能力
   - 导出上下文引擎类型、注册与解析工厂、初始化流程与遗留引擎支持。
 - 应用
@@ -269,7 +320,7 @@ Filter --> Out["返回结果"]
 **章节来源**
 - [src/context-engine/index.ts:1-20](file://src/context-engine/index.ts#L1-L20)
 
-### 组件D：代理循环（Agent Loop）
+### 组件E：代理循环（Agent Loop）
 - 生命周期
   - 入口：网关RPC与CLI命令；参数验证、会话解析、元数据持久化后立即返回runId。
   - 执行：加载技能快照、运行嵌入式Pi代理、订阅事件并桥接流事件。
@@ -305,6 +356,72 @@ Wait-->>RPC : "状态/时间戳"
 - [docs/concepts/agent-loop.md:127-132](file://docs/concepts/agent-loop.md#L127-L132)
 
 ## 新增功能模块
+
+### 内置代理系统架构
+
+**重大更新** 内置代理系统现在提供完整的代理配置管理，支持自动初始化、身份同步和模板文件管理。
+
+内置代理系统通过BUILTIN_AGENTS数组定义预配置的代理，每个代理都有以下特性：
+
+- **唯一标识符**：标准化的小写ID，无空格
+- **显示名称**：UI中显示的友好名称
+- **工作区路径**：支持"~"展开的代理专属工作区
+- **模板子目录**：docs/reference/templates/下的代理特定模板
+- **技能允许列表**：首次创建时的默认技能过滤
+- **工具限制**：首次创建时的默认工具白名单
+- **身份配置**：默认身份信息，包括姓名、头像、视频和生物特征
+
+```mermaid
+flowchart TD
+subgraph "内置代理系统"
+BuiltinAgents["BUILTIN_AGENTS 数组"] --> MainAgent["main 代理"]
+BuiltinAgents --> TravelAgent["travel-planner 代理"]
+BuiltinAgents --> OfficeAgent["my-office-helper 代理"]
+MainAgent --> IdentityMain["默认身份配置"]
+TravelAgent --> IdentityTravel["旅行规划身份"]
+OfficeAgent --> IdentityOffice["办公助手身份"]
+IdentityMain --> TemplateMain["agents/main 模板"]
+IdentityTravel --> TemplateTravel["agents/travel-planner 模板"]
+IdentityOffice --> TemplateOffice["agents/my-office-helper 模板"]
+end
+```
+
+**图示来源**
+- [src/agents/builtin-agents.ts:46-103](file://src/agents/builtin-agents.ts#L46-L103)
+
+#### 代理配置管理
+
+**更新** ensureBuiltinAgents函数现在提供更智能的代理配置管理，包括：
+
+- **自动初始化**：当代理不存在时自动创建并应用配置
+- **身份回填**：升级时自动回填缺失的身份信息
+- **工作区同步**：确保代理工作区包含必要的模板文件
+- **模板管理**：根据代理类型同步相应的模板文件
+
+```mermaid
+flowchart TD
+EnsureAgents["ensureBuiltinAgents"] --> ListAgents["列出现有代理"]
+ListAgents --> CheckExist["检查代理存在性"]
+CheckExist --> Exists{"代理已存在?"}
+Exists --> |是| BackfillIdentity["回填身份信息"]
+Exists --> |否| CreateAgent["创建新代理"]
+BackfillIdentity --> CheckFields["检查字段完整性"]
+CheckFields --> Missing{"缺少字段?"}
+Missing --> |是| SyncFields["同步字段"]
+Missing --> |否| EnsureWorkspace
+CreateAgent --> ApplyConfig["应用代理配置"]
+ApplyConfig --> EnsureWorkspace
+SyncFields --> EnsureWorkspace
+EnsureWorkspace --> SyncTemplates["同步模板文件"]
+SyncTemplates --> Done(["完成"])
+```
+
+**图示来源**
+- [src/agents/builtin-agents.ts:113-265](file://src/agents/builtin-agents.ts#L113-L265)
+
+**章节来源**
+- [src/agents/builtin-agents.ts:46-103](file://src/agents/builtin-agents.ts#L46-L103)
+- [src/agents/builtin-agents.ts:113-265](file://src/agents/builtin-agents.ts#L113-L265)
 
 ### JavaScript旅行规划技能架构
 
@@ -735,10 +852,25 @@ FormFields --> DeliveryMode["投递模式选择"]
 - [ui-react/src/components/scheduled-tasks/TaskCard.tsx:1-116](file://ui-react/src/components/scheduled-tasks/TaskCard.tsx#L1-L116)
 - [ui-react/docs/scheduled-tasks.md:1-350](file://ui-react/docs/scheduled-tasks.md#L1-L350)
 
+### 代理配置界面
+
+**新增** 代理配置界面提供了内置代理的可视化管理功能，支持代理身份、工作区和模板的配置。
+
+- **代理列表**：显示所有内置代理的状态和配置
+- **身份管理**：支持代理身份信息的查看和编辑
+- **工作区管理**：显示代理工作区状态和模板文件
+- **配置同步**：自动同步内置代理配置到系统
+
+**章节来源**
+- [ui-react/src/store/agents.store.ts:55-100](file://ui-react/src/store/agents.store.ts#L55-L100)
+- [ui-react/src/store/agents.store.ts:1050-1062](file://ui-react/src/store/agents.store.ts#L1050-L1062)
+- [ui-react/src/types/agents.ts:252-274](file://ui-react/src/types/agents.ts#L252-L274)
+
 ## 依赖关系分析
 - 组件耦合
   - 代理循环依赖上下文引擎进行提示词组装、依赖内存索引管理器进行上下文检索、依赖工具执行器进行动作执行。
   - 代理作用域为上述组件提供会话键解析与代理配置，决定工作区、模型与沙箱策略。
+  - **新增** 内置代理系统通过ensureBuiltinAgents函数管理预配置代理，确保代理配置的一致性和完整性。
   - **新增** JavaScript旅行规划技能通过Node.js模块化架构与系统集成，提供本地数据持久化。
   - **新增** CLI参数解析系统为所有技能脚本提供统一的命令行接口。
   - **新增** 数据库管理器提供JSON文件存储和状态管理功能。
@@ -748,6 +880,7 @@ FormFields --> DeliveryMode["投递模式选择"]
   - 多渠道适配器通过网关WebSocket接入，形成统一的消息入口。
   - **新增** 各种旅行服务API通过技能接口访问，如Fliggy MCP、小红书、高德地图等。
   - **新增** Gateway Cron系统提供定时任务的持久化存储和执行调度。
+  - **新增** 内置代理模板系统提供代理特定的配置和工作区文件。
 
 ```mermaid
 graph LR
@@ -759,7 +892,11 @@ AgentLoop --> Providers["模型提供商"]
 AgentLoop --> TravelSkills["旅行规划技能"]
 AgentLoop --> FlyAISkills["FlyAI技能"]
 AgentLoop --> CronModule["定时任务调度模块"]
+AgentLoop --> Endorsement["内置代理系统"]
 Channels["多渠道适配器"] --> AgentLoop
+Endorsement --> BuiltinAgents["BUILTIN_AGENTS"]
+Endorsement --> Workspace["工作区管理"]
+Endorsement --> Templates["模板系统"]
 TravelSkills --> NodeRuntime["Node.js运行时"]
 TravelSkills --> CLIParser["CLI参数解析器"]
 TravelSkills --> DBManager["数据库管理器"]
@@ -773,6 +910,7 @@ CronModule --> CronJobs["CronJob持久化"]
 **图示来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
 - [docs/concepts/agent-loop.md:25-44](file://docs/concepts/agent-loop.md#L25-L44)
+- [src/agents/builtin-agents.ts:113-265](file://src/agents/builtin-agents.ts#L113-L265)
 
 **章节来源**
 - [src/agents/agent-scope.ts:86-111](file://src/agents/agent-scope.ts#L86-L111)
@@ -787,6 +925,10 @@ CronModule --> CronJobs["CronJob持久化"]
   - 批量嵌入与缓存统计减少重复计算；只读数据库自动恢复保障稳定性。
 - 上下文组装
   - 合理的系统提示词长度与压缩策略可降低token消耗，提高响应速度。
+- **新增** 内置代理系统
+  - ensureBuiltinAgents函数通过批量处理和智能检查减少不必要的配置写入。
+  - 模板文件同步机制避免重复的文件操作。
+  - 代理身份回填机制确保配置一致性的同时最小化数据传输。
 - **新增** JavaScript旅行规划技能
   - Node.js运行时相比Python具有更好的性能表现和更低的内存占用。
   - 模块化设计减少了不必要的依赖加载，提高了启动速度。
@@ -812,6 +954,11 @@ CronModule --> CronJobs["CronJob持久化"]
   - 检查向量维度、FTS可用性与提供者状态；必要时切换到FTS-only模式或调整混合检索参数。
 - 上下文引擎
   - 确认系统提示词构建阶段的钩子未引入过长内容；必要时启用压缩钩子或调整提示词长度限制。
+- **新增** 内置代理系统
+  - ensureBuiltinAgents函数检查：确认代理配置文件可写，模板目录存在且可访问。
+  - 代理身份同步：检查内置身份配置的完整性，确认缺少的字段能够正确回填。
+  - 工作区文件同步：验证代理工作区的bootstrap文件是否正确生成。
+  - 代理列表：确认内置代理已正确添加到agents.list中。
 - **新增** JavaScript旅行规划技能
   - Node.js运行时检查：确认Node.js版本兼容性和运行时环境。
   - 文件权限检查：确保用户对`~/.openclaw/agents/travel-planner`目录有读写权限。
@@ -838,11 +985,12 @@ CronModule --> CronJobs["CronJob持久化"]
 - [docs/concepts/agent-loop.md:138-149](file://docs/concepts/agent-loop.md#L138-L149)
 - [src/memory/manager.ts:468-551](file://src/memory/manager.ts#L468-L551)
 - [src/memory/manager.ts:626-738](file://src/memory/manager.ts#L626-L738)
+- [src/agents/builtin-agents.ts:113-265](file://src/agents/builtin-agents.ts#L113-L265)
 
 ## 结论
-OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构，实现了从消息到动作再到回复的完整闭环。系统现已成功集成了全新的JavaScript旅行规划技能，该技能完全替代了原有的Python实现，提供了更现代、更高效的架构设计。新增的CLI参数解析系统和数据库管理器进一步提升了技能的可用性和可靠性。新增的UI组件进一步提升了用户体验，支持技能的安装、管理和监控。代理作用域与会话路由确保多代理协作与会话隔离；内存检索提供高效的知识检索能力；代理循环与钩子体系支撑灵活的推理与决策流程。结合队列化与并发控制、只读数据库恢复与缓存策略，以及新的JavaScript旅行规划技能，系统在性能与稳定性之间取得良好平衡。
+OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构，实现了从消息到动作再到回复的完整闭环。系统现已成功集成了全新的JavaScript旅行规划技能，该技能完全替代了原有的Python实现，提供了更现代、更高效的架构设计。**重大更新**：内置代理系统提供了完整的代理配置管理，包括旅行规划器和办公助手两个专用代理，以及改进的模型选择逻辑。新增的CLI参数解析系统和数据库管理器进一步提升了技能的可用性和可靠性。新增的UI组件进一步提升了用户体验，支持技能的安装、管理和监控。代理作用域与会话路由确保多代理协作与会话隔离；内存检索提供高效的知识检索能力；代理循环与钩子体系支撑灵活的推理与决策流程。结合队列化与并发控制、只读数据库恢复与缓存策略，以及新的JavaScript旅行规划技能，系统在性能与稳定性之间取得良好平衡。
 
-**新增** 定时任务调度模块的集成进一步增强了系统的自动化能力，支持复杂的调度策略和错误处理机制。通过改进的formDataToCronSchedule函数和rerunCronJob函数，系统提供了更准确的时间处理和更可靠的错误反馈。完整的UI组件和状态管理确保了用户友好的操作体验和透明的任务状态监控。
+**新增** 定时任务调度模块的集成进一步增强了系统的自动化能力，支持复杂的调度策略和错误处理机制。通过改进的formDataToCronSchedule函数和rerunCronJob函数，系统提供了更准确的时间处理和更可靠的错误反馈。完整的UI组件和状态管理确保了用户友好的操作体验和透明的任务状态监控。**重大更新**：内置代理系统的智能配置管理确保了代理的一致性和完整性，为用户提供即开即用的专用代理体验。
 
 ## 附录
 
@@ -856,6 +1004,10 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 实现完整的错误处理和数据验证机制。
   - 使用JSON文件进行数据持久化，确保数据一致性和可靠性。
   - 利用模块化设计，分离关注点，提高代码可维护性。
+- **新增** 内置代理系统开发
+  - 通过BUILTIN_AGENTS数组定义新的内置代理配置。
+  - 实现ensureBuiltinAgents函数的代理初始化逻辑。
+  - 提供代理特定的模板文件和工作区管理。
 - **新增** CLI参数解析开发
   - 使用`runScript()`工厂函数简化脚本开发。
   - 实现参数验证和错误处理。
@@ -904,6 +1056,11 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 配置旅行偏好数据库目录权限，确保数据持久化正常。
   - 使用统一的CLI参数格式进行技能调用。
   - 配置TRAVEL_PLANNER_DB_DIR环境变量指向正确的数据目录。
+- **新增** 内置代理系统配置
+  - 通过BUILTIN_AGENTS数组定义新的内置代理。
+  - 确保代理模板文件正确同步到工作区。
+  - 配置代理身份信息和技能允许列表。
+  - 验证代理工作区的bootstrap文件完整性。
 - **新增** 定时任务调度配置
   - 确保Gateway连接正常，检查WebSocket认证状态。
   - 验证Cron表达式的正确性和时区设置。
@@ -935,6 +1092,10 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
   - 文件系统权限管理，确保数据文件的安全访问。
   - JSON数据验证，防止损坏的数据文件。
   - 路径遍历防护，防止恶意文件路径访问。
+- **新增** 内置代理系统安全
+  - 代理配置文件的权限管理，防止未授权修改。
+  - 模板文件的完整性验证，确保代理配置的一致性。
+  - 身份信息的同步机制，防止配置冲突。
 - **新增** 数据库管理器安全
   - 文件系统权限管理，确保数据文件的安全访问。
   - JSON数据验证，防止损坏的数据文件。
@@ -985,4 +1146,28 @@ OpenClaw通过"网关+代理循环+工具+记忆+上下文引擎"的分层架构
 - [ui-react/src/store/agents.store.ts:55-100](file://ui-react/src/store/agents.store.ts#L55-L100)
 - [ui-react/src/store/agents.store.ts:1050-1062](file://ui-react/src/store/agents.store.ts#L1050-L1062)
 - [ui-react/docs/scheduled-tasks.md:150-210](file://ui-react/docs/scheduled-tasks.md#L150-L210)
-- [test/travel-planner-skill.test.ts:1-750](file://test/travel-planner-skill.test.ts#L1-L750)
+- [test/travel-planner-skill.test.ts:1-811](file://test/travel-planner-skill.test.ts#L1-L811)
+
+### 内置代理系统最佳实践
+- **代理配置管理**
+  - 通过BUILTIN_AGENTS数组定义新的内置代理，确保配置的完整性和一致性。
+  - 使用ensureBuiltinAgents函数自动初始化代理，减少手动配置工作。
+  - 验证代理模板文件的正确同步，确保代理工作区的完整性。
+- **模型选择策略**
+  - 利用resolveDefaultModelForAgent函数获取代理级别的默认模型配置。
+  - 通过resolveSubagentSpawnModelSelection函数支持子代理的模型继承。
+  - 实现模型回退机制，确保在配置缺失时的稳定行为。
+- **身份同步机制**
+  - 利用内置身份配置确保代理外观的一致性。
+  - 实现身份字段的智能回填，减少配置冲突。
+  - 支持代理身份的强制同步，保持内置配置的权威性。
+- **工作区管理**
+  - 确保代理工作区的bootstrap文件正确生成和同步。
+  - 验证工作区权限，防止未授权访问。
+  - 实现工作区的增量更新，减少不必要的文件操作。
+
+**章节来源**
+- [src/agents/builtin-agents.ts:46-103](file://src/agents/builtin-agents.ts#L46-L103)
+- [src/agents/builtin-agents.ts:113-265](file://src/agents/builtin-agents.ts#L113-L265)
+- [src/agents/model-selection.ts:355-415](file://src/agents/model-selection.ts#L355-L415)
+- [src/agents/defaults.ts:1-7](file://src/agents/defaults.ts#L1-L7)
