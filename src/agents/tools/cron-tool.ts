@@ -257,6 +257,7 @@ DELIVERY (top-level):
   - announce: send to chat channel (optional channel/to target)
   - webhook: send finished-run event as HTTP POST to delivery.to (URL required)
   - If the task needs to send to a specific chat/recipient, set announce delivery.channel/to; do not call messaging tools inside the run.
+  - IMPORTANT: channel="openclaw-weixin" REQUIRES delivery.to set to the WeChat user ID (format: <id>@im.wechat). Without it the job will fail at runtime. Always extract the WeChat ID from context and set delivery.to explicitly.
 
 CRITICAL CONSTRAINTS:
 - sessionTarget="main" REQUIRES payload.kind="systemEvent"
@@ -438,6 +439,31 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
                     mode: "none",
                   } satisfies CronDelivery;
                 }
+              }
+            }
+
+            // openclaw-weixin requires an explicit delivery.to (WeChat user ID ending with
+            // @im.wechat). When the LLM sets channel=openclaw-weixin but omits `to`, attempt
+            // to salvage the recipient from the agentTurn payload message — the LLM often
+            // embeds the WeChat ID directly in the message text.
+            const currentDelivery = (job as { delivery?: Record<string, unknown> }).delivery;
+            const currentChannel =
+              typeof currentDelivery?.channel === "string" ? currentDelivery.channel.trim() : "";
+            const currentTo =
+              typeof currentDelivery?.to === "string" ? currentDelivery.to.trim() : "";
+            if (
+              currentChannel === "openclaw-weixin" &&
+              !currentTo &&
+              currentDelivery
+            ) {
+              const msgText =
+                typeof (job as { payload?: { message?: unknown } }).payload?.message === "string"
+                  ? ((job as { payload: { message: string } }).payload.message as string)
+                  : "";
+              // Extract WeChat user ID — matches any token ending with @im.wechat
+              const weixinIdMatch = msgText.match(/\b(\S+@im\.wechat)\b/);
+              if (weixinIdMatch?.[1]) {
+                currentDelivery.to = weixinIdMatch[1];
               }
             }
           }

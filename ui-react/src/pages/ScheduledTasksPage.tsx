@@ -20,6 +20,7 @@ import { TaskCard } from "@/components/scheduled-tasks/TaskCard";
 import { NewTaskCard } from "@/components/scheduled-tasks/NewTaskCard";
 import { RunHistoryTable } from "@/components/scheduled-tasks/RunHistoryTable";
 import { TaskFormModal } from "@/components/scheduled-tasks/TaskFormModal";
+import type { DeliveryChannelOption } from "@/components/scheduled-tasks/TaskFormModal";
 import type { CronJob, CronRunRecord, ScheduledTaskFormData } from "@/types/agents";
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,18 @@ export function ScheduledTasksPage() {
       (id) => (channelsSnapshot.channelAccounts[id]?.length ?? 0) > 0,
     ) ?? false
   );
+  // Build channel options list for the delivery channel selector
+  const channelOptions: DeliveryChannelOption[] = channelsSnapshot
+    ? channelsSnapshot.channelOrder
+        .filter((id) => (channelsSnapshot.channelAccounts[id]?.length ?? 0) > 0)
+        .map((id) => ({
+          id,
+          label:
+            channelsSnapshot.channelMeta?.find((m) => m.id === id)?.label ??
+            channelsSnapshot.channelLabels[id] ??
+            id,
+        }))
+    : [];
 
   // ── Scheduled Tasks store slice ─────────────────────────────────────────
   const cronRunHistory = useAgentsStore((s) => s.cronRunHistory);
@@ -267,6 +280,16 @@ export function ScheduledTasksPage() {
     }
     // Restore delivery mode from job
     base.deliveryMode = editingJob.delivery?.mode === "announce" ? "announce" : "none";
+    if (editingJob.delivery?.mode === "announce") {
+      const ch = editingJob.delivery.channel;
+      if (typeof ch === "string" && ch.trim()) {
+        base.deliveryChannel = ch.trim();
+      }
+      const to = editingJob.delivery.to;
+      if (typeof to === "string" && to.trim()) {
+        base.deliveryTo = to.trim();
+      }
+    }
     return base;
   })();
 
@@ -414,6 +437,7 @@ export function ScheduledTasksPage() {
         initialData={initialData}
         saving={cronJobSaving}
         hasChannel={hasChannel}
+        channelOptions={channelOptions}
         onSave={(form) => void handleSave(form)}
         onClose={handleModalClose}
       />

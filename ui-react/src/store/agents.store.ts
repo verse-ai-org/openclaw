@@ -928,12 +928,16 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       // Convert ScheduledTaskFormData to CronSchedule
       const schedule = formDataToCronSchedule(form);
       const payload = { kind: "agentTurn" as const, message: form.agentPrompt };
-      // Resolve delivery: if announce, auto-pick default channel; fallback to none if missing.
-      let delivery: { mode: "announce" | "none"; channel?: string };
+      // Resolve delivery: if announce, use explicit channel/to from form or auto-pick default.
+      let delivery: { mode: "announce" | "none"; channel?: string; to?: string };
       if (form.deliveryMode === "announce") {
-        const channelId = getDefaultChannelId(get().channelsSnapshot);
+        const channelId = form.deliveryChannel?.trim() || getDefaultChannelId(get().channelsSnapshot);
         if (channelId) {
-          delivery = { mode: "announce" as const, channel: channelId };
+          delivery = {
+            mode: "announce" as const,
+            channel: channelId,
+            ...(form.deliveryTo?.trim() ? { to: form.deliveryTo.trim() } : {}),
+          };
         } else {
           // No channel available — silently downgrade to none to avoid runtime error
           delivery = { mode: "none" as const };
@@ -978,12 +982,16 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     try {
       const schedule = formDataToCronSchedule(form);
       const payload = { kind: "agentTurn" as const, message: form.agentPrompt };
-      // Resolve delivery: if announce, auto-pick default channel; fallback to none if missing.
-      let delivery: { mode: "announce" | "none"; channel?: string };
+      // Resolve delivery: if announce, use explicit channel/to from form or auto-pick default.
+      let delivery: { mode: "announce" | "none"; channel?: string; to?: string };
       if (form.deliveryMode === "announce") {
-        const channelId = getDefaultChannelId(get().channelsSnapshot);
+        const channelId = form.deliveryChannel?.trim() || getDefaultChannelId(get().channelsSnapshot);
         if (channelId) {
-          delivery = { mode: "announce" as const, channel: channelId };
+          delivery = {
+            mode: "announce" as const,
+            channel: channelId,
+            ...(form.deliveryTo?.trim() ? { to: form.deliveryTo.trim() } : {}),
+          };
         } else {
           delivery = { mode: "none" as const };
         }

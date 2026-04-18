@@ -270,6 +270,16 @@ export type ScheduledTaskFormData = {
   scheduleAt: string;
   /** Delivery mode: "none" = run silently, "announce" = post result to channel. */
   deliveryMode: "none" | "announce";
+  /**
+   * Target channel id for "announce" mode (e.g. "openclaw-weixin", "telegram").
+   * When empty, the store auto-picks the first configured channel.
+   */
+  deliveryChannel?: string;
+  /**
+   * Target recipient id for channels that require an explicit `to` (e.g. openclaw-weixin).
+   * For openclaw-weixin this must be the user's WeChat ID (xxx@im.wechat).
+   */
+  deliveryTo?: string;
   agentPrompt: string;
 };
 

@@ -69,6 +69,13 @@ const DEFAULT_FORM: ScheduledTaskFormData = {
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
+
+/** Describes a channel available for delivery selection. */
+export type DeliveryChannelOption = {
+  id: string;
+  label: string;
+};
+
 interface TaskFormModalProps {
   open: boolean;
   mode: "new" | "edit";
@@ -76,6 +83,8 @@ interface TaskFormModalProps {
   saving?: boolean;
   /** Whether at least one messaging channel is configured. Used to warn when announce mode is selected. */
   hasChannel?: boolean;
+  /** List of available channels to choose from. When provided, shows a channel selector. */
+  channelOptions?: DeliveryChannelOption[];
   onSave: (form: ScheduledTaskFormData) => void;
   onClose: () => void;
 }
@@ -89,6 +98,7 @@ export function TaskFormModal({
   initialData,
   saving = false,
   hasChannel = true,
+  channelOptions,
   onSave,
   onClose,
 }: TaskFormModalProps) {
@@ -206,11 +216,18 @@ export function TaskFormModal({
   const isOneTimeValid = form.scheduleKind !== "one-time" || Boolean(oneTimeDate);
   const isEveryValid =
     form.scheduleKind !== "every" || parseInt(form.everyAmount, 10) > 0;
+  // openclaw-weixin requires an explicit deliveryTo
+  const isWeixinChannel =
+    form.deliveryMode === "announce" &&
+    (form.deliveryChannel === "openclaw-weixin" ||
+      (!form.deliveryChannel && channelOptions?.some((c) => c.id === "openclaw-weixin")));
+  const isDeliveryToValid = !isWeixinChannel || Boolean(form.deliveryTo?.trim());
   const isValid =
     form.name.trim().length > 0 &&
     form.agentPrompt.trim().length > 0 &&
     isOneTimeValid &&
-    isEveryValid;
+    isEveryValid &&
+    isDeliveryToValid;
 
   const title = mode === "new" ? "New Scheduled Task" : "Edit Scheduled Task";
   const showTimePicker = ["daily", "weekly", "monthly"].includes(form.scheduleKind);
@@ -219,8 +236,8 @@ export function TaskFormModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); } }}>
-      <DialogContent className="sm:max-w-[600px]" onOpenAutoFocus={(e) => e.preventDefault()}>
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] flex flex-col max-h-[90vh]" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
             The task will run automatically as scheduled, or it can be triggered manually at any
@@ -229,7 +246,7 @@ export function TaskFormModal({
           </p>
         </DialogHeader>
 
-        <div className="flex flex-col gap-5 pt-2">
+        <div className="flex flex-col gap-5 pt-2 overflow-y-auto flex-1 pr-1">
           {/* Task Name */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="task-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -474,10 +491,61 @@ export function TaskFormModal({
               </p>
             )}
           </div>
+
+          {/* Channel selector — shown when announce mode is on and channelOptions are available */}
+          {form.deliveryMode === "announce" && channelOptions && channelOptions.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="task-delivery-channel" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Delivery Channel
+              </Label>
+              <Select
+                value={form.deliveryChannel ?? "__auto__"}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    deliveryChannel: v === "__auto__" ? undefined : v,
+                    deliveryTo: "",
+                  }))
+                }
+                disabled={saving}
+              >
+                <SelectTrigger id="task-delivery-channel">
+                  <SelectValue placeholder="Auto (first configured)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__auto__">Auto (first configured)</SelectItem>
+                  {channelOptions.map((ch) => (
+                    <SelectItem key={ch.id} value={ch.id}>{ch.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* deliveryTo — required for openclaw-weixin, optional for others */}
+          {form.deliveryMode === "announce" && (form.deliveryChannel === "openclaw-weixin" || (!form.deliveryChannel && channelOptions?.some((c) => c.id === "openclaw-weixin"))) && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="task-delivery-to" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Recipient ID <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="task-delivery-to"
+                type="password"
+                autoComplete="off"
+                placeholder="e.g. o9cq8xxxxxxxx@im.wechat"
+                value={form.deliveryTo ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, deliveryTo: e.target.value.trim() }))}
+                disabled={saving}
+              />
+              <p className="text-xs text-muted-foreground">
+                WeChat user ID (ends with @im.wechat). Required for openclaw-weixin delivery — find it in the conversation context or channel logs.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="flex items-center justify-end gap-3 pt-2 shrink-0 border-t mt-2">
           <Button variant="ghost" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
