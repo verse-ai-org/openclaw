@@ -147,11 +147,11 @@ export type ToolCallGroupProps = PropsWithChildren<{
 export const ToolCallGroup: FC<ToolCallGroupProps> = ({ startIndex, endIndex, children }) => {
   const toolCount = endIndex - startIndex + 1;
 
-  if (import.meta.env.DEV) {
-    console.log(
-      `[ToolCallGroup] startIndex=${startIndex} endIndex=${endIndex} toolCount=${toolCount}`,
-    );
-  }
+  // if (import.meta.env.DEV) {
+  //   console.log(
+  //     `[ToolCallGroup] startIndex=${startIndex} endIndex=${endIndex} toolCount=${toolCount}`,
+  //   );
+  // }
 
   return (
     <ToolCallGroupInner startIndex={startIndex} endIndex={endIndex} toolCount={toolCount}>

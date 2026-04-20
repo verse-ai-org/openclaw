@@ -13,7 +13,7 @@ import { UserEditComposer } from "./UserEditComposer";
 // ThreadView
 //
 // The main chat thread layout: message list + composer.
-// Wrap this inside <GatewayChatRuntimeProvider> before rendering.
+// Wrap this inside <@/providers/chat/GatewayChatRuntimeProvider> before rendering.
 // ---------------------------------------------------------------------------
 export const ThreadView: FC = () => {
   const messages = useChatStore((s) => s.messages);

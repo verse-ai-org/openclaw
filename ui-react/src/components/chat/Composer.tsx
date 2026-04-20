@@ -12,7 +12,8 @@ import { useChatStore } from "@/store/chat.store";
 // Composer
 //
 // Attachments: assistant-ui primitives (`ComposerAttachments`, `ComposerAddAttachment`)
-// + `adapters.attachments` in `GatewayChatRuntimeProvider` (see `gateway-attachment-adapter.ts`).
+// + `adapters.attachments` in `GatewayChatRuntimeProvider`
+//   (see `@/providers/chat/adapters/gateway-attachment-adapter.ts`).
 // ---------------------------------------------------------------------------
 export const Composer: FC = () => {
   const composerRuntime = useComposerRuntime();

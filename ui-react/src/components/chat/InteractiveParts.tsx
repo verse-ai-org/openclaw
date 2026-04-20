@@ -1,5 +1,4 @@
 import { type FC, useMemo } from "react";
-import { useMessage } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
 import {
   useChatStore,
@@ -107,8 +106,11 @@ function buildOptionListSummary(
   return [{ question: config.id, answer: nextUserMessage.content || "—" }];
 }
 
-export const InteractiveParts: FC = () => {
-  const message = useMessage();
+type InteractivePartsProps = {
+  messageId: string;
+};
+
+export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
   const { sendMessage } = useChatSend();
 
   const messages = useChatStore((s) => s.messages);
@@ -117,7 +119,7 @@ export const InteractiveParts: FC = () => {
   const interactiveSummaryById = useChatStore((s) => s.interactiveSummaryById);
 
   const { interactiveBlocks, nextUserMessage } = useMemo(() => {
-    const mid = message.id;
+    const mid = messageId;
 
     if (mid === STREAM_MESSAGE_ID) {
       return {
@@ -171,7 +173,7 @@ export const InteractiveParts: FC = () => {
     }
 
     return { interactiveBlocks: sourceBlocks, nextUserMessage };
-  }, [messages, message.id, interactiveStreamById, interactiveStreamOrder]);
+  }, [messages, messageId, interactiveStreamById, interactiveStreamOrder]);
 
   if (interactiveBlocks.length === 0) {
     return null;

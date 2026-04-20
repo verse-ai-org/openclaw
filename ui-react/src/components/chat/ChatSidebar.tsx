@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { SearchIcon } from "lucide-react";
-import { useSessionManager } from "@/hooks/useSessionManager";
+import { useSessionManager } from "@/hooks/session-manager";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { cn } from "@/lib/utils";

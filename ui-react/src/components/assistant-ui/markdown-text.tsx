@@ -18,7 +18,7 @@ import remarkGfm from "remark-gfm";
  */
 import type { Components } from "react-markdown";
 import { cn } from "@/lib/utils";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard.ts";
+import { useCopyToClipboard } from "@/hooks/common/use-copy-to-clipboard.ts";
 import { TooltipIconButton } from "./tooltip-icon-button.tsx";
 import { CheckIcon, CopyIcon } from "lucide-react";
 

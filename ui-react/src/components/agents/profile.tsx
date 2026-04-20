@@ -13,7 +13,7 @@ import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
-import type { SessionEntry } from "@/hooks/useSessionManager";
+import type { SessionEntry } from "@/hooks/session-manager";
 import { SectionLabel } from "./shared";
 
 export type ParsedIdentity = {

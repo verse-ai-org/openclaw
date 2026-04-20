@@ -1,4 +1,4 @@
-import { GatewayChatRuntimeProvider } from "@/components/chat/GatewayChatRuntimeProvider";
+import { GatewayChatRuntimeProvider } from "@/providers/chat";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ThreadView } from "@/components/chat/ThreadView";
 import { useChatEventBridge } from "@/hooks/chat-event-bridge";

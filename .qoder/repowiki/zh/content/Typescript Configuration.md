@@ -17,14 +17,14 @@
 - [ui-react/src/App.tsx](file://ui-react/src/App.tsx)
 - [ui-react/src/main.tsx](file://ui-react/src/main.tsx)
 - [ui-react/src/router.tsx](file://ui-react/src/router.tsx)
+- [.gitignore](file://.gitignore)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 更新了 React 应用 TypeScript 配置部分，反映全面重建的配置文件
-- 新增了 React 应用组件文件正确索引的相关内容
-- 更新了 TypeScript 配置架构图以反映最新的配置结构
-- 增强了 React 应用构建配置的详细说明
+- 更新了 React 应用 TypeScript 配置部分，反映 ui-react/tsconfig.json 已简化为单一文件配置
+- 更新了 TypeScript 配置架构图以反映简化的配置结构
+- 优化了 Git 忽略规则说明，反映 .gitignore 中 TypeScript 构建信息文件的通配符模式优化
 
 ## 目录
 1. [简介](#简介)
@@ -46,11 +46,11 @@ OpenCLAW 项目采用多配置的 TypeScript 架构，支持多种运行环境�
 - 插件 SDK 构建系统
 - 统一的测试框架
 - 模块化的构建配置
-- **全新重建的 React 应用 TypeScript 配置**
+- **简化的 React 应用 TypeScript 配置**
 
 ## 项目结构
 
-项目采用分层的 TypeScript 配置架构，针对不同的应用场景提供专门的配置文件。**经过全面重构后，React 应用的 TypeScript 配置文件已完全重建并正确索引所有组件文件。**
+项目采用分层的 TypeScript 配置架构，针对不同的应用场景提供专门的配置文件。**经过重构后，React 应用的 TypeScript 配置文件已简化为单一文件配置，仅包含 extends 和 include 字段。**
 
 ```mermaid
 graph TB
@@ -66,7 +66,7 @@ end
 subgraph "前端配置"
 UI[ui/vite.config.ts<br/>Lit UI配置]
 ReactUI[ui-react/vite.config.ts<br/>React UI配置]
-ReactTS[ui-react/tsconfig.json<br/>React TS配置]
+ReactTS[ui-react/tsconfig.json<br/>简化的React TS配置]
 AppTS[ui-react/tsconfig.app.json<br/>应用TS配置]
 NodeTS[ui-react/tsconfig.node.json<br/>Node TS配置]
 end
@@ -88,11 +88,13 @@ ReactTS --> NodeTS
 - [tsconfig.json:1-29](file://tsconfig.json#L1-L29)
 - [package.json:1-474](file://package.json#L1-L474)
 - [ui-react/package.json:1-80](file://ui-react/package.json#L1-L80)
+- [ui-react/tsconfig.json:1-5](file://ui-react/tsconfig.json#L1-L5)
 
 **章节来源**
 - [tsconfig.json:1-29](file://tsconfig.json#L1-L29)
 - [package.json:1-474](file://package.json#L1-L474)
 - [ui-react/package.json:1-80](file://ui-react/package.json#L1-L80)
+- [ui-react/tsconfig.json:1-5](file://ui-react/tsconfig.json#L1-L5)
 
 ## 核心配置组件
 
@@ -140,14 +142,14 @@ Vitest 配置提供了全面的测试基础设施，支持并行执行和代码�
 
 ## 架构概览
 
-项目采用模块化的 TypeScript 配置架构，每个子系统都有专门的配置文件。**React 应用的 TypeScript 配置已进行全面重建，确保所有组件文件都正确索引。**
+项目采用模块化的 TypeScript 配置架构，每个子系统都有专门的配置文件。**React 应用的 TypeScript 配置已简化为单一文件，通过 extends 引用应用配置，仅包含必要的 include 字段。**
 
 ```mermaid
 graph TD
 subgraph "构建系统"
 Build[tsdown.config.ts<br/>Rollup构建器]
 ElectronTS[apps/electron/tsconfig.json<br/>Electron编译]
-ReactTS[ui-react/tsconfig.json<br/>React TS配置]
+ReactTS[ui-react/tsconfig.json<br/>简化的React TS配置]
 ReactAppTS[ui-react/tsconfig.app.json<br/>应用TS配置]
 ReactNodeTS[ui-react/tsconfig.node.json<br/>Node TS配置]
 end
@@ -180,7 +182,7 @@ ReactPackage --> ReactConfig
 **图表来源**
 - [tsdown.config.ts:102-144](file://tsdown.config.ts#L102-L144)
 - [apps/electron/tsconfig.json:1-27](file://apps/electron/tsconfig.json#L1-L27)
-- [ui-react/tsconfig.json:1-12](file://ui-react/tsconfig.json#L1-L12)
+- [ui-react/tsconfig.json:1-5](file://ui-react/tsconfig.json#L1-L5)
 - [ui-react/tsconfig.app.json:1-26](file://ui-react/tsconfig.app.json#L1-L26)
 - [ui-react/tsconfig.node.json:1-14](file://ui-react/tsconfig.node.json#L1-L14)
 
@@ -228,20 +230,21 @@ PluginSDKConfig --> ExportMapping
 
 ### React 应用 TypeScript 配置
 
-**已更新** React 应用的 TypeScript 配置已全面重建，所有组件文件都已正确索引。
+**已更新** React 应用的 TypeScript 配置已简化为单一文件配置，通过 extends 引用应用配置，仅包含必要的 include 字段。
 
-React 应用配置支持热重载、环境变量注入和 Tailwind CSS 集成：
+简化的 React 应用配置支持热重载、环境变量注入和 Tailwind CSS 集成：
 
 **关键特性：**
+- **简化的单一文件配置**：仅包含 extends 和 include 字段
 - 分离的应用和 Node 配置文件
 - React 和 Tailwind CSS 插件集成
 - 环境变量定义（网关端口、令牌）
 - 路径别名配置（@/* 和 @gateway/*）
 - 多入口点支持（主应用和设置页面）
-- 完全重建的组件索引系统
+- **简化的配置结构**：通过 extends 引用 tsconfig.app.json
 
 **章节来源**
-- [ui-react/tsconfig.json:1-12](file://ui-react/tsconfig.json#L1-L12)
+- [ui-react/tsconfig.json:1-5](file://ui-react/tsconfig.json#L1-L5)
 - [ui-react/tsconfig.app.json:1-26](file://ui-react/tsconfig.app.json#L1-L26)
 - [ui-react/tsconfig.node.json:1-14](file://ui-react/tsconfig.node.json#L1-L14)
 
@@ -260,7 +263,7 @@ Lit UI 配置专注于性能优化和静态资源处理：
 
 ### React 应用组件架构
 
-**新增** React 应用已完全重构，包含完整的组件体系：
+React 应用已重构，包含完整的组件体系：
 
 ```mermaid
 graph TD
@@ -369,6 +372,7 @@ UICFG --> ControlUIDist
 
 ### 构建性能优化
 
+- **简化的配置结构**：React 应用配置文件数量减少，降低配置解析开销
 - **并行工作线程**：根据 CPU 核心数动态调整测试并发度
 - **条件日志过滤**：减少构建过程中的噪声输出
 - **模块化构建**：插件 SDK 单独构建以避免重复代码
@@ -381,6 +385,19 @@ UICFG --> ControlUIDist
 - **类型检查**：编译时错误检测减少运行时开销
 - **源码映射**：调试时的性能影响最小化
 - **组件懒加载**：React 应用的按需加载优化
+
+### Git 忽略规则优化
+
+**已更新** .gitignore 中的 TypeScript 构建信息文件忽略规则已优化为通配符模式：
+
+**优化的忽略规则：**
+- `*.tsbuildinfo` - 通配符模式匹配所有 TypeScript 构建信息文件
+- 支持多层级目录结构中的构建信息文件
+- 减少对单个文件的硬编码依赖
+- 提高忽略规则的维护性和可扩展性
+
+**章节来源**
+- [.gitignore:12](file://.gitignore#L12)
 
 ## 故障排除指南
 
@@ -396,25 +413,32 @@ UICFG --> ControlUIDist
 - 清理 `node_modules` 和 `dist` 目录
 - 重新生成插件 SDK 类型定义
 - 检查 `tsconfig.plugin-sdk.dts.json` 的包含路径
-- **确认 React 应用配置文件的正确索引**
+- **确认简化的 React 应用配置文件正确继承应用配置**
 
 **构建失败**
 - 检查 Node.js 版本要求（>= 22.12.0）
 - 验证 `tsdown` 配置中的入口点定义
 - 确认所有必需的构建工具已安装
-- **检查 React 应用的 TypeScript 版本兼容性**
+- **检查简化的 React 应用 TypeScript 配置继承关系**
 
 ### React 应用特定问题
 
-**组件导入错误**
-- 验证 React 应用中所有组件文件的正确索引
-- 检查路径别名配置是否正确解析
-- 确认组件文件的导出和导入语法
+**配置继承问题**
+- 验证 `ui-react/tsconfig.json` 是否正确 extends `tsconfig.app.json`
+- 检查 `include` 字段是否包含正确的源码目录
+- 确认应用配置文件中的路径别名设置正确
 
 **构建输出问题**
 - 检查 React 应用的构建输出目录配置
 - 验证构建脚本的正确执行
 - 确认构建产物的完整性
+
+### Git 忽略规则问题
+
+**TypeScript 构建信息文件未被忽略**
+- 验证 `.gitignore` 中的 `*.tsbuildinfo` 规则
+- 检查通配符模式是否正确匹配多层级目录
+- 确认忽略规则的优先级和覆盖关系
 
 **测试相关问题**
 
@@ -431,20 +455,22 @@ UICFG --> ControlUIDist
 **章节来源**
 - [vitest.config.ts:71-100](file://vitest.config.ts#L71-L100)
 - [tsdown.config.ts:76-100](file://tsdown.config.ts#L76-L100)
-- [ui-react/tsconfig.json:1-12](file://ui-react/tsconfig.json#L1-L12)
+- [ui-react/tsconfig.json:1-5](file://ui-react/tsconfig.json#L1-L5)
+- [.gitignore:12](file://.gitignore#L12)
 
 ## 结论
 
 OpenCLAW 项目的 TypeScript 配置展现了现代 JavaScript 生态系统的最佳实践。通过模块化的配置架构、完善的测试基础设施和优化的构建流程，项目实现了高度的可维护性和扩展性。
 
-**经过全面重构后，React 应用的 TypeScript 配置现已完全重建，所有组件文件都已正确索引，反映了项目的整体 TypeScript 重构和优化。**
+**经过重构后，React 应用的 TypeScript 配置现已简化为单一文件配置，通过 extends 引用应用配置，仅包含必要的 include 字段，反映了项目的整体配置优化。**
 
 关键优势包括：
+- **简化的配置结构**：减少配置文件数量，提高维护效率
 - **统一的类型系统**：确保代码质量和开发体验
 - **灵活的构建配置**：支持多种运行环境和部署目标
 - **强大的测试框架**：提供全面的质量保证
 - **优化的开发体验**：快速的热重载和错误反馈
-- **完整的 React 应用支持**：全新的 TypeScript 配置架构
-- **正确的组件索引**：确保所有 React 组件文件都能被正确识别和构建
+- **简化的 React 应用支持**：简化的 TypeScript 配置架构
+- **优化的 Git 忽略规则**：改进的 TypeScript 构建信息文件处理
 
-这种配置策略为大型 TypeScript 项目提供了可扩展的模板，可以作为其他复杂项目的参考实现。**React 应用的全面重构确保了更好的类型安全性、更清晰的组件组织和更高效的开发体验。**
+这种配置策略为大型 TypeScript 项目提供了可扩展的模板，可以作为其他复杂项目的参考实现。**简化的 React 应用配置确保了更好的类型安全性、更清晰的配置组织和更高效的开发体验。**

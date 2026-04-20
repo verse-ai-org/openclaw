@@ -8,10 +8,6 @@ import {
   SimpleImageAttachmentAdapter,
 } from "@assistant-ui/react";
 
-// ---------------------------------------------------------------------------
-// Same allowlist as the previous manual Composer (non-image types only for
-// GatewayBinaryAttachmentAdapter — images are handled by SimpleImageAttachmentAdapter).
-// ---------------------------------------------------------------------------
 export const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -35,7 +31,6 @@ export const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per file
-
 const NON_IMAGE_MIME_TYPES = [...ALLOWED_MIME_TYPES].filter((m) => !m.startsWith("image/"));
 
 function fileToBase64Raw(file: File): Promise<string> {
@@ -52,16 +47,13 @@ function fileToBase64Raw(file: File): Promise<string> {
   });
 }
 
-/**
- * Non-image files as base64 `file` message parts for the Gateway (matches legacy Zustand upload shape).
- */
 class GatewayBinaryAttachmentAdapter implements AttachmentAdapter {
   accept = NON_IMAGE_MIME_TYPES.join(",");
 
   async add(state: { file: File }): Promise<PendingAttachment> {
     const { file } = state;
     if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`File exceeds 5 MB limit`);
+      throw new Error("File exceeds 5 MB limit");
     }
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
       throw new Error("File type is not supported");
@@ -97,7 +89,6 @@ class GatewayBinaryAttachmentAdapter implements AttachmentAdapter {
   }
 }
 
-/** Used by `useExternalStoreRuntime` so `ComposerAddAttachment` / `ComposerAttachments` work. */
 export function createGatewayCompositeAttachmentAdapter(): CompositeAttachmentAdapter {
   return new CompositeAttachmentAdapter([
     new SimpleImageAttachmentAdapter(),

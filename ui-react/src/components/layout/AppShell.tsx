@@ -6,7 +6,7 @@ import { UpdateBanner } from "@/components/layout/UpdateBanner";
 import { AppSidebar } from "@/components/layout/Sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { useGateway } from "@/hooks/useGateway";
+import { useGateway } from "@/hooks/gateway";
 import { TAB_PATHS } from "@/types/gateway";
 
 /** Map path → readable breadcrumb label */

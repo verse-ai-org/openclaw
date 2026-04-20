@@ -36,7 +36,7 @@ const SIZE_CLASS: Record<AgentAvatarSize, string> = {
 export const AgentAvatar: FC<AgentAvatarProps> = ({ size = "md", showLoading = false }) => {
   // Mirror the same sessionKey resolution used by GatewayChatRuntimeProvider:
   // chat.store.sessionKey takes precedence; fall back to persisted settings.sessionKey.
-  // This ensures we get the correct key even before useSessionManager writes to chat.store.
+  // This ensures we get the correct key even before session-manager writes to chat.store.
   const chatSessionKey = useChatStore((s) => s.sessionKey);
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
   const sessionKey = (chatSessionKey ?? settingsSessionKey ?? "main") || "main";

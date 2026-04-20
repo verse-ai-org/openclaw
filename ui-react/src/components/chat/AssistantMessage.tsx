@@ -111,7 +111,7 @@ export const AssistantMessage: FC = () => {
 
           <AssistantToolGroup toolParts={toolParts} />
 
-          <InteractiveParts />
+          <InteractiveParts messageId={messageId} />
         </div>
       </div>
     </MessagePrimitive.Root>

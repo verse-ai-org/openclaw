@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { resolveSessionDisplayName, type SessionEntry } from "@/hooks/useSessionManager";
+import { resolveSessionDisplayName, type SessionEntry } from "@/hooks/session-manager";
 import type { GatewayAgentRow } from "@/types/agents";
 import { resolveAgentEmoji, resolveAgentDisplayName, resolveAgentBio } from "./AgentList";
 

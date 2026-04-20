@@ -4,7 +4,7 @@ import type { SerializableOptionList } from "@/components/tool-ui/option-list";
 
 // ---------------------------------------------------------------------------
 // History reload via Zustand state — set a pending key to trigger reload.
-// useSessionManager watches pendingHistoryReloadKey and calls loadHistory.
+// session-manager watches pendingHistoryReloadKey and calls loadHistory.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -157,11 +157,11 @@ interface ChatState {
   sessionKey: string | null;
 
   // Pending history reload: set to a session key to request a silent reload.
-  // useSessionManager watches this and calls loadHistory when non-null.
+  // session-manager watches this and calls loadHistory when non-null.
   pendingHistoryReloadKey: string | null;
 
   // Monotonic counter bumped after each completed generation to signal
-  // useSessionManager to re-fetch the session list (so derivedTitle updates).
+  // session-manager to re-fetch the session list (so derivedTitle updates).
   pendingSessionsReloadSeq: number;
 
   // Last error message (shown inline in the thread)
