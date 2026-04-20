@@ -3,8 +3,11 @@
 <cite>
 **本文档引用的文件**
 - [Composer.tsx](file://ui-react/src/components/chat/Composer.tsx)
+- [UserEditComposer.tsx](file://ui-react/src/components/chat/UserEditComposer.tsx)
+- [ThreadView.tsx](file://ui-react/src/components/chat/ThreadView.tsx)
+- [UserMessage.tsx](file://ui-react/src/components/chat/UserMessage.tsx)
 - [attachment.tsx](file://ui-react/src/components/assistant-ui/attachment.tsx)
-- [gateway-attachment-adapter.ts](file://ui-react/src/components/chat/gateway-attachment-adapter.ts)
+- [GatewayChatRuntimeProvider.tsx](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx)
 - [GatewayChatRuntimeProvider.tsx](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx)
 - [package.json](file://ui-react/package.json)
 - [attachment-normalize.ts](file://src/gateway/server-methods/attachment-normalize.ts)
@@ -15,10 +18,14 @@
 
 ## 更新摘要
 **变更内容**
-- Composer组件已简化为使用新的assistant-ui附件原语
-- 复杂文件上传逻辑替换为ComposerAttachments和ComposerAddAttachment组件
-- 引入了GatewayChatRuntimeProvider作为运行时提供者
-- 新增了GatewayAttachmentAdapter适配器支持多类型文件上传
+- **新增UserEditComposer组件**：专门用于处理消息编辑功能，分离编辑体验
+- **增强Composer组件架构**：将编辑功能从主Composer组件中分离，提升代码组织性
+- **改进消息编辑体验**：通过UserEditComposer提供更直观的编辑界面
+- **解决编辑后重新发送问题**：通过UserEditSaveButton确保编辑后的消息能够正确发送
+- **Composer组件已简化为使用新的assistant-ui附件原语**
+- **复杂文件上传逻辑替换为ComposerAttachments和ComposerAddAttachment组件**
+- **引入了GatewayChatRuntimeProvider作为运行时提供者**
+- **新增了GatewayAttachmentAdapter适配器支持多类型文件上传**
 - **新增草稿消息预填充功能**：支持从代理配置页面和计划任务页面自动预填充聊天输入框
 - **增强用户体验**：通过预填充功能减少用户输入工作量，提升聊天效率
 
@@ -29,10 +36,11 @@
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
 6. [草稿消息预填充功能](#草稿消息预填充功能)
-7. [依赖关系分析](#依赖关系分析)
-8. [性能考虑](#性能考虑)
-9. [故障排除指南](#故障排除指南)
-10. [结论](#结论)
+7. [消息编辑功能](#消息编辑功能)
+8. [依赖关系分析](#依赖关系分析)
+9. [性能考虑](#性能考虑)
+10. [故障排除指南](#故障排除指南)
+11. [结论](#结论)
 
 ## 简介
 
@@ -45,6 +53,7 @@ Composer 组件是 OpenClaw 项目中的核心聊天输入组件，基于 @assis
 - 集成GatewayChatRuntimeProvider进行实时通信
 - 支持拖拽上传和文件类型验证
 - **新增草稿消息预填充功能**：自动预填充聊天输入框内容，提升用户体验
+- **新增消息编辑功能**：通过UserEditComposer提供专业的编辑界面
 
 ## 项目结构
 
@@ -54,14 +63,20 @@ OpenClaw 项目采用现代化的React架构，Composer组件位于UI层的核�
 graph TB
 subgraph "UI层"
 Composer[Composer 组件]
+UserEditComposer[UserEditComposer 编辑组件]
 Attachment[附件组件]
 RuntimeProvider[运行时提供者]
 DraftPrefill[草稿消息预填充]
+ThreadView[线程视图]
+UserMessage[用户消息组件]
+EndEditButton[编辑保存按钮]
 end
 subgraph "assistant-ui 原语"
 ComposerPrimitive[ComposerPrimitive]
 AttachmentPrimitive[AttachmentPrimitive]
 MessagePrimitive[MessagePrimitive]
+ThreadPrimitive[ThreadPrimitive]
+ActionBarPrimitive[ActionBarPrimitive]
 end
 subgraph "适配器层"
 GatewayAdapter[Gateway 附件适配器]
@@ -79,6 +94,12 @@ end
 Composer --> Attachment
 Composer --> RuntimeProvider
 Composer --> DraftPrefill
+UserEditComposer --> EndEditButton
+UserEditComposer --> ComposerPrimitive
+UserEditComposer --> MessagePrimitive
+ThreadView --> UserEditComposer
+ThreadView --> UserMessage
+UserMessage --> ActionBarPrimitive
 Attachment --> AttachmentPrimitive
 RuntimeProvider --> ComposerPrimitive
 RuntimeProvider --> CompositeAdapter
@@ -91,13 +112,19 @@ DraftPrefill --> ScheduledTasks
 ```
 
 **图表来源**
-- [Composer.tsx:16-86](file://ui-react/src/components/chat/Composer.tsx#L16-L86)
+- [Composer.tsx:16-115](file://ui-react/src/components/chat/Composer.tsx#L16-L115)
+- [UserEditComposer.tsx:46-97](file://ui-react/src/components/chat/UserEditComposer.tsx#L46-L97)
+- [ThreadView.tsx:8-10](file://ui-react/src/components/chat/ThreadView.tsx#L8-L10)
+- [UserMessage.tsx:68-83](file://ui-react/src/components/chat/UserMessage.tsx#L68-L83)
 - [attachment.tsx:197-222](file://ui-react/src/components/assistant-ui/attachment.tsx#L197-L222)
 - [GatewayChatRuntimeProvider.tsx:476-489](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L476-L489)
 - [chat.store.ts:161-165](file://ui-react/src/store/chat.store.ts#L161-L165)
 
 **章节来源**
 - [Composer.tsx:1-115](file://ui-react/src/components/chat/Composer.tsx#L1-L115)
+- [UserEditComposer.tsx:1-98](file://ui-react/src/components/chat/UserEditComposer.tsx#L1-L98)
+- [ThreadView.tsx:1-201](file://ui-react/src/components/chat/ThreadView.tsx#L1-L201)
+- [UserMessage.tsx:1-144](file://ui-react/src/components/chat/UserMessage.tsx#L1-L144)
 - [attachment.tsx:1-223](file://ui-react/src/components/assistant-ui/attachment.tsx#L1-L223)
 
 ## 核心组件
@@ -118,6 +145,15 @@ class Composer {
 + handleSend() : Promise
 + handleCancel() : Promise
 + consumePendingDraft() : void
+}
+class UserEditComposer {
+- composerRuntime : ComposerRuntime
+- userEditSaveButton : UserEditSaveButton
+- messagePrimitive : MessagePrimitive
+- composerPrimitive : ComposerPrimitive
++ render() : JSX.Element
++ handleEditSave() : Promise
++ handleCancelEdit() : void
 }
 class AttachmentComponents {
 + composerAttachments : ComposerAttachments
@@ -150,6 +186,9 @@ class GatewayAttachmentAdapter {
 }
 Composer --> AttachmentComponents : "使用"
 Composer --> DraftPrefillSystem : "集成"
+UserEditComposer --> UserEditSaveButton : "包含"
+UserEditComposer --> ComposerPrimitive : "使用"
+UserEditComposer --> MessagePrimitive : "使用"
 AttachmentComponents --> AttachmentUI : "包含"
 AttachmentComponents --> GatewayAttachmentAdapter : "集成"
 DraftPrefillSystem --> composerRuntime : "控制"
@@ -158,6 +197,7 @@ DraftPrefillSystem --> chatStore : "读取状态"
 
 **图表来源**
 - [Composer.tsx:16-115](file://ui-react/src/components/chat/Composer.tsx#L16-L115)
+- [UserEditComposer.tsx:17-44](file://ui-react/src/components/chat/UserEditComposer.tsx#L17-L44)
 - [attachment.tsx:126-185](file://ui-react/src/components/assistant-ui/attachment.tsx#L126-L185)
 - [gateway-attachment-adapter.ts:58-98](file://ui-react/src/components/chat/gateway-attachment-adapter.ts#L58-L98)
 - [chat.store.ts:161-180](file://ui-react/src/store/chat.store.ts#L161-L180)
@@ -170,6 +210,7 @@ participant User as 用户
 participant AgentProfile as 代理配置页面
 participant ScheduledTasks as 计划任务页面
 participant Composer as Composer
+participant UserEditComposer as UserEditComposer
 participant DraftPrefill as 草稿预填充系统
 participant AttachmentUI as 附件UI
 participant RuntimeProvider as 运行时提供者
@@ -180,6 +221,14 @@ DraftPrefill->>Composer : 组件挂载时消费草稿
 User->>Composer : 导航到聊天页面
 Composer->>DraftPrefill : 检查pendingDraftMessage
 DraftPrefill->>Composer : setText(草稿内容)
+User->>UserEditComposer : 点击编辑按钮
+UserEditComposer->>UserEditComposer : 修改消息内容
+UserEditComposer->>RuntimeProvider : 发送编辑消息
+RuntimeProvider->>Gateway : chat.send 请求
+Gateway->>RuntimeProvider : 响应确认
+RuntimeProvider->>UserEditComposer : 更新状态
+UserEditComposer->>UserEditComposer : 关闭编辑模式
+UserEditComposer->>UserEditComposer : 显示更新后的消息
 User->>AttachmentUI : 添加附件
 AttachmentUI->>Composer : 触发附件添加
 Composer->>RuntimeProvider : 发送消息
@@ -191,11 +240,15 @@ Composer->>User : 显示发送结果
 
 **图表来源**
 - [Composer.tsx:20-44](file://ui-react/src/components/chat/Composer.tsx#L20-L44)
+- [UserEditComposer.tsx:17-44](file://ui-react/src/components/chat/UserEditComposer.tsx#L17-L44)
 - [profile.tsx:407-439](file://ui-react/src/components/agents/profile.tsx#L407-L439)
 - [ScheduledTasksPage.tsx:116-127](file://ui-react/src/pages/ScheduledTasksPage.tsx#L116-L127)
 
 **章节来源**
 - [Composer.tsx:1-115](file://ui-react/src/components/chat/Composer.tsx#L1-L115)
+- [UserEditComposer.tsx:1-98](file://ui-react/src/components/chat/UserEditComposer.tsx#L1-L98)
+- [ThreadView.tsx:1-201](file://ui-react/src/components/chat/ThreadView.tsx#L1-L201)
+- [UserMessage.tsx:1-144](file://ui-react/src/components/chat/UserMessage.tsx#L1-L144)
 - [attachment.tsx:1-223](file://ui-react/src/components/assistant-ui/attachment.tsx#L1-L223)
 
 ## 架构概览
@@ -206,15 +259,20 @@ OpenClaw 的 Composer 组件采用现代化的React + assistant-ui架构设计�
 graph TB
 subgraph "Composer 层"
 Composer[Composer 组件]
+UserEditComposer[UserEditComposer 编辑组件]
 ComposerAttachments[ComposerAttachments]
 ComposerAddAttachment[ComposerAddAttachment]
 AttachmentUI[AttachmentUI]
 DraftPrefillSystem[草稿预填充系统]
+UserEditSaveButton[UserEditSaveButton]
 end
 subgraph "assistant-ui 原语层"
 ComposerPrimitive[ComposerPrimitive]
 AttachmentPrimitive[AttachmentPrimitive]
 MessagePrimitive[MessagePrimitive]
+ThreadPrimitive[ThreadPrimitive]
+ActionBarPrimitive[ActionBarPrimitive]
+useExternalStoreRuntime[useExternalStoreRuntime]
 end
 subgraph "适配器层"
 GatewayAttachmentAdapter[Gateway 附件适配器]
@@ -240,10 +298,15 @@ end
 Composer --> ComposerAttachments
 Composer --> ComposerAddAttachment
 Composer --> DraftPrefillSystem
+UserEditComposer --> UserEditSaveButton
+UserEditComposer --> ComposerPrimitive
+UserEditComposer --> MessagePrimitive
 ComposerAttachments --> AttachmentUI
 ComposerAddAttachment --> AttachmentUI
 AttachmentUI --> AttachmentPrimitive
 Composer --> ComposerPrimitive
+UserEditComposer --> ComposerPrimitive
+UserEditComposer --> MessagePrimitive
 DraftPrefillSystem --> DraftStore
 DraftPrefillSystem --> AgentProfile
 DraftPrefillSystem --> ScheduledTasks
@@ -259,6 +322,7 @@ GatewayChatRuntimeProvider --> SettingsStore
 
 **图表来源**
 - [Composer.tsx:1-115](file://ui-react/src/components/chat/Composer.tsx#L1-L115)
+- [UserEditComposer.tsx:46-97](file://ui-react/src/components/chat/UserEditComposer.tsx#L46-L97)
 - [attachment.tsx:197-222](file://ui-react/src/components/assistant-ui/attachment.tsx#L197-L222)
 - [GatewayChatRuntimeProvider.tsx:476-489](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L476-L489)
 - [chat.store.ts:161-180](file://ui-react/src/store/chat.store.ts#L161-L180)
@@ -366,6 +430,7 @@ end
 
 **章节来源**
 - [Composer.tsx:1-115](file://ui-react/src/components/chat/Composer.tsx#L1-L115)
+- [UserEditComposer.tsx:1-98](file://ui-react/src/components/chat/UserEditComposer.tsx#L1-L98)
 - [gateway-attachment-adapter.ts:1-106](file://ui-react/src/components/chat/gateway-attachment-adapter.ts#L1-L106)
 
 ### 性能优化策略
@@ -377,6 +442,7 @@ Composer 组件采用了多种性能优化策略：
 3. **文件预览**: 使用URL.createObjectURL优化大文件预览
 4. **内存管理**: 合理的事件监听器清理和对象URL释放
 5. **草稿消息缓存**: 一次性消费机制避免重复预填充
+6. **编辑功能分离**: UserEditComposer独立管理编辑状态，避免主Composer组件的复杂性
 
 **章节来源**
 - [attachment.tsx:28-46](file://ui-react/src/components/assistant-ui/attachment.tsx#L28-L46)
@@ -487,6 +553,121 @@ DraftPrefillSystem --> ChatState : "读取/写入"
 - [profile.tsx:407-439](file://ui-react/src/components/agents/profile.tsx#L407-L439)
 - [ScheduledTasksPage.tsx:116-127](file://ui-react/src/pages/ScheduledTasksPage.tsx#L116-L127)
 
+## 消息编辑功能
+
+### 功能概述
+
+**新增** OpenClaw 现在支持专业的消息编辑功能，通过UserEditComposer组件提供了一个独立的编辑界面。这个功能解决了用户需要修改之前发送消息的问题，提供了更好的用户体验。
+
+### 核心特性
+
+1. **独立编辑界面**：UserEditComposer提供专门的编辑UI，不与主Composer组件混淆
+2. **专业编辑体验**：提供清晰的编辑按钮和取消选项
+3. **解决重新发送问题**：通过UserEditSaveButton确保编辑后的消息能够正确发送
+4. **保持上下文完整性**：编辑功能不会破坏对话的历史记录
+5. **即时反馈**：编辑完成后立即更新消息显示
+
+### 实现机制
+
+```mermaid
+sequenceDiagram
+participant User as 用户
+participant UserMessage as UserMessage组件
+participant UserEditComposer as UserEditComposer
+participant UserEditSaveButton as UserEditSaveButton
+participant RuntimeProvider as 运行时提供者
+participant Gateway as 网关
+User->>UserMessage : 点击编辑按钮
+UserMessage->>UserEditComposer : 切换到编辑模式
+UserEditComposer->>UserEditComposer : 显示编辑输入框
+User->>UserEditComposer : 修改消息内容
+User->>UserEditSaveButton : 点击保存并发送
+UserEditSaveButton->>RuntimeProvider : 发送编辑消息
+RuntimeProvider->>Gateway : chat.send 请求
+Gateway->>RuntimeProvider : 响应确认
+RuntimeProvider->>UserEditComposer : 更新状态
+UserEditComposer->>UserEditComposer : 关闭编辑模式
+UserEditComposer->>UserMessage : 显示更新后的消息
+```
+
+**图表来源**
+- [UserMessage.tsx:68-83](file://ui-react/src/components/chat/UserMessage.tsx#L68-L83)
+- [UserEditComposer.tsx:17-44](file://ui-react/src/components/chat/UserEditComposer.tsx#L17-L44)
+- [UserEditComposer.tsx:56-97](file://ui-react/src/components/chat/UserEditComposer.tsx#L56-L97)
+
+### 编辑功能架构
+
+```mermaid
+classDiagram
+class UserEditComposer {
++composerPrimitive : ComposerPrimitive
++messagePrimitive : MessagePrimitive
++userEditSaveButton : UserEditSaveButton
++inputField : InputField
++cancelButton : CancelButton
++render() : JSX.Element
+}
+class UserEditSaveButton {
++composerRuntime : ComposerRuntime
++disabled : boolean
++onClick() : void
++render() : JSX.Element
+}
+class UserMessage {
++messagePrimitive : MessagePrimitive
++actionBarPrimitive : ActionBarPrimitive
++editButton : EditButton
++messageBubble : MessageBubble
++render() : JSX.Element
+}
+class ThreadView {
++userEditComposer : UserEditComposer
++userMessage : UserMessage
++composer : Composer
++render() : JSX.Element
+}
+UserEditComposer --> UserEditSaveButton : "包含"
+UserEditComposer --> ComposerPrimitive : "使用"
+UserEditComposer --> MessagePrimitive : "使用"
+UserMessage --> ActionBarPrimitive : "使用"
+ThreadView --> UserEditComposer : "渲染"
+ThreadView --> UserMessage : "渲染"
+ThreadView --> Composer : "渲染"
+```
+
+**图表来源**
+- [UserEditComposer.tsx:17-44](file://ui-react/src/components/chat/UserEditComposer.tsx#L17-L44)
+- [UserEditComposer.tsx:56-97](file://ui-react/src/components/chat/UserEditComposer.tsx#L56-L97)
+- [UserMessage.tsx:68-83](file://ui-react/src/components/chat/UserMessage.tsx#L68-L83)
+- [ThreadView.tsx:54-62](file://ui-react/src/components/chat/ThreadView.tsx#L54-L62)
+
+### 解决编辑后重新发送问题
+
+**重要更新** UserEditComposer通过UserEditSaveButton解决了编辑后重新发送的关键问题：
+
+```mermaid
+flowchart TD
+EditStart[开始编辑] --> CheckText{检查文本变化}
+CheckText --> |文本未变化| ForceSend[强制发送]
+CheckText --> |文本已变化| NormalSend[正常发送]
+ForceSend --> PassStartRun[传递startRun: true]
+NormalSend --> PassStartRun
+PassStartRun --> RuntimeSend[ComposerRuntime.send]
+RuntimeSend --> GatewayRequest[Gateway chat.send]
+GatewayRequest --> UpdateState[更新状态]
+UpdateState --> CloseEditMode[关闭编辑模式]
+CloseEditMode --> ShowUpdatedMessage[显示更新后的消息]
+```
+
+**图表来源**
+- [UserEditComposer.tsx:12-16](file://ui-react/src/components/chat/UserEditComposer.tsx#L12-L16)
+- [UserEditComposer.tsx:25-27](file://ui-react/src/components/chat/UserEditComposer.tsx#L25-L27)
+
+**章节来源**
+- [UserEditComposer.tsx:1-98](file://ui-react/src/components/chat/UserEditComposer.tsx#L1-L98)
+- [UserMessage.tsx:1-144](file://ui-react/src/components/chat/UserMessage.tsx#L1-L144)
+- [ThreadView.tsx:1-201](file://ui-react/src/components/chat/ThreadView.tsx#L1-L201)
+
 ## 依赖关系分析
 
 Composer 组件在整个系统中的依赖关系如下：
@@ -503,11 +684,15 @@ TailwindCSS[Tailwind CSS ^4.1.0]
 end
 subgraph "内部模块"
 Composer[Composer 组件]
+UserEditComposer[UserEditComposer 编辑组件]
 Attachment[附件组件]
 RuntimeProvider[运行时提供者]
 Adapter[适配器]
 Store[状态管理]
 DraftPrefill[草稿预填充系统]
+ThreadView[线程视图]
+UserMessage[用户消息组件]
+EndEditButton[编辑保存按钮]
 end
 subgraph "配置模块"
 PackageJSON[package.json]
@@ -519,32 +704,46 @@ AgentProfile[代理配置页面]
 ScheduledTasks[计划任务页面]
 end
 AssistantUI --> Composer
+AssistantUI --> UserEditComposer
+AssistantUI --> ThreadView
+AssistantUI --> UserMessage
 React --> Composer
+React --> UserEditComposer
 LucideReact --> Composer
+LucideReact --> UserEditComposer
+LucideReact --> UserMessage
 RadixUI --> Attachment
 Zustand --> Store
 TailwindCSS --> Theme
 Composer --> Attachment
 Composer --> RuntimeProvider
 Composer --> DraftPrefill
+UserEditComposer --> EndEditButton
+UserEditComposer --> ComposerPrimitive
+UserEditComposer --> MessagePrimitive
 Attachment --> Adapter
 RuntimeProvider --> Store
 DraftPrefill --> Store
+ThreadView --> UserEditComposer
+ThreadView --> UserMessage
 AgentProfile --> DraftPrefill
 ScheduledTasks --> DraftPrefill
 PackageJSON --> AssistantUI
 Theme --> TailwindCSS
 Utils --> Composer
+Utils --> UserEditComposer
 ```
 
 **图表来源**
 - [package.json:11-54](file://ui-react/package.json#L11-L54)
 - [Composer.tsx:1-115](file://ui-react/src/components/chat/Composer.tsx#L1-L115)
+- [UserEditComposer.tsx:1-98](file://ui-react/src/components/chat/UserEditComposer.tsx#L1-L98)
 - [chat.store.ts:161-180](file://ui-react/src/store/chat.store.ts#L161-L180)
 
 **章节来源**
 - [package.json:1-68](file://ui-react/package.json#L1-L68)
 - [Composer.tsx:1-115](file://ui-react/src/components/chat/Composer.tsx#L1-L115)
+- [UserEditComposer.tsx:1-98](file://ui-react/src/components/chat/UserEditComposer.tsx#L1-L98)
 
 ## 性能考虑
 
@@ -557,6 +756,8 @@ Composer 组件在设计时充分考虑了性能因素：
 3. **事件委托**: 使用事件委托优化附件操作的事件处理
 4. **内存优化**: 合理的文件对象URL管理和清理机制
 5. **草稿消息优化**: 一次性消费机制避免重复处理
+6. **编辑功能优化**: UserEditComposer独立管理编辑状态，避免主Composer组件的复杂性
+7. **组件懒加载**: UserEditComposer按需加载，减少初始包大小
 
 ### 可扩展性设计
 
@@ -567,6 +768,8 @@ Composer 组件提供了良好的扩展性：
 - **配置驱动**: 基于配置的组件行为定制
 - **主题系统**: 支持Tailwind CSS的主题定制
 - **草稿系统**: 支持多种外部触发源的消息预填充
+- **编辑系统**: 支持专业的消息编辑功能
+- **线程系统**: 支持复杂的对话历史管理
 
 ## 故障排除指南
 
@@ -577,6 +780,8 @@ Composer 组件提供了良好的扩展性：
 3. **预览显示错误**: 确认文件URL对象是否正确创建和清理
 4. **发送失败**: 检查网关连接状态和认证信息
 5. **草稿消息未显示**: 验证草稿消息是否正确设置和消费
+6. **编辑功能异常**: 检查UserEditComposer是否正确渲染和工作
+7. **编辑后无法重新发送**: 验证UserEditSaveButton的startRun参数传递
 
 ### 调试技巧
 
@@ -585,10 +790,13 @@ Composer 组件提供了良好的扩展性：
 - 监控网络请求和响应时间
 - 分析assistant-ui原语的状态变化
 - 跟踪草稿消息的状态流转
+- 监控编辑状态的切换和更新
+- 检查编辑消息的发送流程
 
 **章节来源**
 - [gateway-attachment-adapter.ts:15-35](file://ui-react/src/components/chat/gateway-attachment-adapter.ts#L15-L35)
 - [attachment.tsx:28-46](file://ui-react/src/components/assistant-ui/attachment.tsx#L28-L46)
+- [UserEditComposer.tsx:12-16](file://ui-react/src/components/chat/UserEditComposer.tsx#L12-L16)
 
 ## 结论
 
@@ -601,11 +809,15 @@ Composer 组件作为 OpenClaw 项目的核心聊天输入组件，经过重构�
 5. **可靠性**: 完善的错误处理和状态管理
 6. **易用性**: 直观的用户界面和交互设计
 7. **智能化体验**: **新增草稿消息预填充功能**显著提升了用户体验
+8. **专业编辑功能**: **新增UserEditComposer组件**提供了专业的消息编辑体验
 
 **新增功能亮点**：
 - **草稿消息预填充**：支持从代理配置页面和计划任务页面自动预填充聊天输入框
 - **无缝用户体验**：减少用户输入工作量，提升聊天效率
 - **灵活的触发机制**：支持多种外部触发源的消息预填充
 - **可靠的状态管理**：通过Zustand确保草稿消息的正确传递和消费
+- **专业编辑界面**：UserEditComposer提供独立的编辑体验
+- **解决重新发送问题**：通过UserEditSaveButton确保编辑后的消息正确发送
+- **分离编辑功能**：将编辑功能从主Composer组件中分离，提升代码组织性
 
-通过合理使用 Composer 组件，开发者可以构建高效、可靠且易于维护的聊天应用。其现代化架构设计和新增的草稿消息预填充功能为未来的功能扩展和技术演进奠定了坚实的基础，为用户提供了更加智能和便捷的聊天体验。
+通过合理使用 Composer 组件及其相关组件，开发者可以构建高效、可靠且易于维护的聊天应用。其现代化架构设计、新增的草稿消息预填充功能和专业的消息编辑功能为未来的功能扩展和技术演进奠定了坚实的基础，为用户提供了更加智能和便捷的聊天体验。
