@@ -38,17 +38,20 @@ describe("session-manager/actions", () => {
   it("switchSessionAction updates active session and delegates history load", async () => {
     const loadHistory = vi.fn(async () => {});
     const syncRunStatus = vi.fn(async () => {});
+    const persistSessionKey = vi.fn();
     const updateSpy = vi.spyOn(useSettingsStore.getState(), "updateSettings");
 
     await switchSessionAction({
       key: "agent:travel:main",
       loadHistory,
       syncRunStatus,
+      persistSessionKey,
     });
 
     expect(useChatStore.getState().sessionKey).toBe("agent:travel:main");
     expect(loadHistory).toHaveBeenCalledWith("agent:travel:main");
     expect(syncRunStatus).toHaveBeenCalledWith("agent:travel:main");
+    expect(persistSessionKey).toHaveBeenCalledWith("agent:travel:main");
     expect(updateSpy).toHaveBeenCalledWith({
       sessionKey: "agent:travel:main",
       lastActiveSessionKey: "agent:travel:main",

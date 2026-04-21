@@ -22,6 +22,7 @@ export function guardSessionManager(
   opts?: {
     agentId?: string;
     sessionKey?: string;
+    runId?: string;
     inputProvenance?: InputProvenance;
     allowSyntheticToolResults?: boolean;
     allowedToolNames?: Iterable<string>;
@@ -62,9 +63,28 @@ export function guardSessionManager(
       }
     : undefined;
 
+  const transformMessageForPersistence = (
+    // oxlint-disable-next-line typescript/no-explicit-any
+    message: any,
+  ) => {
+    const withProvenance = applyInputProvenanceToUserMessage(message, opts?.inputProvenance);
+    const runId = typeof opts?.runId === "string" ? opts.runId.trim() : "";
+    if (!runId) {
+      return withProvenance;
+    }
+
+    const role = String((withProvenance as { role?: unknown })?.role ?? "").toLowerCase();
+    if (role !== "assistant" && role !== "toolresult" && role !== "tool_result") {
+      return withProvenance;
+    }
+    if (typeof (withProvenance as { runId?: unknown })?.runId === "string") {
+      return withProvenance;
+    }
+    return { ...withProvenance, runId };
+  };
+
   const guard = installSessionToolResultGuard(sessionManager, {
-    transformMessageForPersistence: (message) =>
-      applyInputProvenanceToUserMessage(message, opts?.inputProvenance),
+    transformMessageForPersistence,
     transformToolResultForPersistence: transform,
     allowSyntheticToolResults: opts?.allowSyntheticToolResults,
     allowedToolNames: opts?.allowedToolNames,

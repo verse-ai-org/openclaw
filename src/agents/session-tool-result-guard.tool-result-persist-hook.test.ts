@@ -60,6 +60,13 @@ function getPersistedToolResult(sm: ReturnType<typeof SessionManager.inMemory>) 
   return messages.find((m) => (m as any).role === "toolResult") as any;
 }
 
+function getPersistedMessages(sm: ReturnType<typeof SessionManager.inMemory>) {
+  return sm
+    .getEntries()
+    .filter((e) => e.type === "message")
+    .map((e) => (e as { message: AgentMessage }).message);
+}
+
 afterEach(() => {
   resetGlobalHookRunner();
 });
@@ -74,6 +81,38 @@ describe("tool_result_persist hook", () => {
     const toolResult = getPersistedToolResult(sm);
     expect(toolResult).toBeTruthy();
     expect(toolResult.details).toBeTruthy();
+  });
+
+  it("persists runId on assistant/toolResult messages for new runs", () => {
+    const sm = guardSessionManager(SessionManager.inMemory(), {
+      agentId: "main",
+      sessionKey: "main",
+      runId: "run-123",
+    });
+    appendToolCallAndResult(sm);
+
+    const messages = getPersistedMessages(sm) as Array<Record<string, unknown>>;
+    const assistant = messages.find((m) => m.role === "assistant");
+    const toolResult = messages.find((m) => m.role === "toolResult");
+    expect(assistant?.runId).toBe("run-123");
+    expect(toolResult?.runId).toBe("run-123");
+  });
+
+  it("keeps existing message runId unchanged", () => {
+    const sm = guardSessionManager(SessionManager.inMemory(), {
+      agentId: "main",
+      sessionKey: "main",
+      runId: "run-outer",
+    });
+    const appendMessage = sm.appendMessage.bind(sm) as unknown as (message: AgentMessage) => void;
+    appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "hello" }],
+      runId: "run-inner",
+    } as AgentMessage);
+
+    const messages = getPersistedMessages(sm) as Array<Record<string, unknown>>;
+    expect(messages[0]?.runId).toBe("run-inner");
   });
 
   it("loads tool_result_persist hooks without breaking persistence", () => {

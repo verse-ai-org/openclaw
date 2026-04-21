@@ -685,6 +685,7 @@ function transcriptHasIdempotencyKey(
 function appendAssistantTranscriptMessage(params: {
   message: string;
   label?: string;
+  runId?: string;
   sessionId: string;
   storePath: string | undefined;
   sessionFile?: string;
@@ -734,6 +735,7 @@ function appendAssistantTranscriptMessage(params: {
     transcriptPath,
     message: params.message,
     label: params.label,
+    runId: params.runId,
     idempotencyKey: params.idempotencyKey,
     abortMeta: params.abortMeta,
   });
@@ -777,6 +779,7 @@ function persistAbortedPartials(params: {
     const sessionId = entry?.sessionId ?? snapshot.sessionId ?? snapshot.runId;
     const appended = appendAssistantTranscriptMessage({
       message: snapshot.text,
+      runId: snapshot.runId,
       sessionId,
       storePath,
       sessionFile: entry?.sessionFile,
@@ -1415,6 +1418,7 @@ export const chatHandlers: GatewayRequestHandlers = {
                 latestEntry?.sessionId ?? entry?.sessionId ?? clientRunId;
               const appended = appendAssistantTranscriptMessage({
                 message: combinedReply,
+                runId: clientRunId,
                 sessionId,
                 storePath: latestStorePath,
                 sessionFile: latestEntry?.sessionFile,

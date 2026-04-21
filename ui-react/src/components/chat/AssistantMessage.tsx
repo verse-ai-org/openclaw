@@ -62,6 +62,7 @@ export const AssistantMessage: FC = () => {
   }, [messages, messageId]);
 
   const showLoading = isSessionRunning && isLastMessage;
+  // const shouldShowAvatar = isFirstInTurn || (messageId === "__stream__" && isSessionRunning);
 
   const content = ((message as unknown as { content?: AssistantContentPart[] }).content ?? []) as
     | AssistantContentPart[]
@@ -103,13 +104,13 @@ export const AssistantMessage: FC = () => {
       {/* Content column — indented to align with avatar */}
       <div className="pl-2 w-full min-w-0">
         <div className="wrap-break-word text-foreground leading-relaxed">
+          <AssistantToolGroup toolParts={toolParts} />
+
           {textParts.map((part, index) => (
             <AssistantMarkdownPart key={`text-${index}`} text={part.text} />
           ))}
 
           <PromotedToolResult toolParts={toolParts} textContent={textContent} />
-
-          <AssistantToolGroup toolParts={toolParts} />
 
           <InteractiveParts messageId={messageId} />
         </div>

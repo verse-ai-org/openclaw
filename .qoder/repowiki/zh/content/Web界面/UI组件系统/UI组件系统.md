@@ -39,7 +39,15 @@
 - [settings.store.ts](file://ui-react/src/store/settings.store.ts)
 - [skills.ts](file://ui-react/src/types/skills.ts)
 - [skills-grouping.ts](file://ui-react/src/lib/skills-grouping.ts)
-- [useChatEventBridge.ts](file://ui-react/src/hooks/useChatEventBridge.ts)
+- [useChatEventBridge.ts](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts)
+- [chat-event.ts](file://ui-react/src/hooks/chat-event-bridge/handlers/chat-event.ts)
+- [agent-event.ts](file://ui-react/src/hooks/chat-event-bridge/handlers/agent-event.ts)
+- [shared.ts](file://ui-react/src/hooks/chat-event-bridge/handlers/shared.ts)
+- [message-normalize.ts](file://ui-react/src/hooks/chat-event-bridge/message-normalize.ts)
+- [session-scope.ts](file://ui-react/src/hooks/chat-event-bridge/session-scope.ts)
+- [run-guard.ts](file://ui-react/src/hooks/chat-event-bridge/run-guard.ts)
+- [interactive-blocks.ts](file://ui-react/src/hooks/chat-event-bridge/interactive-blocks.ts)
+- [chat-debug.ts](file://ui-react/src/lib/chat-debug.ts)
 - [ThreadView.tsx](file://ui-react/src/components/chat/ThreadView.tsx)
 - [Composer.tsx](file://ui-react/src/components/chat/Composer.tsx)
 - [UserMessage.tsx](file://ui-react/src/components/chat/UserMessage.tsx)
@@ -85,11 +93,16 @@
 
 ## 更新摘要
 **所做更改**
-- 新增代理卡组件视频播放功能，支持3:4比例和圆角设计
-- 更新SectionCard组件样式统一为圆角设计
-- 优化AppleToggle组件动画效果和禁用状态
-- 增强Agent管理界面的视频展示功能
-- 统一设计系统中的圆角和比例规范
+- 重大重构：聊天事件桥接系统从单一useChatEventBridge钩子转变为模块化的事件处理器架构
+- 新增专门的聊天事件处理器：chat-event.ts，负责处理chat通道事件
+- 新增专门的代理事件处理器：agent-event.ts，负责处理agent通道事件
+- 新增共享工具函数：shared.ts，包含运行时上下文和消息构建工具
+- 新增消息规范化工具：message-normalize.ts，处理消息内容和附件
+- 新增会话作用域管理：session-scope.ts，确保事件只应用于当前会话
+- 新增运行事件防护：run-guard.ts，防止过期运行事件的处理
+- 新增交互式块处理：interactive-blocks.ts，处理交互式工具调用
+- 新增聊天调试系统：chat-debug.ts，提供详细的事件处理日志
+- 新增测试覆盖：完整的单元测试确保模块化架构的稳定性
 
 ## 目录
 1. [简介](#简介)
@@ -116,13 +129,15 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 - **新增相对时间格式化系统**：提供本地化的相对时间显示，支持多语言环境
 - **新增ToolCallGroup和ToolFallback组件**：专门用于处理Xiaohongshu证据收集和路由确认步骤的工具调用可视化
 - **简化组件库结构**：删除button.tsx和calendar.tsx组件，移除不常用的日期选择功能
-- **插件系统UI简化**：移除PluginCard中的PackageIcon，优化插件管理界面
+- **插格系统UI简化**：移除PluginCard中的PackageIcon，优化插格管理界面
 - **新增SectionCard组件**：提供统一的卡片容器样式，支持自定义类名
 - **优化AppleToggle组件**：实现苹果风格的开关控件，支持禁用状态和动画效果
 - **增强Agent管理界面**：新增AgentCard、ProfileHeroSection、AgentDetailDrawer等组件
 - **改进Skills和Tools组件**：统一样式设计，提升用户体验一致性
 - **新增代理卡组件视频播放功能**：支持3:4比例和圆角设计，提供流畅的视频播放体验
 - **统一设计系统规范**：更新圆角和比例规范，确保界面一致性
+
+**重大重构**：聊天事件桥接系统从单一的useChatEventBridge钩子转变为模块化的事件处理器架构，将复杂的事件处理逻辑分解为专门的处理器模块，提高了代码的可维护性和可测试性。
 
 该系统支持实时聊天界面、配置管理、节点监控、日志查看等多种功能，通过WebSocket与OpenClaw网关进行通信。现代化的架构显著提升了用户体验和开发效率。
 
@@ -152,68 +167,79 @@ I --> Q[store/ - Zustand状态管理]
 I --> R[types/ - TypeScript类型]
 I --> S[lib/ - 工具函数]
 I --> T[hooks/ - 自定义Hook]
-P --> U[layout/ - 布局组件]
-P --> V[chat/ - 聊天组件]
-P --> W[skills/ - 技能组件]
-P --> X[plugins/ - 插件组件]
-P --> Y[ui/ - shadcn/ui组件库]
-P --> Z[sonner.tsx - Sonner通知系统]
-P --> AA[relative-time.ts - 相对时间格式化]
-P --> BB[ToolCallGroup.tsx - 工具调用分组组件]
-P --> CC[ToolFallback.tsx - 工具调用回退组件]
-P --> DD[agents/ - 代理管理组件]
-V --> SS[ThreadView.tsx - 聊天线程]
-V --> TT[Composer.tsx - 消息Composer]
-V --> UU[UserMessage.tsx - 用户消息]
-V --> VV[AssistantMessage.tsx - 助手消息]
-V --> WW[AgentSessionList.tsx - 代理会话列表]
-V --> BB[ToolCallGroup.tsx - 工具调用分组]
-V --> CC[ToolFallback.tsx - 工具调用回退]
-W --> XX[SkillCard.tsx - 技能卡片]
-W --> YY[SkillsToolbar.tsx - 技能工具栏]
-W --> ZZ[AddSkillDialog.tsx - 技能导入对话框]
-X --> DD[PluginCard.tsx - 插件卡片]
-X --> EE[PluginDetailDialog.tsx - 插件详情对话框]
-X --> FF[PluginsPage.tsx - 插件页面]
-Y --> GG[accordion.tsx - 手风琴组件]
-Y --> HH[alert-dialog.tsx - 警告对话框]
-Y --> II[alert.tsx - 警告组件]
-Y --> JJ[avatar.tsx - 头像组件]
-Y --> KK[badge.tsx - 徽章组件]
-Y --> LL[button.tsx - 按钮组件]
-Y --> MM[card.tsx - 卡片组件]
-Y --> NN[chart.tsx - 图表组件]
-Y --> OO[checkbox.tsx - 复选框组件]
-Y --> PP[collapsible.tsx - 可折叠组件]
-Y --> QQ[dialog.tsx - 对话框组件]
-Y --> RR[drawer.tsx - 抽屉组件]
-Y --> SS[dropdown-menu.tsx - 下拉菜单]
-Y --> TT[input.tsx - 输入框组件]
-Y --> UU[label.tsx - 标签组件]
-Y --> VV[popover.tsx - 弹出框组件]
-Y --> WW[scroll-area.tsx - 滚动区域]
-Y --> XX[select.tsx - 选择器组件]
-Y --> YY[separator.tsx - 分隔符组件]
-Y --> ZZ[sheet.tsx - 表格组件]
-Y --> AA[sidebar.tsx - 侧边栏组件]
-Y --> BB[skeleton.tsx - 骨架屏组件]
-Y --> CC[sonner.tsx - 通知组件]
-Y --> DD[switch.tsx - 开关组件]
-Y --> EE[tabs.tsx - 标签页组件]
-Y --> FF[tooltip.tsx - 工具提示组件]
-DD --> GG[shared.tsx - 通用组件]
-DD --> HH[card.tsx - 代理卡片]
-DD --> II[detail-drawer.tsx - 代理详情抽屉]
-DD --> JJ[profile.tsx - 代理档案]
-DD --> KK[skills.tsx - 技能管理]
-DD --> LL[tools.tsx - 工具管理]
-DD --> MM[soul.tsx - 灵魂管理]
+I --> U[chat-event-bridge/ - 模块化事件桥接]
+U --> V[useChatEventBridge.ts - 主要钩子]
+U --> W[handlers/ - 事件处理器]
+W --> X[chat-event.ts - 聊天事件处理器]
+W --> Y[agent-event.ts - 代理事件处理器]
+W --> Z[shared.ts - 共享工具函数]
+W --> AA[message-normalize.ts - 消息规范化]
+W --> BB[session-scope.ts - 会话作用域]
+W --> CC[run-guard.ts - 运行防护]
+W --> DD[interactive-blocks.ts - 交互式块]
+W --> EE[chat-debug.ts - 调试系统]
+P --> F[layout/ - 布局组件]
+P --> G[chat/ - 聊天组件]
+P --> H[skills/ - 技能组件]
+P --> I[plugins/ - 插件组件]
+P --> J[ui/ - shadcn/ui组件库]
+P --> K[sonner.tsx - Sonner通知系统]
+P --> L[relative-time.ts - 相对时间格式化]
+P --> M[ToolCallGroup.tsx - 工具调用分组组件]
+P --> N[ToolFallback.tsx - 工具调用回退组件]
+P --> O[agents/ - 代理管理组件]
+G --> SS[ThreadView.tsx - 聊天线程]
+G --> TT[Composer.tsx - 消息Composer]
+G --> UU[UserMessage.tsx - 用户消息]
+G --> VV[AssistantMessage.tsx - 助手消息]
+G --> WW[AgentSessionList.tsx - 代理会话列表]
+G --> M[ToolCallGroup.tsx - 工具调用分组]
+G --> N[ToolFallback.tsx - 工具调用回退]
+H --> XX[SkillCard.tsx - 技能卡片]
+H --> YY[SkillsToolbar.tsx - 技能工具栏]
+H --> ZZ[AddSkillDialog.tsx - 技能导入对话框]
+I --> DD[PluginCard.tsx - 插件卡片]
+I --> EE[PluginDetailDialog.tsx - 插件详情对话框]
+I --> FF[PluginsPage.tsx - 插件页面]
+J --> GG[accordion.tsx - 手风琴组件]
+J --> HH[alert-dialog.tsx - 警告对话框]
+J --> II[alert.tsx - 警告组件]
+J --> JJ[avatar.tsx - 头像组件]
+J --> KK[badge.tsx - 徽章组件]
+J --> LL[button.tsx - 按钮组件]
+J --> MM[card.tsx - 卡片组件]
+J --> NN[chart.tsx - 图表组件]
+J --> OO[checkbox.tsx - 复选框组件]
+J --> PP[collapsible.tsx - 可折叠组件]
+J --> QQ[dialog.tsx - 对话框组件]
+J --> RR[drawer.tsx - 抽屉组件]
+J --> SS[dropdown-menu.tsx - 下拉菜单]
+J --> TT[input.tsx - 输入框组件]
+J --> UU[label.tsx - 标签组件]
+J --> VV[popover.tsx - 弹出框组件]
+J --> WW[scroll-area.tsx - 滚动区域]
+J --> XX[select.tsx - 选择器组件]
+J --> YY[separator.tsx - 分隔符组件]
+J --> ZZ[sheet.tsx - 表格组件]
+J --> AA[sidebar.tsx - 侧边栏组件]
+J --> BB[skeleton.tsx - 骨架屏组件]
+J --> CC[sonner.tsx - 通知组件]
+J --> DD[switch.tsx - 开关组件]
+J --> EE[tabs.tsx - 标签页组件]
+J --> FF[tooltip.tsx - 工具提示组件]
+O --> GG[shared.tsx - 通用组件]
+O --> HH[card.tsx - 代理卡片]
+O --> II[detail-drawer.tsx - 代理详情抽屉]
+O --> JJ[profile.tsx - 代理档案]
+O --> KK[skills.tsx - 技能管理]
+O --> LL[tools.tsx - 工具管理]
+O --> MM[soul.tsx - 灵魂管理]
 GG --> NN[SectionCard - 卡片容器]
 GG --> OO[AppleToggle - 苹果开关]
 GG --> PP[DialogSearchInput - 搜索输入]
 GG --> QQ[CategoryPills - 分类标签]
-ZZ --> AAA[formatDistanceToNow - 相对时间格式化]
-ZZ --> BBB[relativeTime - 时间显示函数]
+Z --> AAA[formatDistanceToNow - 相对时间格式化]
+Z --> BBB[relativeTime - 时间显示函数]
 ```
 
 **图表来源**
@@ -225,7 +251,15 @@ ZZ --> BBB[relativeTime - 时间显示函数]
 - [relative-time.ts:1-46](file://ui-react/src/lib/relative-time.ts#L1-L46)
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 - [useSessionManager.ts:1-139](file://ui-react/src/hooks/useSessionManager.ts#L1-L139)
-- [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
+- [chat-event.ts:1-118](file://ui-react/src/hooks/chat-event-bridge/handlers/chat-event.ts#L1-L118)
+- [agent-event.ts:1-345](file://ui-react/src/hooks/chat-event-bridge/handlers/agent-event.ts#L1-L345)
+- [shared.ts:1-161](file://ui-react/src/hooks/chat-event-bridge/handlers/shared.ts#L1-L161)
+- [message-normalize.ts:1-129](file://ui-react/src/hooks/chat-event-bridge/message-normalize.ts#L1-L129)
+- [session-scope.ts:1-27](file://ui-react/src/hooks/chat-event-bridge/session-scope.ts#L1-L27)
+- [run-guard.ts:1-43](file://ui-react/src/hooks/chat-event-bridge/run-guard.ts#L1-L43)
+- [interactive-blocks.ts:1-56](file://ui-react/src/hooks/chat-event-bridge/interactive-blocks.ts#L1-L56)
+- [chat-debug.ts:1-113](file://ui-react/src/lib/chat-debug.ts#L1-L113)
 - [chat.store.ts:1-250](file://ui-react/src/store/chat.store.ts#L1-L250)
 - [skills.store.ts:1-312](file://ui-react/src/store/skills.store.ts#L1-L312)
 - [AppShell.tsx:1-96](file://ui-react/src/components/layout/AppShell.tsx#L1-L96)
@@ -513,36 +547,51 @@ ThreadView->>User : 渲染消息
 
 #### 聊天事件桥接系统
 
+**重大重构** 聊天事件桥接系统从单一useChatEventBridge钩子转变为模块化的事件处理器架构：
+
 ```mermaid
 flowchart TD
-A[聊天事件桥接] --> B[注册事件处理器]
-B --> C[处理chat事件]
-B --> D[处理agent事件]
-B --> E[处理history事件]
-B --> F[处理流式事件]
-C --> G[delta流式响应]
-C --> H[final最终响应]
-C --> I[aborted/错误处理]
-D --> J[tool调用开始]
-D --> K[result结果]
-D --> L[error错误]
-E --> M[合并工具结果]
-E --> N[标准化消息格式]
-F --> O[stream.start开始]
-F --> P[stream.chunk片段]
-F --> Q[stream.end结束]
+A[聊天事件桥接系统] --> B[模块化架构]
+B --> C[useChatEventBridge主钩子]
+B --> D[chat-event处理器]
+B --> E[agent-event处理器]
+B --> F[shared共享工具]
+C --> G[注册事件分发器]
+G --> H[处理chat事件]
+G --> I[处理agent事件]
+D --> J[处理聊天状态事件]
+J --> K[delta流式响应]
+J --> L[final最终响应]
+J --> M[aborted/错误处理]
+E --> N[处理代理生命周期事件]
+N --> O[start开始事件]
+N --> P[end结束事件]
+N --> Q[error错误事件]
+E --> R[处理工具调用事件]
+R --> S[start开始调用]
+R --> T[result结果]
+R --> U[error错误]
+R --> V[update更新]
+F --> W[BridgeRuntimeContext]
+F --> X[消息构建工具]
+F --> Y[运行事件分类]
 ```
 
 **图表来源**
-- [useChatEventBridge.ts:352-569](file://ui-react/src/hooks/useChatEventBridge.ts#L352-L569)
-- [chat.store.ts:8-19](file://ui-react/src/store/chat.store.ts#L8-L19)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
+- [chat-event.ts:1-118](file://ui-react/src/hooks/chat-event-bridge/handlers/chat-event.ts#L1-L118)
+- [agent-event.ts:1-345](file://ui-react/src/hooks/chat-event-bridge/handlers/agent-event.ts#L1-L345)
+- [shared.ts:1-161](file://ui-react/src/hooks/chat-event-bridge/handlers/shared.ts#L1-L161)
 
 **章节来源**
 - [ChatPage.tsx:6-21](file://ui-react/src/pages/ChatPage.tsx#L6-L21)
 - [ThreadView.tsx:15-49](file://ui-react/src/components/chat/ThreadView.tsx#L15-L49)
 - [Composer.tsx:11-89](file://ui-react/src/components/chat/Composer.tsx#L11-L89)
 - [chat.store.ts:136-250](file://ui-react/src/store/chat.store.ts#L136-L250)
-- [useChatEventBridge.ts:352-569](file://ui-react/src/hooks/useChatEventBridge.ts#L352-L569)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
+- [chat-event.ts:1-118](file://ui-react/src/hooks/chat-event-bridge/handlers/chat-event.ts#L1-L118)
+- [agent-event.ts:1-345](file://ui-react/src/hooks/chat-event-bridge/handlers/agent-event.ts#L1-L345)
+- [shared.ts:1-161](file://ui-react/src/hooks/chat-event-bridge/handlers/shared.ts#L1-L161)
 
 ### 现代化的技能管理组件
 
@@ -1424,42 +1473,39 @@ ToolCallGroup --> ToolFallback : 包含多个
 
 #### 聊天事件桥接系统
 
-useChatEventBridge提供了强大的聊天事件处理能力：
+**重大重构** useChatEventBridge现在是一个模块化的事件处理器架构：
 
 ```mermaid
 flowchart TD
-A[聊天事件桥接] --> B[注册事件处理器]
-B --> C[处理chat事件]
-B --> D[处理agent事件]
-B --> E[处理history事件]
-B --> F[处理流式事件]
-C --> G[delta流式响应]
-C --> H[final最终响应]
-C --> I[aborted/错误处理]
-D --> J[tool调用开始]
-D --> K[result结果]
-D --> L[error错误]
-E --> M[合并工具结果]
-E --> N[标准化消息格式]
-F --> O[stream.start开始]
-F --> P[stream.chunk片段]
-F --> Q[stream.end结束]
-G --> R[更新流式状态]
-H --> S[提交最终消息]
-I --> T[重置流式状态]
-J --> U[更新工具流状态]
-K --> V[标记工具完成]
-L --> W[标记工具错误]
-M --> X[提取内容块]
-N --> Y[提取工具调用部分]
-O --> Z[重置工具流]
-P --> AA[追加流片段]
-Q --> BB[最终化流]
+A[模块化聊天事件桥接] --> B[useChatEventBridge主钩子]
+B --> C[注册事件分发器]
+B --> D[事件路由]
+D --> E[chat事件处理器]
+D --> F[agent事件处理器]
+E --> G[聊天状态处理]
+G --> H[delta流式响应]
+G --> I[final最终响应]
+G --> J[aborted/错误处理]
+F --> K[代理生命周期处理]
+K --> L[start开始事件]
+K --> M[end结束事件]
+K --> N[error错误事件]
+F --> O[工具调用处理]
+O --> P[start开始调用]
+O --> Q[result结果]
+O --> R[error错误]
+O --> S[update更新]
+C --> T[注册运行时上下文]
+T --> U[pendingInteractiveHydrationRuns]
+T --> V[pendingToolResults]
+T --> W[activeRunBySession]
 ```
 
 **图表来源**
-- [useChatEventBridge.ts:352-569](file://ui-react/src/hooks/useChatEventBridge.ts#L352-L569)
-- [chat.store.ts:167-249](file://ui-react/src/store/chat.store.ts#L167-L249)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
+- [chat-event.ts:1-118](file://ui-react/src/hooks/chat-event-bridge/handlers/chat-event.ts#L1-L118)
+- [agent-event.ts:1-345](file://ui-react/src/hooks/chat-event-bridge/handlers/agent-event.ts#L1-L345)
+- [shared.ts:1-161](file://ui-react/src/hooks/chat-event-bridge/handlers/shared.ts#L1-L161)
 
 **章节来源**
 - [ThreadView.tsx:15-82](file://ui-react/src/components/chat/ThreadView.tsx#L15-L82)
@@ -1467,7 +1513,10 @@ Q --> BB[最终化流]
 - [AssistantMessage.tsx:20-58](file://ui-react/src/components/chat/AssistantMessage.tsx#L20-L58)
 - [ToolCallGroup.tsx:147-274](file://ui-react/src/components/chat/ToolCallGroup.tsx#L147-L274)
 - [ToolFallback.tsx:403-532](file://ui-react/src/components/chat/ToolFallback.tsx#L403-L532)
-- [useChatEventBridge.ts:352-569](file://ui-react/src/hooks/useChatEventBridge.ts#L352-L569)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
+- [chat-event.ts:1-118](file://ui-react/src/hooks/chat-event-bridge/handlers/chat-event.ts#L1-L118)
+- [agent-event.ts:1-345](file://ui-react/src/hooks/chat-event-bridge/handlers/agent-event.ts#L1-L345)
+- [shared.ts:1-161](file://ui-react/src/hooks/chat-event-bridge/handlers/shared.ts#L1-L161)
 
 ### 现代化的技能管理组件
 
@@ -1814,13 +1863,13 @@ useGateway --> useGatewayStore : 提供服务
 **图表来源**
 - [use-mobile.ts:3-19](file://ui-react/src/hooks/use-mobile.ts#L3-L19)
 - [useSessionManager.ts:13-139](file://ui-react/src/hooks/useSessionManager.ts#L13-L139)
-- [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
 - [useGateway.ts](file://ui-react/src/hooks/useGateway.ts)
 
 **章节来源**
 - [use-mobile.ts:1-20](file://ui-react/src/hooks/use-mobile.ts#L1-L20)
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
-- [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
 
 ### 现代化的Sonner Toast通知系统
 
@@ -2449,7 +2498,7 @@ O[radix-ui/react-*] --> P[基础UI组件]
 Q[lucide-react] --> R[图标库]
 S[use-mobile钩子] --> T[移动端检测]
 U[use-session-manager钩子] --> V[会话管理]
-W[use-chat-event-bridge钩子] --> X[聊天事件桥接]
+W[use-chat-event-bridge钩子] --> X[模块化事件桥接]
 Y[现代化状态管理] --> Z[Zustand Store]
 AA[sonner] --> BB[Sonner通知系统]
 AA --> CC[主题化通知]
@@ -2524,7 +2573,7 @@ LL[VideoShowcase组件] --> OO[自动播放]
 - [package.json:11-55](file://ui-react/package.json#L11-L55)
 - [components.json:1-22](file://ui-react/components.json#L1-22)
 - [useSessionManager.ts:1-12](file://ui-react/src/hooks/useSessionManager.ts#L1-L12)
-- [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
 - [chat.store.ts:1-250](file://ui-react/src/store/chat.store.ts#L1-L250)
 - [skills.store.ts:1-312](file://ui-react/src/store/skills.store.ts#L1-L312)
 - [navigation.ts:1-176](file://ui/src/ui/navigation.ts#L1-L176)
@@ -2589,7 +2638,7 @@ LL[VideoShowcase组件] --> OO[自动播放]
 - [package.json:11-55](file://ui-react/package.json#L11-L55)
 - [components.json:1-22](file://ui-react/components.json#L1-22)
 - [useSessionManager.ts:19-139](file://ui-react/src/hooks/useSessionManager.ts#L19-L139)
-- [useChatEventBridge.ts:1-570](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L570)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
 - [chat.store.ts:136-250](file://ui-react/src/store/chat.store.ts#L136-L250)
 - [skills.store.ts:86-296](file://ui-react/src/store/skills.store.ts#L86-L296)
 - [navigation.ts:1-176](file://ui/src/ui/navigation.ts#L1-L176)
@@ -3053,9 +3102,10 @@ PP[VideoShowcase调试] --> SSSS[自动播放检查]
 **章节来源**
 - [use-mobile.ts:8-16](file://ui-react/src/hooks/use-mobile.ts#L8-L16)
 - [useSessionManager.ts:37-41](file://ui-react/src/hooks/useSessionManager.ts#L37-L41)
-- [useChatEventBridge.ts:352-569](file://ui-react/src/hooks/useChatEventBridge.ts#L352-L569)
-- [chat.store.ts:167-249](file://ui-react/src/store/chat.store.ts#L167-L249)
-- [skills.store.ts:126-206](file://ui-react/src/store/skills.store.ts#L126-L206)
+- [useChatEventBridge.ts:1-62](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L1-L62)
+- [chat-event.ts:1-118](file://ui-react/src/hooks/chat-event-bridge/handlers/chat-event.ts#L1-L118)
+- [agent-event.ts:1-345](file://ui-react/src/hooks/chat-event-bridge/handlers/agent-event.ts#L1-L345)
+- [shared.ts:1-161](file://ui-react/src/hooks/chat-event-bridge/handlers/shared.ts#L1-L161)
 - [sidebar.tsx:174-197](file://ui-react/src/components/ui/sidebar.tsx#L174-L197)
 - [sonner.tsx:12](file://ui-react/src/components/ui/sonner.tsx#L12)
 - [sonner.tsx:18-24](file://ui-react/src/components/ui/sonner.tsx#L18-L24)
@@ -3102,6 +3152,8 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 16. **改进SoulSection组件**：增强编辑和预览功能
 17. **新增代理卡组件视频播放功能**：支持3:4比例和圆角设计，提供流畅的视频播放体验
 18. **统一设计系统规范**：更新圆角和比例规范，确保界面一致性
+
+**重大重构**：聊天事件桥接系统从单一的useChatEventBridge钩子转变为模块化的事件处理器架构，将复杂的事件处理逻辑分解为专门的处理器模块，提高了代码的可维护性和可测试性。
 
 ### 技术创新亮点
 
@@ -3177,3 +3229,9 @@ OpenClaw的UI组件系统经过重大架构升级，现已完全现代化为基�
 **新增的代理卡组件视频播放功能**为用户提供了更加丰富的代理展示体验，支持3:4比例和圆角设计，提升了视觉美感。**统一的设计系统规范**确保了所有组件的视觉一致性，为用户提供了更加专业和一致的界面体验。
 
 这次架构升级充分体现了现代Web应用的安全性和用户体验设计理念，为用户提供了便捷、安全的API密钥获取方式。现代化的Sidebar组件系统、聊天事件桥接系统、状态管理系统、通知系统、相对时间格式化系统、工具调用组件系统、旅行规划技能增强、插格系统简化、SectionCard样式改进、AppleToggle组件优化、Agent管理组件增强、VideoShowcase组件集成等共同构成了一个更加完善、可靠和用户友好的OpenClaw UI组件系统，为用户提供了现代化的AI助手管理体验。邀请码验证功能的加入使得用户能够更好地管理API密钥和模型配置，而增强的Profile界面则提供了更加丰富的个人资料管理能力。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。
+
+**模块化的聊天事件桥接系统**代表了本次重大重构的核心成就，通过将复杂的事件处理逻辑分解为专门的处理器模块，显著提升了代码的可维护性和可测试性。这种架构设计不仅解决了单一钩子可能带来的复杂性问题，还为未来的功能扩展提供了更加清晰的接口和边界。
+
+**新增的调试系统**为开发者提供了强大的调试工具，包括详细的事件日志、运行时上下文跟踪和性能监控功能，确保了系统的稳定性和可靠性。
+
+现代化的UI组件系统为用户提供了更加现代化和一致的用户体验，显著提升了平台的技术能力和实用性。这些改进不仅提升了当前的用户体验，也为未来功能扩展和技术演进奠定了坚实基础。

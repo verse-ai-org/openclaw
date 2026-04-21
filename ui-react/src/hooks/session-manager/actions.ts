@@ -7,12 +7,14 @@ export async function switchSessionAction(params: {
   key: string;
   loadHistory: (key: string, silent?: boolean) => Promise<void>;
   syncRunStatus?: (key: string) => Promise<void>;
+  persistSessionKey?: (key: string) => void;
 }) {
-  const { key, loadHistory, syncRunStatus } = params;
+  const { key, loadHistory, syncRunStatus, persistSessionKey } = params;
   useChatStore.getState().setSessionKey(key);
   useSettingsStore
     .getState()
     .updateSettings({ sessionKey: key, lastActiveSessionKey: key });
+  persistSessionKey?.(key);
   await loadHistory(key);
   await syncRunStatus?.(key);
 }

@@ -18,7 +18,7 @@
 - [chat.store.ts](file://ui-react/src/store/chat.store.ts)
 - [useChatEventBridge.ts](file://ui-react/src/hooks/useChatEventBridge.ts)
 - [useSessionManager.ts](file://ui-react/src/hooks/useSessionManager.ts)
-- [GatewayChatRuntimeProvider.tsx](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx)
+- [GatewayChatRuntimeProvider.tsx](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx)
 - [ThreadView.tsx](file://ui-react/src/components/chat/ThreadView.tsx)
 - [SessionSelector.tsx](file://ui-react/src/components/chat/SessionSelector.tsx)
 - [Composer.tsx](file://ui-react/src/components/chat/Composer.tsx)
@@ -47,16 +47,23 @@
 - [status-reaction-variants.ts](file://src/telegram/status-reaction-variants.ts)
 - [chat-attachments.ts](file://src/gateway/chat-attachments.ts)
 - [attachments.normalize.ts](file://src/media-understanding/attachments.normalize.ts)
+- [client.ts](file://ui-react/src/hooks/gateway/client.ts)
+- [device-identity.ts](file://ui-react/src/hooks/gateway/device-identity.ts)
+- [index.ts](file://ui-react/src/hooks/gateway/index.ts)
+- [useGateway.ts](file://ui-react/src/hooks/gateway/useGateway.ts)
+- [GatewayStatusIndicator.tsx](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx)
+- [GatewayRestartingOverlay.tsx](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx)
+- [connect-error-details.ts](file://src/gateway/protocol/connect-error-details.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- ThreadView.tsx新增错误状态检查机制，提供实时生成状态检测和手动清除功能
-- AssistantMessage.tsx调整左内边距，优化消息内容对齐和视觉层次
-- ToolCallGroup.tsx移除破坏性边框样式，采用更温和的视觉设计
-- 增强工具调用分组的状态管理，支持自动展开/折叠和状态徽章显示
-- 改进消息骨架屏和欢迎界面的用户体验
-- 优化会话切换时的消息列表挂载机制，避免竞态条件
+- 新增网关客户端系统，包括WebSocket连接管理、自动重连、设备身份处理和错误代码分类
+- 替代原有的旧网关集成，提供更安全的连接管理和错误处理机制
+- 增强设备身份验证，支持Ed25519密钥对和本地存储
+- 实现详细的错误代码分类和恢复建议系统
+- 新增GatewayStatusIndicator和GatewayRestartingOverlay组件
+- 优化重连策略，支持指数退避和暂停重连机制
 
 ## 目录
 1. [简介](#简介)
@@ -73,12 +80,12 @@
 ## 简介
 本文件系统性阐述WebChat界面的设计与实现，覆盖实时聊天、消息收发、界面布局、消息历史、输入框功能、多媒体消息、文件传输、表情反应、聊天室与群组管理、隐私策略以及WebSocket连接、消息同步与离线处理等主题。文档基于仓库中的UI实现、网关协议、通道适配层与平台集成进行综合分析，帮助开发者与运维人员快速理解并部署WebChat。
 
-**更新** 本版本重点反映了聊天界面的重大UI改进，包括ThreadView.tsx的错误状态检查机制、AssistantMessage.tsx的左内边距调整、ToolCallGroup.tsx的破坏性边框样式移除等新功能。这些改进显著提升了用户界面的可用性和视觉一致性。
+**更新** 本版本重点反映了新增的网关客户端系统，该系统替代了原有的旧网关集成，提供了更安全的WebSocket连接管理、自动重连机制、设备身份处理和详细的错误代码分类。新系统采用Ed25519加密算法进行设备身份验证，支持本地存储和自动恢复，显著提升了系统的安全性和可靠性。
 
 ## 项目结构
 WebChat界面现已迁移到React架构，由前端UI、网关客户端、通道适配层与平台集成四部分组成：
 - 前端UI（React架构）：使用React 19、Zustand状态管理、Assistant UI组件库，负责渲染聊天线程、输入框、附件预览、队列与占位提示等。
-- 网关客户端：封装WebSocket连接、请求/响应、事件订阅与重连逻辑。
+- 网关客户端：封装WebSocket连接、请求/响应、事件订阅与重连逻辑，支持设备身份验证和错误恢复。
 - 通道适配层：抽象Web渠道的登录、会话、入站监听与出站发送。
 - 平台集成：在不同平台上通过原生UI或移动端框架接入网关。
 
@@ -95,6 +102,8 @@ React_Session["SessionSelector.tsx<br/>会话选择器(兼容)"]
 React_Composer["Composer.tsx<br/>增强的消息composer"]
 React_Runtime["GatewayChatRuntimeProvider.tsx<br/>运行时提供者"]
 React_ErrorBanner["ErrorBanner<br/>错误状态检查机制"]
+React_StatusIndicator["GatewayStatusIndicator<br/>网关状态指示器"]
+React_RestartOverlay["GatewayRestartingOverlay<br/>重启覆盖层"]
 end
 subgraph "状态管理"
 Zustand_Chat["chat.store.ts<br/>聊天状态管理"]
@@ -110,10 +119,13 @@ React_ToolCallGroup["ToolCallGroup.tsx<br/>工具调用分组(边框样式移除
 end
 subgraph "会话管理钩子"
 Hook_SessionManager["useSessionManager.ts<br/>会话管理钩子(增强)"]
+Hook_UseGateway["useGateway.ts<br/>网关客户端钩子"]
 end
-subgraph "网关客户端"
-GW_Client["client.ts<br/>WebSocket客户端"]
-GW_Server["test-helpers.server.ts<br/>测试辅助"]
+subgraph "网关客户端系统"
+GW_Client["client.ts<br/>GatewayClient类"]
+GW_DeviceIdentity["device-identity.ts<br/>设备身份处理"]
+GW_ConnectErrors["connect-error-details.ts<br/>连接错误分类"]
+GW_HookIndex["index.ts<br/>导出接口"]
 end
 subgraph "通道适配层"
 Web_Channel["channel-web.ts<br/>Web渠道导出"]
@@ -133,6 +145,8 @@ React_Markdown --> React_Assistant
 React_Markdown --> React_User
 React_ChatPage --> React_ThreadView
 React_ThreadView --> React_ErrorBanner
+React_ChatPage --> React_StatusIndicator
+React_StatusIndicator --> React_RestartOverlay
 React_ThreadView --> React_Runtime
 React_Session --> Hook_SessionManager
 React_Composer --> React_Runtime
@@ -144,7 +158,11 @@ React_User --> React_Tool
 Zustand_Chat --> GW_Client
 Zustand_Settings --> GW_Client
 Zustand_Agents --> GW_Client
-GW_Client --> GW_Server
+GW_Client --> GW_DeviceIdentity
+GW_Client --> GW_ConnectErrors
+GW_HookIndex --> GW_Client
+GW_HookIndex --> GW_DeviceIdentity
+GW_HookIndex --> GW_ConnectErrors
 React_ChatPage --> Web_Channel
 Web_Channel --> Media_Send
 Web_Channel --> Telegram_Send
@@ -162,6 +180,12 @@ Android_Session --> Hook_SessionManager
 - [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
 - [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
 - [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
+- [GatewayStatusIndicator.tsx:1-188](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L1-L188)
+- [GatewayRestartingOverlay.tsx:1-43](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L1-L43)
+- [useGateway.ts:1-87](file://ui-react/src/hooks/gateway/useGateway.ts#L1-L87)
+- [client.ts:1-297](file://ui-react/src/hooks/gateway/client.ts#L1-L297)
+- [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
+- [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
 
 **章节来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
@@ -172,6 +196,12 @@ Android_Session --> Hook_SessionManager
 - [ThreadView.tsx:1-199](file://ui-react/src/components/chat/ThreadView.tsx#L1-L199)
 - [AssistantMessage.tsx:1-120](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L120)
 - [ToolCallGroup.tsx:1-284](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L284)
+- [GatewayStatusIndicator.tsx:1-188](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L1-L188)
+- [GatewayRestartingOverlay.tsx:1-43](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L1-L43)
+- [useGateway.ts:1-87](file://ui-react/src/hooks/gateway/useGateway.ts#L1-L87)
+- [client.ts:1-297](file://ui-react/src/hooks/gateway/client.ts#L1-L297)
+- [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
+- [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
 
 ## 核心组件
 - **React聊天页面**：ChatPage作为根组件，整合会话选择器和线程视图，提供完整的聊天界面。
@@ -191,6 +221,11 @@ Android_Session --> Hook_SessionManager
 - **错误状态检查机制**：ThreadView新增ErrorBanner组件，提供实时生成状态检测和手动清除功能。
 - **左内边距调整**：AssistantMessage组件调整左内边距，优化消息内容对齐和视觉层次。
 - **工具调用分组优化**：ToolCallGroup移除破坏性边框样式，采用更温和的视觉设计。
+- **网关状态指示器**：GatewayStatusIndicator提供实时的网关连接状态显示，支持手动重试和重启功能。
+- **网关重启覆盖层**：GatewayRestartingOverlay在网关重启时提供全局覆盖层，改善用户体验。
+- **网关客户端系统**：GatewayClient提供安全的WebSocket连接管理，支持设备身份验证和自动重连。
+- **设备身份处理**：device-identity模块管理Ed25519密钥对的生成、存储和签名验证。
+- **连接错误分类**：connect-error-details模块提供详细的错误代码分类和恢复建议。
 
 **章节来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
@@ -199,16 +234,23 @@ Android_Session --> Hook_SessionManager
 - [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
 - [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
-- [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
+- [GatewayChatRuntimeProvider.tsx:1-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L1-L227)
 - [Composer.tsx:1-334](file://ui-react/src/components/chat/Composer.tsx#L1-L334)
 - [UserMessage.tsx:1-152](file://ui-react/src/components/chat/UserMessage.tsx#L1-L152)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
 - [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
 - [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
 - [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
+- [GatewayStatusIndicator.tsx:1-188](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L1-L188)
+- [GatewayRestartingOverlay.tsx:1-43](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L1-L43)
+- [client.ts:1-297](file://ui-react/src/hooks/gateway/client.ts#L1-L297)
+- [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
+- [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
 
 ## 架构总览
 WebChat采用"React前端 + Zustand状态管理 + Assistant UI组件库"的现代化架构，通过GatewayChatRuntimeProvider桥接网关事件与React组件。前端通过WebSocket与网关通信，使用标准方法如chat.history、chat.send、chat.inject进行消息同步与交互。群组策略与提及门禁在通道层统一处理，确保跨渠道一致性。
+
+**更新** 新架构引入了全新的网关客户端系统，替代原有的旧网关集成。新的系统提供更安全的连接管理、自动重连机制、设备身份验证和详细的错误处理。GatewayStatusIndicator和GatewayRestartingOverlay组件提供了更好的用户反馈和系统监控能力。
 
 ```mermaid
 sequenceDiagram
@@ -218,7 +260,8 @@ participant AgentDetail as "AgentDetailDrawer"
 participant SessionManager as "useSessionManager"
 participant Runtime as "运行时提供者(GatewayChatRuntimeProvider)"
 participant Store as "Zustand状态管理"
-participant Client as "网关客户端(client.ts)"
+participant Client as "GatewayClient"
+participant DeviceIdentity as "设备身份处理"
 participant Gateway as "网关服务"
 participant Channel as "通道适配(channel-web.ts)"
 UI->>Runtime : 初始化运行时
@@ -226,6 +269,8 @@ Sidebar->>SessionManager : 获取会话数据
 Sidebar->>AgentDetail : 打开代理详情抽屉
 AgentDetail->>Store : 加载代理配置
 SessionManager->>Client : chat.sessions.list
+Client->>DeviceIdentity : 加载/生成设备身份
+DeviceIdentity-->>Client : 设备身份信息
 Client-->>SessionManager : 会话列表
 SessionManager->>Store : 设置会话状态
 Runtime->>Store : 订阅状态变化
@@ -245,16 +290,209 @@ Runtime-->>UI : 重新渲染组件
 - [ChatSidebar.tsx:48-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L48-L58)
 - [AgentDetailDrawer.tsx:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
 - [useSessionManager.ts:266-271](file://ui-react/src/hooks/useSessionManager.ts#L266-L271)
-- [GatewayChatRuntimeProvider.tsx:112-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L112-L270)
+- [GatewayChatRuntimeProvider.tsx:112-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L112-L227)
+- [useGateway.ts:33-72](file://ui-react/src/hooks/gateway/useGateway.ts#L33-L72)
+- [client.ts:267-415](file://src/gateway/client.ts#L267-L415)
 
 **章节来源**
 - [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
 - [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
-- [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
+- [GatewayChatRuntimeProvider.tsx:1-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L1-L227)
+- [useGateway.ts:1-87](file://ui-react/src/hooks/gateway/useGateway.ts#L1-L87)
+- [client.ts:1-674](file://src/gateway/client.ts#L1-L674)
 
 ## 详细组件分析
+
+### 网关客户端系统
+**更新** 新增完整的网关客户端系统，替代原有的旧网关集成，提供更安全的连接管理和错误处理机制。
+
+- **GatewayClient类**：提供完整的WebSocket连接管理，包括连接建立、消息处理、错误恢复和自动重连。
+- **设备身份验证**：支持Ed25519密钥对的生成、存储和签名验证，确保设备身份的安全性。
+- **连接安全检查**：实施严格的安全策略，阻止非加密连接到远程地址，保护凭据和聊天数据。
+- **TLS指纹验证**：支持wss://连接的证书指纹验证，防止中间人攻击。
+- **错误代码分类**：提供详细的连接错误代码分类，包括认证错误、设备错误和配对错误等。
+- **恢复建议系统**：根据错误代码提供具体的恢复建议和下一步操作指导。
+- **指数退避重连**：实现智能的重连策略，支持指数退避和暂停重连机制。
+
+```mermaid
+flowchart TD
+GatewayClient["GatewayClient类"] --> WSConnection["WebSocket连接管理"]
+GatewayClient --> DeviceAuth["设备身份验证"]
+GatewayClient --> ErrorHandling["错误处理系统"]
+GatewayClient --> Reconnect["自动重连机制"]
+WSConnection --> SecurityChecks["安全检查<br/>HTTPS/WSS验证"]
+WSConnection --> TLSFingerprint["TLS指纹验证"]
+WSConnection --> MessageHandling["消息处理<br/>事件/响应解析"]
+DeviceAuth --> KeyGeneration["Ed25519密钥生成"]
+DeviceAuth --> LocalStorage["本地存储<br/>localStorage"]
+DeviceAuth --> SignatureValidation["签名验证"]
+ErrorHandling --> ErrorCode["错误代码分类"]
+ErrorHandling --> RecoveryAdvice["恢复建议"]
+ErrorHandling --> NonRecoverable["不可恢复错误"]
+Reconnect --> ExponentialBackoff["指数退避"]
+Reconnect --> PauseLogic["暂停重连逻辑"]
+Reconnect --> DeviceTokenRetry["设备令牌重试"]
+```
+
+**图表来源**
+- [client.ts:109-265](file://src/gateway/client.ts#L109-L265)
+- [client.ts:267-415](file://src/gateway/client.ts#L267-L415)
+- [client.ts:417-495](file://src/gateway/client.ts#L417-L495)
+- [client.ts:497-554](file://src/gateway/client.ts#L497-L554)
+
+**章节来源**
+- [client.ts:1-674](file://src/gateway/client.ts#L1-L674)
+
+### 设备身份处理系统
+**更新** 新增完整的设备身份处理系统，支持Ed25519密钥对的生成、存储和签名验证。
+
+- **Ed25519密钥对生成**：使用@noble/ed25519库生成安全的椭圆曲线密钥对。
+- **本地存储机制**：使用localStorage存储设备身份信息，支持版本化存储格式。
+- **公钥指纹计算**：通过SHA-256哈希计算公钥指纹作为设备ID。
+- **payload构建**：构建标准化的设备认证payload字符串。
+- **签名生成**：使用私钥对payload进行数字签名，确保身份真实性。
+- **自动恢复**：支持设备ID与公钥的自动校验和修复。
+
+```mermaid
+flowchart TD
+DeviceIdentity["设备身份处理"] --> LoadOrCreate["加载/创建设备身份"]
+LoadOrCreate --> CheckLocalStorage["检查localStorage"]
+CheckLocalStorage --> HasStored["已有存储身份"]
+HasStored --> ValidateFormat["验证存储格式"]
+ValidateFormat --> CheckDeviceId["校验设备ID与公钥匹配"]
+CheckDeviceId --> Valid["验证通过"]
+CheckDeviceId --> UpdateStorage["更新存储格式"]
+Valid --> ReturnIdentity["返回设备身份"]
+UpdateStorage --> ReturnIdentity
+LoadOrCreate --> GenerateKeys["生成Ed25519密钥对"]
+GenerateKeys --> CalculateFingerprint["计算公钥指纹"]
+CalculateFingerprint --> BuildPayload["构建存储payload"]
+BuildPayload --> SaveToStorage["保存到localStorage"]
+SaveToStorage --> ReturnIdentity
+DeviceAuth["设备认证"] --> BuildPayload2["构建认证payload"]
+BuildPayload2 --> SignPayload["签名payload"]
+SignPayload --> SendToGateway["发送到网关"]
+```
+
+**图表来源**
+- [device-identity.ts:39-90](file://ui-react/src/hooks/gateway/device-identity.ts#L39-L90)
+- [device-identity.ts:92-126](file://ui-react/src/hooks/gateway/device-identity.ts#L92-L126)
+
+**章节来源**
+- [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
+
+### 连接错误分类系统
+**更新** 新增详细的连接错误分类系统，提供准确的错误代码和恢复建议。
+
+- **认证错误分类**：包括令牌缺失、密码错误、速率限制、尾序身份验证等。
+- **设备认证错误**：包括设备ID不匹配、签名过期、随机数缺失等。
+- **配对错误处理**：支持配对必需的错误处理和状态管理。
+- **恢复建议系统**：根据错误代码提供具体的恢复建议和下一步操作。
+- **不可恢复错误识别**：识别需要用户干预的不可恢复错误类型。
+- **详细错误信息**：提供详细的错误描述和诊断信息。
+
+```mermaid
+stateDiagram-v2
+[*] --> AuthRequired
+AuthRequired --> AuthTokenMissing : token_missing
+AuthRequired --> AuthPasswordMissing : password_missing
+AuthRequired --> AuthRateLimited : rate_limited
+AuthRequired --> PairingRequired : pairing_required
+AuthTokenMissing --> DeviceTokenMismatch : 设备令牌不匹配
+AuthPasswordMissing --> PasswordMismatch : 密码不匹配
+AuthRateLimited --> WaitThenRetry : 等待后重试
+PairingRequired --> ReviewAuthConfiguration : 检查认证配置
+DeviceTokenMismatch --> RetryWithDeviceToken : 重试设备令牌
+PasswordMismatch --> UpdateAuthCredentials : 更新认证凭据
+WaitThenRetry --> AuthRequired : 重试
+state RecoveryAdvice {
+[*] --> RetryWithDeviceToken
+[*] --> UpdateAuthConfiguration
+[*] --> UpdateAuthCredentials
+[*] --> WaitThenRetry
+[*] --> ReviewAuthConfiguration
+}
+```
+
+**图表来源**
+- [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
+
+**章节来源**
+- [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
+
+### 网关状态指示器组件
+**更新** 新增GatewayStatusIndicator组件，提供实时的网关连接状态显示和管理功能。
+
+- **状态可视化**：使用彩色指示点显示连接状态（连接中、已连接、断开、错误）。
+- **详细状态信息**：显示服务器版本、最后错误信息和连接状态描述。
+- **手动重试功能**：支持用户手动触发重连操作。
+- **网关重启功能**：在Electron环境中提供网关重启功能。
+- **重启覆盖层**：在网关重启时显示全局覆盖层，改善用户体验。
+- **状态持久化**：通过Zustand状态管理持久化网关状态。
+
+```mermaid
+flowchart TD
+GatewayStatusIndicator["GatewayStatusIndicator组件"] --> StatusDot["状态指示点<br/>彩色圆形"]
+GatewayStatusIndicator --> Popover["弹出面板<br/>详细状态信息"]
+GatewayStatusIndicator --> RestartOverlay["重启覆盖层<br/>全局对话框"]
+StatusDot --> Connected["已连接<br/>绿色"]
+StatusDot --> Connecting["连接中<br/>琥珀色脉冲"]
+StatusDot --> Disconnected["断开<br/>红色"]
+StatusDot --> Error["错误<br/>红色"]
+Popover --> StatusHeader["状态头部<br/>状态标签 + 版本号"]
+Popover --> StatusBody["状态主体<br/>详细描述 + 操作按钮"]
+StatusBody --> RetryButton["重试按钮<br/>手动重连"]
+StatusBody --> RestartButton["重启按钮<br/>网关重启"]
+RestartOverlay --> LoadingSpinner["加载动画<br/>旋转指示器"]
+RestartOverlay --> RestartMessage["重启消息<br/>应用更改中"]
+```
+
+**图表来源**
+- [GatewayStatusIndicator.tsx:21-29](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L21-L29)
+- [GatewayStatusIndicator.tsx:40-188](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L40-L188)
+- [GatewayRestartingOverlay.tsx:20-43](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L20-L43)
+
+**章节来源**
+- [GatewayStatusIndicator.tsx:1-188](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L1-L188)
+- [GatewayRestartingOverlay.tsx:1-43](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L1-L43)
+
+### useGateway钩子系统
+**更新** 新增useGateway钩子，提供网关客户端的初始化和管理功能。
+
+- **客户端生命周期管理**：自动管理GatewayClient的创建、启动和停止。
+- **设置依赖监听**：监听网关URL和认证设置的变化，自动重新连接。
+- **状态同步**：将网关事件同步到Zustand状态管理。
+- **错误处理**：处理连接错误并更新状态。
+- **客户端包装**：提供简化的客户端接口，隐藏底层实现细节。
+- **自动重连**：支持自动重连和错误恢复。
+
+```mermaid
+sequenceDiagram
+participant Hook as "useGateway钩子"
+participant Store as "Zustand状态"
+participant Client as "GatewayClient"
+participant Settings as "设置存储"
+Hook->>Settings : 监听网关URL和认证设置
+Settings-->>Hook : 设置变化通知
+Hook->>Store : setConnecting()
+Hook->>Client : 创建GatewayClient实例
+Client->>Store : onHello回调
+Store-->>Hook : setConnected
+Client->>Store : onClose回调
+Store-->>Hook : setDisconnected
+Hook->>Client : start()启动连接
+Client->>Client : 自动重连机制
+```
+
+**图表来源**
+- [useGateway.ts:33-72](file://ui-react/src/hooks/gateway/useGateway.ts#L33-L72)
+- [gateway.store.ts:96-139](file://ui-react/src/store/gateway.store.ts#L96-L139)
+
+**章节来源**
+- [useGateway.ts:1-87](file://ui-react/src/hooks/gateway/useGateway.ts#L1-L87)
+- [gateway.store.ts:1-212](file://ui-react/src/store/gateway.store.ts#L1-L212)
 
 ### ThreadView组件错误状态检查机制
 **更新** ThreadView组件新增错误状态检查机制，提供实时生成状态检测和手动清除功能。
@@ -458,10 +696,10 @@ CancelHandler --> StateReset["状态重置<br/>流状态 + 发送状态清理"]
 ```
 
 **图表来源**
-- [GatewayChatRuntimeProvider.tsx:16-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L16-L270)
+- [GatewayChatRuntimeProvider.tsx:16-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L16-L227)
 
 **章节来源**
-- [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
+- [GatewayChatRuntimeProvider.tsx:1-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L1-L227)
 
 ### Zustand状态管理系统
 - **聊天状态管理**：chat.store.ts管理消息列表、流式输出、工具调用流和输入状态。
@@ -516,7 +754,7 @@ Custom --> Default : resetDefaults
 **章节来源**
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
-- [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [gateway.store.ts:1-212](file://ui-react/src/store/gateway.store.ts#L1-L212)
 - [agents.store.ts:1-1066](file://ui-react/src/store/agents.store.ts#L1-L1066)
 
 ### 增强的消息渲染能力
@@ -541,12 +779,12 @@ Components --> Final["最终消息渲染"]
 ```
 
 **图表来源**
-- [GatewayChatRuntimeProvider.tsx:16-100](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L16-L100)
+- [GatewayChatRuntimeProvider.tsx:16-100](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L16-L100)
 - [AssistantMessage.tsx:22-150](file://ui-react/src/components/chat/AssistantMessage.tsx#L22-L150)
 - [ToolFallback.tsx:45-150](file://ui-react/src/components/chat/ToolFallback.tsx#L45-L150)
 
 **章节来源**
-- [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
+- [GatewayChatRuntimeProvider.tsx:1-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L1-L227)
 - [AssistantMessage.tsx:1-240](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L240)
 - [ToolFallback.tsx:1-451](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L451)
 
@@ -631,7 +869,7 @@ Note over Store,Gateway : 支持断线重连和事件缓冲
 - [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
 
 **章节来源**
-- [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [gateway.store.ts:1-212](file://ui-react/src/store/gateway.store.ts#L1-L212)
 - [useChatEventBridge.ts:1-472](file://ui-react/src/hooks/useChatEventBridge.ts#L1-L472)
 
 ### 代理管理功能
@@ -675,6 +913,9 @@ SkillsSection --> AddSkillsDialog["添加技能对话框<br/>搜索 + 分类 + �
 - **代理管理集成**：AgentDetailDrawer集成到ChatSidebar，提供完整的代理管理功能。
 - **错误状态检查集成**：ThreadView与ErrorBanner组件深度集成，提供完整的错误处理机制。
 - **工具调用分组优化**：ToolCallGroup与ToolFallback组件协同工作，提供改进的工具调用可视化。
+- **网关客户端集成**：GatewayClient系统通过useGateway钩子集成到React应用中。
+- **设备身份集成**：device-identity模块提供设备身份的生成、存储和验证功能。
+- **错误分类集成**：connect-error-details模块提供详细的错误代码分类和恢复建议。
 
 ```mermaid
 graph LR
@@ -684,7 +925,9 @@ Zustand --> GatewayStore["gateway.store.ts"]
 Zustand --> ChatStore["chat.store.ts"]
 Zustand --> SettingsStore["settings.store.ts"]
 Zustand --> AgentsStore["agents.store.ts"]
-GatewayStore --> Client["client.ts"]
+GatewayStore --> Client["GatewayClient"]
+Client --> DeviceIdentity["device-identity.ts"]
+Client --> ConnectErrors["connect-error-details.ts"]
 ChatStore --> Events["useChatEventBridge.ts"]
 SettingsStore --> SessionManager["useSessionManager.ts"]
 AgentsStore --> AgentDetailDrawer["AgentDetailDrawer.tsx"]
@@ -700,33 +943,47 @@ UserMessage["UserMessage.tsx"] --> ZustandStore["chat.store.ts"]
 ThreadView["ThreadView.tsx"] --> ErrorBanner["ErrorBanner组件"]
 AssistantMessage["AssistantMessage.tsx"] --> ToolCallGroup["ToolCallGroup.tsx"]
 ToolCallGroup --> ToolFallback["ToolFallback.tsx"]
+GatewayStatusIndicator["GatewayStatusIndicator.tsx"] --> GatewayRestartingOverlay["GatewayRestartingOverlay.tsx"]
+useGateway["useGateway.ts"] --> GatewayClient["GatewayClient类"]
 ```
 
 **图表来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
 - [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
-- [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
+- [GatewayChatRuntimeProvider.tsx:1-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L1-L227)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
-- [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [gateway.store.ts:1-212](file://ui-react/src/store/gateway.store.ts#L1-L212)
 - [agents.store.ts:1-1066](file://ui-react/src/store/agents.store.ts#L1-L1066)
 - [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
 - [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
 - [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
+- [GatewayStatusIndicator.tsx:1-188](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L1-L188)
+- [GatewayRestartingOverlay.tsx:1-43](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L1-L43)
+- [useGateway.ts:1-87](file://ui-react/src/hooks/gateway/useGateway.ts#L1-L87)
+- [client.ts:1-297](file://ui-react/src/hooks/gateway/client.ts#L1-L297)
+- [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
+- [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
 
 **章节来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
 - [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
-- [GatewayChatRuntimeProvider.tsx:1-270](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L1-L270)
+- [GatewayChatRuntimeProvider.tsx:1-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L1-L227)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [settings.store.ts:1-222](file://ui-react/src/store/settings.store.ts#L1-L222)
-- [gateway.store.ts:1-184](file://ui-react/src/store/gateway.store.ts#L1-L184)
+- [gateway.store.ts:1-212](file://ui-react/src/store/gateway.store.ts#L1-L212)
 - [agents.store.ts:1-1066](file://ui-react/src/store/agents.store.ts#L1-L1066)
 - [ThreadView.tsx:1-199](file://ui-react/src/components/chat/ThreadView.tsx#L1-L199)
 - [AssistantMessage.tsx:1-120](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L120)
 - [ToolCallGroup.tsx:1-284](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L284)
+- [GatewayStatusIndicator.tsx:1-188](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L1-L188)
+- [GatewayRestartingOverlay.tsx:1-43](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L1-L43)
+- [useGateway.ts:1-87](file://ui-react/src/hooks/gateway/useGateway.ts#L1-L87)
+- [client.ts:1-297](file://ui-react/src/hooks/gateway/client.ts#L1-L297)
+- [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
+- [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
 
 ## 性能考虑
 - **状态管理优化**：使用Zustand替代Redux，减少不必要的状态更新和组件重渲染。
@@ -743,18 +1000,25 @@ ToolCallGroup --> ToolFallback["ToolFallback.tsx"]
 - **自动同步优化**：ChatSidebar的自动同步功能通过useEffect优化，避免不必要的重渲染。
 - **错误状态检查优化**：ThreadView的错误状态检查机制通过状态缓存避免重复网络请求。
 - **工具调用分组优化**：ToolCallGroup的状态推导逻辑通过memoization优化性能。
+- **网关客户端优化**：GatewayClient实现指数退避重连，避免频繁重连导致的性能问题。
+- **设备身份缓存**：device-identity模块使用localStorage缓存设备身份，避免重复生成。
+- **错误分类优化**：connect-error-details模块使用Set数据结构优化错误代码查找性能。
 
 **章节来源**
 - [vite.config.ts:13-14](file://ui-react/vite.config.ts#L13-L14)
 - [package.json:11-42](file://ui-react/package.json#L11-L42)
-- [GatewayChatRuntimeProvider.tsx:132-197](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L132-L197)
+- [GatewayChatRuntimeProvider.tsx:132-197](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L132-L197)
 - [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
 - [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
 - [markdown-text.tsx:218-222](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L218-L222)
 - [agents.store.ts:304-324](file://ui-react/src/store/agents.store.ts#L304-L324)
 - [ChatSidebar.tsx:42-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L42-L58)
 - [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
+- [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
 - [ToolCallGroup.tsx:178-182](file://ui-react/src/components/chat/ToolCallGroup.tsx#L178-L182)
+- [client.ts:417-444](file://src/gateway/client.ts#L417-L444)
+- [device-identity.ts:39-90](file://ui-react/src/hooks/gateway/device-identity.ts#L39-L90)
+- [connect-error-details.ts:9-17](file://src/gateway/protocol/connect-error-details.ts#L9-L17)
 
 ## 故障排除指南
 - **连接失败**：检查网关端口与认证配置，确认WebSocket握手成功，查看gateway.store的错误状态。
@@ -774,11 +1038,15 @@ ToolCallGroup --> ToolFallback["ToolFallback.tsx"]
 - **错误状态检查失效**：检查ThreadView的lastError状态和handleCheckStatus函数，确认错误状态正确传递。
 - **左内边距显示异常**：检查AssistantMessage的pl-2内边距设置，确认与头像区域正确对齐。
 - **工具调用分组样式问题**：检查ToolCallGroup的边框样式移除逻辑，确认破坏性样式已正确移除。
+- **网关连接问题**：检查GatewayStatusIndicator的状态显示，确认连接URL和认证设置正确。
+- **设备身份验证失败**：检查device-identity模块的密钥生成和签名验证过程。
+- **自动重连循环**：检查GatewayClient的重连策略，确认指数退避和暂停重连逻辑正常。
+- **错误代码分类问题**：检查connect-error-details模块的错误代码映射和恢复建议。
 
 **章节来源**
 - [gateway.store.ts:115-126](file://ui-react/src/store/gateway.store.ts#L115-L126)
 - [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
-- [GatewayChatRuntimeProvider.tsx:227-236](file://ui-react/src/components/chat/GatewayChatRuntimeProvider.tsx#L227-L236)
+- [GatewayChatRuntimeProvider.tsx:227-236](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L227-L236)
 - [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
 - [ChatSidebar.tsx:19-22](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L22)
 - [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
@@ -789,11 +1057,15 @@ ToolCallGroup --> ToolFallback["ToolFallback.tsx"]
 - [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
 - [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
 - [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
+- [GatewayStatusIndicator.tsx:136-144](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L136-L144)
+- [device-identity.ts:39-90](file://ui-react/src/hooks/gateway/device-identity.ts#L39-L90)
+- [client.ts:417-444](file://src/gateway/client.ts#L417-L444)
+- [connect-error-details.ts:107-137](file://src/gateway/protocol/connect-error-details.ts#L107-L137)
 
 ## 结论
 WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，采用"React + Zustand + Assistant UI"的技术栈实现了更加现代化和可维护的聊天体验。新的架构通过组件化设计、状态管理和事件桥接机制，提供了更好的开发体验和用户体验。
 
-**更新** 本次更新重点反映了聊天界面的重大UI改进，包括ThreadView.tsx的错误状态检查机制、AssistantMessage.tsx的左内边距调整、ToolCallGroup.tsx的破坏性边框样式移除等新功能。这些改进显著提升了用户界面的可用性和视觉一致性，为未来的功能扩展奠定了坚实的基础。
+**更新** 本次更新重点反映了新增的网关客户端系统，该系统替代了原有的旧网关集成，提供了更安全的WebSocket连接管理、自动重连机制、设备身份验证和详细的错误处理。新系统采用Ed25519加密算法进行设备身份验证，支持本地存储和自动恢复，显著提升了系统的安全性和可靠性。通过新增的GatewayStatusIndicator和GatewayRestartingOverlay组件，系统提供了更好的用户反馈和系统监控能力。
 
 通过新增的ThreadView错误状态检查机制、AssistantMessage的左内边距优化、ToolCallGroup的样式改进，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为用户提供更加流畅和直观的聊天体验。
 
@@ -810,6 +1082,11 @@ WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，�
 - **错误状态检查**：ThreadView提供完整的错误状态检查和手动清除功能。
 - **左内边距优化**：AssistantMessage组件的左内边距调整提升视觉层次。
 - **工具调用分组改进**：ToolCallGroup移除破坏性边框样式，采用更温和的视觉设计。
+- **网关客户端系统**：GatewayClient提供安全的WebSocket连接管理，支持设备身份验证和自动重连。
+- **设备身份处理**：支持Ed25519密钥对生成、存储和签名验证，确保设备身份安全性。
+- **错误代码分类**：提供详细的连接错误分类和恢复建议，包括认证错误、设备错误和配对错误。
+- **网关状态监控**：GatewayStatusIndicator提供实时连接状态显示和管理功能。
+- **重启覆盖层**：GatewayRestartingOverlay改善网关重启时的用户体验。
 
 **章节来源**
 - [vite.config.ts:21-28](file://ui-react/vite.config.ts#L21-L28)
@@ -825,3 +1102,8 @@ WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，�
 - [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
 - [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
 - [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
+- [GatewayStatusIndicator.tsx:136-144](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx#L136-L144)
+- [GatewayRestartingOverlay.tsx:20-43](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx#L20-L43)
+- [client.ts:109-265](file://src/gateway/client.ts#L109-L265)
+- [device-identity.ts:39-90](file://ui-react/src/hooks/gateway/device-identity.ts#L39-L90)
+- [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)

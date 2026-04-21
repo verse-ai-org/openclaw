@@ -15,7 +15,21 @@
 - [ChatViewModel.swift](file://apps/shared/OpenClawKit/Sources/OpenClawChatUI/ChatViewModel.swift)
 - [internal-hooks.test.ts](file://src/hooks/internal-hooks.test.ts)
 - [agent.ts](file://src/gateway/server-methods/agent.ts)
+- [gateway-chat.ts](file://src/tui/gateway-chat.ts)
+- [useChatEventBridge.ts](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts)
+- [WebChatSwiftUI.swift](file://apps/macos/Sources/OpenClaw/WebChatSwiftUI.swift)
+- [IOSGatewayChatTransport.swift](file://apps/ios/Sources/Chat/IOSGatewayChatTransport.swift)
+- [gateway.store.ts](file://ui-react/src/store/gateway.store.ts)
+- [ChatSendContext.tsx](file://ui-react/src/components/chat/ChatSendContext.tsx)
+- [GatewayChatRuntimeProvider.tsx](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 新增了全面重构的聊天模块架构分析，包括新的事件桥接系统
+- 更新了网关客户端和会话管理器的详细实现
+- 增强了跨平台传输层的架构说明
+- 添加了新的事件桥接和状态管理组件分析
 
 ## 目录
 1. [简介](#简介)
@@ -38,6 +52,8 @@ OpenClaw 是一个个人AI助手平台，支持在用户已使用的各种聊天
 - Feishu、LINE、Mattermost、Nextcloud Talk、Nostr、Synology Chat
 - Tlon、Twitch、Zalo、Zalo Personal、WebChat
 
+**更新** 全面重构的聊天模块架构引入了新的事件桥接系统、网关客户端和会话管理器，显著提升了模块化和可维护性。
+
 ## 项目结构概览
 
 OpenClaw 的聊天模块采用分层架构设计，主要包含以下几个核心层次：
@@ -48,38 +64,44 @@ subgraph "应用层"
 UI[用户界面]
 CLI[命令行接口]
 Electron[桌面应用]
+Mobile[移动应用]
 end
 subgraph "网关层"
 Gateway[WebSocket控制平面]
 Server[服务器方法]
 Events[事件处理]
+GatewayClient[网关客户端]
+SessionManager[会话管理器]
 end
 subgraph "通道层"
 Channels[多通道插件]
 Plugins[插件系统]
 Monitors[监控器]
+Transport[传输层]
 end
-subgraph "会话层"
-Sessions[会话管理]
-AutoReply[自动回复]
-ACP[代理控制协议]
+subgraph "事件桥接层"
+EventBridge[事件桥接]
+Store[状态存储]
+Handlers[事件处理器]
 end
 subgraph "工具层"
 Tools[工具系统]
 Media[媒体处理]
 Memory[内存管理]
 end
-UI --> Gateway
-CLI --> Gateway
-Electron --> Gateway
-Gateway --> Server
+UI --> GatewayClient
+CLI --> GatewayClient
+Electron --> GatewayClient
+Mobile --> Transport
+GatewayClient --> Server
 Server --> Channels
 Channels --> Plugins
 Plugins --> Monitors
-Gateway --> Sessions
-Sessions --> AutoReply
-AutoReply --> ACP
-Gateway --> Tools
+GatewayClient --> SessionManager
+SessionManager --> Store
+Store --> EventBridge
+EventBridge --> Handlers
+GatewayClient --> Tools
 Tools --> Media
 Tools --> Memory
 ```
@@ -87,10 +109,12 @@ Tools --> Memory
 **图表来源**
 - [README.md: 185-212:185-212](file://README.md#L185-L212)
 - [README.md: 450-478:450-478](file://README.md#L450-L478)
+- [gateway-chat.ts: 130-266:130-266](file://src/tui/gateway-chat.ts#L130-L266)
 
 **章节来源**
 - [README.md: 185-212:185-212](file://README.md#L185-L212)
 - [README.md: 450-478:450-478](file://README.md#L450-L478)
+- [gateway-chat.ts: 130-266:130-266](file://src/tui/gateway-chat.ts#L130-L266)
 
 ## 核心组件分析
 
@@ -151,6 +175,114 @@ MessageChannelManager --> GatewayMessageChannel
 
 **章节来源**
 - [message-channel.ts: 95-133:95-133](file://src/utils/message-channel.ts#L95-L133)
+
+### 网关聊天客户端
+
+**新增** 网关聊天客户端是重构架构中的核心组件，提供了统一的网关连接管理和事件处理能力。
+
+```mermaid
+classDiagram
+class GatewayChatClient {
+-client : GatewayClient
+-readyPromise : Promise~void~
+-resolveReady? : () => void
+-connection : {url : string, token? : string, password? : string}
+-hello? : HelloOk
++onEvent? : (evt : GatewayEvent) => void
++onConnected? : () => void
++onDisconnected? : (reason : string) => void
++onGap? : (info : {expected : number, received : number}) => void
++constructor(connection : ResolvedGatewayConnection)
++static connect(opts : GatewayConnectionOptions) GatewayChatClient
++start() void
++stop() void
++waitForReady() Promise~void~
++sendChat(opts : ChatSendOptions) Promise~{runId : string}~
++abortChat(opts : {sessionKey : string, runId : string}) Promise
++loadHistory(opts : {sessionKey : string, limit? : number})
++listSessions(opts? : SessionsListParams) GatewaySessionList
++listAgents() GatewayAgentsList
++patchSession(opts : SessionsPatchParams) SessionsPatchResult
++resetSession(key : string, reason? : "new"|"reset")
++getStatus() Promise
++listModels() Promise~GatewayModelChoice[]~
+}
+```
+
+**图表来源**
+- [gateway-chat.ts: 130-266:130-266](file://src/tui/gateway-chat.ts#L130-L266)
+
+**章节来源**
+- [gateway-chat.ts: 130-266:130-266](file://src/tui/gateway-chat.ts#L130-L266)
+
+### 事件桥接系统
+
+**新增** 事件桥接系统是新架构的关键组件，负责在不同平台间传递和处理聊天事件。
+
+```mermaid
+sequenceDiagram
+participant ReactUI as React UI
+participant EventBridge as 事件桥接
+participant GatewayStore as 网关存储
+participant Handler as 事件处理器
+ReactUI->>EventBridge : 注册事件监听
+EventBridge->>GatewayStore : registerChatDispatch
+GatewayStore->>EventBridge : 接收聊天事件
+EventBridge->>Handler : handleChatEvent
+Handler->>Handler : 处理聊天事件
+Handler->>ReactUI : 更新UI状态
+EventBridge->>Handler : handleAgentEvent
+Handler->>Handler : 处理代理事件
+Handler->>ReactUI : 更新代理状态
+```
+
+**图表来源**
+- [useChatEventBridge.ts: 10-61:10-61](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L10-L61)
+- [gateway.store.ts: 16-26:16-26](file://ui-react/src/store/gateway.store.ts#L16-L26)
+
+**章节来源**
+- [useChatEventBridge.ts: 10-61:10-61](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L10-L61)
+- [gateway.store.ts: 16-26:16-26](file://ui-react/src/store/gateway.store.ts#L16-L26)
+
+### 跨平台传输层
+
+**新增** 跨平台传输层为iOS、macOS等不同平台提供统一的聊天传输接口。
+
+```mermaid
+classDiagram
+class OpenClawChatTransport {
+<<interface>>
++requestHistory(sessionKey : String) OpenClawChatHistoryPayload
++listSessions(limit : Int?) OpenClawChatSessionsListResponse
++sendMessage(sessionKey : String, message : String, thinking : String, idempotencyKey : String, attachments : [OpenClawChatAttachmentPayload]) OpenClawChatSendResponse
++requestHealth(timeoutMs : Int) Bool
++events() AsyncStream~OpenClawChatTransportEvent~
+}
+class MacGatewayChatTransport {
++mapPushToTransportEvent(push : GatewayPush) OpenClawChatTransportEvent?
++listModels() [OpenClawChatModelChoice]
++setSessionModel(sessionKey : String, model : String?)
++setSessionThinking(sessionKey : String, thinkingLevel : String)
+}
+class IOSGatewayChatTransport {
++abortRun(sessionKey : String, runId : String)
++listSessions(limit : Int?) OpenClawChatSessionsListResponse
++requestHistory(sessionKey : String) OpenClawChatHistoryPayload
++sendMessage(...) OpenClawChatSendResponse
++requestHealth(timeoutMs : Int) Bool
++events() AsyncStream~OpenClawChatTransportEvent~
+}
+OpenClawChatTransport <|-- MacGatewayChatTransport
+OpenClawChatTransport <|-- IOSGatewayChatTransport
+```
+
+**图表来源**
+- [WebChatSwiftUI.swift: 20-182:20-182](file://apps/macos/Sources/OpenClaw/WebChatSwiftUI.swift#L20-L182)
+- [IOSGatewayChatTransport.swift: 7-142:7-142](file://apps/ios/Sources/Chat/IOSGatewayChatTransport.swift#L7-L142)
+
+**章节来源**
+- [WebChatSwiftUI.swift: 20-182:20-182](file://apps/macos/Sources/OpenClaw/WebChatSwiftUI.swift#L20-L182)
+- [IOSGatewayChatTransport.swift: 7-142:7-142](file://apps/ios/Sources/Chat/IOSGatewayChatTransport.swift#L7-L142)
 
 ### 代理控制协议(ACP)翻译器
 
@@ -216,33 +348,44 @@ subgraph "客户端层"
 WebChat[Web聊天界面]
 Mobile[移动应用]
 Desktop[桌面应用]
+Electron[Electron应用]
 end
 subgraph "网关层"
 WS[WebSocket服务器]
 Auth[认证服务]
 Routing[路由服务]
+GatewayClient[网关客户端]
+SessionManager[会话管理器]
 end
 subgraph "业务逻辑层"
 Agent[代理引擎]
 Session[会话管理]
 AutoReply[自动回复]
+EventBridge[事件桥接]
 end
 subgraph "通道层"
 ChannelPlugins[通道插件]
 Monitors[监控器]
 Handlers[处理器]
+Transport[传输层]
 end
 subgraph "数据存储层"
 SessionStore[会话存储]
 MessageLog[消息日志]
 ConfigStore[配置存储]
+EventStore[事件存储]
 end
 WebChat --> WS
-Mobile --> WS
+Mobile --> Transport
 Desktop --> WS
+Electron --> GatewayClient
 WS --> Auth
 WS --> Routing
-WS --> Agent
+WS --> GatewayClient
+GatewayClient --> SessionManager
+SessionManager --> EventBridge
+EventBridge --> Session
+EventBridge --> Agent
 Agent --> Session
 Agent --> AutoReply
 Session --> SessionStore
@@ -252,10 +395,13 @@ ChannelPlugins --> Monitors
 ChannelPlugins --> Handlers
 Monitors --> Handlers
 Handlers --> Session
+EventBridge --> EventStore
+EventStore --> Session
 ```
 
 **图表来源**
 - [README.md: 185-212:185-212](file://README.md#L185-L212)
+- [gateway-chat.ts: 130-266:130-266](file://src/tui/gateway-chat.ts#L130-L266)
 
 ## 详细组件分析
 
@@ -376,6 +522,55 @@ Gateway-->>Node : 响应消息
 **章节来源**
 - [server-node-events.ts: 397-435:397-435](file://src/gateway/server-node-events.ts#L397-L435)
 
+### 事件桥接运行时上下文
+
+**新增** 事件桥接运行时上下文管理事件处理过程中的状态和缓冲区。
+
+```mermaid
+classDiagram
+class BridgeRuntimeContext {
++pendingInteractiveHydrationRuns : Set~string~
++pendingToolResults : Map~string, {phase : "result"|"error", data : Record}~
++activeRunBySession : Map~string, string~
+}
+class ChatEventDispatch {
++registerChatDispatch(fn : ChatEventDispatch) void
++unregisterChatDispatch() void
+}
+BridgeRuntimeContext --> ChatEventDispatch : manages
+```
+
+**图表来源**
+- [useChatEventBridge.ts: 12-20:12-20](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L12-L20)
+
+**章节来源**
+- [useChatEventBridge.ts: 12-20:12-20](file://ui-react/src/hooks/chat-event-bridge/useChatEventBridge.ts#L12-L20)
+
+### 跨平台传输映射
+
+**新增** 跨平台传输映射负责将底层推送事件转换为平台特定的传输事件。
+
+```mermaid
+flowchart TD
+GatewayPush[GatewayPush] --> MapPush[mapPushToTransportEvent]
+MapPush --> Health[health事件]
+MapPush --> Tick[tick事件]
+MapPush --> Chat[chat事件]
+MapPush --> Agent[agent事件]
+MapPush --> SeqGap[seqGap事件]
+Health --> OpenClawChatTransportEvent[OpenClawChatTransportEvent]
+Tick --> OpenClawChatTransportEvent
+Chat --> OpenClawChatTransportEvent
+Agent --> OpenClawChatTransportEvent
+SeqGap --> OpenClawChatTransportEvent
+```
+
+**图表来源**
+- [WebChatSwiftUI.swift: 130-173:130-173](file://apps/macos/Sources/OpenClaw/WebChatSwiftUI.swift#L130-L173)
+
+**章节来源**
+- [WebChatSwiftUI.swift: 130-173:130-173](file://apps/macos/Sources/OpenClaw/WebChatSwiftUI.swift#L130-L173)
+
 ## 依赖关系分析
 
 聊天模块的依赖关系呈现清晰的分层结构：
@@ -386,18 +581,24 @@ subgraph "外部依赖"
 WebSocket[WebSocket协议]
 ChannelAPIs[各聊天渠道API]
 Authentication[认证服务]
+PlatformSDKs[iOS/macOS SDK]
 end
 subgraph "内部模块"
 Utils[工具函数]
 Hooks[钩子系统]
 Config[配置管理]
 Logging[日志系统]
+EventBridge[事件桥接]
+SessionManager[会话管理器]
+GatewayClient[网关客户端]
+Transport[传输层]
 end
 subgraph "核心功能"
 MessageChannel[消息通道]
 SessionManagement[会话管理]
 AutoReply[自动回复]
 AgentControl[代理控制]
+EventHandling[事件处理]
 end
 WebSocket --> MessageChannel
 ChannelAPIs --> MessageChannel
@@ -406,16 +607,22 @@ Utils --> MessageChannel
 Hooks --> AutoReply
 Config --> SessionManagement
 Logging --> AgentControl
+EventBridge --> EventHandling
+Transport --> EventBridge
 MessageChannel --> SessionManagement
 SessionManagement --> AutoReply
 AutoReply --> AgentControl
+SessionManager --> EventBridge
+GatewayClient --> EventBridge
 ```
 
 **图表来源**
 - [README.md: 185-212:185-212](file://README.md#L185-L212)
+- [gateway-chat.ts: 130-266:130-266](file://src/tui/gateway-chat.ts#L130-L266)
 
 **章节来源**
 - [README.md: 185-212:185-212](file://README.md#L185-L212)
+- [gateway-chat.ts: 130-266:130-266](file://src/tui/gateway-chat.ts#L130-L266)
 
 ## 性能考量
 
@@ -425,16 +632,24 @@ AutoReply --> AgentControl
 - 使用事件驱动架构处理高并发消息
 - 实现消息去重和防抖机制避免重复处理
 - 采用异步处理模式提高响应速度
+- **新增** 事件桥接系统支持异步事件处理和状态管理
 
 ### 资源管理
 - 会话状态缓存减少数据库查询
 - 智能的内存管理避免内存泄漏
 - 连接池管理优化网络资源使用
+- **新增** 网关客户端提供连接复用和重连机制
 
 ### 扩展性设计
 - 插件化架构支持新渠道快速集成
 - 模块化设计便于功能扩展
 - 可配置的处理策略适应不同场景
+- **新增** 跨平台传输层支持多平台统一接口
+
+### 事件处理优化
+- **新增** 事件桥接系统提供事件缓冲和排序
+- **新增** 状态存储分离降低耦合度
+- **新增** 异步流式事件处理提升用户体验
 
 ## 故障排除指南
 
@@ -455,6 +670,11 @@ AutoReply --> AgentControl
    - 检查数据库连接
    - 分析日志文件
 
+4. **事件处理问题**
+   - **新增** 检查事件桥接注册状态
+   - **新增** 验证事件处理器配置
+   - **新增** 监控事件队列状态
+
 ### 调试工具
 
 ```mermaid
@@ -464,7 +684,8 @@ EnableDebug --> CheckLogs["检查日志输出"]
 CheckLogs --> VerifyConfig["验证配置"]
 VerifyConfig --> TestConnection["测试连接"]
 TestConnection --> AnalyzeMetrics["分析性能指标"]
-AnalyzeMetrics --> FixIssue["修复问题"]
+AnalyzeMetrics --> CheckEvents["检查事件处理"]
+CheckEvents --> FixIssue["修复问题"]
 FixIssue --> VerifyFix["验证修复"]
 VerifyFix --> Problem
 ```
@@ -476,14 +697,22 @@ VerifyFix --> Problem
 
 OpenClaw 的聊天模块展现了现代AI助手平台的优秀架构设计。通过统一的消息通道管理、智能的会话控制和灵活的插件系统，该模块成功实现了跨多个聊天渠道的一致用户体验。
 
+**更新** 全面重构的聊天模块架构引入了新的事件桥接系统、网关客户端和会话管理器，显著提升了模块化和可维护性。
+
 主要优势包括：
 - **统一性**：单一控制平面管理所有聊天渠道
 - **可扩展性**：插件化架构支持新渠道快速集成
 - **可靠性**：完善的错误处理和恢复机制
 - **性能**：事件驱动架构确保高并发处理能力
+- **新增** **模块化**：清晰的分层架构便于维护和扩展
+- **新增** **跨平台支持**：统一的传输层接口支持多平台部署
+- **新增** **事件驱动**：事件桥接系统提供解耦的事件处理机制
 
 未来发展方向可能包括：
 - 更智能的会话路由算法
 - 增强的多媒体处理能力
 - 更丰富的第三方集成选项
 - 改进的性能监控和优化工具
+- **新增** **事件处理优化**：进一步提升事件处理效率
+- **新增** **会话管理增强**：支持更复杂的会话状态管理
+- **新增** **跨平台一致性**：统一各平台的用户体验

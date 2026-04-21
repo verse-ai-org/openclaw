@@ -3,6 +3,7 @@ import { useChatStore } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { resolveSessionDisplayName } from "./display-name";
+import { getSessionKeyFromHash, setSessionKeyInHash } from "./url-session";
 import {
   deleteSessionAction,
   newSessionAction,
@@ -22,8 +23,9 @@ export function useSessionManager() {
   const client = useGatewayStore((s) => s.client);
   const gatewayStatus = useGatewayStore((s) => s.status);
   const settings = useSettingsStore((s) => s.settings);
+  const hashSessionKey = getSessionKeyFromHash();
   const sessionKey =
-    useChatStore((s) => s.sessionKey) ?? settings.sessionKey ?? "main";
+    hashSessionKey ?? useChatStore((s) => s.sessionKey) ?? settings.sessionKey ?? "main";
 
   const pendingReloadKey = useChatStore((s) => s.pendingHistoryReloadKey);
   const pendingSessionsReloadSeq = useChatStore(
@@ -70,7 +72,12 @@ export function useSessionManager() {
 
   const switchSession = useCallback(
     async (key: string) => {
-      await switchSessionAction({ key, loadHistory, syncRunStatus });
+      await switchSessionAction({
+        key,
+        loadHistory,
+        syncRunStatus,
+        persistSessionKey: setSessionKeyInHash,
+      });
     },
     [loadHistory, syncRunStatus],
   );
@@ -98,9 +105,10 @@ export function useSessionManager() {
 
   useEffect(() => {
     if (gatewayStatus === "connected") {
-      if (!useChatStore.getState().sessionKey) {
+      if (useChatStore.getState().sessionKey !== sessionKey) {
         useChatStore.getState().setSessionKey(sessionKey);
       }
+      setSessionKeyInHash(sessionKey);
       void loadSessions();
       void loadHistory(sessionKey);
       void syncRunStatus(sessionKey);

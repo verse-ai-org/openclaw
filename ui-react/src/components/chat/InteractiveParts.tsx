@@ -7,6 +7,7 @@ import {
   type InteractiveSummaryPair,
 } from "@/store/chat.store";
 import { useChatSend } from "./ChatSendContext";
+import { mergeAssistantRunMessages } from "@/providers/chat/stream-assembly";
 import { QuestionFlow } from "@/components/tool-ui/question-flow";
 import type {
   SerializableQuestionFlow,
@@ -110,6 +111,72 @@ type InteractivePartsProps = {
   messageId: string;
 };
 
+export function resolveInteractiveRenderContext(params: {
+  messageId: string;
+  messages: ChatMessage[];
+  interactiveStreamById: Map<string, InteractiveContentBlock>;
+  interactiveStreamOrder: string[];
+}): {
+  interactiveBlocks: InteractiveContentBlock[];
+  nextUserMessage: ChatMessage | null;
+} {
+  const { messageId, messages, interactiveStreamById, interactiveStreamOrder } = params;
+  const mid = messageId;
+
+  if (mid === STREAM_MESSAGE_ID) {
+    return {
+      interactiveBlocks: interactiveBlocksFromLiveState(interactiveStreamById, interactiveStreamOrder),
+      nextUserMessage: null,
+    };
+  }
+
+  // Keep message traversal aligned with runtime rendering, where assistant rows
+  // are merged by runId into a single visible turn.
+  const mergedMessages = mergeAssistantRunMessages(messages);
+  const idx = mergedMessages.findIndex((m) => m.id === mid);
+  if (idx < 0) {
+    return {
+      interactiveBlocks: [],
+      nextUserMessage: null,
+    };
+  }
+
+  let left = idx;
+  while (left > 0 && mergedMessages[left - 1]!.role === "assistant") {
+    left--;
+  }
+  let right = idx;
+  while (right < mergedMessages.length - 1 && mergedMessages[right + 1]!.role === "assistant") {
+    right++;
+  }
+
+  const isLastAssistantInRun = idx === right;
+
+  let sourceBlocks: InteractiveContentBlock[] = [];
+  for (let i = left; i <= right; i++) {
+    const m = mergedMessages[i]!;
+    if (m.role !== "assistant") {
+      continue;
+    }
+    const ib = filterInteractiveBlocks(m);
+    if (ib.length > 0) {
+      sourceBlocks = ib;
+      break;
+    }
+  }
+
+  const nextUserMessage: ChatMessage | null =
+    right < mergedMessages.length - 1 && mergedMessages[right + 1]!.role === "user"
+      ? mergedMessages[right + 1]!
+      : null;
+
+  if (sourceBlocks.length === 0 || !isLastAssistantInRun) {
+    return { interactiveBlocks: [], nextUserMessage };
+  }
+
+  return { interactiveBlocks: sourceBlocks, nextUserMessage };
+}
+
 export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
   const { sendMessage } = useChatSend();
 
@@ -119,60 +186,12 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
   const interactiveSummaryById = useChatStore((s) => s.interactiveSummaryById);
 
   const { interactiveBlocks, nextUserMessage } = useMemo(() => {
-    const mid = messageId;
-
-    if (mid === STREAM_MESSAGE_ID) {
-      return {
-        interactiveBlocks: interactiveBlocksFromLiveState(
-          interactiveStreamById,
-          interactiveStreamOrder,
-        ),
-        nextUserMessage: null as ChatMessage | null,
-      };
-    }
-
-    const idx = messages.findIndex((m) => m.id === mid);
-    if (idx < 0) {
-      return {
-        interactiveBlocks: [] as InteractiveContentBlock[],
-        nextUserMessage: null as ChatMessage | null,
-      };
-    }
-
-    let left = idx;
-    while (left > 0 && messages[left - 1]!.role === "assistant") {
-      left--;
-    }
-    let right = idx;
-    while (right < messages.length - 1 && messages[right + 1]!.role === "assistant") {
-      right++;
-    }
-
-    const isLastAssistantInRun = idx === right;
-
-    let sourceBlocks: InteractiveContentBlock[] = [];
-    for (let i = left; i <= right; i++) {
-      const m = messages[i]!;
-      if (m.role !== "assistant") {
-        continue;
-      }
-      const ib = filterInteractiveBlocks(m);
-      if (ib.length > 0) {
-        sourceBlocks = ib;
-        break;
-      }
-    }
-
-    const nextUserMessage: ChatMessage | null =
-      right < messages.length - 1 && messages[right + 1]!.role === "user"
-        ? messages[right + 1]!
-        : null;
-
-    if (sourceBlocks.length === 0 || !isLastAssistantInRun) {
-      return { interactiveBlocks: [] as InteractiveContentBlock[], nextUserMessage };
-    }
-
-    return { interactiveBlocks: sourceBlocks, nextUserMessage };
+    return resolveInteractiveRenderContext({
+      messageId,
+      messages,
+      interactiveStreamById,
+      interactiveStreamOrder,
+    });
   }, [messages, messageId, interactiveStreamById, interactiveStreamOrder]);
 
   if (interactiveBlocks.length === 0) {
