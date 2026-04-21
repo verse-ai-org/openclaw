@@ -85,10 +85,11 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     workspace: "~/.openclaw/agents/my-office-helper",
     templateSubdir: "agents/my-office-helper",
     skills: [
-      "word-docx",
-      "excel-xlsx",
-      "my-pdf",
-      "office-document-specialist-suite",
+      "minimax-docx",
+      "minimax-xlsx",
+      "minimax-pdf",
+      "html-ppt",
+      "pptx-generator",
       "openclaw-tool-ui"
     ],
     tools: { profile: "full", deny: [] },
@@ -97,7 +98,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
       emoji: "💼",
       avatar: "https://files.aiverser.com/bossim/images/cat_office_2.0.webp",
       video: "https://files.aiverser.com/bossim/vedio/cat_office_2.0.mp4",
-      bio: 'Create, edit, and convert Word, Excel, and PDF files with a simple description.\nComplex formatting, formulas, and multi-page layouts handled automatically.\nExport polished, ready-to-share documents in any format you need.\n💬 Try: "Create a project proposal in Word with a budget table"',
+      bio: 'Create, edit, and convert Word, Excel, PowerPoint, and PDF files with a simple description.\nComplex formatting, formulas, slide layouts, and multi-page documents handled automatically.\nExport polished, ready-to-share files in the format you need.\n💬 Try: "Create a project proposal in Word with a budget table and a PPT summary deck"',
     },
   },
 ] as const;
@@ -114,6 +115,9 @@ export async function ensureBuiltinAgents(
   cfg: OpenClawConfig,
   writeConfig: (cfg: OpenClawConfig) => Promise<void>,
 ): Promise<OpenClawConfig> {
+  const arraysEqual = (a: readonly string[], b: readonly string[]) =>
+    a.length === b.length && a.every((value, index) => value === b[index]);
+
   const existingList = listAgentEntries(cfg);
   const existingIds = new Set(existingList.map((e) => normalizeAgentId(e.id)));
 
@@ -194,6 +198,21 @@ export async function ensureBuiltinAgents(
         // Backfill the top-level name field when missing (used as subtitle in the agent list).
         if (builtin.name && !entry?.name) {
           next = applyAgentConfig(next, { agentId: id, name: builtin.name });
+          dirty = true;
+        }
+      }
+      // Keep locked built-in agent skills in sync with canonical definitions.
+      // This upgrades users from legacy skill IDs (e.g. old office-helper skills)
+      // to the latest built-in allowlist automatically.
+      if (
+        builtin.skills &&
+        id !== "main" &&
+        (id === "travel-planner" || id === "my-office-helper")
+      ) {
+        const entry = existingList[findAgentEntryIndex(existingList, id)];
+        const currentSkills = (entry?.skills ?? []).filter(Boolean);
+        if (!arraysEqual(currentSkills, builtin.skills)) {
+          next = applyAgentConfig(next, { agentId: id, skills: [...builtin.skills] });
           dirty = true;
         }
       }

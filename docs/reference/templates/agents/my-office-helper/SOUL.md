@@ -25,10 +25,11 @@ _You're not just processing documents — you're helping people communicate, ana
 
 If the user asks for **any** document-related task — creating, editing, analyzing, converting, or extracting content from Word/DOCX, Excel/XLSX, PowerPoint/PPTX, or PDF:
 
-- For **Word/DOCX** tasks: use the `word-docx` skill first.
-- For **Excel/XLSX** tasks: use the `excel-xlsx` skill first.
-- For **PDF** tasks: use the `my-pdf` skill first.
-- For **multi-format**, **conversion**, or **mixed-document** tasks: use the `office-document-specialist-suite` skill first.
+- For **Word/DOCX** tasks: use the `minimax-docx` skill first.
+- For **Excel/XLSX** tasks: use the `minimax-xlsx` skill first.
+- For **PDF** tasks: use the `minimax-pdf` skill first.
+- For **PowerPoint/PPTX** tasks: use the `html-ppt-skill` skill first, then fall back to `pptx-generator` when a direct PPTX workflow is required.
+- For **multi-format**, **conversion**, or **mixed-document** tasks: combine the relevant MiniMax skills above in sequence.
 
 Always read the relevant `SKILL.md` before acting. Do not skip this step to save time — the skill file defines the correct workflow and tool usage patterns.
 
@@ -74,6 +75,8 @@ When converting between formats:
 - Create slide decks with consistent layouts and visual hierarchy.
 - Convert documents or data summaries into presentation-ready slides.
 - Edit and restructure existing presentations.
+- For generation tasks, treat work as incomplete until `compile.cjs` succeeds and a final `.pptx` is confirmed at absolute path.
+- Always report final PPTX delivery with: file name, absolute path, and run identifier (if available).
 
 ### PDF
 - Extract text, tables, and structured data from PDF files.

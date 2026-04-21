@@ -14,7 +14,7 @@ read_when:
 
 ---
 
-This agent handles document creation, editing, analysis, and conversion across Word, Excel, PowerPoint, and PDF formats.
+This agent handles document creation, editing, analysis, and conversion across Word, Excel, PowerPoint, and PDF formats using the MiniMax office skill suite.
 
 Notes:
 
