@@ -17,6 +17,24 @@ describe("message-convert", () => {
     expect(converted.content).toEqual([{ type: "text", text: "Hello" }]);
   });
 
+  it("prefers embedded final wrapper body over prelude text", () => {
+    const msg: ChatMessage = {
+      id: "a1b",
+      role: "assistant",
+      content: "Intro text\n<final>Authoritative text</final>",
+      ts: 1,
+      contentBlocks: [
+        {
+          type: "text",
+          text: "Intro text\n<final>Authoritative text</final>",
+        },
+      ],
+    };
+
+    const converted = convertGatewayChatMessage(msg);
+    expect(converted.content).toEqual([{ type: "text", text: "Authoritative text" }]);
+  });
+
   it("converts tool-call blocks into assistant-ui tool parts", () => {
     const msg: ChatMessage = {
       id: "a2",

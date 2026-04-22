@@ -3,11 +3,23 @@ import { normalizeRole } from "@/hooks/chat-event-bridge";
 import type { ChatMessage } from "@/store/chat.store";
 
 const AGENT_COMPLETE_TAG_RE = /^\s*<(final|plan)>([\s\S]*?)<\/\1>\s*$/i;
+const AGENT_ANY_COMPLETE_TAG_RE = /<(final|plan)>([\s\S]*?)<\/\1>/gi;
 const AGENT_OPEN_TAG_RE = /^\s*<(?:final|plan)>\n?/i;
 const AGENT_CLOSE_TAG_RE = /\n?<\/(?:final|plan)>\s*$/i;
 
 function stripAgentWrapperTags(text: string): string {
   let result = text;
+  let anyMatch: RegExpExecArray | null;
+  let lastWrappedContent: string | null = null;
+  // If wrapper tags appear in the middle of content, prefer the wrapped body.
+  // Some providers emit prelude text plus a full <final>...</final> block.
+  AGENT_ANY_COMPLETE_TAG_RE.lastIndex = 0;
+  while ((anyMatch = AGENT_ANY_COMPLETE_TAG_RE.exec(result))) {
+    lastWrappedContent = anyMatch[2] ?? "";
+  }
+  if (lastWrappedContent != null) {
+    result = lastWrappedContent;
+  }
   let match: RegExpMatchArray | null;
   // eslint-disable-next-line no-cond-assign
   while ((match = result.match(AGENT_COMPLETE_TAG_RE))) {
@@ -90,14 +102,14 @@ export function convertGatewayChatMessage(msg: ChatMessage): ThreadMessageLike {
     parts.push({ type: "text", text: "" });
   }
 
-  if (import.meta.env.DEV && parts.filter((p) => p.type === "tool-call").length > 1) {
-    console.log(
-      `[convertMessage] msg ${msg.id} has ${parts.length} parts:`,
-      parts.map((p) =>
-        p.type === "tool-call" ? `tool:${p.toolName}` : `text:${p.text.slice(0, 20)}`,
-      ),
-    );
-  }
+  // if (import.meta.env.DEV && parts.filter((p) => p.type === "tool-call").length > 1) {
+  //   console.log(
+  //     `[convertMessage] msg ${msg.id} has ${parts.length} parts:`,
+  //     parts.map((p) =>
+  //       p.type === "tool-call" ? `tool:${p.toolName}` : `text:${p.text.slice(0, 20)}`,
+  //     ),
+  //   );
+  // }
 
   return {
     id: msg.id,

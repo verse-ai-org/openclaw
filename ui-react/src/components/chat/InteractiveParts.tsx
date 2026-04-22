@@ -1,4 +1,4 @@
-import { type FC, useMemo } from "react";
+import { type FC, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   useChatStore,
@@ -7,6 +7,8 @@ import {
   type InteractiveSummaryPair,
 } from "@/store/chat.store";
 import { useChatSend } from "./ChatSendContext";
+import { useGatewayStore } from "@/store/gateway.store";
+import { useSettingsStore } from "@/store/settings.store";
 import { mergeAssistantRunMessages } from "@/providers/chat/stream-assembly";
 import { QuestionFlow } from "@/components/tool-ui/question-flow";
 import type {
@@ -179,11 +181,23 @@ export function resolveInteractiveRenderContext(params: {
 
 export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
   const { sendMessage } = useChatSend();
+  const client = useGatewayStore((s) => s.client);
+  const sessionKey = useChatStore((s) => s.sessionKey);
+  const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
+  const activeSessionKey =
+    (typeof sessionKey === "string" && sessionKey.trim()
+      ? sessionKey.trim()
+      : typeof settingsSessionKey === "string" && settingsSessionKey.trim()
+        ? settingsSessionKey.trim()
+        : "main") || "main";
 
   const messages = useChatStore((s) => s.messages);
   const interactiveStreamById = useChatStore((s) => s.interactiveStreamById);
   const interactiveStreamOrder = useChatStore((s) => s.interactiveStreamOrder);
   const interactiveSummaryById = useChatStore((s) => s.interactiveSummaryById);
+  const interactiveRequestedAckById = useChatStore((s) => s.interactiveRequestedAckById);
+  const interactiveSubmittedAckById = useChatStore((s) => s.interactiveSubmittedAckById);
+  const interactiveConsumedAckById = useChatStore((s) => s.interactiveConsumedAckById);
 
   const { interactiveBlocks, nextUserMessage } = useMemo(() => {
     return resolveInteractiveRenderContext({
@@ -193,6 +207,100 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
       interactiveStreamOrder,
     });
   }, [messages, messageId, interactiveStreamById, interactiveStreamOrder]);
+
+  async function submitInteraction(params: {
+    interactionId: string;
+    payload: unknown;
+    fallbackText: string;
+  }) {
+    try {
+      if (client?.connected) {
+        const result = await client.request<{
+          interaction?: { resumeRunId?: string | null };
+        }>("chat.interaction.submit", {
+          sessionKey: activeSessionKey,
+          interactionId: params.interactionId,
+          payload: params.payload,
+          submittedBy: "control-ui",
+        });
+        useChatStore.getState().markInteractiveSubmittedAck(params.interactionId);
+        const resumeRunId = result?.interaction?.resumeRunId;
+        if (typeof resumeRunId === "string" && resumeRunId.trim()) {
+          useChatStore.getState().setSending(true);
+          useChatStore
+            .getState()
+            .markSessionGenerating(activeSessionKey, resumeRunId.trim());
+        }
+        return;
+      }
+    } catch {
+      // Fallback for older gateways or transient request failures.
+    }
+    useChatStore.getState().clearInteractiveSubmittedAck(params.interactionId);
+    await sendMessage(params.fallbackText);
+  }
+
+  useEffect(() => {
+    if (!client?.connected) {
+      return;
+    }
+    for (const block of interactiveBlocks) {
+      const interactiveId = block.interactiveId;
+      if (interactiveRequestedAckById[interactiveId]) {
+        continue;
+      }
+      void client
+        .request("chat.interaction.request", {
+          sessionKey: activeSessionKey,
+          interactionId: interactiveId,
+          kind: block.kind,
+          definition: block.payload,
+        })
+        .then(() => {
+          useChatStore.getState().markInteractiveRequestedAck(interactiveId);
+        })
+        .catch(() => {
+          // Non-fatal: older gateway may not support request yet.
+        });
+    }
+  }, [activeSessionKey, client, interactiveBlocks, interactiveRequestedAckById]);
+
+  useEffect(() => {
+    if (!client?.connected) {
+      return;
+    }
+    for (const block of interactiveBlocks) {
+      const interactiveId = block.interactiveId;
+      if (!interactiveSummaryById[interactiveId]) {
+        continue;
+      }
+      if (!interactiveSubmittedAckById[interactiveId]) {
+        continue;
+      }
+      if (interactiveConsumedAckById[interactiveId]) {
+        continue;
+      }
+      void client
+        .request("chat.interaction.consume", {
+          sessionKey: activeSessionKey,
+          interactionId: interactiveId,
+        })
+        .then(() => {
+          useChatStore.getState().markInteractiveConsumedAck(interactiveId);
+        })
+        .catch(() => {
+          // Non-fatal: older gateway may not support consume yet.
+        });
+    }
+  }, [
+    activeSessionKey,
+    client,
+    interactiveBlocks,
+    interactiveRequestedAckById,
+    interactiveSubmittedAckById,
+    interactiveConsumedAckById,
+    interactiveSummaryById,
+  ]);
 
   if (interactiveBlocks.length === 0) {
     return null;
@@ -227,7 +335,18 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
                   const pairs = buildUpfrontSummary(upfrontConfig, answers);
                   useChatStore.getState().setInteractiveSummary(interactiveId, pairs);
                   const text = pairs.map((p) => `${p.question}：${p.answer}`).join("\n");
-                  await sendMessage(text);
+                  await submitInteraction({
+                    interactionId: interactiveId,
+                    payload: {
+                      version: 1,
+                      kind: "question_flow",
+                      mode: "upfront",
+                      data: { answers },
+                      summary: pairs,
+                      displayText: text,
+                    },
+                    fallbackText: text,
+                  });
                 }}
               />
             );
@@ -250,7 +369,18 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
                   const answer = labels.join("、") || "—";
                   const pairs: InteractiveSummaryPair[] = [{ question: config.title, answer }];
                   useChatStore.getState().setInteractiveSummary(interactiveId, pairs);
-                  await sendMessage(answer);
+                  await submitInteraction({
+                    interactionId: interactiveId,
+                    payload: {
+                      version: 1,
+                      kind: "question_flow",
+                      mode: "single",
+                      data: { optionIds },
+                      summary: pairs,
+                      displayText: answer,
+                    },
+                    fallbackText: answer,
+                  });
                 }}
               />
             );
@@ -305,7 +435,18 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
                 question: config.id,
                 answer,
               }]);
-              await sendMessage(answer);
+              await submitInteraction({
+                interactionId: interactiveId,
+                payload: {
+                  version: 1,
+                  kind: "option_list",
+                  mode: "selection",
+                  data: { optionIds: ids },
+                  summary: [{ question: config.id, answer }],
+                  displayText: answer,
+                },
+                fallbackText: answer,
+              });
             }}
           />
         );

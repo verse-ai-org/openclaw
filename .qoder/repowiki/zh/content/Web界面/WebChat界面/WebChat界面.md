@@ -17,7 +17,7 @@
 - [markdown-text.tsx](file://ui-react/src/components/assistant-ui/markdown-text.tsx)
 - [chat.store.ts](file://ui-react/src/store/chat.store.ts)
 - [useChatEventBridge.ts](file://ui-react/src/hooks/useChatEventBridge.ts)
-- [useSessionManager.ts](file://ui-react/src/hooks/useSessionManager.ts)
+- [useSessionManager.ts](file://ui-react/src/hooks/session-manager/useSessionManager.ts)
 - [GatewayChatRuntimeProvider.tsx](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx)
 - [ThreadView.tsx](file://ui-react/src/components/chat/ThreadView.tsx)
 - [SessionSelector.tsx](file://ui-react/src/components/chat/SessionSelector.tsx)
@@ -54,11 +54,18 @@
 - [GatewayStatusIndicator.tsx](file://ui-react/src/components/gateway/GatewayStatusIndicator.tsx)
 - [GatewayRestartingOverlay.tsx](file://ui-react/src/components/gateway/GatewayRestartingOverlay.tsx)
 - [connect-error-details.ts](file://src/gateway/protocol/connect-error-details.ts)
+- [url-session.ts](file://ui-react/src/hooks/session-manager/url-session.ts)
+- [url-session.test.ts](file://ui-react/src/hooks/session-manager/url-session.test.ts)
+- [actions.ts](file://ui-react/src/hooks/session-manager/actions.ts)
+- [loaders.ts](file://ui-react/src/hooks/session-manager/loaders.ts)
+- [types.ts](file://ui-react/src/hooks/session-manager/types.ts)
+- [display-name.ts](file://ui-react/src/hooks/session-manager/display-name.ts)
+- [history-normalize.ts](file://ui-react/src/hooks/session-manager/history-normalize.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增网关客户端系统，包括WebSocket连接管理、自动重连、设备身份处理和错误代码分类
+- 新增URL会话管理功能，包括url-session.ts文件提供的会话键URL哈希处理能力，增强会话切换体验
 - 替代原有的旧网关集成，提供更安全的连接管理和错误处理机制
 - 增强设备身份验证，支持Ed25519密钥对和本地存储
 - 实现详细的错误代码分类和恢复建议系统
@@ -80,7 +87,7 @@
 ## 简介
 本文件系统性阐述WebChat界面的设计与实现，覆盖实时聊天、消息收发、界面布局、消息历史、输入框功能、多媒体消息、文件传输、表情反应、聊天室与群组管理、隐私策略以及WebSocket连接、消息同步与离线处理等主题。文档基于仓库中的UI实现、网关协议、通道适配层与平台集成进行综合分析，帮助开发者与运维人员快速理解并部署WebChat。
 
-**更新** 本版本重点反映了新增的网关客户端系统，该系统替代了原有的旧网关集成，提供了更安全的WebSocket连接管理、自动重连机制、设备身份处理和详细的错误代码分类。新系统采用Ed25519加密算法进行设备身份验证，支持本地存储和自动恢复，显著提升了系统的安全性和可靠性。
+**更新** 本版本重点反映了新增的URL会话管理功能，该功能通过url-session.ts文件提供了会话键URL哈希处理能力，显著增强了会话切换体验。同时，新增的网关客户端系统替代了原有的旧网关集成，提供了更安全的WebSocket连接管理、自动重连机制、设备身份处理和详细的错误代码分类。新系统采用Ed25519加密算法进行设备身份验证，支持本地存储和自动恢复，显著提升了系统的安全性和可靠性。
 
 ## 项目结构
 WebChat界面现已迁移到React架构，由前端UI、网关客户端、通道适配层与平台集成四部分组成：
@@ -119,6 +126,7 @@ React_ToolCallGroup["ToolCallGroup.tsx<br/>工具调用分组(边框样式移除
 end
 subgraph "会话管理钩子"
 Hook_SessionManager["useSessionManager.ts<br/>会话管理钩子(增强)"]
+Hook_URLSession["url-session.ts<br/>URL会话管理(新增)"]
 Hook_UseGateway["useGateway.ts<br/>网关客户端钩子"]
 end
 subgraph "网关客户端系统"
@@ -169,6 +177,7 @@ Web_Channel --> Telegram_Send
 iOS_Gateway --> GW_Client
 Android_UI --> GW_Client
 Android_Session --> Hook_SessionManager
+Hook_SessionManager --> Hook_URLSession
 ```
 
 **图表来源**
@@ -176,7 +185,7 @@ Android_Session --> Hook_SessionManager
 - [AgentSessionList.tsx:1-258](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L258)
 - [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
-- [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
+- [useSessionManager.ts:1-297](file://ui-react/src/hooks/session-manager/useSessionManager.ts#L1-L297)
 - [ThreadView.tsx:121-178](file://ui-react/src/components/chat/ThreadView.tsx#L121-L178)
 - [AssistantMessage.tsx:104](file://ui-react/src/components/chat/AssistantMessage.tsx#L104)
 - [ToolCallGroup.tsx:205-208](file://ui-react/src/components/chat/ToolCallGroup.tsx#L205-L208)
@@ -186,13 +195,14 @@ Android_Session --> Hook_SessionManager
 - [client.ts:1-297](file://ui-react/src/hooks/gateway/client.ts#L1-L297)
 - [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
 - [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
 
 **章节来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
 - [AgentSessionList.tsx:1-258](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L258)
 - [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
-- [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
+- [useSessionManager.ts:1-297](file://ui-react/src/hooks/session-manager/useSessionManager.ts#L1-L297)
 - [ThreadView.tsx:1-199](file://ui-react/src/components/chat/ThreadView.tsx#L1-L199)
 - [AssistantMessage.tsx:1-120](file://ui-react/src/components/chat/AssistantMessage.tsx#L1-L120)
 - [ToolCallGroup.tsx:1-284](file://ui-react/src/components/chat/ToolCallGroup.tsx#L1-L284)
@@ -209,7 +219,8 @@ Android_Session --> Hook_SessionManager
 - **增强的代理会话列表**：AgentSessionList组件支持代理头像和名称点击，允许用户查看代理详细信息，UI文本从"Employees"更新为"Agents"。**更新** 增强支持代理头像和名称点击，允许用户查看代理详细信息。
 - **增强的代理列表**：AgentList组件UI文本从"Employees"更新为"Agents"，支持代理搜索和过滤功能。**更新** UI文本更新为"Agents"，增强代理搜索和过滤功能。
 - **重构的Markdown组件**：markdown-text.tsx重构了AssistantMarkdown组件，提升渲染性能，支持更好的代码块复制和样式。
-- **会话管理钩子**：useSessionManager集中管理会话列表、历史加载、会话切换和新会话创建功能，**更新** 增加自动同步逻辑和会话标题更新功能。
+- **会话管理钩子**：useSessionManager集中管理会话列表、历史加载、会话切换和新会话创建功能，**更新** 增加自动同步逻辑和会话标题更新功能，**新增** 集成URL会话管理功能，支持会话键的URL哈希处理。
+- **URL会话管理**：url-session.ts提供会话键的URL哈希处理能力，包括从哈希中解析会话键、构建带会话键的哈希以及在哈希中设置会话键等功能。**新增** 实现了完整的URL会话管理机制。
 - **状态管理系统**：使用Zustand管理聊天状态、网关连接状态、设置状态和代理状态，避免组件间复杂的数据传递。
 - **消息渲染组件**：AssistantMessage、UserMessage和ToolFallback提供丰富的消息渲染能力，支持Markdown、工具调用和附件。
 - **运行时提供者**：GatewayChatRuntimeProvider桥接Zustand状态与Assistant UI组件库，实现消息转换和事件处理。
@@ -232,7 +243,8 @@ Android_Session --> Hook_SessionManager
 - [AgentSessionList.tsx:1-258](file://ui-react/src/components/chat/AgentSessionList.tsx#L1-L258)
 - [AgentList.tsx:1-112](file://ui-react/src/components/chat/AgentList.tsx#L1-L112)
 - [markdown-text.tsx:1-268](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L1-L268)
-- [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
+- [useSessionManager.ts:1-297](file://ui-react/src/hooks/session-manager/useSessionManager.ts#L1-L297)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
 - [chat.store.ts:1-247](file://ui-react/src/store/chat.store.ts#L1-L247)
 - [GatewayChatRuntimeProvider.tsx:1-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L1-L227)
 - [Composer.tsx:1-334](file://ui-react/src/components/chat/Composer.tsx#L1-L334)
@@ -250,7 +262,7 @@ Android_Session --> Hook_SessionManager
 ## 架构总览
 WebChat采用"React前端 + Zustand状态管理 + Assistant UI组件库"的现代化架构，通过GatewayChatRuntimeProvider桥接网关事件与React组件。前端通过WebSocket与网关通信，使用标准方法如chat.history、chat.send、chat.inject进行消息同步与交互。群组策略与提及门禁在通道层统一处理，确保跨渠道一致性。
 
-**更新** 新架构引入了全新的网关客户端系统，替代原有的旧网关集成。新的系统提供更安全的连接管理、自动重连机制、设备身份验证和详细的错误处理。GatewayStatusIndicator和GatewayRestartingOverlay组件提供了更好的用户反馈和系统监控能力。
+**更新** 新架构引入了全新的网关客户端系统，替代原有的旧网关集成。新的系统提供更安全的连接管理、自动重连机制、设备身份验证和详细的错误处理。GatewayStatusIndicator和GatewayRestartingOverlay组件提供了更好的用户反馈和系统监控能力。**新增** URL会话管理功能通过url-session.ts文件实现了完整的会话键URL哈希处理机制，增强了会话切换体验。
 
 ```mermaid
 sequenceDiagram
@@ -258,6 +270,7 @@ participant UI as "React组件(ChatPage)"
 participant Sidebar as "ChatSidebar"
 participant AgentDetail as "AgentDetailDrawer"
 participant SessionManager as "useSessionManager"
+participant URLSession as "url-session"
 participant Runtime as "运行时提供者(GatewayChatRuntimeProvider)"
 participant Store as "Zustand状态管理"
 participant Client as "GatewayClient"
@@ -268,6 +281,8 @@ UI->>Runtime : 初始化运行时
 Sidebar->>SessionManager : 获取会话数据
 Sidebar->>AgentDetail : 打开代理详情抽屉
 AgentDetail->>Store : 加载代理配置
+SessionManager->>URLSession : 解析URL会话键
+URLSession-->>SessionManager : 返回会话键
 SessionManager->>Client : chat.sessions.list
 Client->>DeviceIdentity : 加载/生成设备身份
 DeviceIdentity-->>Client : 设备身份信息
@@ -289,7 +304,8 @@ Runtime-->>UI : 重新渲染组件
 **图表来源**
 - [ChatSidebar.tsx:48-58](file://ui-react/src/components/chat/ChatSidebar.tsx#L48-L58)
 - [AgentDetailDrawer.tsx:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
-- [useSessionManager.ts:266-271](file://ui-react/src/hooks/useSessionManager.ts#L266-L271)
+- [useSessionManager.ts:266-271](file://ui-react/src/hooks/session-manager/useSessionManager.ts#L266-L271)
+- [url-session.ts:10-19](file://ui-react/src/hooks/session-manager/url-session.ts#L10-L19)
 - [GatewayChatRuntimeProvider.tsx:112-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L112-L227)
 - [useGateway.ts:33-72](file://ui-react/src/hooks/gateway/useGateway.ts#L33-L72)
 - [client.ts:267-415](file://src/gateway/client.ts#L267-L415)
@@ -298,12 +314,45 @@ Runtime-->>UI : 重新渲染组件
 - [webchat.md:24-32](file://docs/web/webchat.md#L24-L32)
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
 - [AgentDetailDrawer.tsx:1-142](file://ui-react/src/components/agents/detail-drawer.tsx#L1-L142)
-- [useSessionManager.ts:1-297](file://ui-react/src/hooks/useSessionManager.ts#L1-L297)
+- [useSessionManager.ts:1-297](file://ui-react/src/hooks/session-manager/useSessionManager.ts#L1-L297)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
 - [GatewayChatRuntimeProvider.tsx:1-227](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L1-L227)
 - [useGateway.ts:1-87](file://ui-react/src/hooks/gateway/useGateway.ts#L1-L87)
 - [client.ts:1-674](file://src/gateway/client.ts#L1-L674)
 
 ## 详细组件分析
+
+### URL会话管理功能
+**新增** 新增完整的URL会话管理功能，通过url-session.ts文件提供会话键URL哈希处理能力，显著增强了会话切换体验。
+
+- **会话键解析**：getSessionKeyFromHash函数从URL哈希中解析会话键，支持查询参数的解析和会话键的提取。
+- **哈希构建**：buildHashWithSessionKey函数构建包含会话键的新哈希，同时保留现有的查询参数。
+- **哈希更新**：setSessionKeyInHash函数在URL哈希中设置会话键，使用window.history.replaceState进行无刷新更新。
+- **浏览器兼容性**：在无window环境（如Node.js测试）中提供安全的no-op操作，避免运行时错误。
+- **URL解析**：parseHash函数解析URL哈希，分离路由路径和查询参数，支持完整的URL结构处理。
+
+```mermaid
+flowchart TD
+URLSession["URL会话管理(url-session.ts)"] --> ParseHash["parseHash函数<br/>解析URL哈希"]
+URLSession --> GetSessionKey["getSessionKeyFromHash<br/>解析会话键"]
+URLSession --> BuildHash["buildHashWithSessionKey<br/>构建新哈希"]
+URLSession --> SetSessionKey["setSessionKeyInHash<br/>设置会话键"]
+ParseHash --> RoutePath["路由路径解析"]
+ParseHash --> QueryParams["查询参数解析"]
+GetSessionKey --> HashInput["哈希输入处理"]
+GetSessionKey --> SessionKeyExtraction["会话键提取"]
+BuildHash --> QueryManipulation["查询参数操作"]
+BuildHash --> HashOutput["哈希输出"]
+SetSessionKey --> BrowserCheck["浏览器环境检查"]
+SetSessionKey --> HistoryReplace["历史记录替换"]
+```
+
+**图表来源**
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
+
+**章节来源**
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
+- [url-session.test.ts:1-29](file://ui-react/src/hooks/session-manager/url-session.test.ts#L1-L29)
 
 ### 网关客户端系统
 **更新** 新增完整的网关客户端系统，替代原有的旧网关集成，提供更安全的连接管理和错误处理机制。
@@ -813,9 +862,11 @@ Preview --> Detail["详细模式"]
 - [ToolFallback.tsx:1-451](file://ui-react/src/components/chat/ToolFallback.tsx#L1-L451)
 
 ### 会话管理增强
-**更新** 会话管理钩子现已增强，增加自动同步逻辑和会话标题更新功能。
+**更新** 会话管理钩子现已增强，增加自动同步逻辑和会话标题更新功能，**新增** 集成URL会话管理功能。
 
-- **自动同步功能**：useEffect监听sessionKey变化，自动解析代理ID并切换到对应的会话视图。**新增** 实现了完全的自动同步逻辑。
+- **自动同步功能**：useEffect监听sessionKey变化，自动解析代理ID并切换到对应的会话视图。**新增** 实现了完全的自动同步逻辑，**新增** 通过url-session.ts解析URL中的会话键。
+- **URL会话解析**：getSessionKeyFromHash函数从URL哈希中解析会话键，支持查询参数的解析和会话键的提取。
+- **会话键持久化**：setSessionKeyInHash函数在URL哈希中设置会话键，使用window.history.replaceState进行无刷新更新。
 - **会话列表**：通过chat.sessions.list获取会话列表，支持动态刷新。
 - **会话切换**：切换会话时自动加载对应的历史消息。
 - **新会话创建**：支持创建新会话并自动切换到新会话。
@@ -825,8 +876,11 @@ Preview --> Detail["详细模式"]
 ```mermaid
 sequenceDiagram
 participant UI as "SessionSelector"
+participant URLSession as "url-session"
 participant Client as "网关客户端"
 participant Store as "Zustand状态"
+UI->>URLSession : getSessionKeyFromHash()
+URLSession-->>UI : 返回会话键
 UI->>Client : chat.sessions.list
 Client-->>UI : 会话列表
 UI->>Store : setMessagesLoading
@@ -838,10 +892,12 @@ Note over UI,Store : 支持silent模式避免闪烁
 
 **图表来源**
 - [SessionSelector.tsx:34-90](file://ui-react/src/components/chat/SessionSelector.tsx#L34-L90)
+- [url-session.ts:10-19](file://ui-react/src/hooks/session-manager/url-session.ts#L10-L19)
 
 **章节来源**
 - [SessionSelector.tsx:1-212](file://ui-react/src/components/chat/SessionSelector.tsx#L1-L212)
-- [useSessionManager.ts:266-271](file://ui-react/src/hooks/useSessionManager.ts#L266-L271)
+- [useSessionManager.ts:266-271](file://ui-react/src/hooks/session-manager/useSessionManager.ts#L266-L271)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
 
 ### WebSocket连接、消息同步与离线处理
 - **连接管理**：gateway.store.ts管理连接状态、事件处理和错误恢复。
@@ -916,6 +972,7 @@ SkillsSection --> AddSkillsDialog["添加技能对话框<br/>搜索 + 分类 + �
 - **网关客户端集成**：GatewayClient系统通过useGateway钩子集成到React应用中。
 - **设备身份集成**：device-identity模块提供设备身份的生成、存储和验证功能。
 - **错误分类集成**：connect-error-details模块提供详细的错误代码分类和恢复建议。
+- **URL会话管理集成**：url-session模块通过useSessionManager集成到会话管理流程中，提供完整的URL会话处理能力。
 
 ```mermaid
 graph LR
@@ -945,6 +1002,8 @@ AssistantMessage["AssistantMessage.tsx"] --> ToolCallGroup["ToolCallGroup.tsx"]
 ToolCallGroup --> ToolFallback["ToolFallback.tsx"]
 GatewayStatusIndicator["GatewayStatusIndicator.tsx"] --> GatewayRestartingOverlay["GatewayRestartingOverlay.tsx"]
 useGateway["useGateway.ts"] --> GatewayClient["GatewayClient类"]
+useSessionManager["useSessionManager.ts"] --> URLSession["url-session.ts"]
+URLSession --> WindowAPI["window.history API"]
 ```
 
 **图表来源**
@@ -965,6 +1024,7 @@ useGateway["useGateway.ts"] --> GatewayClient["GatewayClient类"]
 - [client.ts:1-297](file://ui-react/src/hooks/gateway/client.ts#L1-L297)
 - [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
 - [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
 
 **章节来源**
 - [ChatSidebar.tsx:1-170](file://ui-react/src/components/chat/ChatSidebar.tsx#L1-L170)
@@ -984,6 +1044,7 @@ useGateway["useGateway.ts"] --> GatewayClient["GatewayClient类"]
 - [client.ts:1-297](file://ui-react/src/hooks/gateway/client.ts#L1-L297)
 - [device-identity.ts:1-126](file://ui-react/src/hooks/gateway/device-identity.ts#L1-L126)
 - [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
 
 ## 性能考虑
 - **状态管理优化**：使用Zustand替代Redux，减少不必要的状态更新和组件重渲染。
@@ -1003,12 +1064,14 @@ useGateway["useGateway.ts"] --> GatewayClient["GatewayClient类"]
 - **网关客户端优化**：GatewayClient实现指数退避重连，避免频繁重连导致的性能问题。
 - **设备身份缓存**：device-identity模块使用localStorage缓存设备身份，避免重复生成。
 - **错误分类优化**：connect-error-details模块使用Set数据结构优化错误代码查找性能。
+- **URL会话管理优化**：url-session模块使用URLSearchParams进行高效的查询参数处理，避免不必要的字符串解析。
+- **会话键缓存**：useSessionManager缓存解析的会话键，避免重复的URL解析操作。
 
 **章节来源**
 - [vite.config.ts:13-14](file://ui-react/vite.config.ts#L13-L14)
 - [package.json:11-42](file://ui-react/package.json#L11-L42)
 - [GatewayChatRuntimeProvider.tsx:132-197](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L132-L197)
-- [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
+- [useSessionManager.ts:28-42](file://ui-react/src/hooks/session-manager/useSessionManager.ts#L28-L42)
 - [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
 - [markdown-text.tsx:218-222](file://ui-react/src/components/assistant-ui/markdown-text.tsx#L218-L222)
 - [agents.store.ts:304-324](file://ui-react/src/store/agents.store.ts#L304-L324)
@@ -1019,6 +1082,7 @@ useGateway["useGateway.ts"] --> GatewayClient["GatewayClient类"]
 - [client.ts:417-444](file://src/gateway/client.ts#L417-L444)
 - [device-identity.ts:39-90](file://ui-react/src/hooks/gateway/device-identity.ts#L39-L90)
 - [connect-error-details.ts:9-17](file://src/gateway/protocol/connect-error-details.ts#L9-L17)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
 
 ## 故障排除指南
 - **连接失败**：检查网关端口与认证配置，确认WebSocket握手成功，查看gateway.store的错误状态。
@@ -1042,12 +1106,15 @@ useGateway["useGateway.ts"] --> GatewayClient["GatewayClient类"]
 - **设备身份验证失败**：检查device-identity模块的密钥生成和签名验证过程。
 - **自动重连循环**：检查GatewayClient的重连策略，确认指数退避和暂停重连逻辑正常。
 - **错误代码分类问题**：检查connect-error-details模块的错误代码映射和恢复建议。
+- **URL会话管理问题**：检查url-session模块的会话键解析和哈希构建功能，确认URL会话处理正常。
+- **会话键持久化失败**：检查window.history.replaceState的可用性和浏览器兼容性。
+- **会话切换闪烁问题**：检查useSessionManager的silent模式和消息加载状态管理。
 
 **章节来源**
 - [gateway.store.ts:115-126](file://ui-react/src/store/gateway.store.ts#L115-L126)
 - [useChatEventBridge.ts:273-471](file://ui-react/src/hooks/useChatEventBridge.ts#L273-L471)
 - [GatewayChatRuntimeProvider.tsx:227-236](file://ui-react/src/providers/chat/GatewayChatRuntimeProvider.tsx#L227-L236)
-- [useSessionManager.ts:28-42](file://ui-react/src/hooks/useSessionManager.ts#L28-L42)
+- [useSessionManager.ts:28-42](file://ui-react/src/hooks/session-manager/useSessionManager.ts#L28-L42)
 - [ChatSidebar.tsx:19-22](file://ui-react/src/components/chat/ChatSidebar.tsx#L19-L22)
 - [Composer.tsx:135-207](file://ui-react/src/components/chat/Composer.tsx#L135-L207)
 - [AgentDetailDrawer.tsx:36-142](file://ui-react/src/components/agents/detail-drawer.tsx#L36-L142)
@@ -1061,11 +1128,12 @@ useGateway["useGateway.ts"] --> GatewayClient["GatewayClient类"]
 - [device-identity.ts:39-90](file://ui-react/src/hooks/gateway/device-identity.ts#L39-L90)
 - [client.ts:417-444](file://src/gateway/client.ts#L417-L444)
 - [connect-error-details.ts:107-137](file://src/gateway/protocol/connect-error-details.ts#L107-L137)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)
 
 ## 结论
 WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，采用"React + Zustand + Assistant UI"的技术栈实现了更加现代化和可维护的聊天体验。新的架构通过组件化设计、状态管理和事件桥接机制，提供了更好的开发体验和用户体验。
 
-**更新** 本次更新重点反映了新增的网关客户端系统，该系统替代了原有的旧网关集成，提供了更安全的WebSocket连接管理、自动重连机制、设备身份验证和详细的错误处理。新系统采用Ed25519加密算法进行设备身份验证，支持本地存储和自动恢复，显著提升了系统的安全性和可靠性。通过新增的GatewayStatusIndicator和GatewayRestartingOverlay组件，系统提供了更好的用户反馈和系统监控能力。
+**更新** 本次更新重点反映了新增的URL会话管理功能和网关客户端系统。URL会话管理功能通过url-session.ts文件提供了完整的会话键URL哈希处理能力，显著增强了会话切换体验。新增的网关客户端系统替代了原有的旧网关集成，提供了更安全的WebSocket连接管理、自动重连机制、设备身份验证和详细的错误处理。新系统采用Ed25519加密算法进行设备身份验证，支持本地存储和自动恢复，显著提升了系统的安全性和可靠性。通过新增的GatewayStatusIndicator和GatewayRestartingOverlay组件，系统提供了更好的用户反馈和系统监控能力。
 
 通过新增的ThreadView错误状态检查机制、AssistantMessage的左内边距优化、ToolCallGroup的样式改进，以及GatewayChatRuntimeProvider的全面增强，系统在性能与可用性之间取得了更好的平衡，为用户提供更加流畅和直观的聊天体验。
 
@@ -1087,6 +1155,8 @@ WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，�
 - **错误代码分类**：提供详细的连接错误分类和恢复建议，包括认证错误、设备错误和配对错误。
 - **网关状态监控**：GatewayStatusIndicator提供实时连接状态显示和管理功能。
 - **重启覆盖层**：GatewayRestartingOverlay改善网关重启时的用户体验。
+- **URL会话管理**：url-session模块提供完整的会话键URL哈希处理能力，支持会话键的解析、构建和持久化。
+- **浏览器兼容性**：URL会话管理功能在无window环境下提供安全的no-op操作，确保运行时稳定性。
 
 **章节来源**
 - [vite.config.ts:21-28](file://ui-react/vite.config.ts#L21-L28)
@@ -1107,3 +1177,4 @@ WebChat界面已完成从传统Lit框架向现代React架构的重大迁移，�
 - [client.ts:109-265](file://src/gateway/client.ts#L109-L265)
 - [device-identity.ts:39-90](file://ui-react/src/hooks/gateway/device-identity.ts#L39-L90)
 - [connect-error-details.ts:1-137](file://src/gateway/protocol/connect-error-details.ts#L1-L137)
+- [url-session.ts:1-40](file://ui-react/src/hooks/session-manager/url-session.ts#L1-L40)

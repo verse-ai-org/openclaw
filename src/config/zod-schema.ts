@@ -686,6 +686,30 @@ export const OpenClawSchema = z
           })
           .strict()
           .optional(),
+        interactions: z
+          .object({
+            stream: z
+              .object({
+                enabled: z.boolean().optional(),
+                dualWrite: z.boolean().optional(),
+              })
+              .strict()
+              .optional(),
+            recovery: z
+              .object({
+                enabled: z.boolean().optional(),
+                intervalMs: z.number().int().positive().optional(),
+                minStaleMs: z.number().int().min(0).optional(),
+                maxAttempts: z.number().int().min(0).optional(),
+                batchLimit: z.number().int().positive().optional(),
+                warnBacklogThreshold: z.number().int().positive().optional(),
+                warnMinSuccessRate: z.number().min(0).max(1).optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
         channelHealthCheckMinutes: z.number().int().min(0).optional(),
         tailscale: z
           .object({

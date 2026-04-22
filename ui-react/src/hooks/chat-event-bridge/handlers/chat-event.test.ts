@@ -12,6 +12,7 @@ function createCtx(): BridgeRuntimeContext {
     pendingInteractiveHydrationRuns: new Set<string>(),
     pendingToolResults: new Map(),
     activeRunBySession: new Map<string, string>(),
+    pendingLifecycleFinalizeByRun: new Map<string, ReturnType<typeof setTimeout>>(),
   };
 }
 

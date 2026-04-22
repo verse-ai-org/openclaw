@@ -2,19 +2,26 @@
 
 <cite>
 **本文档引用的文件**
-- [my-pdf/SKILL.md](file://skills/my-pdf/SKILL.md)
 - [nano-pdf/SKILL.md](file://skills/nano-pdf/SKILL.md)
-- [pdf-tool.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.d.ts)
-- [pdf-tool.helpers.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.helpers.d.ts)
-- [pdf-native-providers.d.ts](file://dist/plugin-sdk/agents/tools/pdf-native-providers.d.ts)
-- [pdf-extract.d.ts](file://dist/plugin-sdk/media/pdf-extract.d.ts)
-- [pdf-parse.js](file://node_modules/pdf-parse/lib/pdf-parse.js)
-- [pdf.js](file://node_modules/pdf-parse/lib/pdf.js/v2.0.550/build/pdf.js)
-- [pdf.worker.js](file://node_modules/pdf-parse/lib/pdf.js/v2.0.550/build/pdf.worker.js)
-- [pdf.min.mjs](file://node_modules/pdfjs-dist/build/pdf.min.mjs)
-- [pdf.mjs](file://node_modules/pdfjs-dist/build/pdf.mjs)
-- [pdf.worker.min.mjs](file://node_modules/pdfjs-dist/build/pdf.worker.min.mjs)
+- [minimax-pdf/SKILL.md](file://skills/minimax-pdf/SKILL.md)
+- [pdf-tool.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
+- [pdf-tool.helpers.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_page_view.d.ts)
+- [pdf-native-providers.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/src/pdf.d.ts)
+- [pdf-extract.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
+- [pdf-parse.js](file://apps/electron/resources/prod-node_modules/node_modules/pdf-parse/lib/pdf-parse.js)
+- [pdf.js](file://apps/electron/resources/prod-node_modules/node_modules/pdf-parse/lib/pdf.js/v2.0.550/build/pdf.js)
+- [pdf.worker.js](file://apps/electron/resources/prod-node_modules/node_modules/pdf-parse/lib/pdf.js/v2.0.550/build/pdf.worker.js)
+- [pdf.min.mjs](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/build/pdf.min.mjs)
+- [pdf.mjs](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/build/pdf.mjs)
+- [pdf.worker.min.mjs](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/build/pdf.worker.min.mjs)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 移除了关于已删除的my-pdf技能的所有内容
+- 更新了技能现状，仅保留当前可用的nano-pdf和minimax-pdf技能
+- 更新了架构图和依赖关系分析，反映实际存在的组件
+- 修正了历史参考信息，确保文档准确性
 
 ## 目录
 1. [简介](#简介)
@@ -29,7 +36,9 @@
 
 ## 简介
 
-本文件系统性地梳理了 OpenClaw 项目中的 PDF 处理能力，涵盖从基础文本提取到高级表单处理、从命令行工具到原生插件的完整技术栈。该能力由三大支柱构成：Python 生态的 PDF 处理库（pypdf、pdfplumber、reportlab）、命令行工具链（pdftotext、qpdf、pdftk）以及基于浏览器的 PDF 解析引擎（pdf.js、pdf-parse）。这些组件通过技能包（Skills）的形式集成到 OpenClaw 的智能体工作流中，为用户提供从简单文本提取到复杂文档操作的全方位 PDF 处理解决方案。
+本文件系统性地梳理了 OpenClaw 项目中的 PDF 处理能力，涵盖从基础文本提取到高级表单处理、从命令行工具到原生插件的完整技术栈。该能力由两大支柱构成：**nano-pdf** 技能（自然语言驱动的 PDF 编辑）和 **minimax-pdf** 技能（高质量 PDF 生成和表单处理），以及底层的插件SDK组件。这些组件通过技能包的形式集成到 OpenClaw 的智能体工作流中，为用户提供从简单文本提取到复杂文档操作的全方位 PDF 处理解决方案。
+
+**重要说明**：原 my-pdf 技能在本次更新中已被移除，不再存在于代码库中。本文档已相应更新以反映当前的实际状态。
 
 ## 项目结构
 
@@ -38,8 +47,8 @@ OpenClaw 的 PDF 处理能力在项目中呈现多层次、多语言的分布特
 ```mermaid
 graph TB
 subgraph "技能层"
-A[my-pdf 技能]
-B[nano-pdf 技能]
+A[nano-pdf 技能]
+B[minimax-pdf 技能]
 end
 subgraph "插件SDK层"
 C[pdf-tool.d.ts]
@@ -68,74 +77,52 @@ F --> L
 ```
 
 **图表来源**
-- [my-pdf/SKILL.md:1-234](file://skills/my-pdf/SKILL.md#L1-L234)
 - [nano-pdf/SKILL.md:1-39](file://skills/nano-pdf/SKILL.md#L1-L39)
-- [pdf-tool.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.d.ts)
-- [pdf-tool.helpers.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.helpers.d.ts)
+- [minimax-pdf/SKILL.md:1-210](file://skills/minimax-pdf/SKILL.md#L1-L210)
+- [pdf-tool.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
+- [pdf-tool.helpers.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_page_view.d.ts)
 
 **章节来源**
-- [my-pdf/SKILL.md:1-234](file://skills/my-pdf/SKILL.md#L1-L234)
 - [nano-pdf/SKILL.md:1-39](file://skills/nano-pdf/SKILL.md#L1-L39)
+- [minimax-pdf/SKILL.md:1-210](file://skills/minimax-pdf/SKILL.md#L1-L210)
 
 ## 核心组件
 
-### Python PDF 处理生态系统
+### 当前可用的 PDF 处理技能
 
-OpenClaw 集成了完整的 Python PDF 处理工具链，覆盖文档操作的各个层面：
+#### nano-pdf 技能
+- **自然语言编辑**：使用自然语言指令对 PDF 进行编辑操作
+- **页面级操作**：支持对特定页面进行精确编辑
+- **安装简便**：通过 uv 包管理器一键安装
+- **跨平台支持**：支持 macOS、Linux 和 Windows 系统
 
-#### 基础操作库 - pypdf
-- **文档合并与拆分**：支持多文档合并、按页拆分、页面旋转等基础操作
-- **元数据管理**：读取和修改文档属性信息
-- **安全功能**：密码加密、权限控制
-- **页面合并**：水印叠加、页面合并
+#### minimax-pdf 技能
+- **高质量生成**：专注于视觉质量和设计一致性的 PDF 生成
+- **三类任务**：CREATE（从零创建）、FILL（表单填写）、REFORMAT（重新设计）
+- **设计系统**：基于令牌的设计系统，确保视觉一致性
+- **打印就绪**：输出符合打印标准的高质量 PDF
 
-#### 高级提取库 - pdfplumber  
-- **布局感知文本提取**：保持原始文档格式的文本提取
-- **表格识别**：自动识别和结构化提取表格内容
-- **Excel 导出**：将提取的表格直接导出为 Excel 文件
+### 插件SDK 组件
 
-#### 文档生成 - reportlab
-- **基础 PDF 创建**：使用 Canvas API 创建简单文档
-- **复杂文档模板**：支持多页面、样式化的报告生成
+OpenClaw 的插件SDK为 PDF 处理提供了标准化的接口和类型定义。
 
-**章节来源**
-- [my-pdf/SKILL.md:35-234](file://skills/my-pdf/SKILL.md#L35-L234)
+#### PDF 工具接口
+- **统一抽象**：提供统一的 PDF 处理接口
+- **多提供商支持**：支持多种 PDF 处理提供商
+- **原生与回退**：支持原生 PDF 处理和内容提取回退机制
+- **安全策略**：集成文件系统访问策略
 
-### 命令行工具链
-
-#### pdftotext (poppler-utils)
-- **文本提取**：支持保留布局或纯文本两种模式
-- **范围选择**：可指定提取特定页码范围
-- **批量处理**：适合大规模文档批量化处理
-
-#### qpdf
-- **高级合并**：支持复杂的页面组合和重排
-- **加密处理**：密码解密和重新加密
-- **格式转换**：多种 PDF 格式转换选项
-
-#### pdftk（可选）
-- **页面操作**：旋转、裁剪、重组页面
-- **表单处理**：PDF 表单的填充和提取
-
-**章节来源**
-- [my-pdf/SKILL.md:154-177](file://skills/my-pdf/SKILL.md#L154-L177)
-
-### 浏览器端 PDF 解析
-
-#### pdf.js 引擎
-- **Web 渲染**：基于浏览器的 PDF 查看和交互
+#### 原生解析组件
+- **pdf.js 引擎**：基于 Mozilla pdf.js 的浏览器端解析
+- **pdf-parse 集成**：Node.js 环境下的 PDF 内容提取
+- **Canvas 支持**：可选的图像提取功能
 - **Worker 支持**：独立线程处理，避免阻塞 UI
-- **模块化设计**：支持按需加载和扩展
-
-#### pdf-parse 解析器
-- **Node.js 集成**：服务器端 PDF 内容提取
-- **结构化输出**：提供页面级的文本和坐标信息
-- **错误处理**：完善的异常捕获和恢复机制
 
 **章节来源**
-- [pdf-parse.js](file://node_modules/pdf-parse/lib/pdf-parse.js)
-- [pdf.js](file://node_modules/pdf-parse/lib/pdf.js/v2.0.550/build/pdf.js)
-- [pdf.worker.js](file://node_modules/pdf-parse/lib/pdf.js/v2.0.550/build/pdf.worker.js)
+- [nano-pdf/SKILL.md:1-39](file://skills/nano-pdf/SKILL.md#L1-L39)
+- [minimax-pdf/SKILL.md:1-210](file://skills/minimax-pdf/SKILL.md#L1-L210)
+- [pdf-tool.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
+- [pdf-tool.helpers.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_page_view.d.ts)
 
 ## 架构概览
 
@@ -146,137 +133,42 @@ graph TB
 subgraph "用户接口层"
 A[智能体指令]
 B[自然语言描述]
+C[PDF 文件输入]
 end
 subgraph "技能编排层"
-C[my-pdf 技能]
 D[nano-pdf 技能]
-E[PDF 工具集]
+E[minimax-pdf 技能]
+F[PDF 工具集]
 end
 subgraph "执行引擎层"
-F[Python 库栈]
-G[命令行工具]
-H[浏览器解析器]
+G[原生 PDF 处理]
+H[内容提取引擎]
+I[浏览器解析器]
 end
 subgraph "存储管理层"
-I[临时文件]
-J[缓存数据]
-K[结果输出]
+J[临时文件]
+K[缓存数据]
+L[结果输出]
 end
-A --> C
-B --> D
+A --> D
+B --> E
 C --> F
 D --> G
 E --> H
 F --> I
 G --> J
 H --> K
+I --> L
 ```
 
 **图表来源**
-- [my-pdf/SKILL.md:1-234](file://skills/my-pdf/SKILL.md#L1-L234)
 - [nano-pdf/SKILL.md:1-39](file://skills/nano-pdf/SKILL.md#L1-L39)
-- [pdf-tool.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.d.ts)
+- [minimax-pdf/SKILL.md:1-210](file://skills/minimax-pdf/SKILL.md#L1-L210)
+- [pdf-tool.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
 
 ## 详细组件分析
 
-### my-pdf 技能详解
-
-my-pdf 技能是 OpenClaw 中最全面的 PDF 处理解决方案，提供了从基础到高级的完整功能集。
-
-#### 文本提取流程
-
-```mermaid
-sequenceDiagram
-participant U as 用户
-participant S as my-pdf 技能
-participant P as pdfplumber
-participant T as pypdf
-U->>S : 请求提取 PDF 文本
-S->>P : 打开 PDF 文件
-P->>P : 遍历所有页面
-P->>P : 提取页面文本
-P-->>S : 返回文本内容
-S->>T : 可选：应用布局保持
-T-->>S : 返回格式化文本
-S-->>U : 输出提取结果
-```
-
-**图表来源**
-- [my-pdf/SKILL.md:82-103](file://skills/my-pdf/SKILL.md#L82-L103)
-
-#### 表格提取算法
-
-表格提取是 my-pdf 技能的核心特色，采用多阶段处理策略：
-
-```mermaid
-flowchart TD
-A[开始表格提取] --> B[打开 PDF 文件]
-B --> C[遍历每一页]
-C --> D{检测表格存在?}
-D --> |否| E[跳过页面]
-D --> |是| F[提取表格数据]
-F --> G[清理表格头部]
-G --> H[验证数据完整性]
-H --> I{数据有效?}
-I --> |否| J[记录错误日志]
-I --> |是| K[转换为 DataFrame]
-K --> L[添加页面标识]
-L --> M[收集所有表格]
-E --> N{还有页面?}
-M --> O[合并所有表格]
-O --> P[导出为 Excel]
-J --> N
-N --> |是| C
-N --> |否| Q[结束]
-```
-
-**图表来源**
-- [my-pdf/SKILL.md:94-121](file://skills/my-pdf/SKILL.md#L94-L121)
-
-#### 文档操作工作流
-
-my-pdf 技能支持多种文档操作，包括合并、拆分、旋转等：
-
-```mermaid
-classDiagram
-class PDFProcessor {
-+merge_pdfs(files) PDFWriter
-+split_pdf(input_file) List[PdfWriter]
-+rotate_pages(file, angle) PdfWriter
-+extract_metadata(file) Dict
-+add_watermark(file, watermark) PdfWriter
-+encrypt_pdf(file, password) PdfWriter
-}
-class PyPDFLibrary {
-+PdfReader
-+PdfWriter
-+PageObject
-+merge_page()
-+rotate_clockwise()
-}
-class PDFPlumberLibrary {
-+extract_text() str
-+extract_tables() List[List[str]]
-+extract_words() List[Dict]
-}
-class ReportLabLibrary {
-+Canvas
-+SimpleDocTemplate
-+Paragraph
-+PageBreak
-}
-PDFProcessor --> PyPDFLibrary : 使用
-PDFProcessor --> PDFPlumberLibrary : 使用
-PDFProcessor --> ReportLabLibrary : 使用
-```
-
-**图表来源**
-- [my-pdf/SKILL.md:37-152](file://skills/my-pdf/SKILL.md#L37-L152)
-
-**章节来源**
-- [my-pdf/SKILL.md:1-234](file://skills/my-pdf/SKILL.md#L1-L234)
-
-### nano-pdf 技能分析
+### nano-pdf 技能详解
 
 nano-pdf 技能专注于自然语言驱动的 PDF 编辑，提供直观的编辑体验。
 
@@ -323,6 +215,63 @@ N-->>U : 技能准备就绪
 **章节来源**
 - [nano-pdf/SKILL.md:1-39](file://skills/nano-pdf/SKILL.md#L1-L39)
 
+### minimax-pdf 技能分析
+
+minimax-pdf 技能专注于高质量 PDF 的生成和处理，提供专业的文档制作能力。
+
+#### 三类处理任务
+
+```mermaid
+flowchart TD
+A[用户请求] --> B{任务类型}
+B --> |CREATE| C[从零创建新文档]
+B --> |FILL| D[填写现有表单]
+B --> |REFORMAT| E[重新设计现有文档]
+C --> F[设计系统应用]
+D --> G[字段识别与填充]
+E --> H[内容解析与重建]
+F --> I[输出高质量 PDF]
+G --> I
+H --> I
+```
+
+**图表来源**
+- [minimax-pdf/SKILL.md:39-47](file://skills/minimax-pdf/SKILL.md#L39-L47)
+
+#### 设计系统架构
+
+minimax-pdf 使用基于令牌的设计系统，确保文档的视觉一致性：
+
+```mermaid
+classDiagram
+class DesignSystem {
++accent_colors : string[]
++typography_scales : object
++spacing_tokens : number[]
++visual_identity : string
+}
+class DocumentType {
++report : DesignTokens
++proposal : DesignTokens
++resume : DesignTokens
++portfolio : DesignTokens
+}
+class DesignTokens {
++color_palette : object
++font_family : string
++layout_rules : object
++brand_elements : object
+}
+DesignSystem --> DocumentType : defines
+DocumentType --> DesignTokens : contains
+```
+
+**图表来源**
+- [minimax-pdf/SKILL.md:65-106](file://skills/minimax-pdf/SKILL.md#L65-L106)
+
+**章节来源**
+- [minimax-pdf/SKILL.md:1-210](file://skills/minimax-pdf/SKILL.md#L1-L210)
+
 ### 插件SDK 组件
 
 OpenClaw 的插件SDK为 PDF 处理提供了标准化的接口和类型定义。
@@ -361,16 +310,16 @@ PDFExtract --> NativeProviders : 依赖
 ```
 
 **图表来源**
-- [pdf-tool.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.d.ts)
-- [pdf-tool.helpers.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.helpers.d.ts)
-- [pdf-native-providers.d.ts](file://dist/plugin-sdk/agents/tools/pdf-native-providers.d.ts)
-- [pdf-extract.d.ts](file://dist/plugin-sdk/media/pdf-extract.d.ts)
+- [pdf-tool.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
+- [pdf-tool.helpers.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_page_view.d.ts)
+- [pdf-native-providers.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/src/pdf.d.ts)
+- [pdf-extract.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
 
 **章节来源**
-- [pdf-tool.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.d.ts)
-- [pdf-tool.helpers.d.ts](file://dist/plugin-sdk/agents/tools/pdf-tool.helpers.d.ts)
-- [pdf-native-providers.d.ts](file://dist/plugin-sdk/agents/tools/pdf-native-providers.d.ts)
-- [pdf-extract.d.ts](file://dist/plugin-sdk/media/pdf-extract.d.ts)
+- [pdf-tool.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
+- [pdf-tool.helpers.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_page_view.d.ts)
+- [pdf-native-providers.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/src/pdf.d.ts)
+- [pdf-extract.d.ts](file://apps/electron/resources/prod-node_modules/node_modules/pdfjs-dist/types/web/pdf_rendering_queue.d.ts)
 
 ## 依赖关系分析
 
@@ -380,36 +329,31 @@ OpenClaw 的 PDF 处理能力形成了一个相互依赖的生态系统：
 graph TB
 subgraph "核心依赖"
 A[pypdf] --> B[pycryptodome]
-C[pdfplumber] --> D[camelot-py]
-E[reportlab] --> F[fpdf2]
+C[reportlab] --> D[fpdf2]
+E[playwright] --> F[Chromium]
 end
 subgraph "工具链依赖"
-G[pdftotext] --> H[poppler]
-I[qpdf] --> J[boost]
-K[pdftk] --> L[zlib]
-end
-subgraph "浏览器依赖"
-M[pdf.js] --> N[web workers]
-O[pdf-parse] --> P[node-libs]
+G[pdf-parse] --> H[pdf.js]
+I[pdfjs-dist] --> J[Canvas]
+K[Node.js] --> L[异步处理]
 end
 subgraph "技能依赖"
-Q[my-pdf] --> A
-Q --> C
-Q --> E
-R[nano-pdf] --> G
-R --> I
-S[PDF 工具集] --> M
-S --> O
+M[nano-pdf] --> N[uv 包管理器]
+O[minimax-pdf] --> A
+O --> C
+O --> E
+P[PDF 工具集] --> G
+P --> I
 end
 ```
 
 **图表来源**
-- [my-pdf/SKILL.md:35-152](file://skills/my-pdf/SKILL.md#L35-L152)
-- [nano-pdf/SKILL.md:1-39](file://skills/nano-pdf/SKILL.md#L1-L39)
+- [minimax-pdf/SKILL.md:196-202](file://skills/minimax-pdf/SKILL.md#L196-L202)
+- [nano-pdf/SKILL.md:10-20](file://skills/nano-pdf/SKILL.md#L10-L20)
 
 **章节来源**
-- [my-pdf/SKILL.md:35-152](file://skills/my-pdf/SKILL.md#L35-L152)
-- [nano-pdf/SKILL.md:1-39](file://skills/nano-pdf/SKILL.md#L1-L39)
+- [minimax-pdf/SKILL.md:196-202](file://skills/minimax-pdf/SKILL.md#L196-L202)
+- [nano-pdf/SKILL.md:10-20](file://skills/nano-pdf/SKILL.md#L10-L20)
 
 ## 性能考虑
 
@@ -478,10 +422,17 @@ I --> J[验证修复效果]
 ```
 
 **章节来源**
-- [my-pdf/SKILL.md:180-193](file://skills/my-pdf/SKILL.md#L180-L193)
+- [minimax-pdf/SKILL.md:188-210](file://skills/minimax-pdf/SKILL.md#L188-L210)
 
 ## 结论
 
-OpenClaw 的 PDF 处理能力通过多层次的技术架构实现了从基础文本提取到复杂文档操作的全覆盖。Python 生态的 pypdf、pdfplumber、reportlab 为专业级 PDF 处理提供了强大支持；命令行工具链保证了批量处理的效率；浏览器端解析器确保了跨平台的兼容性。结合 my-pdf 和 nano-pdf 两大技能，用户可以根据具体需求选择最适合的处理方式，实现从简单的文本提取到复杂的文档编辑的全流程自动化。
+OpenClaw 的 PDF 处理能力通过多层次的技术架构实现了从基础文本提取到复杂文档操作的全覆盖。当前可用的技能包括：
+
+- **nano-pdf**：专注于自然语言驱动的 PDF 编辑，提供直观的编辑体验
+- **minimax-pdf**：专注于高质量 PDF 的生成和处理，提供专业的文档制作能力
+
+结合插件SDK提供的标准化接口，用户可以根据具体需求选择最适合的处理方式，实现从简单的文本提取到复杂的文档编辑的全流程自动化。
+
+**重要更新**：原 my-pdf 技能在本次更新中已被移除，不再存在于代码库中。建议用户使用现有的 nano-pdf 或 minimax-pdf 技能替代相关功能。
 
 这种架构设计不仅保证了功能的完整性，还通过模块化的设计确保了系统的可维护性和可扩展性，为未来的功能增强和技术升级奠定了坚实的基础。

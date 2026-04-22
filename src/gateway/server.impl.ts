@@ -104,6 +104,7 @@ import { createAgentEventHandler } from "./server-chat.js";
 import { createGatewayCloseHandler } from "./server-close.js";
 import { buildGatewayCronService } from "./server-cron.js";
 import { startGatewayDiscovery } from "./server-discovery-runtime.js";
+import { listRecoverableSubmittedInteractions } from "./chat-interactions-store.js";
 import { applyGatewayLaneConcurrency } from "./server-lanes.js";
 import { startGatewayMaintenanceTimers } from "./server-maintenance.js";
 import { GATEWAY_EVENTS, listGatewayMethods } from "./server-methods-list.js";
@@ -125,6 +126,7 @@ import { resolveSessionKeyForRun } from "./server-session-key.js";
 import { logGatewayStartup } from "./server-startup-log.js";
 import { startGatewaySidecars } from "./server-startup.js";
 import { startGatewayTailscaleExposure } from "./server-tailscale.js";
+import { loadSessionEntry } from "./session-utils.js";
 import { createWizardSessionTracker } from "./server-wizard-sessions.js";
 import { attachGatewayWsHandlers } from "./server-ws-runtime.js";
 import {
@@ -816,6 +818,7 @@ export async function startGatewayServer(
   let healthInterval = noopInterval();
   let dedupeCleanup = noopInterval();
   let mediaCleanup: ReturnType<typeof setInterval> | null = null;
+  let interactionRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   if (!minimalTestGateway) {
     ({ tickInterval, healthInterval, dedupeCleanup, mediaCleanup } =
       startGatewayMaintenanceTimers({
@@ -994,6 +997,134 @@ export async function startGatewayServer(
       wizardRunner,
       broadcastVoiceWakeChanged,
     };
+
+  if (!minimalTestGateway) {
+    const resolveInteractionRecoveryPolicy = (cfg: OpenClawConfig) => {
+      const recovery = cfg.gateway?.interactions?.recovery;
+      return {
+        enabled: recovery?.enabled ?? true,
+        intervalMs: Math.max(1_000, recovery?.intervalMs ?? 30_000),
+        minStaleMs: Math.max(0, recovery?.minStaleMs ?? 30_000),
+        maxAttempts: Math.max(0, recovery?.maxAttempts ?? 3),
+        batchLimit: Math.max(1, recovery?.batchLimit ?? 20),
+        warnBacklogThreshold: Math.max(1, recovery?.warnBacklogThreshold ?? 25),
+        warnMinSuccessRate: Math.min(1, Math.max(0, recovery?.warnMinSuccessRate ?? 0.5)),
+      };
+    };
+    const scheduleInteractionRecoverySweep = () => {
+      const cfg = loadConfig();
+      const { intervalMs } = resolveInteractionRecoveryPolicy(cfg);
+      interactionRecoveryTimer = setTimeout(runInteractionRecoverySweep, intervalMs);
+    };
+    const runInteractionRecoverySweep = () => {
+      const cfg = loadConfig();
+      const recoveryPolicy = resolveInteractionRecoveryPolicy(cfg);
+      if (!recoveryPolicy.enabled) {
+        scheduleInteractionRecoverySweep();
+        return;
+      }
+      const mainSessionKey = resolveMainSessionKey(loadConfig());
+      const { storePath } = loadSessionEntry(mainSessionKey);
+      if (!storePath) {
+        scheduleInteractionRecoverySweep();
+        return;
+      }
+      void listRecoverableSubmittedInteractions({
+        sessionStorePath: storePath,
+        minStaleMs: recoveryPolicy.minStaleMs,
+        maxAttempts: recoveryPolicy.maxAttempts,
+        limit: recoveryPolicy.batchLimit,
+      })
+        .then(async (recoverable) => {
+          if (recoverable.length === 0) {
+            scheduleInteractionRecoverySweep();
+            return;
+          }
+          let totalSubmittedScanned = 0;
+          let totalRecovered = 0;
+          let totalMarkFailed = 0;
+          const grouped = new Map<string, number>();
+          for (const item of recoverable) {
+            grouped.set(item.sessionKey, (grouped.get(item.sessionKey) ?? 0) + 1);
+          }
+          for (const [sessionKey, count] of grouped) {
+            let responded = false;
+            let ok = false;
+            let payload: unknown;
+            await coreGatewayHandlers["chat.interaction.recover.stale"]({
+              req: {
+                type: "req",
+                id: `interaction-recover-${Date.now()}`,
+                method: "chat.interaction.recover.stale",
+                params: {
+                  sessionKey,
+                  minStaleMs: recoveryPolicy.minStaleMs,
+                  maxAttempts: recoveryPolicy.maxAttempts,
+                  limit: Math.max(1, Math.min(count, 10)),
+                },
+              },
+              params: {
+                sessionKey,
+                minStaleMs: recoveryPolicy.minStaleMs,
+                maxAttempts: recoveryPolicy.maxAttempts,
+                limit: Math.max(1, Math.min(count, 10)),
+              },
+              client: null,
+              isWebchatConnect: () => false,
+              respond: (nextOk, nextPayload) => {
+                responded = true;
+                ok = nextOk;
+                payload = nextPayload;
+              },
+              context: gatewayRequestContext,
+            });
+            if (!responded || !ok || !payload || typeof payload !== "object") {
+              continue;
+            }
+            const result = payload as {
+              scanned?: unknown;
+              recovered?: unknown;
+              skipped?: { markFailed?: unknown };
+            };
+            if (typeof result.scanned === "number" && Number.isFinite(result.scanned)) {
+              totalSubmittedScanned += result.scanned;
+            }
+            if (Array.isArray(result.recovered)) {
+              totalRecovered += result.recovered.length;
+            }
+            if (
+              result.skipped &&
+              typeof result.skipped === "object" &&
+              typeof result.skipped.markFailed === "number" &&
+              Number.isFinite(result.skipped.markFailed)
+            ) {
+              totalMarkFailed += result.skipped.markFailed;
+            }
+          }
+          const attemptedResumes = totalRecovered + totalMarkFailed;
+          const successRate = attemptedResumes > 0 ? totalRecovered / attemptedResumes : 1;
+          log.info(
+            `interaction recovery health: staleCandidates=${recoverable.length} submittedScanned=${totalSubmittedScanned} recovered=${totalRecovered} markFailed=${totalMarkFailed} successRate=${successRate.toFixed(2)}`,
+          );
+          if (totalSubmittedScanned >= recoveryPolicy.warnBacklogThreshold) {
+            log.warn(
+              `interaction recovery backlog alert: submittedScanned=${totalSubmittedScanned} threshold=${recoveryPolicy.warnBacklogThreshold}`,
+            );
+          }
+          if (attemptedResumes > 0 && successRate < recoveryPolicy.warnMinSuccessRate) {
+            log.warn(
+              `interaction recovery success-rate alert: successRate=${successRate.toFixed(2)} threshold=${recoveryPolicy.warnMinSuccessRate.toFixed(2)} attempted=${attemptedResumes}`,
+            );
+          }
+          scheduleInteractionRecoverySweep();
+        })
+        .catch((err) => {
+          log.warn(`interaction recovery sweep failed: ${String(err)}`);
+          scheduleInteractionRecoverySweep();
+        });
+    };
+    runInteractionRecoverySweep();
+  }
 
   // Store the gateway context as a fallback for plugin subagent dispatch
   // in non-WS paths (Telegram polling, WhatsApp, etc.) where no per-request
@@ -1200,6 +1331,10 @@ export async function startGatewayServer(
       authRateLimiter?.dispose();
       browserAuthRateLimiter.dispose();
       channelHealthMonitor?.stop();
+      if (interactionRecoveryTimer) {
+        clearTimeout(interactionRecoveryTimer);
+        interactionRecoveryTimer = null;
+      }
       clearSecretsRuntimeSnapshot();
       await close(opts);
     },

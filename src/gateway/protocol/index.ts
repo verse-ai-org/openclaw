@@ -65,9 +65,25 @@ import {
   type ChatEvent,
   ChatEventSchema,
   ChatHistoryParamsSchema,
+  ChatInteractionConsumeResultSchema,
+  ChatInteractionConsumeParamsSchema,
+  ChatInteractionListResultSchema,
+  ChatInteractionListParamsSchema,
+  ChatInteractionRecoverParamsSchema,
+  ChatInteractionRecoverResultSchema,
+  ChatInteractionRecoverStaleResultSchema,
+  ChatInteractionRecoverStaleParamsSchema,
+  ChatInteractionRecordSchema,
+  ChatInteractionRequestParamsSchema,
+  ChatInteractionRequestResultSchema,
+  ChatInteractionSubmittedPayloadSchema,
+  ChatInteractionSummaryEntrySchema,
+  ChatInteractionSubmitParamsSchema,
+  ChatInteractionSubmitResultSchema,
   type ChatInjectParams,
   ChatInjectParamsSchema,
   ChatSendParamsSchema,
+  InteractionEventSchema,
   type ConfigApplyParams,
   ConfigApplyParamsSchema,
   type ConfigGetParams,
@@ -448,6 +464,20 @@ export const validateChatHistoryParams = ajv.compile(ChatHistoryParamsSchema);
 export const validateChatSendParams = ajv.compile(ChatSendParamsSchema);
 export const validateChatAbortParams = ajv.compile<ChatAbortParams>(ChatAbortParamsSchema);
 export const validateChatInjectParams = ajv.compile<ChatInjectParams>(ChatInjectParamsSchema);
+export const validateChatInteractionRequestParams = ajv.compile(ChatInteractionRequestParamsSchema);
+export const validateChatInteractionSubmitParams = ajv.compile(ChatInteractionSubmitParamsSchema);
+export const validateChatInteractionListParams = ajv.compile(ChatInteractionListParamsSchema);
+export const validateChatInteractionConsumeParams = ajv.compile(ChatInteractionConsumeParamsSchema);
+export const validateChatInteractionRecoverParams = ajv.compile(ChatInteractionRecoverParamsSchema);
+export const validateChatInteractionRecoverStaleParams = ajv.compile(ChatInteractionRecoverStaleParamsSchema);
+export const validateChatInteractionRequestResult = ajv.compile(ChatInteractionRequestResultSchema);
+export const validateChatInteractionSubmitResult = ajv.compile(ChatInteractionSubmitResultSchema);
+export const validateChatInteractionListResult = ajv.compile(ChatInteractionListResultSchema);
+export const validateChatInteractionConsumeResult = ajv.compile(ChatInteractionConsumeResultSchema);
+export const validateChatInteractionRecoverResult = ajv.compile(ChatInteractionRecoverResultSchema);
+export const validateChatInteractionRecoverStaleResult = ajv.compile(
+  ChatInteractionRecoverStaleResultSchema,
+);
 export const validateChatEvent = ajv.compile(ChatEventSchema);
 export const validateUpdateRunParams = ajv.compile<UpdateRunParams>(UpdateRunParamsSchema);
 export const validateWebLoginStartParams =
@@ -598,8 +628,18 @@ export {
   LogsTailParamsSchema,
   LogsTailResultSchema,
   ChatHistoryParamsSchema,
+  ChatInteractionSummaryEntrySchema,
+  ChatInteractionSubmittedPayloadSchema,
+  ChatInteractionRecordSchema,
   ChatSendParamsSchema,
   ChatInjectParamsSchema,
+  ChatInteractionRequestResultSchema,
+  ChatInteractionSubmitResultSchema,
+  ChatInteractionListResultSchema,
+  ChatInteractionConsumeResultSchema,
+  ChatInteractionRecoverResultSchema,
+  ChatInteractionRecoverStaleResultSchema,
+  InteractionEventSchema,
   UpdateRunParamsSchema,
   TickEventSchema,
   ShutdownEventSchema,

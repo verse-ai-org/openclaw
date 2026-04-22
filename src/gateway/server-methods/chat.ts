@@ -1,6 +1,9 @@
 import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
+import type { ErrorObject } from "ajv";
 import { CURRENT_SESSION_VERSION } from "@mariozechner/pi-coding-agent";
+import { agentCommandFromIngress } from "../../commands/agent.js";
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { resolveThinkingDefault } from "../../agents/model-selection.js";
 import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
@@ -12,12 +15,14 @@ import {
   SILENT_REPLY_TOKEN,
 } from "../../auto-reply/tokens.js";
 import { createReplyPrefixOptions } from "../../channels/reply-prefix.js";
+import { loadConfig } from "../../config/config.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
 import { jsonUtf8Bytes } from "../../infra/json-utf8-bytes.js";
 import {
   normalizeInputProvenance,
   type InputProvenance,
 } from "../../sessions/input-provenance.js";
+import { defaultRuntime } from "../../runtime.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { parseAgentSessionKey } from "../../sessions/session-key-utils.js";
 import {
@@ -53,11 +58,32 @@ import {
   hasGatewayClientCap,
 } from "../protocol/client-info.js";
 import {
+  type ChatInteractionSubmittedPayload,
+  consumeInteraction,
+  createInteraction,
+  listInteractions,
+  markInteractionResumeStarted,
+  submitInteraction,
+  type ChatInteractionStatus,
+} from "../chat-interactions-store.js";
+import {
   ErrorCodes,
   errorShape,
   formatValidationErrors,
   validateChatAbortParams,
   validateChatHistoryParams,
+  validateChatInteractionConsumeResult,
+  validateChatInteractionListParams,
+  validateChatInteractionListResult,
+  validateChatInteractionConsumeParams,
+  validateChatInteractionRecoverResult,
+  validateChatInteractionRecoverStaleResult,
+  validateChatInteractionRecoverStaleParams,
+  validateChatInteractionRequestParams,
+  validateChatInteractionRequestResult,
+  validateChatInteractionRecoverParams,
+  validateChatInteractionSubmitParams,
+  validateChatInteractionSubmitResult,
   validateChatInjectParams,
   validateChatSendParams,
 } from "../protocol/index.js";
@@ -848,6 +874,229 @@ function nextChatSeq(
   return next;
 }
 
+const CHAT_INTERACTION_STATUSES: readonly ChatInteractionStatus[] = [
+  "awaiting_user",
+  "submitted",
+  "consumed",
+  "cancelled",
+  "expired",
+  "failed",
+];
+
+function parseInteractionStatuses(value: unknown): Set<ChatInteractionStatus> | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  const allowed = new Set<ChatInteractionStatus>(CHAT_INTERACTION_STATUSES);
+  const out = new Set<ChatInteractionStatus>();
+  for (const raw of value) {
+    if (typeof raw !== "string") {
+      return null;
+    }
+    const next = raw.trim() as ChatInteractionStatus;
+    if (!allowed.has(next)) {
+      return null;
+    }
+    out.add(next);
+  }
+  return out.size > 0 ? out : null;
+}
+
+function logInteractionMetric(
+  context: Pick<GatewayRequestContext, "logGateway">,
+  event: string,
+  fields: Record<string, string | number | boolean | undefined>,
+): void {
+  const payload = Object.entries(fields)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(" ");
+  context.logGateway.info(`interaction metric: event=${event}${payload ? ` ${payload}` : ""}`);
+}
+
+function shouldEmitInteractionStream(): boolean {
+  const cfg = loadConfig();
+  return cfg.gateway?.interactions?.stream?.enabled ?? true;
+}
+
+function emitInteractionEvent(params: {
+  context: Pick<GatewayRequestContext, "broadcast">;
+  phase: "requested" | "submitted" | "consumed" | "recovered" | "recover_stale" | "failed";
+  sessionKey: string;
+  interactionId: string;
+  kind: string;
+  status: ChatInteractionStatus;
+  runId?: string;
+  payload?: ChatInteractionSubmittedPayload;
+  definition?: unknown;
+  source: string;
+}) {
+  if (!shouldEmitInteractionStream()) {
+    return;
+  }
+  params.context.broadcast("interaction", {
+    version: 1,
+    phase: params.phase,
+    sessionKey: params.sessionKey,
+    interactionId: params.interactionId,
+    kind: params.kind,
+    status: params.status,
+    runId: params.runId,
+    payload: params.payload,
+    definition: params.definition,
+    ts: Date.now(),
+    source: params.source,
+  });
+}
+
+function emitInteractionFailedEvent(params: {
+  context: Pick<GatewayRequestContext, "broadcast">;
+  sessionKey: string;
+  interactionId?: string;
+  kind?: string;
+  status?: ChatInteractionStatus;
+  runId?: string;
+  payload?: ChatInteractionSubmittedPayload;
+  source: string;
+}) {
+  const interactionId = params.interactionId?.trim();
+  const kind = params.kind?.trim();
+  if (!interactionId || !kind) {
+    return;
+  }
+  emitInteractionEvent({
+    context: params.context,
+    phase: "failed",
+    sessionKey: params.sessionKey,
+    interactionId,
+    kind,
+    status: params.status ?? "failed",
+    runId: params.runId,
+    payload: params.payload,
+    source: params.source,
+  });
+}
+
+function buildInteractionResumeMessage(params: {
+  interactionId: string;
+  kind: string;
+  payload: ChatInteractionSubmittedPayload;
+}): string {
+  return [
+    "<interaction_resume>",
+    JSON.stringify(
+      {
+        version: 1,
+        interactionId: params.interactionId,
+        kind: params.kind,
+        payload: params.payload,
+      },
+      null,
+      2,
+    ),
+    "</interaction_resume>",
+  ].join("\n");
+}
+
+function triggerInteractionResumeRun(params: {
+  context: GatewayRequestContext;
+  sessionKey: string;
+  sessionId: string;
+  interactionId: string;
+  kind: string;
+  payload: ChatInteractionSubmittedPayload;
+  recipientConnId?: string;
+}): string {
+  const resumeRunId = `interaction-resume-${params.interactionId}-${Date.now()}`;
+  params.context.addChatRun(params.sessionId, {
+    sessionKey: params.sessionKey,
+    clientRunId: resumeRunId,
+  });
+  if (params.recipientConnId) {
+    params.context.registerToolEventRecipient(resumeRunId, params.recipientConnId);
+  }
+  void agentCommandFromIngress(
+    {
+      message: buildInteractionResumeMessage({
+        interactionId: params.interactionId,
+        kind: params.kind,
+        payload: params.payload,
+      }),
+      runId: resumeRunId,
+      sessionId: params.sessionId,
+      sessionKey: params.sessionKey,
+      thinking: "low",
+      deliver: false,
+      messageChannel: "webchat",
+      inputProvenance: {
+        kind: "external_user",
+        sourceChannel: "webchat",
+        sourceTool: "gateway.chat.interaction.submit",
+      },
+      senderIsOwner: false,
+    },
+    defaultRuntime,
+    params.context.deps,
+  ).catch((err) => {
+    params.context.logGateway.warn(
+      `interaction resume failed: ${formatForLog(err)}`,
+    );
+  });
+  return resumeRunId;
+}
+
+async function resumeInteraction(params: {
+  context: GatewayRequestContext;
+  sessionStorePath: string;
+  sessionKey: string;
+  sessionId: string;
+  recipientConnId?: string;
+  interaction: {
+    id: string;
+    kind: string;
+    submittedPayload?: ChatInteractionSubmittedPayload;
+  };
+}) {
+  const resumeRunId = triggerInteractionResumeRun({
+    context: params.context,
+    sessionKey: params.sessionKey,
+    sessionId: params.sessionId,
+    interactionId: params.interaction.id,
+    kind: params.interaction.kind,
+    payload: params.interaction.submittedPayload,
+    recipientConnId: params.recipientConnId,
+  });
+  const marked = await markInteractionResumeStarted({
+    sessionStorePath: params.sessionStorePath,
+    sessionKey: params.sessionKey,
+    interactionId: params.interaction.id,
+    resumeRunId,
+  });
+  return { resumeRunId, marked };
+}
+
+function respondValidatedInteractionResult(params: {
+  method: string;
+  payload: unknown;
+  validate: (payload: unknown) => boolean;
+  validationErrors: ErrorObject[] | null | undefined;
+  respond: GatewayRequestHandlerOptions["respond"];
+  context: Pick<GatewayRequestContext, "logGateway">;
+}) {
+  if (!params.validate(params.payload)) {
+    params.context.logGateway.warn(
+      `${params.method}: invalid result payload: ${formatValidationErrors(params.validationErrors)}`,
+    );
+    params.respond(
+      false,
+      undefined,
+      errorShape(ErrorCodes.UNAVAILABLE, `${params.method}: invalid result payload`),
+    );
+    return;
+  }
+  params.respond(true, params.payload as Record<string, unknown>);
+}
+
 function broadcastChatFinal(params: {
   context: Pick<
     GatewayRequestContext,
@@ -987,6 +1236,531 @@ export const chatHandlers: GatewayRequestHandlers = {
     context.logGateway.info(
       `control-ui perf: chat.history totalMs=${Date.now() - perfStarted} messages=${bounded.messages.length} sessionKey=${sessionKey.length > 64 ? `${sessionKey.slice(0, 32)}…` : sessionKey}`,
     );
+  },
+  "chat.interaction.request": async ({ params, respond, context }) => {
+    if (!validateChatInteractionRequestParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid chat.interaction.request params: ${formatValidationErrors(validateChatInteractionRequestParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as {
+      sessionKey: string;
+      interactionId?: string;
+      runId?: string;
+      kind: string;
+      definition: unknown;
+      expiresAtMs?: number;
+    };
+    const now = Date.now();
+    const { canonicalKey, storePath } = loadSessionEntry(p.sessionKey);
+    if (!storePath) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "session store unavailable"));
+      emitInteractionFailedEvent({
+        context,
+        sessionKey: canonicalKey,
+        interactionId: p.interactionId,
+        kind: p.kind,
+        status: "failed",
+        runId: p.runId,
+        source: "chat.interaction.request",
+      });
+      return;
+    }
+
+    const interaction = await createInteraction({
+      sessionStorePath: storePath,
+      interaction: {
+        id: (p.interactionId?.trim() || crypto.randomUUID()),
+        sessionKey: canonicalKey,
+        runId: typeof p.runId === "string" && p.runId.trim() ? p.runId : undefined,
+        kind: p.kind.trim(),
+        definition: p.definition,
+        status: "awaiting_user",
+        createdAt: now,
+        updatedAt: now,
+        expiresAtMs:
+          typeof p.expiresAtMs === "number" && Number.isFinite(p.expiresAtMs)
+            ? p.expiresAtMs
+            : undefined,
+      },
+    });
+
+    const result = {
+      sessionKey: canonicalKey,
+      interaction,
+    };
+    respondValidatedInteractionResult({
+      method: "chat.interaction.request",
+      payload: result,
+      validate: validateChatInteractionRequestResult,
+      validationErrors: validateChatInteractionRequestResult.errors,
+      respond,
+      context,
+    });
+    logInteractionMetric(context, "requested", {
+      sessionKey: canonicalKey,
+      kind: interaction.kind,
+    });
+    emitInteractionEvent({
+      context,
+      phase: "requested",
+      sessionKey: canonicalKey,
+      interactionId: interaction.id,
+      kind: interaction.kind,
+      status: "awaiting_user",
+      runId: interaction.runId,
+      definition: interaction.definition,
+      source: "chat.interaction.request",
+    });
+  },
+  "chat.interaction.submit": async ({ params, respond, context, client }) => {
+    if (!validateChatInteractionSubmitParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid chat.interaction.submit params: ${formatValidationErrors(validateChatInteractionSubmitParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as {
+      sessionKey: string;
+      interactionId: string;
+      payload: ChatInteractionSubmittedPayload;
+      submittedBy?: string;
+    };
+    const { canonicalKey, storePath } = loadSessionEntry(p.sessionKey);
+    if (!storePath) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "session store unavailable"));
+      emitInteractionFailedEvent({
+        context,
+        sessionKey: canonicalKey,
+        interactionId: p.interactionId,
+        kind: p.payload.kind,
+        status: "failed",
+        payload: p.payload,
+        source: "chat.interaction.submit",
+      });
+      return;
+    }
+    const submitted = await submitInteraction({
+      sessionStorePath: storePath,
+      sessionKey: canonicalKey,
+      interactionId: p.interactionId,
+      payload: p.payload,
+      submittedBy: typeof p.submittedBy === "string" ? p.submittedBy.trim() : undefined,
+    });
+    if (!submitted.ok) {
+      const message =
+        submitted.reason === "not_found"
+          ? "interaction not found for session"
+          : "interaction is not awaiting user input";
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, message));
+      emitInteractionFailedEvent({
+        context,
+        sessionKey: canonicalKey,
+        interactionId: p.interactionId,
+        kind: p.payload.kind,
+        status: "failed",
+        payload: p.payload,
+        source: "chat.interaction.submit",
+      });
+      return;
+    }
+    const requestToSubmitLatencyMs = Math.max(
+      0,
+      (submitted.interaction.submittedAt ?? Date.now()) - submitted.interaction.createdAt,
+    );
+    const { entry } = loadSessionEntry(canonicalKey);
+    const sessionId = entry?.sessionId ?? randomUUID();
+    const { resumeRunId } = await resumeInteraction({
+      context,
+      sessionStorePath: storePath,
+      sessionKey: canonicalKey,
+      sessionId,
+      recipientConnId: client?.connId,
+      interaction: submitted.interaction,
+    });
+    const result = {
+      sessionKey: canonicalKey,
+      interaction: {
+        ...submitted.interaction,
+        resumeRunId,
+        resumeAttempts: (submitted.interaction.resumeAttempts ?? 0) + 1,
+      },
+    };
+    respondValidatedInteractionResult({
+      method: "chat.interaction.submit",
+      payload: result,
+      validate: validateChatInteractionSubmitResult,
+      validationErrors: validateChatInteractionSubmitResult.errors,
+      respond,
+      context,
+    });
+    logInteractionMetric(context, "submitted", {
+      sessionKey: canonicalKey,
+      kind: submitted.interaction.kind,
+      requestToSubmitLatencyMs,
+    });
+    emitInteractionEvent({
+      context,
+      phase: "submitted",
+      sessionKey: canonicalKey,
+      interactionId: submitted.interaction.id,
+      kind: submitted.interaction.kind,
+      status: "submitted",
+      runId: submitted.interaction.runId,
+      payload: submitted.interaction.submittedPayload,
+      source: "chat.interaction.submit",
+    });
+  },
+  "chat.interaction.list": async ({ params, respond, context }) => {
+    if (!validateChatInteractionListParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid chat.interaction.list params: ${formatValidationErrors(validateChatInteractionListParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as {
+      sessionKey: string;
+      statuses?: unknown;
+    };
+    const statusesRaw = p.statuses == null ? undefined : parseInteractionStatuses(p.statuses);
+    if (p.statuses != null && !statusesRaw) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          "invalid chat.interaction.list params: statuses must be known interaction states",
+        ),
+      );
+      return;
+    }
+    const { canonicalKey, storePath } = loadSessionEntry(p.sessionKey);
+    if (!storePath) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "session store unavailable"));
+      emitInteractionFailedEvent({
+        context,
+        sessionKey: canonicalKey,
+        interactionId: p.interactionId,
+        kind: "unknown",
+        status: "failed",
+        source: "chat.interaction.consume",
+      });
+      return;
+    }
+    const interactions = await listInteractions({
+      sessionStorePath: storePath,
+      sessionKey: canonicalKey,
+      statuses: statusesRaw ?? undefined,
+    });
+    respondValidatedInteractionResult({
+      method: "chat.interaction.list",
+      payload: { sessionKey: canonicalKey, interactions },
+      validate: validateChatInteractionListResult,
+      validationErrors: validateChatInteractionListResult.errors,
+      respond,
+      context,
+    });
+  },
+  "chat.interaction.consume": async ({ params, respond, context }) => {
+    if (!validateChatInteractionConsumeParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid chat.interaction.consume params: ${formatValidationErrors(validateChatInteractionConsumeParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as {
+      sessionKey: string;
+      interactionId: string;
+    };
+    const { canonicalKey, storePath } = loadSessionEntry(p.sessionKey);
+    if (!storePath) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "session store unavailable"));
+      return;
+    }
+    const consumed = await consumeInteraction({
+      sessionStorePath: storePath,
+      sessionKey: canonicalKey,
+      interactionId: p.interactionId,
+    });
+    if (!consumed.ok) {
+      const message =
+        consumed.reason === "not_found"
+          ? "interaction not found for session"
+          : "interaction must be submitted before consume";
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, message));
+      const existing = await listInteractions({
+        sessionStorePath: storePath,
+        sessionKey: canonicalKey,
+      });
+      const target = existing.find((item) => item.id === p.interactionId);
+      emitInteractionFailedEvent({
+        context,
+        sessionKey: canonicalKey,
+        interactionId: p.interactionId,
+        kind: target?.kind,
+        status: "failed",
+        payload: target?.submittedPayload,
+        source: "chat.interaction.consume",
+      });
+      return;
+    }
+    const submitToConsumeLatencyMs =
+      typeof consumed.interaction.submittedAt === "number"
+        ? Math.max(0, Date.now() - consumed.interaction.submittedAt)
+        : undefined;
+    respondValidatedInteractionResult({
+      method: "chat.interaction.consume",
+      payload: {
+      sessionKey: canonicalKey,
+      interaction: consumed.interaction,
+      },
+      validate: validateChatInteractionConsumeResult,
+      validationErrors: validateChatInteractionConsumeResult.errors,
+      respond,
+      context,
+    });
+    logInteractionMetric(context, "consumed", {
+      sessionKey: canonicalKey,
+      kind: consumed.interaction.kind,
+      submitToConsumeLatencyMs,
+    });
+    emitInteractionEvent({
+      context,
+      phase: "consumed",
+      sessionKey: canonicalKey,
+      interactionId: consumed.interaction.id,
+      kind: consumed.interaction.kind,
+      status: "consumed",
+      runId: consumed.interaction.runId,
+      payload: consumed.interaction.submittedPayload,
+      source: "chat.interaction.consume",
+    });
+  },
+  "chat.interaction.recover": async ({ params, respond, context }) => {
+    if (!validateChatInteractionRecoverParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid chat.interaction.recover params: ${formatValidationErrors(validateChatInteractionRecoverParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as {
+      sessionKey: string;
+      interactionId?: string;
+    };
+    const { canonicalKey, storePath, entry } = loadSessionEntry(p.sessionKey);
+    if (!storePath) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "session store unavailable"));
+      return;
+    }
+    const submittedInteractions = await listInteractions({
+      sessionStorePath: storePath,
+      sessionKey: canonicalKey,
+      statuses: new Set(["submitted"]),
+    });
+    const interactionId =
+      typeof p.interactionId === "string" ? p.interactionId.trim() : "";
+    const target =
+      (interactionId
+        ? submittedInteractions.find((item) => item.id === interactionId)
+        : submittedInteractions[0]) ?? null;
+    if (!target) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "no submitted interaction available for recovery"),
+      );
+      return;
+    }
+    const sessionId = entry?.sessionId ?? randomUUID();
+    const { resumeRunId, marked } = await resumeInteraction({
+      context,
+      sessionStorePath: storePath,
+      sessionKey: canonicalKey,
+      sessionId,
+      interaction: target,
+    });
+    if (!marked.ok) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.UNAVAILABLE, "failed to mark interaction resume attempt"),
+      );
+      emitInteractionFailedEvent({
+        context,
+        sessionKey: canonicalKey,
+        interactionId: target.id,
+        kind: target.kind,
+        status: "failed",
+        payload: target.submittedPayload,
+        source: "chat.interaction.recover",
+      });
+      return;
+    }
+    respondValidatedInteractionResult({
+      method: "chat.interaction.recover",
+      payload: {
+      sessionKey: canonicalKey,
+      interaction: marked.interaction,
+      resumedRunId: resumeRunId,
+      },
+      validate: validateChatInteractionRecoverResult,
+      validationErrors: validateChatInteractionRecoverResult.errors,
+      respond,
+      context,
+    });
+    logInteractionMetric(context, "recovered_manual", {
+      sessionKey: canonicalKey,
+      kind: marked.interaction.kind,
+      resumeAttempts: marked.interaction.resumeAttempts ?? 0,
+    });
+    emitInteractionEvent({
+      context,
+      phase: "recovered",
+      sessionKey: canonicalKey,
+      interactionId: marked.interaction.id,
+      kind: marked.interaction.kind,
+      status: marked.interaction.status,
+      runId: marked.interaction.runId,
+      payload: marked.interaction.submittedPayload,
+      source: "chat.interaction.recover",
+    });
+  },
+  "chat.interaction.recover.stale": async ({ params, respond, context }) => {
+    if (!validateChatInteractionRecoverStaleParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid chat.interaction.recover.stale params: ${formatValidationErrors(validateChatInteractionRecoverStaleParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as {
+      sessionKey: string;
+      minStaleMs?: number;
+      maxAttempts?: number;
+      limit?: number;
+    };
+    const minStaleMs = typeof p.minStaleMs === "number" ? p.minStaleMs : 30_000;
+    const maxAttempts = typeof p.maxAttempts === "number" ? p.maxAttempts : 3;
+    const limit = typeof p.limit === "number" ? p.limit : 10;
+    const now = Date.now();
+    const { canonicalKey, storePath, entry } = loadSessionEntry(p.sessionKey);
+    if (!storePath) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "session store unavailable"));
+      return;
+    }
+    const submittedInteractions = await listInteractions({
+      sessionStorePath: storePath,
+      sessionKey: canonicalKey,
+      statuses: new Set(["submitted"]),
+    });
+    const skipped = {
+      maxAttempts: 0,
+      tooFresh: 0,
+      overLimit: 0,
+      markFailed: 0,
+    };
+    const eligible: typeof submittedInteractions = [];
+    for (const item of submittedInteractions) {
+      const attempts = item.resumeAttempts ?? 0;
+      if (attempts >= maxAttempts) {
+        skipped.maxAttempts += 1;
+        continue;
+      }
+      const lastResumeAtMs = item.lastResumeAtMs ?? item.updatedAt ?? item.submittedAt ?? item.createdAt;
+      if (now - lastResumeAtMs < minStaleMs) {
+        skipped.tooFresh += 1;
+        continue;
+      }
+      eligible.push(item);
+    }
+    const candidates = eligible.slice(0, limit);
+    skipped.overLimit = Math.max(0, eligible.length - candidates.length);
+
+    const sessionId = entry?.sessionId ?? randomUUID();
+    const recovered: Array<{ interactionId: string; resumedRunId: string }> = [];
+    for (const item of candidates) {
+      const result = await resumeInteraction({
+        context,
+        sessionStorePath: storePath,
+        sessionKey: canonicalKey,
+        sessionId,
+        interaction: item,
+      });
+      if (!result.marked.ok) {
+        skipped.markFailed += 1;
+        continue;
+      }
+      recovered.push({ interactionId: item.id, resumedRunId: result.resumeRunId });
+    }
+    respondValidatedInteractionResult({
+      method: "chat.interaction.recover.stale",
+      payload: {
+      sessionKey: canonicalKey,
+      recovered,
+      scanned: submittedInteractions.length,
+      skipped,
+      },
+      validate: validateChatInteractionRecoverStaleResult,
+      validationErrors: validateChatInteractionRecoverStaleResult.errors,
+      respond,
+      context,
+    });
+    logInteractionMetric(context, "recovered_stale", {
+      sessionKey: canonicalKey,
+      recovered: recovered.length,
+      scanned: submittedInteractions.length,
+      skippedMaxAttempts: skipped.maxAttempts,
+      skippedTooFresh: skipped.tooFresh,
+      skippedOverLimit: skipped.overLimit,
+      skippedMarkFailed: skipped.markFailed,
+    });
+    for (const item of recovered) {
+      const interaction = submittedInteractions.find((entry) => entry.id === item.interactionId);
+      if (!interaction) {
+        continue;
+      }
+      emitInteractionEvent({
+        context,
+        phase: "recover_stale",
+        sessionKey: canonicalKey,
+        interactionId: interaction.id,
+        kind: interaction.kind,
+        status: "submitted",
+        runId: interaction.runId,
+        payload: interaction.submittedPayload,
+        source: "chat.interaction.recover.stale",
+      });
+    }
   },
   "chat.abort": ({ params, respond, context }) => {
     if (!validateChatAbortParams(params)) {

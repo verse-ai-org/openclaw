@@ -538,6 +538,36 @@ describe("agent event handler", () => {
     resetAgentRunContextForTest();
   });
 
+  it("prefers assistant full text snapshot over previous+delta merge", () => {
+    const { chatRunState, handler } = createHarness({
+      resolveSessionKeyForRun: () => "session-1",
+    });
+    chatRunState.registry.add("run-rewrite", {
+      sessionKey: "session-1",
+      clientRunId: "client-rewrite",
+    });
+
+    handler({
+      runId: "run-rewrite",
+      seq: 1,
+      stream: "assistant",
+      ts: Date.now(),
+      data: { text: "旧前缀文本。", delta: "旧前缀文本。" },
+    });
+    handler({
+      runId: "run-rewrite",
+      seq: 2,
+      stream: "assistant",
+      ts: Date.now(),
+      data: {
+        text: "新的完整文本：路线规划马上开始～",
+        delta: "路线规划马上开始～",
+      },
+    });
+
+    expect(chatRunState.buffers.get("client-rewrite")).toBe("新的完整文本：路线规划马上开始～");
+  });
+
   it("routes tool events only to registered recipients when verbose is enabled", () => {
     const { broadcast, broadcastToConnIds, toolEventRecipients, handler } = createHarness({
       resolveSessionKeyForRun: () => "session-1",

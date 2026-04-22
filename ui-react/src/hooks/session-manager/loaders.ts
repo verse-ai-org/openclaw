@@ -5,6 +5,45 @@ import type { RawMessage } from "@/hooks/chat-event-bridge";
 import { logChatDebug } from "@/lib/chat-debug";
 import { normalizeHistoryMessages } from "./history-normalize";
 import type { SessionEntry } from "./types";
+import type { InteractiveSummaryPair } from "@/store/chat.store";
+
+type InteractionSubmittedPayload = {
+  version: 1;
+  kind: string;
+  mode?: string;
+  data: Record<string, unknown>;
+  summary?: Array<{ question: string; answer: string }>;
+  displayText?: string;
+};
+
+function parseInteractionSummary(payload: unknown): InteractiveSummaryPair[] | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const raw = payload as { summary?: unknown; data?: unknown };
+  const data =
+    raw.data && typeof raw.data === "object"
+      ? (raw.data as { summary?: unknown })
+      : undefined;
+  const summary = raw.summary ?? data?.summary;
+  if (!Array.isArray(summary)) {
+    return null;
+  }
+  const pairs = summary
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const question = (entry as { question?: unknown }).question;
+      const answer = (entry as { answer?: unknown }).answer;
+      if (typeof question !== "string" || typeof answer !== "string") {
+        return null;
+      }
+      return { question, answer };
+    })
+    .filter((entry): entry is InteractiveSummaryPair => entry != null);
+  return pairs.length > 0 ? pairs : null;
+}
 
 export async function syncSessionRunStatusFromGateway(params: {
   client: IGatewayClient | null;
@@ -134,6 +173,45 @@ export async function loadHistoryFromGateway(params: {
     }
 
     useChatStore.getState().setMessages(consolidated);
+    try {
+      const interactionResult = await client.request<{
+        interactions?: Array<{
+          id?: unknown;
+          status?: unknown;
+          submittedPayload?: InteractionSubmittedPayload;
+        }>;
+      }>("chat.interaction.list", {
+        sessionKey: key,
+        statuses: ["submitted", "consumed"],
+      });
+      const interactions = Array.isArray(interactionResult?.interactions)
+        ? interactionResult.interactions
+        : [];
+      for (const item of interactions) {
+        const interactiveId =
+          typeof item.id === "string" && item.id.trim() ? item.id.trim() : "";
+        if (!interactiveId) {
+          continue;
+        }
+        const pairs = parseInteractionSummary(item.submittedPayload);
+        if (!pairs) {
+          continue;
+        }
+        useChatStore.getState().setInteractiveSummary(interactiveId, pairs);
+        if (item.status === "consumed") {
+          useChatStore.getState().markInteractiveSubmittedAck(interactiveId);
+          useChatStore.getState().markInteractiveConsumedAck(interactiveId);
+        } else if (item.status === "submitted") {
+          useChatStore.getState().markInteractiveSubmittedAck(interactiveId);
+          useChatStore.getState().clearInteractiveConsumedAck(interactiveId);
+        } else {
+          useChatStore.getState().clearInteractiveSubmittedAck(interactiveId);
+          useChatStore.getState().clearInteractiveConsumedAck(interactiveId);
+        }
+      }
+    } catch {
+      // Optional hydration for newer interaction APIs.
+    }
     logChatDebug("debug", "load history applied", {
       requestSeq,
       count: consolidated.length,

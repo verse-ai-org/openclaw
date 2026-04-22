@@ -1,5 +1,5 @@
 import { useChatStore, type ToolStreamEntry } from "@/store/chat.store";
-import { createInteractiveBlock, isInteractiveToolName } from "../interactive-blocks";
+import { isInteractiveToolName } from "../interactive-blocks";
 import { isChatEventForActiveSession } from "../session-scope";
 import {
   normalizeRunId,
@@ -19,32 +19,6 @@ export type AgentEventPayload = {
   runId?: string;
   data?: unknown;
 };
-
-function extractInteractivePayload(data: Record<string, unknown>): unknown {
-  const candidate = data.result ?? data.meta ?? data.args;
-  if (typeof candidate === "string") {
-    return candidate;
-  }
-  if (!candidate || typeof candidate !== "object") {
-    return candidate;
-  }
-  if (!Array.isArray((candidate as { content?: unknown }).content)) {
-    return candidate;
-  }
-  const content = (candidate as { content: unknown[] }).content;
-  const text = content
-    .filter(
-      (entry): entry is { type: "text"; text: string } =>
-        !!entry &&
-        typeof entry === "object" &&
-        (entry as { type?: unknown }).type === "text" &&
-        typeof (entry as { text?: unknown }).text === "string",
-    )
-    .map((entry) => entry.text.trim())
-    .filter(Boolean)
-    .join("\n");
-  return text || candidate;
-}
 
 function handleLifecycleStream(
   ctx: BridgeRuntimeContext,
@@ -80,23 +54,47 @@ function handleLifecycleStream(
   }
   if (phase === "end") {
     const st = useChatStore.getState();
+    const isInteractionResumeRun =
+      typeof runId === "string" && runId.startsWith("interaction-resume-");
     if (
       st.pendingGenerationBySession[sessionKey] &&
-      (st.stream !== null ||
+      (isInteractionResumeRun ||
+        st.stream !== null ||
         st.committedBlocks.length > 0 ||
         st.toolStreamOrder.length > 0 ||
         st.interactiveStreamOrder.length > 0)
     ) {
-      finalizeChatRun({
-        sessionKey,
-        runId,
-        state: "final",
-        ctx,
-      });
-      logBridgeEvent("warn", "lifecycle end fallback finalized run", {
-        sessionKey,
-        runId,
-      }, { channel: "agent.lifecycle", sessionKey, runId, phase });
+      if (runId) {
+        const existing = ctx.pendingLifecycleFinalizeByRun.get(runId);
+        if (existing) {
+          clearTimeout(existing);
+        }
+        const timer = setTimeout(() => {
+          ctx.pendingLifecycleFinalizeByRun.delete(runId);
+          finalizeChatRun({
+            sessionKey,
+            runId,
+            state: "final",
+            ctx,
+          });
+          logBridgeEvent("warn", "lifecycle end fallback finalized run", {
+            sessionKey,
+            runId,
+          }, { channel: "agent.lifecycle", sessionKey, runId, phase });
+        }, 300);
+        ctx.pendingLifecycleFinalizeByRun.set(runId, timer);
+      } else {
+        finalizeChatRun({
+          sessionKey,
+          runId,
+          state: "final",
+          ctx,
+        });
+        logBridgeEvent("warn", "lifecycle end fallback finalized run", {
+          sessionKey,
+          runId,
+        }, { channel: "agent.lifecycle", sessionKey, runId, phase });
+      }
     } else {
       st.clearSessionGenerating(sessionKey);
       logBridgeEvent("debug", "lifecycle end cleared generating", {
@@ -155,39 +153,7 @@ function handleToolStream(
   const toolName = data.name as string | undefined;
 
   if (isInteractiveToolName(toolName)) {
-    if (phase === "start") {
-      useChatStore.getState().commitCurrentText();
-    } else if (phase === "result") {
-      const interactivePayload = extractInteractivePayload(data);
-      const block = createInteractiveBlock({
-        interactiveId: toolCallId ?? crypto.randomUUID(),
-        kind: toolName,
-        payload: interactivePayload,
-      });
-      if (import.meta.env.DEV && !block) {
-        logBridgeEvent("warn", "dropped interactive payload", {
-          toolName,
-          toolCallId,
-          phase,
-          interactivePayload,
-        }, { channel: "agent.tool", sessionKey, runId, phase });
-      }
-      if (block) {
-        useChatStore.getState().commitCurrentText();
-        useChatStore.getState().upsertInteractiveStream(block);
-        if (runId) {
-          ctx.pendingInteractiveHydrationRuns.delete(runId);
-        }
-        logBridgeEvent("debug", "interactive block upserted", {
-          toolName,
-          toolCallId,
-          sessionKey,
-          runId,
-        }, { channel: "agent.tool", sessionKey, runId, phase });
-      } else if (runId) {
-        ctx.pendingInteractiveHydrationRuns.add(runId);
-      }
-    }
+    // New semantic-decoupled path: interactive UI state is driven by `interaction` events only.
     return;
   }
 

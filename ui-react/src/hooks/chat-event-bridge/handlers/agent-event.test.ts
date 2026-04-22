@@ -12,6 +12,7 @@ function createCtx(): BridgeRuntimeContext {
     pendingInteractiveHydrationRuns: new Set<string>(),
     pendingToolResults: new Map(),
     activeRunBySession: new Map<string, string>(),
+    pendingLifecycleFinalizeByRun: new Map<string, ReturnType<typeof setTimeout>>(),
   };
 }
 
@@ -27,6 +28,9 @@ function resetChatState() {
     interactiveStreamById: new Map(),
     interactiveStreamOrder: [],
     interactiveSummaryById: {},
+    interactiveRequestedAckById: {},
+    interactiveSubmittedAckById: {},
+    interactiveConsumedAckById: {},
     sending: false,
     sessionKey: "agent:travel:main",
     pendingHistoryReloadKey: null,
@@ -43,6 +47,7 @@ describe("handleAgentEvent", () => {
   });
 
   it("finalizes a running turn when lifecycle end arrives without chat.final", () => {
+    vi.useFakeTimers();
     const ctx = createCtx();
     useChatStore.setState({
       stream: "draft response",
@@ -57,12 +62,14 @@ describe("handleAgentEvent", () => {
       stream: "lifecycle",
       data: { phase: "end" },
     });
+    vi.advanceTimersByTime(350);
 
     const st = useChatStore.getState();
     expect(st.stream).toBeNull();
     expect(st.messages.at(-1)?.role).toBe("assistant");
     expect(st.messages.at(-1)?.content).toContain("draft response");
     expect(st.pendingGenerationBySession["agent:travel:main"]).toBeUndefined();
+    vi.useRealTimers();
   });
 
   it("updates in-flight tool entry on tool update phase", () => {
@@ -116,5 +123,29 @@ describe("handleAgentEvent", () => {
     const tool = useChatStore.getState().toolStreamById.get("tool-1");
     expect(tool?.phase).toBe("start");
     expect(tool?.output).toBeUndefined();
+  });
+
+  it("treats interactive tool events as fallback when interaction stream already exists", () => {
+    const ctx = createCtx();
+    useChatStore.getState().markInteractiveRequestedAck("tool-ix-1");
+
+    handleAgentEvent(ctx, {
+      sessionKey: "agent:travel:main",
+      runId: "run-1",
+      stream: "tool",
+      data: {
+        phase: "result",
+        name: "question_flow",
+        toolCallId: "tool-ix-1",
+        result: {
+          id: "flow-1",
+          steps: [{ id: "budget", title: "预算", options: [{ id: "mid", label: "中档" }] }],
+        },
+      },
+    });
+
+    const st = useChatStore.getState();
+    expect(st.interactiveStreamById.get("tool-ix-1")).toBeUndefined();
+    expect(st.interactiveStreamOrder).toHaveLength(0);
   });
 });

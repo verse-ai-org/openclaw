@@ -2,13 +2,20 @@
 
 <cite>
 **本文档中引用的文件**
-- [excel-xlsx/SKILL.md](file://skills/excel-xlsx/SKILL.md)
-- [office-document-specialist-suite/SKILL.md](file://skills/office-document-specialist-suite/SKILL.md)
+- [minimax-xlsx/SKILL.md](file://skills/minimax-xlsx/SKILL.md)
 - [media.ts](file://extensions/feishu/src/media.ts)
 - [mime.ts](file://extensions/openclaw-weixin/src/media/mime.ts)
-- [media-helpers.test.ts](file://extensions/msteams/src/media-helpers.test.ts)
-- [media.test.ts](file://extensions/feishu/src/media.test.ts)
+- [xlsx_unpack.py](file://skills/minimax-xlsx/scripts/xlsx_unpack.py)
+- [SOUL.md](file://docs/reference/templates/agents/my-office-helper/SOUL.md)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 移除了关于已删除的excel-xlsx技能的所有内容
+- 更新了架构概览，仅反映当前存在的minimax-xlsx技能
+- 更新了依赖关系分析，移除了office-document-specialist-suite相关内容
+- 更新了项目结构图，仅展示现有的Excel处理能力
+- 添加了关于minimax-xlsx技能的详细说明
 
 ## 目录
 1. [简介](#简介)
@@ -23,7 +30,7 @@
 
 ## 简介
 
-本文件系统性地梳理了 OpenClaw 项目中的 Excel 表格处理能力，重点分析了两个核心技能模块：`excel-xlsx` 和 `office-document-specialist-suite`。这些技能提供了从基础的 Excel 文件读写到复杂的公式计算、格式化、模板保护等全方位的处理能力。
+本文件系统性地梳理了 OpenClaw 项目中的 Excel 表格处理能力，重点分析了当前唯一的 Excel 处理技能模块：`minimax-xlsx`。该技能提供了从基础的 Excel 文件读写到复杂的公式计算、格式化、模板保护等全方位的处理能力。
 
 项目中的 Excel 处理能力主要通过以下方式实现：
 - 使用 `openpyxl` 库进行 XLSX 文件的创建、编辑和读取
@@ -31,50 +38,44 @@
 - 实现了完整的 Excel 工作簿生命周期管理
 - 提供了跨平台的 Excel 文件兼容性处理
 
+**重要更新**：原有的 `excel-xlsx` 技能已在代码库中被移除，目前仅剩 `minimax-xlsx` 技能提供完整的 Excel 处理功能。
+
 ## 项目结构
 
-OpenClaw 项目采用模块化的组织方式，Excel 处理功能分布在多个层次：
+OpenClaw 项目采用模块化的组织方式，Excel 处理功能主要集中在 `minimax-xlsx` 技能中：
 
 ```mermaid
 graph TB
 subgraph "技能层"
-A[excel-xlsx 技能]
-B[office-document-specialist-suite 技能]
+A[minimax-xlsx 技能]
 end
 subgraph "扩展层"
-C[Feishu 扩展]
-D[Weixin 扩展]
-E[Teams 扩展]
+B[Feishu 扩展]
+C[Weixin 扩展]
 end
 subgraph "核心库"
-F[openpyxl]
-G[pandas]
-H[python-docx]
-I[python-pptx]
+D[openpyxl]
+E[pandas]
+F[python-docx]
+G[python-pptx]
 end
-A --> F
-B --> F
-B --> G
-B --> H
-B --> I
+A --> D
+A --> E
+B --> A
 C --> A
-D --> A
-E --> A
 ```
 
 **图表来源**
-- [excel-xlsx/SKILL.md:1-97](file://skills/excel-xlsx/SKILL.md#L1-L97)
-- [office-document-specialist-suite/SKILL.md:1-192](file://skills/office-document-specialist-suite/SKILL.md#L1-L192)
+- [minimax-xlsx/SKILL.md:1-156](file://skills/minimax-xlsx/SKILL.md#L1-L156)
 
 **章节来源**
-- [excel-xlsx/SKILL.md:1-97](file://skills/excel-xlsx/SKILL.md#L1-L97)
-- [office-document-specialist-suite/SKILL.md:1-192](file://skills/office-document-specialist-suite/SKILL.md#L1-L192)
+- [minimax-xlsx/SKILL.md:1-156](file://skills/minimax-xlsx/SKILL.md#L1-L156)
 
 ## 核心组件
 
-### Excel-XLSX 技能
+### MiniMax XLSX 技能
 
-`excel-xlsx` 技能是专门针对 Excel 文件处理的核心模块，提供了以下关键功能：
+`minimax-xlsx` 技能是专门针对 Excel 文件处理的核心模块，提供了以下关键功能：
 
 #### 主要特性
 - **工作簿创建与编辑**：支持新建 Excel 工作簿和现有文件的编辑
@@ -82,31 +83,16 @@ E --> A
 - **格式化支持**：字体、颜色、对齐等样式设置
 - **模板保护**：维护现有模板的结构和样式
 - **日期处理**：正确处理 Excel 的序列号日期系统
+- **文件验证**：内置公式验证和错误检测机制
 
 #### 技术规范
-- 支持 `.xlsx`、`.xlsm`、`.xls`、`.csv`、`.tsv` 格式
+- 支持 `.xlsx`、`.xlsm`、`.csv`、`.tsv` 格式
 - 跨平台兼容（Linux、macOS、Windows）
 - 针对大型文件的流式处理能力
+- 完整的 XML 直接编辑支持
 
 **章节来源**
-- [excel-xlsx/SKILL.md:15-97](file://skills/excel-xlsx/SKILL.md#L15-L97)
-
-### Office 文档专家套件
-
-`office-document-specialist-suite` 是一个综合性的办公文档处理工具集，其中包含 Excel 处理功能：
-
-#### 功能范围
-- **Excel 处理**：自动化报表生成、复杂格式化
-- **Word 处理**：专业文档创建和编辑
-- **PowerPoint 处理**：基于结构化数据的幻灯片创建
-- **格式转换**：DOCX ↔ PDF、XLSX ↔ CSV 等
-
-#### 依赖要求
-- Python 3 环境
-- `python-docx`、`openpyxl`、`python-pptx` 库
-
-**章节来源**
-- [office-document-specialist-suite/SKILL.md:17-33](file://skills/office-document-specialist-suite/SKILL.md#L17-L33)
+- [minimax-xlsx/SKILL.md:1-156](file://skills/minimax-xlsx/SKILL.md#L1-L156)
 
 ## 架构概览
 
@@ -120,7 +106,6 @@ API[插件接口]
 end
 subgraph "业务逻辑层"
 EX[Excel 处理器]
-OD[Office 文档处理器]
 CV[格式转换器]
 end
 subgraph "数据访问层"
@@ -133,9 +118,8 @@ FS[文件系统]
 DB[内存缓存]
 end
 UI --> EX
-API --> OD
+API --> EX
 EX --> WB
-OD --> WB
 EX --> ST
 EX --> FM
 WB --> FS
@@ -143,8 +127,7 @@ WB --> DB
 ```
 
 **图表来源**
-- [excel-xlsx/SKILL.md:21-45](file://skills/excel-xlsx/SKILL.md#L21-L45)
-- [office-document-specialist-suite/SKILL.md:70-111](file://skills/office-document-specialist-suite/SKILL.md#L70-L111)
+- [minimax-xlsx/SKILL.md:34-43](file://skills/minimax-xlsx/SKILL.md#L34-L43)
 
 ## 详细组件分析
 
@@ -192,7 +175,7 @@ Cell --> Style : applies
 ```
 
 **图表来源**
-- [excel-xlsx/SKILL.md:28-63](file://skills/excel-xlsx/SKILL.md#L28-L63)
+- [minimax-xlsx/SKILL.md:56-118](file://skills/minimax-xlsx/SKILL.md#L56-L118)
 
 #### 工作流程
 
@@ -222,10 +205,10 @@ ValidateOutput --> End([完成])
 ```
 
 **图表来源**
-- [excel-xlsx/SKILL.md:28-72](file://skills/excel-xlsx/SKILL.md#L28-L72)
+- [minimax-xlsx/SKILL.md:56-118](file://skills/minimax-xlsx/SKILL.md#L56-L118)
 
 **章节来源**
-- [excel-xlsx/SKILL.md:28-72](file://skills/excel-xlsx/SKILL.md#L28-L72)
+- [minimax-xlsx/SKILL.md:56-118](file://skills/minimax-xlsx/SKILL.md#L56-L118)
 
 ### 公式处理引擎
 
@@ -253,7 +236,7 @@ Engine->>Engine : 捕获 #VALUE! 错误
 ```
 
 **图表来源**
-- [excel-xlsx/SKILL.md:35-45](file://skills/excel-xlsx/SKILL.md#L35-L45)
+- [minimax-xlsx/SKILL.md:120-127](file://skills/minimax-xlsx/SKILL.md#L120-L127)
 
 #### 公式处理规则
 
@@ -265,7 +248,7 @@ Engine->>Engine : 捕获 #VALUE! 错误
 4. **循环引用检测**：防止循环依赖导致的计算问题
 
 **章节来源**
-- [excel-xlsx/SKILL.md:35-45](file://skills/excel-xlsx/SKILL.md#L35-L45)
+- [minimax-xlsx/SKILL.md:120-127](file://skills/minimax-xlsx/SKILL.md#L120-L127)
 
 ### 数据类型保护机制
 
@@ -293,10 +276,10 @@ ExplicitHandling -.-> C
 ```
 
 **图表来源**
-- [excel-xlsx/SKILL.md:47-53](file://skills/excel-xlsx/SKILL.md#L47-L53)
+- [minimax-xlsx/SKILL.md:136-143](file://skills/minimax-xlsx/SKILL.md#L136-L143)
 
 **章节来源**
-- [excel-xlsx/SKILL.md:47-53](file://skills/excel-xlsx/SKILL.md#L47-L53)
+- [minimax-xlsx/SKILL.md:136-143](file://skills/minimax-xlsx/SKILL.md#L136-L143)
 
 ## 依赖关系分析
 
@@ -319,17 +302,17 @@ end
 subgraph "扩展集成"
 M[Feishu] --> N[Excel 文件上传]
 O[Weixin] --> P[Excel MIME 类型处理]
-Q[Teams] --> R[Excel 文件辅助处理]
 end
 A --> M
 C --> O
-E --> Q
+E --> M
+G --> M
 ```
 
 **图表来源**
-- [office-document-specialist-suite/SKILL.md:27-33](file://skills/office-document-specialist-suite/SKILL.md#L27-L33)
-- [media.ts:400-410](file://extensions/feishu/src/media.ts#L400-L410)
-- [mime.ts:1-10](file://extensions/openclaw-weixin/src/media/mime.ts#L1-L10)
+- [minimax-xlsx/SKILL.md:10-16](file://skills/minimax-xlsx/SKILL.md#L10-L16)
+- [media.ts:405-407](file://extensions/feishu/src/media.ts#L405-L407)
+- [mime.ts:7-8](file://extensions/openclaw-weixin/src/media/mime.ts#L7-L8)
 
 ### 内部模块依赖
 
@@ -338,35 +321,27 @@ E --> Q
 ```mermaid
 graph TD
 subgraph "Excel 处理模块"
-A[excel-xlsx 技能]
-B[office-document-specialist-suite]
+A[minimax-xlsx 技能]
 end
 subgraph "格式支持模块"
-C[XLSX 处理器]
-D[XLS 处理器]
-E[CSV 处理器]
+B[XLSX 处理器]
+C[XLS 处理器]
+D[CSV 处理器]
 end
 subgraph "扩展集成模块"
-F[Feishu 集成]
-G[Weixin 集成]
-H[Teams 集成]
+E[Feishu 集成]
+F[Weixin 集成]
 end
-A --> C
-B --> C
-B --> D
+A --> B
 B --> E
-F --> A
-G --> A
-H --> A
+B --> F
 ```
 
 **图表来源**
-- [excel-xlsx/SKILL.md:15-27](file://skills/excel-xlsx/SKILL.md#L15-L27)
-- [office-document-specialist-suite/SKILL.md:70-111](file://skills/office-document-specialist-suite/SKILL.md#L70-L111)
+- [minimax-xlsx/SKILL.md:34-43](file://skills/minimax-xlsx/SKILL.md#L34-L43)
 
 **章节来源**
-- [excel-xlsx/SKILL.md:15-27](file://skills/excel-xlsx/SKILL.md#L15-L27)
-- [office-document-specialist-suite/SKILL.md:70-111](file://skills/office-document-specialist-suite/SKILL.md#L70-L111)
+- [minimax-xlsx/SKILL.md:34-43](file://skills/minimax-xlsx/SKILL.md#L34-L43)
 
 ## 性能考虑
 
@@ -413,7 +388,7 @@ H --> A
 - **磁盘空间不足**：及时清理临时文件，使用压缩存储
 
 **章节来源**
-- [excel-xlsx/SKILL.md:80-97](file://skills/excel-xlsx/SKILL.md#L80-L97)
+- [minimax-xlsx/SKILL.md:120-127](file://skills/minimax-xlsx/SKILL.md#L120-L127)
 
 ### 调试技巧
 
@@ -424,7 +399,7 @@ H --> A
 
 ## 结论
 
-OpenClaw 项目中的 Excel 表格处理技能展现了高度的专业性和完整性。通过 `excel-xlsx` 和 `office-document-specialist-suite` 两个核心技能模块，系统提供了从基础的文件操作到复杂的公式计算、格式化和模板保护的全方位能力。
+OpenClaw 项目中的 Excel 表格处理技能展现了高度的专业性和完整性。通过 `minimax-xlsx` 技能模块，系统提供了从基础的文件操作到复杂的公式计算、格式化和模板保护的全方位能力。
 
 ### 主要优势
 
@@ -432,6 +407,7 @@ OpenClaw 项目中的 Excel 表格处理技能展现了高度的专业性和完�
 2. **功能完整**：涵盖 Excel 处理的所有关键环节
 3. **质量保证**：严格的错误处理和数据保护机制
 4. **扩展性强**：良好的模块化设计便于功能扩展
+5. **安全性高**：采用 XML 直接编辑方式，避免破坏性修改
 
 ### 应用场景
 
@@ -439,5 +415,7 @@ OpenClaw 项目中的 Excel 表格处理技能展现了高度的专业性和完�
 - 数据分析和可视化
 - 模板驱动的文档创建
 - 跨格式的数据转换
+
+**重要更新**：原有的 `excel-xlsx` 技能已被移除，目前 `minimax-xlsx` 技能是唯一可用的 Excel 处理解决方案。该技能提供了更安全、更可靠的 Excel 文件处理能力，采用 XML 直接编辑方式，避免了破坏性修改的风险。
 
 该技能体系为用户提供了可靠、高效的 Excel 处理解决方案，能够满足从简单数据操作到复杂商业应用的各种需求。

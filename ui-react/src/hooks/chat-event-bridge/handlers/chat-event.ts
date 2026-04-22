@@ -82,6 +82,13 @@ export function handleChatEvent(
     if (!sk) {
       return;
     }
+    if (runId) {
+      const timer = ctx.pendingLifecycleFinalizeByRun.get(runId);
+      if (timer) {
+        clearTimeout(timer);
+        ctx.pendingLifecycleFinalizeByRun.delete(runId);
+      }
+    }
     finalizeChatRun({
       sessionKey: sk,
       runId,
@@ -99,6 +106,13 @@ export function handleChatEvent(
   if (state === "aborted" || state === "error") {
     if (!sk) {
       return;
+    }
+    if (runId) {
+      const timer = ctx.pendingLifecycleFinalizeByRun.get(runId);
+      if (timer) {
+        clearTimeout(timer);
+        ctx.pendingLifecycleFinalizeByRun.delete(runId);
+      }
     }
     finalizeChatRun({
       sessionKey: sk,

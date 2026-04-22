@@ -149,6 +149,9 @@ interface ChatState {
   interactiveStreamById: Map<string, InteractiveContentBlock>;
   interactiveStreamOrder: string[];
   interactiveSummaryById: Record<string, InteractiveSummaryPair[]>;
+  interactiveRequestedAckById: Record<string, true>;
+  interactiveSubmittedAckById: Record<string, true>;
+  interactiveConsumedAckById: Record<string, true>;
 
   // Input state
   sending: boolean;
@@ -203,6 +206,12 @@ interface ChatState {
     pairs: InteractiveSummaryPair[],
   ) => void;
   clearInteractiveSummary: (interactiveId: string) => void;
+  markInteractiveRequestedAck: (interactiveId: string) => void;
+  clearInteractiveRequestedAck: (interactiveId: string) => void;
+  markInteractiveSubmittedAck: (interactiveId: string) => void;
+  clearInteractiveSubmittedAck: (interactiveId: string) => void;
+  markInteractiveConsumedAck: (interactiveId: string) => void;
+  clearInteractiveConsumedAck: (interactiveId: string) => void;
   setPendingHistoryReloadKey: (key: string | null) => void;
   triggerSessionsReload: () => void;
   setLastError: (msg: string | null) => void;
@@ -222,6 +231,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   interactiveStreamById: new Map(),
   interactiveStreamOrder: [],
   interactiveSummaryById: {},
+  interactiveRequestedAckById: {},
+  interactiveSubmittedAckById: {},
+  interactiveConsumedAckById: {},
   sending: false,
   sessionKey: null,
   pendingHistoryReloadKey: null,
@@ -245,6 +257,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       interactiveStreamById: new Map(),
       interactiveStreamOrder: [],
       interactiveSummaryById: {},
+      interactiveRequestedAckById: {},
+      interactiveSubmittedAckById: {},
+      interactiveConsumedAckById: {},
     }),
   setSessionKey: (key) => set({ sessionKey: key }),
   setPendingDraftMessage: (msg) => set({ pendingDraftMessage: msg }),
@@ -265,8 +280,20 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   commitCurrentText: () => {
     const { stream, committedBlocks } = get();
     if (stream && stream.trim().length > 0) {
+      const committedText = committedBlocks
+        .filter((block): block is Extract<ContentBlock, { type: "text" }> => block.type === "text")
+        .map((block) => block.text)
+        .join("");
+      const incrementalText =
+        committedText && stream.startsWith(committedText)
+          ? stream.slice(committedText.length)
+          : stream;
+      if (!incrementalText || incrementalText.trim().length === 0) {
+        set({ stream: "" });
+        return;
+      }
       set({
-        committedBlocks: [...committedBlocks, { type: "text", text: stream }],
+        committedBlocks: [...committedBlocks, { type: "text", text: incrementalText }],
         stream: "",
       });
     }
@@ -434,6 +461,60 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       return { interactiveSummaryById: rest };
     }),
 
+  markInteractiveRequestedAck: (interactiveId) =>
+    set((state) => ({
+      interactiveRequestedAckById: {
+        ...state.interactiveRequestedAckById,
+        [interactiveId]: true,
+      },
+    })),
+
+  clearInteractiveRequestedAck: (interactiveId) =>
+    set((state) => {
+      if (!(interactiveId in state.interactiveRequestedAckById)) {
+        return {};
+      }
+      const { [interactiveId]: _removed, ...rest } =
+        state.interactiveRequestedAckById;
+      return { interactiveRequestedAckById: rest };
+    }),
+
+  markInteractiveSubmittedAck: (interactiveId) =>
+    set((state) => ({
+      interactiveSubmittedAckById: {
+        ...state.interactiveSubmittedAckById,
+        [interactiveId]: true,
+      },
+    })),
+
+  clearInteractiveSubmittedAck: (interactiveId) =>
+    set((state) => {
+      if (!(interactiveId in state.interactiveSubmittedAckById)) {
+        return {};
+      }
+      const { [interactiveId]: _removed, ...rest } =
+        state.interactiveSubmittedAckById;
+      return { interactiveSubmittedAckById: rest };
+    }),
+
+  markInteractiveConsumedAck: (interactiveId) =>
+    set((state) => ({
+      interactiveConsumedAckById: {
+        ...state.interactiveConsumedAckById,
+        [interactiveId]: true,
+      },
+    })),
+
+  clearInteractiveConsumedAck: (interactiveId) =>
+    set((state) => {
+      if (!(interactiveId in state.interactiveConsumedAckById)) {
+        return {};
+      }
+      const { [interactiveId]: _removed, ...rest } =
+        state.interactiveConsumedAckById;
+      return { interactiveConsumedAckById: rest };
+    }),
+
   setPendingHistoryReloadKey: (key) => set({ pendingHistoryReloadKey: key }),
   triggerSessionsReload: () =>
     set((state) => ({
@@ -454,6 +535,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           interactiveStreamById: new Map(),
           interactiveStreamOrder: [],
           interactiveSummaryById: {},
+          interactiveRequestedAckById: {},
+          interactiveSubmittedAckById: {},
+          interactiveConsumedAckById: {},
         };
       }
       const idx = state.messages.findIndex((m) => m.id === parentId);

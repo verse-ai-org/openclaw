@@ -30,6 +30,9 @@ function resetChatState() {
     interactiveStreamById: new Map(),
     interactiveStreamOrder: [],
     interactiveSummaryById: {},
+    interactiveRequestedAckById: {},
+    interactiveSubmittedAckById: {},
+    interactiveConsumedAckById: {},
     sending: false,
     sessionKey: "agent:travel:main",
     pendingHistoryReloadKey: null,
@@ -108,10 +111,14 @@ describe("session-manager/loaders", () => {
     const client = {
       connected: true,
       request: vi.fn(
-        () =>
-          new Promise<{ messages?: unknown[] }>((resolve) => {
+        (method: string) => {
+          if (method === "chat.interaction.list") {
+            return Promise.resolve({ interactions: [] });
+          }
+          return new Promise<{ messages?: unknown[] }>((resolve) => {
             deferred.push(() => resolve({ messages: [{ role: "assistant", text: "x" }] }));
-          }),
+          });
+        },
       ),
     };
 
@@ -165,5 +172,83 @@ describe("session-manager/loaders", () => {
     });
 
     expect(useChatStore.getState().pendingGenerationBySession["agent:travel:main"]).toBeUndefined();
+  });
+
+  it("loadHistoryFromGateway hydrates submitted interaction summary and ack flags", async () => {
+    const historyRequestSeqRef = { current: 0 };
+    const client = {
+      connected: true,
+      request: vi.fn(async (method: string) => {
+        if (method === "chat.history") {
+          return { messages: [{ role: "assistant", text: "x" }] };
+        }
+        if (method === "chat.interaction.list") {
+          return {
+            interactions: [
+              {
+                id: "ix-1",
+                status: "submitted",
+                submittedPayload: {
+                  summary: [{ question: "预算", answer: "中档" }],
+                },
+              },
+            ],
+          };
+        }
+        return {};
+      }),
+    };
+
+    await loadHistoryFromGateway({
+      client: client as never,
+      key: "agent:travel:main",
+      historyRequestSeqRef,
+    });
+
+    const state = useChatStore.getState();
+    expect(state.interactiveSummaryById["ix-1"]).toEqual([
+      { question: "预算", answer: "中档" },
+    ]);
+    expect(state.interactiveSubmittedAckById["ix-1"]).toBe(true);
+    expect(state.interactiveConsumedAckById["ix-1"]).toBeUndefined();
+  });
+
+  it("loadHistoryFromGateway hydrates consumed interaction summary and ack flags", async () => {
+    const historyRequestSeqRef = { current: 0 };
+    const client = {
+      connected: true,
+      request: vi.fn(async (method: string) => {
+        if (method === "chat.history") {
+          return { messages: [{ role: "assistant", text: "x" }] };
+        }
+        if (method === "chat.interaction.list") {
+          return {
+            interactions: [
+              {
+                id: "ix-2",
+                status: "consumed",
+                submittedPayload: {
+                  summary: [{ question: "交通偏好", answer: "公共交通" }],
+                },
+              },
+            ],
+          };
+        }
+        return {};
+      }),
+    };
+
+    await loadHistoryFromGateway({
+      client: client as never,
+      key: "agent:travel:main",
+      historyRequestSeqRef,
+    });
+
+    const state = useChatStore.getState();
+    expect(state.interactiveSummaryById["ix-2"]).toEqual([
+      { question: "交通偏好", answer: "公共交通" },
+    ]);
+    expect(state.interactiveSubmittedAckById["ix-2"]).toBe(true);
+    expect(state.interactiveConsumedAckById["ix-2"]).toBe(true);
   });
 });

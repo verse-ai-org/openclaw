@@ -2,11 +2,20 @@
 
 <cite>
 **本文档引用的文件**
-- [word-docx/SKILL.md](file://skills/word-docx/SKILL.md)
-- [office-document-specialist-suite/SKILL.md](file://skills/office-document-specialist-suite/SKILL.md)
-- [my-pdf/SKILL.md](file://skills/my-pdf/SKILL.md)
-- [init_skill.py](file://skills/skill-creator/scripts/init_skill.py)
+- [minimax-docx/SKILL.md](file://skills/minimax-docx/SKILL.md)
+- [minimax-pdf/SKILL.md](file://skills/minimax-pdf/SKILL.md)
+- [minimax-xlsx/SKILL.md](file://skills/minimax-xlsx/SKILL.md)
+- [SOUL.md](file://docs/reference/templates/agents/my-office-helper/SOUL.md)
+- [word-docx/SKILL.md](file://apps/electron/release/mac-arm64/Bossim.app/Contents/Resources/openclaw/skills/word-docx/SKILL.md)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 移除了关于已删除的word-docx技能的所有内容
+- 更新了架构概览以反映当前可用的技能组合
+- 添加了对minimax-docx技能的详细分析
+- 更新了依赖关系图以显示实际存在的技能
+- 修改了故障排除指南以反映当前的技术栈
 
 ## 目录
 1. [简介](#简介)
@@ -21,7 +30,9 @@
 
 ## 简介
 
-OpenClaw 项目提供了专业的 Word 文档处理能力，通过多个专门的技能模块实现对 Microsoft Word (.docx) 文件的创建、检查、编辑和高级处理。该项目专注于处理包含修订跟踪、注释、字段、表格、模板或页面布局约束的复杂文档，确保在往返编辑过程中保持格式不漂移。
+OpenClaw 项目提供了专业的 Word 文档处理能力，通过现代化的技能模块实现对 Microsoft Word (.docx) 文件的创建、检查、编辑和高级处理。该项目专注于处理包含修订跟踪、注释、字段、表格、模板或页面布局约束的复杂文档，确保在往返编辑过程中保持格式不漂移。
+
+**重要更新**：原有的 word-docx 技能已被移除，现已被功能更强大、基于 .NET OpenXML SDK 的 minimax-docx 技能所取代。minimax-docx 技能提供了三个处理管道：(A) 从头创建新文档，(B) 在现有文档中填充实例，(C) 使用 XSD 验证门控检查应用模板格式。
 
 该系统特别适用于需要精确控制文档结构和样式的场景，包括法律、学术和商业审查文档的处理。通过理解 OOXML 结构、样式系统和编号机制，用户可以执行复杂的文档操作而不破坏原有的格式设置。
 
@@ -32,47 +43,48 @@ OpenClaw 的 Word 文档处理功能主要分布在以下技能模块中：
 ```mermaid
 graph TB
 subgraph "Word 文档处理技能"
-A[word-docx 技能] --> A1[OOXML 处理]
+A[minimax-docx 技能] --> A1[OpenXML SDK (.NET)]
 A --> A2[样式管理]
 A --> A3[编号系统]
 A --> A4[修订跟踪]
-B[office-document-specialist-suite 技能] --> B1[Python 库集成]
-B --> B2[多格式支持]
-B --> B3[自动化报告]
-C[my-pdf 技能] --> C1[PDF 转换]
-C --> C2[文本提取]
-C --> C3[表单处理]
+B[minimax-pdf 技能] --> B1[PDF 转换]
+B --> B2[文本提取]
+B --> B3[表单处理]
+C[minimax-xlsx 技能] --> C1[XLSX 处理]
+C --> C2[公式验证]
+C --> C3[财务格式]
 end
 subgraph "底层支持"
-D[Python-docx] --> D1[文档创建]
+D[DocumentFormat.OpenXml] --> D1[文档创建]
 D --> D2[内容编辑]
-E[OpenPyXL] --> E1[XLSX 处理]
-F[LibreOffice] --> F1[格式转换]
+E[pandas] --> E1[数据分析]
+F[ReportLab] --> F1[PDF 渲染]
 end
 A -.-> D
-B -.-> D
-B -.-> E
-C -.-> F
+B -.-> F
+C -.-> E
 ```
 
 **图表来源**
-- [word-docx/SKILL.md:1-97](file://skills/word-docx/SKILL.md#L1-L97)
-- [office-document-specialist-suite/SKILL.md:1-192](file://skills/office-document-specialist-suite/SKILL.md#L1-L192)
+- [minimax-docx/SKILL.md:1-47](file://skills/minimax-docx/SKILL.md#L1-L47)
+- [minimax-pdf/SKILL.md:1-31](file://skills/minimax-pdf/SKILL.md#L1-L31)
+- [minimax-xlsx/SKILL.md:1-24](file://skills/minimax-xlsx/SKILL.md#L1-L24)
 
 **章节来源**
-- [word-docx/SKILL.md:1-97](file://skills/word-docx/SKILL.md#L1-L97)
-- [office-document-specialist-suite/SKILL.md:1-192](file://skills/office-document-specialist-suite/SKILL.md#L1-L192)
+- [minimax-docx/SKILL.md:1-47](file://skills/minimax-docx/SKILL.md#L1-L47)
+- [minimax-pdf/SKILL.md:1-31](file://skills/minimax-pdf/SKILL.md#L1-L31)
+- [minimax-xlsx/SKILL.md:1-24](file://skills/minimax-xlsx/SKILL.md#L1-L24)
 
 ## 核心组件
 
-### Word 文档处理技能 (word-docx)
+### MiniMax DOCX 处理技能 (minimax-docx)
 
-word-docx 技能是专门针对 .docx 文件处理的核心模块，提供以下关键功能：
+minimax-docx 是基于 .NET OpenXML SDK 的专业 Word 文档处理技能，提供以下关键功能：
 
-#### OOXML 结构处理
-- 将 .docx 视为 ZIP 包含的 XML 部分
-- 关键部分包括 `word/document.xml`、`styles.xml`、`numbering.xml`、页眉页脚和关系文件
-- 理解文本可能分布在多个运行中的概念
+#### OpenXML SDK (.NET) 集成
+- 使用 DocumentFormat.OpenXml 库进行精确的 OOXML 操作
+- 支持 .NET 6.0+ 环境下的高性能文档处理
+- 提供编译器验证的 C# 代码示例和最佳实践
 
 #### 样式管理系统
 - 偏好命名样式而非直接格式化
@@ -85,47 +97,47 @@ word-docx 技能是专门针对 .docx 文件处理的核心模块，提供以下
 - 区分缩进和编号的关系
 
 **章节来源**
-- [word-docx/SKILL.md:20-55](file://skills/word-docx/SKILL.md#L20-L55)
+- [minimax-docx/SKILL.md:23-47](file://skills/minimax-docx/SKILL.md#L23-L47)
 
-### 办公文档专家套件 (office-document-specialist-suite)
+### MiniMax PDF 处理技能 (minimax-pdf)
 
-这是一个综合性的办公文档处理工具集，支持 Word、Excel 和 PowerPoint 的专业文档操作：
+这是一个专业的 PDF 文档处理工具，专注于视觉质量和设计一致性：
 
-#### Python 库集成
-- 使用 `python-docx` 处理 Word (.docx) 文档
-- 使用 `openpyxl` 处理 Excel (.xlsx) 电子表格
-- 使用 `python-pptx` 处理 PowerPoint (.pptx) 演示文稿
+#### 设计系统驱动的 PDF 生成
+- 使用基于令牌的设计系统：颜色、字体排版和间距
+- 支持多种文档类型：报告、提案、简历、学术论文等
+- 输出打印就绪的 PDF 文件
 
-#### 自动化报告功能
-- 创建专业报告和文档
-- 管理样式和插入表格/图片
-- 数据分析和自动电子表格生成
-- 基于结构化数据的幻灯片演示文稿创建
-
-**章节来源**
-- [office-document-specialist-suite/SKILL.md:27-33](file://skills/office-document-specialist-suite/SKILL.md#L27-L33)
-- [office-document-specialist-suite/SKILL.md:35-141](file://skills/office-document-specialist-suite/SKILL.md#L35-L141)
-
-### PDF 处理技能 (my-pdf)
-
-虽然主要关注 Word 文档，但 my-pdf 技能提供了重要的跨格式转换能力：
-
-#### 文本和表格提取
-- 使用 pdfplumber 进行布局感知的文本提取
-- 高级表格提取并转换为 Excel 格式
-- 支持扫描版 PDF 的 OCR 处理
-
-#### 格式转换和处理
-- DOCX 到 PDF 的转换（通过 LibreOffice CLI）
-- XLSX 到 CSV 的转换
-- PDF 表单填充和密码保护
+#### 表单填写和重新格式化
+- 填充现有 PDF 表单字段
+- 重新格式化现有文档以应用新的设计风格
+- 支持从 Markdown、文本到 PDF 的转换
 
 **章节来源**
-- [my-pdf/SKILL.md:154-234](file://skills/my-pdf/SKILL.md#L154-L234)
+- [minimax-pdf/SKILL.md:1-15](file://skills/minimax-pdf/SKILL.md#L1-L15)
+- [minimax-pdf/SKILL.md:31-82](file://skills/minimax-pdf/SKILL.md#L31-L82)
+
+### MiniMax XLSX 处理技能 (minimax-xlsx)
+
+这是一个专业的 Excel 电子表格处理技能：
+
+#### XML 直接编辑
+- 使用 XML 模板从头创建 XLSX 文件
+- 支持零格式损失的现有文件编辑
+- 提供公式重新计算和验证功能
+
+#### 财务格式标准
+- 支持专业财务建模和分析
+- 提供标准化的颜色编码系统
+- 支持透视表、图表和复杂公式
+
+**章节来源**
+- [minimax-xlsx/SKILL.md:1-24](file://skills/minimax-xlsx/SKILL.md#L1-L24)
+- [minimax-xlsx/SKILL.md:128-135](file://skills/minimax-xlsx/SKILL.md#L128-L135)
 
 ## 架构概览
 
-OpenClaw 的 Word 文档处理采用分层架构设计，确保不同复杂度的任务能够得到适当的处理：
+OpenClaw 的 Word 文档处理采用现代化的分层架构设计，确保不同复杂度的任务能够得到适当的处理：
 
 ```mermaid
 flowchart TD
@@ -140,28 +152,31 @@ F --> I[结果输出]
 G --> I
 H --> I
 subgraph "底层支持"
-J[Python-docx]
-K[OpenPyXL]
-L[LibreOffice]
+J[DocumentFormat.OpenXml]
+K[pandas]
+L[ReportLab]
+M[.NET 6.0+]
 end
 I --> J
 I --> K
 I --> L
+I --> M
 ```
 
 **图表来源**
-- [word-docx/SKILL.md:25-28](file://skills/word-docx/SKILL.md#L25-L28)
-- [office-document-specialist-suite/SKILL.md:37-59](file://skills/office-document-specialist-suite/SKILL.md#L37-L59)
+- [minimax-docx/SKILL.md:90-114](file://skills/minimax-docx/SKILL.md#L90-L114)
+- [minimax-pdf/SKILL.md:39-47](file://skills/minimax-pdf/SKILL.md#L39-L47)
+- [minimax-xlsx/SKILL.md:34-43](file://skills/minimax-xlsx/SKILL.md#L34-L43)
 
 ## 详细组件分析
 
-### OOXML 处理流程
+### OpenXML 处理流程
 
 ```mermaid
 sequenceDiagram
 participant U as 用户
-participant W as Word 文档处理
-participant O as OOXML 解析器
+participant W as DOCX 处理
+participant O as OpenXML 解析器
 participant S as 样式系统
 participant N as 编号系统
 U->>W : 请求处理 .docx 文件
@@ -175,7 +190,7 @@ Note over W,N : 维护编号状态
 ```
 
 **图表来源**
-- [word-docx/SKILL.md:20-28](file://skills/word-docx/SKILL.md#L20-L28)
+- [minimax-docx/SKILL.md:20-28](file://skills/minimax-docx/SKILL.md#L20-L28)
 
 ### 样式管理系统
 
@@ -214,7 +229,7 @@ StyleSystem --> DirectFormatting
 ```
 
 **图表来源**
-- [word-docx/SKILL.md:31-38](file://skills/word-docx/SKILL.md#L31-L38)
+- [minimax-docx/SKILL.md:31-38](file://skills/minimax-docx/SKILL.md#L31-L38)
 
 ### 编号和列表处理
 
@@ -238,87 +253,88 @@ M --> N[完成处理]
 ```
 
 **图表来源**
-- [word-docx/SKILL.md:39-45](file://skills/word-docx/SKILL.md#L39-L45)
+- [minimax-docx/SKILL.md:39-45](file://skills/minimax-docx/SKILL.md#L39-L45)
 
-**章节来源**
-- [word-docx/SKILL.md:39-45](file://skills/word-docx/SKILL.md#L39-L45)
-
-### Python 库集成架构
+### 现代化技能架构
 
 ```mermaid
 graph LR
 subgraph "OpenClaw 核心"
-A[Word 处理引擎]
-B[Excel 处理引擎]
-C[PPT 处理引擎]
+A[DOCX 处理引擎]
+B[PDF 处理引擎]
+C[XLSX 处理引擎]
+end
+subgraph ".NET 生态系统"
+D[DocumentFormat.OpenXml]
+E[.NET 6.0+]
+F[编译器验证]
 end
 subgraph "Python 库层"
-D[python-docx]
-E[openpyxl]
-F[python-pptx]
-end
-subgraph "系统工具"
-G[LibreOffice]
-H[Poppler 工具]
-I[pandas]
+G[pandas]
+H[ReportLab]
+I[PyPDF2]
 end
 A --> D
-B --> E
-C --> F
-D --> G
-E --> I
-F --> G
-G --> H
+A --> E
+B --> H
+C --> G
+D --> F
+E --> F
 ```
 
 **图表来源**
-- [office-document-specialist-suite/SKILL.md:27-33](file://skills/office-document-specialist-suite/SKILL.md#L27-L33)
+- [minimax-docx/SKILL.md:10-17](file://skills/minimax-docx/SKILL.md#L10-L17)
+- [minimax-pdf/SKILL.md:196-203](file://skills/minimax-pdf/SKILL.md#L196-L203)
 
 **章节来源**
-- [office-document-specialist-suite/SKILL.md:27-33](file://skills/office-document-specialist-suite/SKILL.md#L27-L33)
+- [minimax-docx/SKILL.md:10-17](file://skills/minimax-docx/SKILL.md#L10-L17)
+- [minimax-pdf/SKILL.md:196-203](file://skills/minimax-pdf/SKILL.md#L196-L203)
 
 ## 依赖关系分析
 
-OpenClaw 的 Word 文档处理技能之间存在清晰的依赖关系：
+OpenClaw 的现代 Word 文档处理技能之间存在清晰的依赖关系：
 
 ```mermaid
 graph TB
 subgraph "基础技能"
-A[word-docx]
-B[my-pdf]
+A[minimax-docx]
+B[minimax-pdf]
+C[minimax-xlsx]
 end
-subgraph "高级技能"
-C[office-document-specialist-suite]
-D[specialized-docx-processing]
+subgraph ".NET 依赖"
+D[DocumentFormat.OpenXml]
+E[.NET 6.0+]
+F[编译器验证]
 end
 subgraph "Python 依赖"
-E[python-docx]
-F[openpyxl]
-G[python-pptx]
-H[pdfplumber]
+G[pandas]
+H[ReportLab]
+I[PyPDF2]
 end
 subgraph "系统工具"
-I[LibreOffice]
-J[pdftotext]
-K[qpdf]
+J[LibreOffice]
+K[pdftotext]
+L[qpdf]
 end
+A --> D
 A --> E
-C --> E
-C --> F
-C --> G
 B --> H
-E --> I
+C --> G
+D --> F
+E --> F
 H --> J
-F --> K
+G --> K
 ```
 
 **图表来源**
-- [office-document-specialist-suite/SKILL.md:27-33](file://skills/office-document-specialist-suite/SKILL.md#L27-L33)
-- [my-pdf/SKILL.md:154-170](file://skills/my-pdf/SKILL.md#L154-L170)
+- [minimax-docx/SKILL.md:10-17](file://skills/minimax-docx/SKILL.md#L10-L17)
+- [minimax-pdf/SKILL.md:196-203](file://skills/minimax-pdf/SKILL.md#L196-L203)
+- [minimax-xlsx/SKILL.md:10-16](file://skills/minimax-xlsx/SKILL.md#L10-L16)
 
 **章节来源**
-- [office-document-specialist-suite/SKILL.md:27-33](file://skills/office-document-specialist-suite/SKILL.md#L27-L33)
-- [my-pdf/SKILL.md:154-170](file://skills/my-pdf/SKILL.md#L154-L170)
+- [minimax-docx/SKILL.md:10-17](file://skills/minimax-docx/SKILL.md#L10-L17)
+- [minimax-pdf/SKILL.md:196-203](file://skills/minimax-pdf/SKILL.md#L196-L203)
+- [minimax-xlsx/SKILL.md:10-16](file://skills/minimax-xlsx/SKILL.md#L10-L16)
 
 ## 性能考虑
 
@@ -377,8 +393,12 @@ M --> K
 - **问题**: 表格宽度在不同软件中表现不一致
 - **解决方案**: 显式设置表格宽度，避免百分比或自动调整
 
+#### OpenXML 元素顺序问题
+- **问题**: 元素顺序错误导致文件损坏
+- **解决方案**: 严格遵循元素顺序规则：`pPr` → `runs`，`rPr` → `t`/`br`/`tab`
+
 **章节来源**
-- [word-docx/SKILL.md:81-97](file://skills/word-docx/SKILL.md#L81-L97)
+- [minimax-docx/SKILL.md:210-247](file://skills/minimax-docx/SKILL.md#L210-L247)
 
 ### 技术陷阱识别
 
@@ -388,6 +408,7 @@ A[潜在陷阱] --> B[样式陷阱]
 A --> C[编号陷阱]
 A --> D[修订陷阱]
 A --> E[布局陷阱]
+A --> F[OpenXML陷阱]
 B --> B1[复制粘贴导入样式]
 B --> B2[直接格式化覆盖样式]
 C --> C1[视觉重启 vs 实际重启]
@@ -396,22 +417,26 @@ D --> D1[删除文本但保留修订]
 D --> D2[移动文本破坏锚点]
 E --> E1[空段落作为间距]
 E --> E2[百分比宽度问题]
+F --> F1[元素顺序错误]
+F --> F2[w:del vs w:t 混淆]
 ```
 
 **图表来源**
-- [word-docx/SKILL.md:81-97](file://skills/word-docx/SKILL.md#L81-L97)
+- [minimax-docx/SKILL.md:210-247](file://skills/minimax-docx/SKILL.md#L210-L247)
 
 ## 结论
 
-OpenClaw 的 Word 文档处理技能提供了全面的专业文档处理能力。通过深入理解 OOXML 结构、样式系统和编号机制，用户可以处理从简单文档到复杂审查文档的各种需求。
+OpenClaw 的现代 Word 文档处理技能提供了全面的专业文档处理能力。通过基于 .NET OpenXML SDK 的 minimax-docx 技能，用户可以处理从简单文档到复杂审查文档的各种需求。
 
-该系统的分层架构设计确保了不同复杂度的任务能够得到适当的处理，而 Python 库集成则提供了强大的底层支持。无论是创建新的专业文档、编辑现有的复杂文档，还是进行跨格式转换，OpenClaw 都提供了可靠的解决方案。
+**重要更新**：原有的 word-docx 技能已被功能更强大、基于 .NET OpenXML SDK 的 minimax-docx 技能所取代。minimax-docx 技能提供了三个处理管道：(A) 从头创建新文档，(B) 在现有文档中填充实例，(C) 使用 XSD 验证门控检查应用模板格式。
+
+该系统的现代化架构设计确保了不同复杂度的任务能够得到适当的处理，而 .NET 生态系统的集成则提供了强大的底层支持。无论是创建新的专业文档、编辑现有的复杂文档，还是进行跨格式转换，OpenClaw 都提供了可靠的解决方案。
 
 关键优势包括：
-- 精确的 OOXML 处理能力
+- 基于 .NET 的高性能 OpenXML 处理
 - 完整的样式和编号系统支持  
 - 强大的修订跟踪处理
-- 跨格式转换能力
+- 编译器验证的代码质量保证
 - 专业的错误处理和故障排除
 
 这些特性使得 OpenClaw 成为了处理 Microsoft Word 文档的理想选择，特别是在需要保持格式完整性和处理复杂文档结构的场景中。

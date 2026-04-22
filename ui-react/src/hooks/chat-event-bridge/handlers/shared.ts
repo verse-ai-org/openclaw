@@ -13,6 +13,7 @@ export type BridgeRuntimeContext = {
     { phase: "result" | "error"; data: Record<string, unknown> }
   >;
   activeRunBySession: Map<string, string>;
+  pendingLifecycleFinalizeByRun: Map<string, ReturnType<typeof setTimeout>>;
 };
 
 export function toRunEventKindFromChatState(state: string | undefined): RunEventKind {
@@ -63,6 +64,14 @@ export function buildFinalAssistantMessage(params: {
   const hasToolCalls = toolStreamOrder.length > 0;
   const hasInteractive = interactiveStreamOrder.length > 0;
   const hasCommitted = committedBlocks.length > 0;
+  const committedText = committedBlocks
+    .filter((block): block is Extract<ContentBlock, { type: "text" }> => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+  const trailingText =
+    committedText && params.text.startsWith(committedText)
+      ? params.text.slice(committedText.length)
+      : params.text;
 
   if (!hasToolCalls && !hasInteractive && !hasCommitted) {
     return {
@@ -99,8 +108,8 @@ export function buildFinalAssistantMessage(params: {
       phase: toToolCallBlockPhase(entry.phase),
     });
   }
-  if (params.text.trim()) {
-    contentBlocks.push({ type: "text", text: params.text });
+  if (trailingText.trim()) {
+    contentBlocks.push({ type: "text", text: trailingText });
   }
 
   return {
@@ -124,6 +133,8 @@ export function finalizeChatRun(params: {
   const { sessionKey, runId, state, messageText, errorMessage, ctx } = params;
   const st = useChatStore.getState();
   st.clearSessionGenerating(sessionKey);
+  const shouldHydrateAfterFinal =
+    typeof runId === "string" && runId.startsWith("interaction-resume-");
   if (runId && ctx.pendingInteractiveHydrationRuns.has(runId)) {
     st.setPendingHistoryReloadKey(sessionKey);
     ctx.pendingInteractiveHydrationRuns.delete(runId);
@@ -144,6 +155,9 @@ export function finalizeChatRun(params: {
     st.setSending(false);
     st.setRunId(null);
     st.triggerSessionsReload();
+    if (shouldHydrateAfterFinal) {
+      st.setPendingHistoryReloadKey(sessionKey);
+    }
     return;
   }
 

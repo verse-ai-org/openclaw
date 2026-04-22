@@ -214,6 +214,91 @@ describe("gateway.channelHealthCheckMinutes", () => {
   });
 });
 
+describe("gateway.interactions.recovery", () => {
+  it("accepts interaction recovery configuration", () => {
+    const res = validateConfigObject({
+      gateway: {
+        interactions: {
+          recovery: {
+            enabled: true,
+            intervalMs: 45_000,
+            minStaleMs: 20_000,
+            maxAttempts: 4,
+            batchLimit: 30,
+            warnBacklogThreshold: 40,
+            warnMinSuccessRate: 0.6,
+          },
+        },
+      },
+    });
+    expect(res.ok).toBe(true);
+  });
+
+  it("rejects invalid interaction recovery interval", () => {
+    const res = validateConfigObject({
+      gateway: {
+        interactions: {
+          recovery: {
+            intervalMs: 0,
+          },
+        },
+      },
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.issues[0]?.path).toBe("gateway.interactions.recovery.intervalMs");
+    }
+  });
+
+  it("rejects invalid interaction recovery success-rate threshold", () => {
+    const res = validateConfigObject({
+      gateway: {
+        interactions: {
+          recovery: {
+            warnMinSuccessRate: 1.5,
+          },
+        },
+      },
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.issues[0]?.path).toBe("gateway.interactions.recovery.warnMinSuccessRate");
+    }
+  });
+});
+
+describe("gateway.interactions.stream", () => {
+  it("accepts interaction stream config", () => {
+    const res = validateConfigObject({
+      gateway: {
+        interactions: {
+          stream: {
+            enabled: true,
+            dualWrite: true,
+          },
+        },
+      },
+    });
+    expect(res.ok).toBe(true);
+  });
+
+  it("rejects invalid interaction stream config type", () => {
+    const res = validateConfigObject({
+      gateway: {
+        interactions: {
+          stream: {
+            enabled: "yes",
+          },
+        },
+      },
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.issues[0]?.path).toBe("gateway.interactions.stream.enabled");
+    }
+  });
+});
+
 describe("cron webhook schema", () => {
   it("accepts cron.webhookToken and legacy cron.webhook", () => {
     const res = OpenClawSchema.safeParse({

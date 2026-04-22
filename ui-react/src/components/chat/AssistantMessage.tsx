@@ -62,7 +62,7 @@ export const AssistantMessage: FC = () => {
   }, [messages, messageId]);
 
   const showLoading = isSessionRunning && isLastMessage;
-  // const shouldShowAvatar = isFirstInTurn || (messageId === "__stream__" && isSessionRunning);
+  const shouldShowAvatar = isFirstInTurn || showLoading;
 
   const content = ((message as unknown as { content?: AssistantContentPart[] }).content ?? []) as
     | AssistantContentPart[]
@@ -95,9 +95,9 @@ export const AssistantMessage: FC = () => {
       data-role="assistant"
     >
       {/* Avatar row — loading state is handled inside AgentAvatar (spinning ring) */}
-      <div className="flex gap-3 items-self-start">
+      <div className="flex gap-3 self-start">
         <div className="shrink-0">
-          {isFirstInTurn ? <AgentAvatar showLoading={showLoading} /> : <div className="w-8"/>}
+          {shouldShowAvatar ? <AgentAvatar showLoading={showLoading} /> : <div className="w-8" />}
         </div>
       </div>
 

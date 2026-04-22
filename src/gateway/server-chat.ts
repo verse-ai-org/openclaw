@@ -114,19 +114,32 @@ function resolveMergedAssistantText(params: {
   nextDelta: string;
 }) {
   const { previousText, nextText, nextDelta } = params;
-  if (nextText && previousText) {
-    if (nextText.startsWith(previousText)) {
-      return nextText;
+  if (nextText) {
+    if (nextDelta) {
+      // Some providers send cumulative snapshots (nextText) and a suffix delta;
+      // others send non-prefix segment snapshots with an additive delta.
+      // If delta is the trailing suffix of nextText, trust nextText directly.
+      // Otherwise, preserve prior text and append only the delta.
+      if (nextText.endsWith(nextDelta)) {
+        return nextText;
+      }
+      return appendUniqueSuffix(previousText, nextDelta);
     }
-    if (previousText.startsWith(nextText) && !nextDelta) {
-      return previousText;
+    if (previousText) {
+      if (nextText.startsWith(previousText)) {
+        return nextText;
+      }
+      if (previousText.startsWith(nextText)) {
+        return previousText;
+      }
+      // Segment-style streams may send non-prefix full chunks without delta.
+      // Preserve earlier text and append only the non-overlapping suffix.
+      return appendUniqueSuffix(previousText, nextText);
     }
+    return nextText;
   }
   if (nextDelta) {
     return appendUniqueSuffix(previousText, nextDelta);
-  }
-  if (nextText) {
-    return nextText;
   }
   return previousText;
 }

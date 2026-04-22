@@ -366,6 +366,35 @@ export type GatewayToolsConfig = {
   allow?: string[];
 };
 
+export type GatewayInteractionRecoveryConfig = {
+  /** Enable periodic recovery sweep for submitted-but-unconsumed interactions. @default true */
+  enabled?: boolean;
+  /** Sweep interval in milliseconds. @default 30000 */
+  intervalMs?: number;
+  /** Minimum age for submitted interactions before they are considered stale. @default 30000 */
+  minStaleMs?: number;
+  /** Maximum resume attempts per interaction. @default 3 */
+  maxAttempts?: number;
+  /** Maximum interactions scanned per sweep before grouping by session. @default 20 */
+  batchLimit?: number;
+  /** Warn when submitted-interaction backlog reaches this count in a sweep. @default 25 */
+  warnBacklogThreshold?: number;
+  /** Warn when stale recovery success rate falls below this ratio [0..1]. @default 0.5 */
+  warnMinSuccessRate?: number;
+};
+
+export type GatewayInteractionsConfig = {
+  /** Emit dedicated `interaction` gateway events for UI semantic decoupling. */
+  stream?: {
+    /** Enable interaction event stream emission. @default false */
+    enabled?: boolean;
+    /** Emit both legacy tool/chat path and new interaction stream during migration. @default true */
+    dualWrite?: boolean;
+  };
+  /** Background compensation policy for interactive submissions. */
+  recovery?: GatewayInteractionRecoveryConfig;
+};
+
 export type GatewayConfig = {
   /** Single multiplexed port for Gateway WS + HTTP (default: 18789). */
   port?: number;
@@ -407,6 +436,8 @@ export type GatewayConfig = {
   allowRealIpFallback?: boolean;
   /** Tool access restrictions for HTTP /tools/invoke endpoint. */
   tools?: GatewayToolsConfig;
+  /** Chat interaction lifecycle and recovery policies. */
+  interactions?: GatewayInteractionsConfig;
   /**
    * Channel health monitor interval in minutes.
    * Periodically checks channel health and restarts unhealthy channels.
