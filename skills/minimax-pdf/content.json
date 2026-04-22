@@ -1,93 +1,26 @@
 [
-  {"type": "h1", "text": "一、公司基本情况"},
-  {"type": "body", "text": "成立时间：2003年 | CEO：Elon Musk"},
-  {"type": "spacer", "pt": 6},
-  {"type": "body", "text": "<b>核心业务：</b>"},
-  {"type": "bullet", "text": "电动车（Model 3 / Model Y / Cybertruck）"},
-  {"type": "bullet", "text": "能源业务（储能、电池、太阳能）"},
-  {"type": "bullet", "text": "AI与自动驾驶（FSD、机器人）"},
-  {"type": "spacer", "pt": 12},
-  {"type": "divider"},
-  {"type": "h1", "text": "二、核心经营数据（2025–2026最新）"},
-  {"type": "spacer", "pt": 4},
-  {"type": "h2", "text": "1. 收入与利润"},
-  {"type": "table", "headers": ["指标", "数值", "备注"],
-    "col_widths": [0.3, 0.25, 0.45],
-    "rows": [
-      ["2025年总收入", "约 948亿美元", "同比下降约 2.9%"],
-      ["2025年净利润", "约 38亿美元", "—"],
-      ["2025年营业利润", "约 43.5亿美元", "同比下降约 38%"]
-    ]},
-  {"type": "callout", "text": "首次出现年度收入下滑，利润明显承压（价格战 + 成本上升）"},
-  {"type": "spacer", "pt": 10},
-  {"type": "h2", "text": "2. 汽车业务（核心板块）"},
-  {"type": "table", "headers": ["指标", "数值", "备注"],
-    "col_widths": [0.3, 0.25, 0.45],
-    "rows": [
-      ["2025年交付量", "约 163万辆", "同比 -8.6%"],
-      ["2025年产量", "约 165万辆", "—"],
-      ["Q1 2026交付", "约 35.8万辆", "同比增长"]
-    ]},
-  {"type": "callout", "text": "连续两年销量下滑，增长开始放缓，行业竞争激烈（如比亚迪）"},
-  {"type": "spacer", "pt": 10},
-  {"type": "h2", "text": "3. 能源业务（增长亮点）"},
-  {"type": "table", "headers": ["指标", "数值", "备注"],
-    "col_widths": [0.3, 0.25, 0.45],
-    "rows": [
-      ["2025年储能部署", "46.7 GWh", "+49%"],
-      ["2026预期收入", "约 183亿美元", "约占20%营收"],
-      ["毛利率", "约 29%", "高于汽车业务"]
-    ]},
-  {"type": "callout", "text": "能源业务成为第二增长曲线，盈利能力优于汽车业务"},
-  {"type": "spacer", "pt": 10},
-  {"type": "h2", "text": "4. 现金与资本投入"},
-  {"type": "table", "headers": ["指标", "数值", "备注"],
-    "col_widths": [0.3, 0.25, 0.45],
-    "rows": [
-      ["2025年自由现金流", "62亿美元", "+74%"],
-      ["现金储备", "约 440亿美元", "—"],
-      ["2026资本开支", ">200亿美元", "AI/机器人领域"]
-    ]},
-  {"type": "callout", "text": "持续重投入 AI、自动驾驶、机器人，短期现金流压力上升"},
-  {"type": "spacer", "pt": 12},
-  {"type": "divider"},
-  {"type": "h1", "text": "三、技术与战略方向"},
-  {"type": "spacer", "pt": 4},
-  {"type": "h2", "text": "1. 自动驾驶（FSD）"},
-  {"type": "bullet", "text": "用户规模：约110万用户"},
-  {"type": "bullet", "text": "当前状态：仍未实现完全自动驾驶"},
-  {"type": "body", "text": "战略意义：决定公司长期估值的核心技术"},
-  {"type": "spacer", "pt": 10},
-  {"type": "h2", "text": "2. AI + 机器人"},
-  {"type": "bullet", "text": "Robotaxi（无人出租车）已在美国试点"},
-  {"type": "bullet", "text": "人形机器人 Optimus 预计2026+量产"},
-  {"type": "callout", "text": "战略转型：从「车企」→ 「AI+机器人公司」"},
-  {"type": "spacer", "pt": 12},
-  {"type": "divider"},
-  {"type": "h1", "text": "四、行业地位与竞争"},
-  {"type": "bullet", "text": "全球EV竞争加剧：中国厂商（如比亚迪）已在销量上超越"},
-  {"type": "bullet", "text": "市场份额压力：价格战 → 毛利率下降"},
-  {"type": "bullet", "text": "政策影响：美国补贴减少 → EV需求下降"},
-  {"type": "spacer", "pt": 12},
-  {"type": "divider"},
-  {"type": "h1", "text": "五、总结"},
-  {"type": "spacer", "pt": 4},
-  {"type": "h2", "text": "优势"},
-  {"type": "bullet", "text": "品牌 + 技术领先（自动驾驶、AI）"},
-  {"type": "bullet", "text": "能源业务高速增长（高利润）"},
-  {"type": "bullet", "text": "全球化产能布局"},
-  {"type": "spacer", "pt": 8},
-  {"type": "h2", "text": "挑战"},
-  {"type": "bullet", "text": "汽车销量增长放缓"},
-  {"type": "bullet", "text": "利润率持续下降"},
-  {"type": "bullet", "text": "竞争加剧（尤其中国市场）"},
-  {"type": "spacer", "pt": 8},
-  {"type": "h2", "text": "未来增长点"},
-  {"type": "bullet", "text": "自动驾驶（FSD商业化）"},
-  {"type": "bullet", "text": "Robotaxi"},
-  {"type": "bullet", "text": "人形机器人"},
-  {"type": "bullet", "text": "储能业务"},
-  {"type": "spacer", "pt": 16},
-  {"type": "divider"},
-  {"type": "callout", "text": "一句话结论：Tesla 正从「电动车公司」转型为「AI+能源平台公司」，但短期面临增长放缓与盈利压力，中长期取决于自动驾驶与AI落地能力。"}
+  {
+    "type": "body",
+    "text": "M IN IM A L Artem is II 任务报告 NASA / 阿尔忒弥斯计划  · 2025"
+  },
+  {
+    "type": "body",
+    "text": "ARTEMIS II 任务报告 2025 NASA / 阿尔忒弥斯计划 1 任务概述 Artemis II 是 NASA 阿尔忒弥斯计划中的第二次任务，是继 Artemis I 之后的首次载人飞行，核心目标是验证载人深空飞行能力（绕月但不着陆）。 Artemis II = 人类重返月球前的关键载人验证任务 任务目标 1. 验证生命支持系统 — 航天员在深空环境下的生存能力（空气、水、温控）   2. 测试航天器性能 — Orion spacecraft（猎户座飞船）与 SLS 重型火箭   3. 验证飞行轨道 —「自由返回轨道」，无需额外推进也能返回地球   4. 深空通信与导航测试   飞行路径 从地球发射 → 进入地球轨道 → 进入绕月飞行轨道 → 绕月飞行一圈（不着陆）→ 自动返回地球。最远可达约 37 万公里，比国际空间站远 1000 倍以上。 航天员团队 • Reid Wiseman（指令长） • Victor Glover（飞行员）— 首位绕月飞行的非裔美国人 • Christina Koch（任务专家）— 首位绕月飞行的女性 • Jeremy Hansen（任务专家，加拿大）— 首位绕月飞行的加拿大人 时间节点"
+  },
+  {
+    "type": "body",
+    "text": "ARTEMIS II 任务报告 2025 NASA / 阿尔忒弥斯计划 2 任务 状态 预计时间 Artemis I 无人飞行 2022年 Artemis II 载人绕月验证 2025年前后 Artemis III 载人登月 后续 关键技术亮点 Orion 飞船 深空级载人飞船，可支持长时间任务，具备高热防护（再入速度约 40,000 km/h）。 SLS 火箭 当前世界最强运载火箭之一，推力超过 Saturn V。 深空通信系统 使用 Deep Space Network 进行地月间的通信与导航。 与阿波罗任务对比 项目 Apollo Artemis II 时代 1960s–70s 现代 技术 模拟 + 初级数字 全数字化 目标 冷战竞赛 可持续探索 后续 无长期基地 建立月球基地 战略意义"
+  },
+  {
+    "type": "body",
+    "text": "ARTEMIS II 任务报告 2025 NASA / 阿尔忒弥斯计划 3 • 重返月球的关键一步 — Artemis II 是 Artemis III 登月的前置验证 • 深空探索基础 — 为未来火星任务铺路 • 国际合作标志 — 与 Canadian Space Agency 等合作 • 商业航天带动 — 与 SpaceX 等商业伙伴协同 Artemis II 是人类重返月球前最关键的一次载人深空验证任务，它将首次把宇航员 再次送入绕月轨道，为未来登陆月球和探索火星奠定基础。"
+  },
+  {
+    "type": "body",
+    "text": "■  ■ Bossim ■■■■ Artemis II ■■■■"
+  },
+  {
+    "type": "body",
+    "text": "致谢 Bossim团队出品。"
+  }
 ]

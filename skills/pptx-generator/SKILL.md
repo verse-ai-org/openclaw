@@ -39,7 +39,7 @@ This skill handles all PowerPoint tasks: reading/analyzing existing presentation
 | **Dimensions** | 10" x 5.625" (LAYOUT_16x9) |
 | **Colors** | 6-char hex without # (e.g., `"FF0000"`) |
 | **English font** | Arial (default), or approved alternatives |
-| **Chinese font** | Microsoft YaHei |
+| **Chinese font** | Microsoft YaHei (default for any CJK text) |
 | **Page badge position** | x: 9.3", y: 5.1" |
 | **Theme keys** | `primary`, `secondary`, `accent`, `light`, `bg` |
 | **Shapes** | RECTANGLE, OVAL, LINE, ROUNDED_RECTANGLE |
@@ -95,7 +95,7 @@ Create one JS file per slide in `slides/` directory. Each file must export a syn
 2. Images go in: `slides/imgs/`
 3. Final PPTX is exported by runtime to user documents folder (see Step 6)
 4. Dimensions: 10" x 5.625" (LAYOUT_16x9)
-5. Fonts: Chinese = Microsoft YaHei, English = Arial (or approved alternative)
+5. Fonts: Chinese = Microsoft YaHei, English = Arial (or approved alternative). If a text box may contain Chinese, set `fontFace: "Microsoft YaHei"`.
 6. Colors: 6-char hex without # (e.g. `"FF0000"`)
 7. Must use the theme object contract (see [Theme Object Contract](#theme-object-contract))
 8. Must follow the [PptxGenJS API reference](references/pptxgenjs.md)
@@ -199,7 +199,7 @@ function createSlide(pres, theme) {
 
   slide.addText(slideConfig.title, {
     x: 0.5, y: 2, w: 9, h: 1.2,
-    fontSize: 48, fontFace: "Arial",
+    fontSize: 48, fontFace: "Microsoft YaHei",
     color: theme.primary, bold: true, align: "center"
   });
 
@@ -259,7 +259,7 @@ slide.addShape(pres.shapes.OVAL, {
 });
 slide.addText("3", {
   x: 9.3, y: 5.1, w: 0.4, h: 0.4,
-  fontSize: 12, fontFace: "Arial",
+  fontSize: 12, fontFace: "Microsoft YaHei",
   color: "FFFFFF", bold: true,
   align: "center", valign: "middle"
 });
@@ -275,7 +275,7 @@ slide.addShape(pres.shapes.ROUNDED_RECTANGLE, {
 });
 slide.addText("03", {
   x: 9.1, y: 5.15, w: 0.6, h: 0.35,
-  fontSize: 11, fontFace: "Arial",
+  fontSize: 11, fontFace: "Microsoft YaHei",
   color: "FFFFFF", bold: true,
   align: "center", valign: "middle"
 });

@@ -79,7 +79,11 @@ def register_fonts(tokens: dict):
 def _contains_cjk(text: str) -> bool:
     if not text:
         return False
-    return re.search(r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]", text) is not None
+    return re.search(
+        # CJK Unified Ideographs + punctuation + Kana + Hangul
+        r"[\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF\uAC00-\uD7AF]",
+        text,
+    ) is not None
 
 
 def _walk_has_cjk(value) -> bool:
@@ -100,16 +104,21 @@ def _register_cjk_fallback_font() -> str | None:
     2) built-in CID font (STSong-Light)
     """
     candidates = [
-        ("PingFangSC", "/System/Library/Fonts/PingFang.ttc"),
-        ("HiraginoSansGB", "/System/Library/Fonts/Hiragino Sans GB.ttc"),
-        ("NotoSansCJKsc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
-        ("SourceHanSansCN", "/usr/share/fonts/opentype/source-han-sans/SourceHanSansCN-Regular.otf"),
-        ("WenQuanYiZenHei", "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
+        # Prefer OTF/TTF first; TTC can require subfont index.
+        ("SourceHanSansCN", "/usr/share/fonts/opentype/source-han-sans/SourceHanSansCN-Regular.otf", None),
+        ("NotoSansCJKscOTF", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf", None),
+        ("PingFangSC", "/System/Library/Fonts/PingFang.ttc", 0),
+        ("HiraginoSansGB", "/System/Library/Fonts/Hiragino Sans GB.ttc", 0),
+        ("NotoSansCJKsc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 0),
+        ("WenQuanYiZenHei", "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", 0),
     ]
-    for name, fpath in candidates:
+    for name, fpath, subfont_index in candidates:
         if os.path.exists(fpath):
             try:
-                pdfmetrics.registerFont(TTFont(name, fpath))
+                if subfont_index is None:
+                    pdfmetrics.registerFont(TTFont(name, fpath))
+                else:
+                    pdfmetrics.registerFont(TTFont(name, fpath, subfontIndex=subfont_index))
                 return name
             except Exception:
                 continue
@@ -237,7 +246,11 @@ def make_styles(t: dict) -> dict:
     d   = t["dark"]
     mu  = t["muted"]
 
-    code_font = "Courier" if not t.get("font_code_rl") else t["font_code_rl"]
+    # Courier lacks CJK glyphs; in CJK mode keep code readable with the body font.
+    if t.get("cjk_mode"):
+        code_font = t.get("font_code_rl") or bf
+    else:
+        code_font = "Courier" if not t.get("font_code_rl") else t["font_code_rl"]
     return {
         "h1": ParagraphStyle("H1",
             fontName=hf, fontSize=t["size_h1"],
@@ -1036,6 +1049,7 @@ def build_story(content: list, tokens: dict, styles: dict) -> list:
 
 def build(tokens: dict, content: list, out_path: str) -> dict:
     register_fonts(tokens)
+    tokens["cjk_mode"] = False
     if _walk_has_cjk(content) or _walk_has_cjk({
         "title": tokens.get("title", ""),
         "author": tokens.get("author", ""),
@@ -1048,6 +1062,7 @@ def build(tokens: dict, content: list, out_path: str) -> dict:
             tokens["font_body_rl"] = cjk_font
             tokens["font_body_b_rl"] = cjk_font
             tokens["font_code_rl"] = cjk_font
+            tokens["cjk_mode"] = True
     styles = make_styles(tokens)
 
     doc = BeautifulDoc(

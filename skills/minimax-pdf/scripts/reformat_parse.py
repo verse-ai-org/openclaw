@@ -200,7 +200,8 @@ def _md_inline(text: str) -> str:
     text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
     text = re.sub(r'_(.+?)_',   r'<i>\1</i>', text)
     # Inline code: `code`
-    text = re.sub(r'`(.+?)`', r'<font name="Courier">\1</font>', text)
+    # Avoid hardcoding Courier (no CJK glyphs on many systems), keep readable emphasis.
+    text = re.sub(r'`(.+?)`', r'<b>\1</b>', text)
     # Strip markdown links, keep text
     text = re.sub(r'\[(.+?)\]\(.+?\)', r'\1', text)
     return text

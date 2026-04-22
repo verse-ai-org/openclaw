@@ -355,7 +355,7 @@
   .pcard-notes .pcard-body strong { color: #f0883e; }
   .pcard-notes .pcard-body em { color: #58a6ff; font-style: normal; }
   .pcard-notes .pcard-body code {
-    font-family: "SF Mono", monospace; font-size: .9em;
+    font-family: "SF Mono", "JetBrains Mono", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", monospace; font-size: .9em;
     background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 4px;
   }
   .pcard-notes .empty { color: #484f58; font-style: italic; }
@@ -366,7 +366,7 @@
     padding: 18px 20px; justify-content: center;
   }
   .timer-display {
-    font-family: "SF Mono", "JetBrains Mono", monospace;
+    font-family: "SF Mono", "JetBrains Mono", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", monospace;
     font-size: 42px; font-weight: 700;
     color: #3fb950;
     letter-spacing: .04em;
@@ -377,7 +377,7 @@
     font-size: 14px; color: #8b949e;
   }
   .timer-row .label { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: #6e7681; }
-  .timer-row .val { color: #e6edf3; font-weight: 600; font-family: "SF Mono", monospace; }
+  .timer-row .val { color: #e6edf3; font-weight: 600; font-family: "SF Mono", "JetBrains Mono", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", monospace; }
   .timer-controls { display: flex; gap: 8px; flex-wrap: wrap; }
   .timer-btn {
     background: rgba(255,255,255,.06);
@@ -416,7 +416,7 @@
   .hint-bar kbd {
     background: rgba(255,255,255,.08);
     padding: 1px 6px; border-radius: 3px;
-    font-family: "SF Mono", monospace;
+    font-family: "SF Mono", "JetBrains Mono", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", monospace;
     font-size: 10px;
     border: 1px solid rgba(255,255,255,.1);
     color: #e6edf3;

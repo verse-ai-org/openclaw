@@ -178,7 +178,7 @@ slide.addShape(pres.shapes.RECTANGLE, { fill: { color: "1a1a2e" } });
 | **Chinese** | Microsoft YaHei | — |
 | **English** | Arial | Georgia, Calibri, Cambria, Trebuchet MS |
 
-- For mixed Chinese-English content: use Microsoft YaHei for Chinese, the chosen font for English
+- For mixed Chinese-English content: use Microsoft YaHei whenever a text box contains any Chinese characters (avoid missing glyphs/garbled rendering)
 - Prefer system fonts for cross-platform compatibility
 - Titles and body text can use different font pairings (e.g. Georgia + Calibri)
 
@@ -207,8 +207,8 @@ slide.addShape(pres.shapes.RECTANGLE, { fill: { color: "1a1a2e" } });
 
 ```javascript
 // Correct
-slide.addText("Main Title", { bold: true, fontSize: 36, fontFace: "Arial" });
-slide.addText("Body text here.", { bold: false, fontSize: 14, fontFace: "Arial" });
+slide.addText("Main Title", { bold: true, fontSize: 36, fontFace: "Microsoft YaHei" });
+slide.addText("Body text here.", { bold: false, fontSize: 14, fontFace: "Microsoft YaHei" });
 
 // Wrong
 slide.addText("Body text here.", { bold: true, fontSize: 14 });
