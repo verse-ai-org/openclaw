@@ -3,7 +3,7 @@ import type { MsgContext } from "../auto-reply/templating.js";
 import { resolveConversationLabel } from "./conversation-label.js";
 
 describe("resolveConversationLabel", () => {
-  const cases: Array<{ name: string; ctx: MsgContext; expected: string }> = [
+  const cases: Array<{ name: string; ctx: MsgContext; expected: string | undefined }> = [
     {
       name: "prefers ConversationLabel when present",
       ctx: { ConversationLabel: "Pinned Label", ChatType: "group" },
@@ -28,6 +28,16 @@ describe("resolveConversationLabel", () => {
       name: "falls back to From for direct chats when SenderName is missing",
       ctx: { ChatType: "direct", From: "telegram:99" },
       expected: "telegram:99",
+    },
+    {
+      name: "ignores synthetic interaction From for direct chats (continuation inbound)",
+      ctx: { ChatType: "direct", From: "interaction:user", SenderName: "Web" },
+      expected: "Web",
+    },
+    {
+      name: "ignores synthetic interaction From when SenderName is missing",
+      ctx: { ChatType: "direct", From: "interaction:user" },
+      expected: undefined,
     },
     {
       name: "derives Telegram-like group labels with numeric id suffix",

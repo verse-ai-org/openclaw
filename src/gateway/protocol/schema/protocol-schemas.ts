@@ -119,6 +119,12 @@ import {
   LogsTailResultSchema,
 } from "./logs-chat.js";
 import {
+  ChatInteractionRespondParamsSchema,
+  ChatInteractionRespondResultSchema,
+  InteractionRequestEventDataSchema,
+  InteractionResponseEventDataSchema,
+} from "./interactions.js";
+import {
   NodeDescribeParamsSchema,
   NodeEventParamsSchema,
   NodePendingDrainParamsSchema,
@@ -307,6 +313,10 @@ export const ProtocolSchemas = {
   ChatAbortParams: ChatAbortParamsSchema,
   ChatInjectParams: ChatInjectParamsSchema,
   ChatEvent: ChatEventSchema,
+  ChatInteractionRespondParams: ChatInteractionRespondParamsSchema,
+  ChatInteractionRespondResult: ChatInteractionRespondResultSchema,
+  InteractionRequestEventData: InteractionRequestEventDataSchema,
+  InteractionResponseEventData: InteractionResponseEventDataSchema,
   UpdateRunParams: UpdateRunParamsSchema,
   TickEvent: TickEventSchema,
   ShutdownEvent: ShutdownEventSchema,

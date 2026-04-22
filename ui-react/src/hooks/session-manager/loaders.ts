@@ -3,7 +3,10 @@ import { useChatStore } from "@/store/chat.store";
 import type { IGatewayClient } from "@/store/gateway.store";
 import type { RawMessage } from "@/hooks/chat-event-bridge";
 import { logChatDebug } from "@/lib/chat-debug";
-import { normalizeHistoryMessages } from "./history-normalize";
+import {
+  normalizeHistoryMessages,
+  projectInteractionsFromHistory,
+} from "./history-normalize";
 import type { SessionEntry } from "./types";
 
 export async function syncSessionRunStatusFromGateway(params: {
@@ -108,6 +111,8 @@ export async function loadHistoryFromGateway(params: {
     // Reset sending state when switching sessions to avoid stale running UI.
     chatState.setSending(false);
     chatState.setLastError(null);
+    // Interactions live on a per-session slice; wipe before re-seeding.
+    chatState.resetInteractions();
   }
   chatState.setMessagesLoading(true);
 
@@ -119,6 +124,54 @@ export async function loadHistoryFromGateway(params: {
       ? result.messages
       : []) as RawMessage[];
     const consolidated = normalizeHistoryMessages(rawMessages, key);
+    const { interactions: interactionSeed } =
+      projectInteractionsFromHistory(rawMessages);
+
+    const interactionRows = rawMessages.filter((m) => {
+      const role = typeof (m as { role?: unknown }).role === "string"
+        ? (m as { role: string }).role
+        : "";
+      return role === "interaction_request" || role === "interaction_response";
+    });
+    const assistantRowsWithAsk = rawMessages.filter((m) => {
+      const role = (m as { role?: string }).role;
+      if (role !== "assistant") return false;
+      const content = (m as { content?: unknown }).content;
+      if (typeof content === "string") return content.includes("<ask");
+      if (Array.isArray(content)) {
+        return (content as Array<Record<string, unknown>>).some(
+          (b) => b?.type === "text" && typeof b.text === "string" && b.text.includes("<ask"),
+        );
+      }
+      return false;
+    });
+    const assistantMsgsWithInteractionBlock = consolidated.filter((m) =>
+      m.role === "assistant" &&
+      m.contentBlocks?.some((b) => b.type === "interaction"),
+    );
+    logChatDebug(
+      "debug",
+      "loadHistory: interaction / <ask> normalization snapshot",
+      {
+        raw: rawMessages.length,
+        interactionRows: interactionRows.length,
+        assistantRowsWithAsk: assistantRowsWithAsk.length,
+        interactionSeedKeys: Object.keys(interactionSeed),
+        assistantWithInteractionBlock: assistantMsgsWithInteractionBlock.map((m) => ({
+          id: m.id,
+          interactionBlocks: m.contentBlocks?.filter((b) => b.type === "interaction"),
+        })),
+      },
+      { channel: "session.history", sessionKey: key },
+    );
+    if (assistantRowsWithAsk.length > 0 && assistantMsgsWithInteractionBlock.length === 0) {
+      logChatDebug(
+        "warn",
+        "loadHistory: <ask> in raw assistant rows but no interaction blocks after normalize",
+        { sample: assistantRowsWithAsk[0] },
+        { channel: "session.history", sessionKey: key },
+      );
+    }
 
     const isLatest = requestSeq === historyRequestSeqRef.current;
     const activeSessionKey = useChatStore.getState().sessionKey;
@@ -134,6 +187,43 @@ export async function loadHistoryFromGateway(params: {
     }
 
     useChatStore.getState().setMessages(consolidated);
+    // Seed the interactions slice so any `{type:"interaction"}` content part
+    // hoisted from persisted assistant text finds its matching state.
+    const seedIds = Object.keys(interactionSeed);
+    if (seedIds.length > 0) {
+      const st = useChatStore.getState();
+      for (const id of seedIds) {
+        const s = interactionSeed[id]!;
+        st.upsertInteraction({
+          interactionId: s.interactionId,
+          component: s.component,
+          payload: s.payload,
+          schemaVersion: s.schemaVersion,
+          cancellable: s.cancellable,
+          status: s.status,
+        });
+        if (s.status !== "pending") {
+          st.setInteractionResponse(s.interactionId, {
+            status: s.status,
+            response: s.response,
+            responseBy: s.responseBy,
+          });
+        }
+      }
+      logChatDebug(
+        "debug",
+        "loadHistory: after seeding interactions slice",
+        {
+          entries: Object.entries(useChatStore.getState().interactions).map(([id, s]) => ({
+            id,
+            component: s.component,
+            status: s.status,
+            messageId: s.messageId,
+          })),
+        },
+        { channel: "session.history", sessionKey: key },
+      );
+    }
     logChatDebug("debug", "load history applied", {
       requestSeq,
       count: consolidated.length,

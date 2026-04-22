@@ -74,7 +74,13 @@ export function guardSessionManager(
     }
 
     const role = String((withProvenance as { role?: unknown })?.role ?? "").toLowerCase();
-    if (role !== "assistant" && role !== "toolresult" && role !== "tool_result") {
+    if (
+      role !== "assistant" &&
+      role !== "toolresult" &&
+      role !== "tool_result" &&
+      role !== "interaction_request" &&
+      role !== "interaction_response"
+    ) {
       return withProvenance;
     }
     if (typeof (withProvenance as { runId?: unknown })?.runId === "string") {

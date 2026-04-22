@@ -16,6 +16,7 @@ vi.mock("./history-normalize", () => ({
       sessionKey,
     },
   ]),
+  projectInteractionsFromHistory: vi.fn(() => ({ interactions: {} })),
 }));
 
 function resetChatState() {

@@ -1,4 +1,5 @@
 import { createHmac, createHash } from "node:crypto";
+import { renderInteractionRegistrySystemPrompt } from "@openclaw/interactions";
 import type { ReasoningLevel, ThinkLevel } from "../auto-reply/thinking.js";
 import { SILENT_REPLY_TOKEN } from "../auto-reply/tokens.js";
 import type { MemoryCitationsMode } from "../config/types.memory.js";
@@ -677,6 +678,16 @@ export function buildAgentSystemPrompt(params: {
       'If something needs attention, do NOT include "HEARTBEAT_OK"; reply with the alert text instead.',
       "",
     );
+  }
+
+  // Inject the interaction-component registry so the LLM knows which `<ask>`
+  // tags are available. Excluded from `minimal` (subagent) mode to keep that
+  // system prompt lean; subagents don't own an interactive surface.
+  if (!isMinimal) {
+    const interactionBlock = renderInteractionRegistrySystemPrompt();
+    if (interactionBlock) {
+      lines.push(interactionBlock, "");
+    }
   }
 
   lines.push(

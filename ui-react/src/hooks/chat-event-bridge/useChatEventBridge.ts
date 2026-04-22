@@ -3,9 +3,11 @@ import {
   registerChatDispatch,
   unregisterChatDispatch,
 } from "@/store/gateway.store";
+import { logChatDebug } from "@/lib/chat-debug";
 import { handleAgentEvent } from "./handlers/agent-event";
 import { handleChatEvent } from "./handlers/chat-event";
 import type { BridgeRuntimeContext } from "./handlers/shared";
+import { setBridgeRunGuardClearHandler } from "./run-guard-session";
 
 export function useChatEventBridge() {
   useEffect(() => {
@@ -20,9 +22,28 @@ export function useChatEventBridge() {
     };
 
     const dispatch = (event: string, payload: unknown) => {
-      if (import.meta.env.DEV) {
-        console.log(`[ChatEventBridge] ${event}`, payload);
-      }
+      const p = payload as Record<string, unknown> | undefined;
+      logChatDebug(
+        "debug",
+        `gateway event: ${event}`,
+        {
+          runId: p?.runId,
+          sessionKey: p?.sessionKey,
+          state: p?.state,
+          stream: p?.stream,
+          phase: (p?.data as Record<string, unknown> | undefined)?.phase,
+        },
+        {
+          channel: "chat",
+          runId: typeof p?.runId === "string" ? p.runId : undefined,
+          sessionKey: typeof p?.sessionKey === "string" ? p.sessionKey : undefined,
+          state: typeof p?.state === "string" ? p.state : undefined,
+          phase:
+            typeof (p?.data as Record<string, unknown> | undefined)?.phase === "string"
+              ? String((p?.data as Record<string, unknown>).phase)
+              : undefined,
+        },
+      );
 
       switch (event) {
         case "chat":
@@ -53,8 +74,12 @@ export function useChatEventBridge() {
       }
     };
 
+    setBridgeRunGuardClearHandler((sessionKey) => {
+      ctx.activeRunBySession.delete(sessionKey);
+    });
     registerChatDispatch(dispatch);
     return () => {
+      setBridgeRunGuardClearHandler(null);
       unregisterChatDispatch();
     };
   }, []);

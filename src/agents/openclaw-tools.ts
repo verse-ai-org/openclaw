@@ -24,8 +24,10 @@ import { createSessionsSpawnTool } from "./tools/sessions-spawn-tool.js";
 import { createSubagentsTool } from "./tools/subagents-tool.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 import { createWeatherWidgetTool } from "./tools/weather-widget-tool.js";
-import { createQuestionFlowTool } from "./tools/question-flow-tool.js";
-import { createOptionListTool } from "./tools/option-list-tool.js";
+// question_flow / option_list are no longer tool calls — they're now
+// first-class interaction components driven by `<ask>` tags (see
+// `@openclaw/interactions` + `src/agents/interactions/`). Importing the old
+// tool factories from here is a deliberate regression and will fail.
 import { createCodeBlockTool } from "./tools/code-block-tool.js";
 import { createChartTool } from "./tools/chart-tool.js";
 import { createGeoMapTool } from "./tools/geo-map-tool.js";
@@ -175,8 +177,6 @@ export function createOpenClawTools(
       config: options?.config,
     }),
     createWeatherWidgetTool(),
-    createQuestionFlowTool(),
-    createOptionListTool(),
     createCodeBlockTool(),
     createChartTool(),
     createItemCarouselTool(),

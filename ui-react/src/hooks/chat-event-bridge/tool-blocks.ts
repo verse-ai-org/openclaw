@@ -1,13 +1,10 @@
-import type {
-  ChatMessage,
-  ContentBlock,
-  ToolCallPart,
-  InteractiveContentBlock,
-} from "@/store/chat.store";
-import {
-  isInteractiveToolName,
-  createInteractiveBlock,
-} from "./interactive-blocks";
+import type { ChatMessage, ContentBlock, ToolCallPart } from "@/store/chat.store";
+import { hoistAskTagsInContentBlocks } from "@/providers/chat/ask-tag-split";
+
+// Interaction content parts are now produced server-side via the
+// `stream="interaction"` channel and consumed directly from the
+// `interactions` store slice — tool-based `question_flow`/`option_list`
+// no longer need a special case here.
 
 /**
  * Merge consecutive tool-call-only assistant ChatMessages into one.
@@ -268,7 +265,6 @@ export function extractContentBlocks(
     string,
     { result?: string; phase: "result" | "error" }
   >();
-  const interactiveMap = new Map<string, InteractiveContentBlock>();
   for (const block of blocks) {
     if (!block || typeof block !== "object") {
       continue;
@@ -288,53 +284,6 @@ export function extractContentBlocks(
     const resultText = extractTextFromToolResultBlock(block);
     const phase = resolveToolResultPhase(block);
     resultMap.set(id, { result: resultText, phase });
-
-    const toolName =
-      (typeof block.name === "string" ? block.name : undefined) ??
-      (typeof block.toolName === "string" ? block.toolName : undefined) ??
-      (() => {
-        const toolCallId =
-          (typeof block.toolCallId === "string"
-            ? block.toolCallId
-            : undefined) ??
-          (typeof block.id === "string" ? block.id : undefined);
-        if (!toolCallId) {
-          return undefined;
-        }
-        const matchingCall = blocks.find((candidate) => {
-          if (!candidate || typeof candidate !== "object") {
-            return false;
-          }
-          const candidateKind = (
-            typeof candidate.type === "string" ? candidate.type : ""
-          )
-            .toLowerCase()
-            .replace(/_/g, "");
-          if (candidateKind !== "toolcall" && candidateKind !== "tooluse") {
-            return false;
-          }
-          const candidateId =
-            (typeof candidate.id === "string" ? candidate.id : undefined) ??
-            (typeof candidate.toolCallId === "string"
-              ? candidate.toolCallId
-              : undefined);
-          return candidateId === toolCallId;
-        }) as Record<string, unknown> | undefined;
-        return typeof matchingCall?.name === "string"
-          ? matchingCall.name
-          : undefined;
-      })();
-    if (!isInteractiveToolName(toolName)) {
-      continue;
-    }
-    const interactive = createInteractiveBlock({
-      interactiveId: id,
-      kind: toolName,
-      payload: resultText,
-    });
-    if (interactive) {
-      interactiveMap.set(id, interactive);
-    }
   }
 
   const out: ContentBlock[] = [];
@@ -382,11 +331,6 @@ export function extractContentBlocks(
     }
 
     const resolved = resultMap.get(toolCallId);
-    const interactive = interactiveMap.get(toolCallId);
-    if (interactive) {
-      out.push(interactive);
-      continue;
-    }
     out.push({
       type: "tool-call",
       toolCallId,
@@ -397,5 +341,9 @@ export function extractContentBlocks(
     });
   }
 
-  return out.length > 0 ? out : undefined;
+  if (out.length === 0) return undefined;
+  // Hoist `<ask ...>...</ask>` tags out of text blocks so that persisted
+  // assistant text never renders raw XML and InteractiveParts can bind each
+  // one to the matching `interactions` slice entry.
+  return hoistAskTagsInContentBlocks(out) ?? out;
 }

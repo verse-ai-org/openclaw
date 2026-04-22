@@ -145,7 +145,13 @@ type CompactionMessageMetrics = {
 };
 
 function hasRealConversationContent(msg: AgentMessage): boolean {
-  return msg.role === "user" || msg.role === "assistant" || msg.role === "toolResult";
+  return (
+    msg.role === "user" ||
+    msg.role === "assistant" ||
+    msg.role === "toolResult" ||
+    msg.role === "interaction_request" ||
+    msg.role === "interaction_response"
+  );
 }
 
 function createCompactionDiagId(): string {

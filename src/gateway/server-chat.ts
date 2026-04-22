@@ -554,7 +554,12 @@ export function createAgentEventHandler({
               : { ...eventForClients, data };
           })()
         : agentPayload;
-    if (evt.seq !== last + 1) {
+    // Some streams (notably interaction response events) can be emitted on an
+    // already-finished runId after this gateway process has cleared local
+    // sequence state for that run. In that case `last===0` while upstream
+    // emits a higher seq (e.g. 9). Treat the first observed seq as baseline
+    // instead of raising a false-positive gap.
+    if (last > 0 && evt.seq !== last + 1) {
       broadcast("agent", {
         runId: eventRunId,
         stream: "error",

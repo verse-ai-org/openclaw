@@ -3,6 +3,20 @@ import type { ReactNode } from "react";
 import { defineToolUiContract } from "../shared/contract";
 import { ToolUIIdSchema, ToolUIRoleSchema } from "../shared/schema";
 
+// ---------------------------------------------------------------------------
+// Shared wire schema (authoritative — lives in @openclaw/interactions).
+// Re-exported here so runtime callers can keep importing from this module
+// during the migration without dereferencing a second package path.
+// ---------------------------------------------------------------------------
+export {
+  QuestionFlowOptionSchema as SharedQuestionFlowOptionSchema,
+  QuestionFlowStepSchema as SharedQuestionFlowStepSchema,
+  QuestionFlowRequestSchema,
+  QuestionFlowResponseSchema,
+  type QuestionFlowRequest,
+  type QuestionFlowResponse,
+} from "@openclaw/interactions";
+
 export const QuestionFlowOptionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),

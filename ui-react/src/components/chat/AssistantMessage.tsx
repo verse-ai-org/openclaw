@@ -62,7 +62,7 @@ export const AssistantMessage: FC = () => {
   }, [messages, messageId]);
 
   const showLoading = isSessionRunning && isLastMessage;
-  // const shouldShowAvatar = isFirstInTurn || (messageId === "__stream__" && isSessionRunning);
+  const shouldShowAvatar = isFirstInTurn || messageId === "__stream__";
 
   const content = ((message as unknown as { content?: AssistantContentPart[] }).content ?? []) as
     | AssistantContentPart[]
@@ -97,7 +97,7 @@ export const AssistantMessage: FC = () => {
       {/* Avatar row — loading state is handled inside AgentAvatar (spinning ring) */}
       <div className="flex gap-3 items-self-start">
         <div className="shrink-0">
-          {isFirstInTurn ? <AgentAvatar showLoading={showLoading} /> : <div className="w-8"/>}
+          {shouldShowAvatar ? <AgentAvatar showLoading={showLoading} /> : <div className="w-8"/>}
         </div>
       </div>
 
@@ -112,6 +112,8 @@ export const AssistantMessage: FC = () => {
 
           <PromotedToolResult toolParts={toolParts} textContent={textContent} />
 
+          {/* Pass messageId explicitly so InteractiveParts never calls useMessage()
+              after the __stream__ placeholder is removed from the thread. */}
           <InteractiveParts messageId={messageId} />
         </div>
       </div>

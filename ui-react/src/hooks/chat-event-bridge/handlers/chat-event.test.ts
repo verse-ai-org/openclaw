@@ -27,6 +27,7 @@ function resetChatState() {
     interactiveStreamById: new Map(),
     interactiveStreamOrder: [],
     interactiveSummaryById: {},
+    interactions: {},
     sending: false,
     sessionKey: "agent:travel:main",
     pendingHistoryReloadKey: null,
@@ -70,5 +71,44 @@ describe("handleChatEvent", () => {
     const st = useChatStore.getState();
     expect(st.stream).toBeNull();
     expect(ctx.activeRunBySession.get("agent:travel:main")).toBe("run-1");
+  });
+
+  it("finalizes chat.final with only floating interactions (interaction_continue, no deltas)", () => {
+    const ctx = createCtx();
+    useChatStore.setState({
+      pendingGenerationBySession: { "agent:travel:main": { runId: "run-cont" } },
+      runId: "run-cont",
+    });
+    useChatStore.getState().upsertInteraction({
+      interactionId: "route-platform-choice",
+      component: "option_list",
+      payload: {
+        id: "route-platform-choice",
+        title: "Pick",
+        options: [{ id: "a", label: "A" }],
+        selectionMode: "single",
+      },
+      schemaVersion: 1,
+      status: "pending",
+    });
+
+    handleChatEvent(ctx, {
+      sessionKey: "agent:travel:main",
+      runId: "run-cont",
+      state: "final",
+    });
+
+    const st = useChatStore.getState();
+    expect(st.messages).toHaveLength(1);
+    expect(st.messages[0]?.role).toBe("assistant");
+    expect(st.messages[0]?.runId).toBe("run-cont");
+    expect(st.messages[0]?.contentBlocks?.[0]).toEqual({
+      type: "interaction",
+      interactionId: "route-platform-choice",
+    });
+    expect(st.pendingHistoryReloadKey).toBeNull();
+    expect(st.interactions["route-platform-choice"]?.messageId).toBe(
+      st.messages[0]?.id,
+    );
   });
 });

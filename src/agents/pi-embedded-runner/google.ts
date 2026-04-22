@@ -31,6 +31,7 @@ import {
   type AssistantUsageSnapshot,
   type UsageLike,
 } from "../usage.js";
+import { projectInteractionMessages } from "../interactions/convert-to-llm.js";
 import { log } from "./logger.js";
 import { dropThinkingBlocks } from "./thinking.js";
 import { describeUnknownError } from "./utils.js";
@@ -536,7 +537,11 @@ export async function sanitizeSessionHistory(params: {
       provider: params.provider,
       modelId: params.modelId,
     });
-  const withInterSessionMarkers = annotateInterSessionUserMessages(params.messages);
+  // Project interaction_request/interaction_response custom roles into
+  // synthetic assistant/user messages before any other sanitization so that
+  // downstream steps see only standard roles.
+  const projected = projectInteractionMessages(params.messages);
+  const withInterSessionMarkers = annotateInterSessionUserMessages(projected);
   const sanitizedImages = await sanitizeSessionMessagesImages(
     withInterSessionMarkers,
     "session:history",

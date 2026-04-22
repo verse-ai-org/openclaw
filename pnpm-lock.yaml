@@ -78,6 +78,9 @@ importers:
       '@napi-rs/canvas':
         specifier: ^0.1.89
         version: 0.1.95
+      '@openclaw/interactions':
+        specifier: workspace:*
+        version: link:packages/interactions
       '@sinclair/typebox':
         specifier: 0.34.48
         version: 0.34.48
@@ -627,6 +630,12 @@ importers:
         specifier: workspace:*
         version: link:../..
 
+  packages/interactions:
+    dependencies:
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+
   packages/moltbot:
     dependencies:
       openclaw:
@@ -687,6 +696,9 @@ importers:
       '@noble/ed25519':
         specifier: 3.0.0
         version: 3.0.0
+      '@openclaw/interactions':
+        specifier: workspace:*
+        version: link:../packages/interactions
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.4
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)

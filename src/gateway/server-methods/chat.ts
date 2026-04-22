@@ -4,7 +4,6 @@ import { CURRENT_SESSION_VERSION } from "@mariozechner/pi-coding-agent";
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { resolveThinkingDefault } from "../../agents/model-selection.js";
 import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
-import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
 import { createReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.js";
 import type { MsgContext } from "../../auto-reply/templating.js";
 import {
@@ -35,7 +34,6 @@ import {
   type ChatAbortControllerEntry,
   type ChatAbortOps,
   isChatStopCommandText,
-  resolveChatRunExpiresAtMs,
 } from "../chat-abort.js";
 import {
   type ChatImageContent,
@@ -74,6 +72,7 @@ import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
 import { setGatewayDedupeEntry } from "./agent-wait-dedupe.js";
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
 import { appendInjectedAssistantMessageToTranscript } from "./chat-transcript-inject.js";
+import { startChatRunPipeline } from "./chat-run-starter.js";
 import type {
   GatewayRequestContext,
   GatewayRequestHandlerOptions,
@@ -1263,14 +1262,6 @@ export const chatHandlers: GatewayRequestHandlers = {
     }
 
     try {
-      const abortController = new AbortController();
-      context.chatAbortControllers.set(clientRunId, {
-        controller: abortController,
-        sessionId: entry?.sessionId ?? clientRunId,
-        sessionKey: rawSessionKey,
-        startedAtMs: now,
-        expiresAtMs: resolveChatRunExpiresAtMs({ now, timeoutMs }),
-      });
       const ackPayload = {
         runId: clientRunId,
         status: "started" as const,
@@ -1366,44 +1357,44 @@ export const chatHandlers: GatewayRequestHandlers = {
       });
 
       let agentRunStarted = false;
-      void dispatchInboundMessage({
-        ctx,
+      startChatRunPipeline({
+        context,
         cfg,
+        runId: clientRunId,
+        rawSessionKey,
+        sessionId: entry?.sessionId ?? clientRunId,
+        timeoutMs,
+        source: "chat.send",
+        msgContext: ctx,
         dispatcher,
         replyOptions: {
-          runId: clientRunId,
-          abortSignal: abortController.signal,
           images: parsedImages.length > 0 ? parsedImages : undefined,
-          onAgentRunStart: (runId) => {
-            agentRunStarted = true;
-            const connId =
-              typeof client?.connId === "string" ? client.connId : undefined;
-            const wantsToolEvents = hasGatewayClientCap(
-              client?.connect?.caps,
-              GATEWAY_CLIENT_CAPS.TOOL_EVENTS,
-            );
-            if (connId && wantsToolEvents) {
-              context.registerToolEventRecipient(runId, connId);
-              // Register for any other active runs *in the same session* so
-              // late-joining clients (e.g. page refresh mid-response) receive
-              // in-progress tool events without leaking cross-session data.
-              for (const [
-                activeRunId,
-                active,
-              ] of context.chatAbortControllers) {
-                if (
-                  activeRunId !== runId &&
-                  active.sessionKey === p.sessionKey
-                ) {
-                  context.registerToolEventRecipient(activeRunId, connId);
-                }
-              }
-            }
-          },
           onModelSelected,
         },
-      })
-        .then(() => {
+        onAgentRunStart: (runId) => {
+          agentRunStarted = true;
+          const connId =
+            typeof client?.connId === "string" ? client.connId : undefined;
+          const wantsToolEvents = hasGatewayClientCap(
+            client?.connect?.caps,
+            GATEWAY_CLIENT_CAPS.TOOL_EVENTS,
+          );
+          if (connId && wantsToolEvents) {
+            context.registerToolEventRecipient(runId, connId);
+            for (const [
+              activeRunId,
+              active,
+            ] of context.chatAbortControllers) {
+              if (
+                activeRunId !== runId &&
+                active.sessionKey === p.sessionKey
+              ) {
+                context.registerToolEventRecipient(activeRunId, connId);
+              }
+            }
+          }
+        },
+        onSuccess: () => {
           if (!agentRunStarted) {
             const combinedReply = finalReplyParts
               .map((part) => part.trim())
@@ -1436,8 +1427,6 @@ export const chatHandlers: GatewayRequestHandlers = {
                   role: "assistant",
                   content: [{ type: "text", text: combinedReply }],
                   timestamp: now,
-                  // Keep this compatible with Pi stopReason enums even though this message isn't
-                  // persisted to the transcript due to the append failure.
                   stopReason: "stop",
                   usage: { input: 0, output: 0, totalTokens: 0 },
                 };
@@ -1459,8 +1448,8 @@ export const chatHandlers: GatewayRequestHandlers = {
               payload: { runId: clientRunId, status: "ok" as const },
             },
           });
-        })
-        .catch((err) => {
+        },
+        onError: (err) => {
           const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
           setGatewayDedupeEntry({
             dedupe: context.dedupe,
@@ -1482,10 +1471,8 @@ export const chatHandlers: GatewayRequestHandlers = {
             sessionKey: rawSessionKey,
             errorMessage: String(err),
           });
-        })
-        .finally(() => {
-          context.chatAbortControllers.delete(clientRunId);
-        });
+        },
+      });
     } catch (err) {
       const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
       const payload = {

@@ -53,15 +53,20 @@ node {baseDir}/scripts/preferences.mjs --cmd=is_initialized
 
 ### 第二步：轻量偏好采集
 
-**只问高影响项**。在 Control UI 会话中，**必须调用 `question_flow` 工具**（而非直接输出文字问答），让前端渲染交互式问卷卡片。
+**只问高影响项**。在交互式通道（Control UI / Telegram / Discord 等）中，**必须使用 `<ask component="question_flow">` 标签**（而非直接输出文字问答），让前端渲染交互式问卷卡片。`<ask>` 是 OpenClaw 的 interaction 协议，详见 `@skills/openclaw-interactions`。
 
-**必须遵守**：在同一轮助手输出中完成：先写一两句面向用户的说明，再调用`question_flow`。
+**必须遵守**：
 
-#### 执行方式：调用 `question_flow` 工具
+- 在同一轮助手输出中：先写一两句面向用户的说明，随后紧跟 `<ask component="question_flow" id="travel-preference-intake">…</ask>` 标签。
+- `<ask>` 标签关闭后立刻结束本轮输出（不再跟其他文字）。runner 会自动挂起，等待用户提交后再触发下一轮。
+- **不要**把 `question_flow` / `option_list` 当作 tool 调用（它们不再是 tool，调用会返回 "Tool ... not found"）。
 
-调用 `question_flow` 工具并返回以下 JSON 作为工具结果：
+#### 执行方式：在助手文本里直接写 `<ask>` 标签
 
-```json
+```
+（先写 1-2 句说明，告诉用户要填的是什么。）
+
+<ask component="question_flow" id="travel-preference-intake">
 {
   "id": "travel-preference-intake",
   "steps": [
@@ -137,11 +142,31 @@ node {baseDir}/scripts/preferences.mjs --cmd=is_initialized
     }
   ]
 }
+</ask>
 ```
+
+> 注意：上面是展示用的代码块（```  包裹），真正输出时 **不要** 用代码块包裹，直接把 `<ask>...</ask>` 写进助手文本即可——否则 `<ask>` 会被解析器忽略。
 
 #### 解析用户回答
 
-用户完成问卷后，回答以纯文本形式到达，每步一行，格式为 `步骤标题：选中选项标签`。从中提取字段，忽略空行。
+用户提交后，下一轮 assistant turn 的历史里会出现一条 `interaction_response` 消息，其 `data` 字段结构：
+
+```json
+{
+  "answers": {
+    "departure_city": ["shanghai"],
+    "budget": ["mid-range"],
+    "pace": ["moderate"],
+    "companions": ["couple"],
+    "interests": ["nature", "food", "photography"],
+    "transport": ["private_car", "short_flight"]
+  }
+}
+```
+
+从 `answers.<step_id>` 的字符串数组里取 `options[].id` 即可；`selectionMode=single` 也仍是数组（长度 1），取 `[0]`。不要再按"步骤标题：选项标签"格式解析文本。
+
+纯文本通道（plain iMessage / 部分邮件）会把 `<ask>` 降级成编号文本，用户用编号或文字回复——runner 会自动归一化为同样的 `answers` 结构，不需要你额外适配。
 
 > 预算分配比例与节奏设计细则见 `references/travel_guidelines.md`。
 
@@ -196,18 +221,25 @@ node {baseDir}/scripts/trips.mjs --cmd=add_trip --payload='{"destination_text":"
 
 **A-1｜平台选择（等用户回答后才能继续）**
 
-调用 `option_list` 工具，先写一两句面向用户的说明，再发出以下选择器：
+先写一两句面向用户的说明，随后紧跟 `<ask component="option_list">` 标签（**不是** tool 调用）；标签闭合后立即结束本轮输出，等 runner 挂起：
 
-```json
+```
+（1-2 句说明，例如"接下来要帮你定路线了，想抄哪种作业？"）
+
+<ask component="option_list" id="route-platform-choice">
 {
   "id": "route-platform-choice",
+  "title": "选择路线来源平台",
   "options": [
     { "id": "search", "label": "搜索（全网搜索，推荐）" },
     { "id": "xhs",    "label": "小红书（抄作业，有登录流程）" }
   ],
   "selectionMode": "single"
 }
+</ask>
 ```
+
+用户回答以 `interaction_response` 消息返回，`data.selected` 为数组（例如 `["search"]`），取 `[0]` 作为所选平台。
 
 守卫：
 - 必须等用户回答，不得自行跳过。例外：用户已在本轮明确说出"默认/按搜索/用小红书"等等效词。
@@ -369,7 +401,7 @@ node {baseDir}/scripts/route-plan.mjs \
 1. `item_carousel`：展示路线点位图文卡片
 2. 保留文字版路线摘要作为降级兜底
 
-`option_list_allowed=false` 时禁止调用 `option_list`；严格按 `step4_tool_call_order` 执行工具顺序。
+`option_list_allowed=false` 时禁止发出 `<ask component="option_list">` 标签；严格按 `step4_tool_call_order` 执行工具顺序（工具顺序仅约束 `item_carousel` 等真实 Tool UI 工具，interaction 标签不在此列）。
 
 ---
 
@@ -402,11 +434,13 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=save_route_plan \
 
 **A-7｜让用户选择路线**
 
-`item_carousel` 渲染完成后，调用 `option_list`（必须在图文展示之后，不得提前）：
+`item_carousel` 渲染完成后，紧接着用 `<ask component="option_list">` 标签让用户二选一（必须在图文展示之后，不得提前）：
 
-```json
+```
+<ask component="option_list" id="route-choice">
 {
   "id": "route-choice",
+  "title": "你想按哪条路线走？",
   "options": [
     { "id": "route-a", "label": "route-a" },
     { "id": "route-b", "label": "route-b" },
@@ -414,16 +448,18 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=save_route_plan \
   ],
   "selectionMode": "single"
 }
+</ask>
 ```
 
 - `options[].id` 和 `label` 必须使用真实的 `route_id`，不得另造映射 ID。
-- 若用户已在本轮明确说出 `route_id`，可直接采用，无需重复发起 `option_list`。
+- 若用户已在本轮明确说出 `route_id`，可直接采用，无需重复发起 `<ask>`。
+- 用户回答从 `interaction_response` 的 `data.selected[0]` 读取。
 
 ---
 
 **A-8｜持久化用户选择 + 清理临时文件**
 
-守卫：用户已通过 `option_list` 明确选中 `route_id` 后才能执行。
+守卫：用户已通过 `<ask component="option_list">`（或等效 prose 回答）明确选中 `route_id` 后才能执行。
 
 ```bash
 node {baseDir}/scripts/trip-workflow.mjs --cmd=confirm_route_choice \
@@ -455,7 +491,7 @@ rm -f ~/.openclaw/agents/travel-planner/data/poi/cache-upserts.json
 
 - 先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
 - 给出 2-3 条 `route_id` 路线选项，每条 1 行权衡（时间成本/换乘压力/景观收益）
-- 候选路线选择阶段必须用 `option_list` 让用户点选具体 `route_id`
+- 候选路线选择阶段必须用 `<ask component="option_list">` 让用户点选具体 `route_id`
 - 最后说明下一步将调研目的地的交通与天气情况
 
 ### 第五步：验证交通天气 + 确认计划骨架

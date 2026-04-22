@@ -500,3 +500,98 @@ export function repairToolUseResultPairing(messages: AgentMessage[]): ToolUseRep
     moved: changedOrMoved,
   };
 }
+
+/**
+ * Pairing repair for the interaction protocol (role=interaction_request /
+ * interaction_response). Rules:
+ * - Every `interaction_request` must be followed (eventually) by a matching
+ *   `interaction_response` for the same `interactionId`.
+ * - Free-floating `interaction_response` rows with no matching request are
+ *   dropped (they would confuse the LLM).
+ * - If the transcript ends with a pending request (no response), the runner
+ *   is presumed dead; we synthesize a `cancelled` response so the LLM context
+ *   is well-formed on replay. The synthesized row is marked via
+ *   `__synthetic: "abandoned"` for observability.
+ */
+export interface InteractionPairingReport {
+  messages: AgentMessage[];
+  droppedOrphanResponseCount: number;
+  synthesizedCancelCount: number;
+}
+
+type InteractionRequestRow = AgentMessage & {
+  role: "interaction_request";
+  interactionId: string;
+  component: string;
+};
+type InteractionResponseRow = AgentMessage & {
+  role: "interaction_response";
+  interactionId: string;
+  component: string;
+};
+
+export function sanitizeInteractionPairing(
+  messages: AgentMessage[],
+): InteractionPairingReport {
+  const out: AgentMessage[] = [];
+  const pendingRequestIds = new Set<string>();
+  let droppedOrphanResponseCount = 0;
+  let synthesizedCancelCount = 0;
+
+  for (const msg of messages) {
+    const role = (msg as { role?: unknown }).role;
+    if (role === "interaction_request") {
+      const id = (msg as { interactionId?: unknown }).interactionId;
+      if (typeof id === "string" && id) {
+        pendingRequestIds.add(id);
+      }
+      out.push(msg);
+      continue;
+    }
+    if (role === "interaction_response") {
+      const id = (msg as { interactionId?: unknown }).interactionId;
+      if (typeof id !== "string" || !pendingRequestIds.has(id)) {
+        droppedOrphanResponseCount += 1;
+        continue;
+      }
+      pendingRequestIds.delete(id);
+      out.push(msg);
+      continue;
+    }
+    out.push(msg);
+  }
+
+  // Any still-pending request at end-of-transcript: synthesize a cancelled response.
+  // Find the request rows that remained unmatched and append a response right after
+  // each one. We do this in a second pass so pairing is preserved even when other
+  // conversation rows were interleaved.
+  if (pendingRequestIds.size === 0) {
+    return { messages: out, droppedOrphanResponseCount, synthesizedCancelCount };
+  }
+
+  const seededOut: AgentMessage[] = [];
+  for (const msg of out) {
+    seededOut.push(msg);
+    if ((msg as { role?: unknown }).role !== "interaction_request") continue;
+    const req = msg as InteractionRequestRow;
+    if (!pendingRequestIds.has(req.interactionId)) continue;
+    const cancel: InteractionResponseRow & { __synthetic?: string } = {
+      role: "interaction_response",
+      interactionId: req.interactionId,
+      component: req.component,
+      status: "cancelled",
+      data: null,
+      runId: (req as { runId?: string }).runId,
+      timestamp: new Date().toISOString(),
+      __synthetic: "abandoned",
+    } as InteractionResponseRow & { __synthetic?: string };
+    seededOut.push(cancel);
+    pendingRequestIds.delete(req.interactionId);
+    synthesizedCancelCount += 1;
+  }
+  return {
+    messages: seededOut,
+    droppedOrphanResponseCount,
+    synthesizedCancelCount,
+  };
+}

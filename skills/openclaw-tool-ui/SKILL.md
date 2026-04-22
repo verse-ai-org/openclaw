@@ -21,15 +21,13 @@ This skill is the **single place** for that channel preference. **Domain skills*
 1. **Prefer structured tools** over `exec` + curl when a dedicated tool exists for the same task.
 2. **One tool name → one payload shape** (schema-first). The client maps tool names to components.
 3. **Fallback**: If no structured tool exists, use domain skills as usual (`exec`, APIs, files).
-4. **Control UI — avoid split assistant turns** for `question_flow` / `option_list`: do not emit a *second* assistant message that only contains `<final>…</final>` prose *after* the tool result in the same user-visible turn. Put short guidance **before** the tool call in the same assistant generation, or keep prose minimal so the interactive card stays with the visible reply. (The client also anchors cards to the last assistant row in a run, but the model should still prefer one coherent turn.)
+4. **Interactive inputs** (`question_flow`, `option_list`) are **not tools** anymore. Use the `<ask>` tag interaction protocol documented in the separate **`openclaw-interactions`** skill — emit `<ask component="question_flow" id="...">{json}</ask>` directly in your assistant text; the runner suspends until the user responds.
 
 ## Registered structured tools (extend as shipped)
 
 | Tool name          | Purpose                                              | Notes |
 |--------------------|------------------------------------------------------|--------|
 | `weather_widget`   | Weather / forecast as JSON card                      | Fetches wttr.in; params: `location`, optional `dayOffset`, `units`. |
-| `question_flow`    | Multi-step questionnaire card                        | Passthrough JSON config; user submits answers as a new message. |
-| `option_list`      | Single-step option picker                            | Passthrough JSON config; user confirms selection as a new message. |
 | `code_block`       | Syntax-highlighted code / log block                | Passthrough: `id`, `code`, optional `language`, `filename`, etc. |
 | `chart`            | Bar or line chart                                    | Passthrough: `id`, `type` (`bar`\|`line`), `data`, `xKey`, `series`. |
 | `item_carousel`    | Image-first horizontal card carousel                 | Passthrough: `id`, optional `title/description`, `items[]` (`id`,`name`, optional `subtitle`,`image`,`actions`). |
@@ -52,71 +50,13 @@ Use for **current or near-future** weather when the UI can show the Weather Widg
 
 For **terminals**, **automation**, or when this tool is unavailable, follow the **weather** skill (`curl` / wttr.in commands) instead.
 
-## `question_flow` (detail)
+## Interactive inputs (moved)
 
-Use when you need to collect **multiple structured answers** from the user in a single interaction (e.g., onboarding, preference intake). The UI renders an interactive multi-step form; when the user completes it, their answers arrive as a plain-text message in the format:
-
-```
-步骤标题：选中选项标签
-步骤标题：选中选项标签
-```
-
-**Upfront mode** (all steps shown at once, recommended):
-
-```json
-{
-  "id": "preference-intake",
-  "steps": [
-    {
-      "id": "budget",
-      "title": "预算档位",
-      "options": [
-        { "id": "economy",   "label": "经济型" },
-        { "id": "mid-range", "label": "中档" },
-        { "id": "high-end",  "label": "高端" }
-      ],
-      "selectionMode": "single"
-    },
-    {
-      "id": "pace",
-      "title": "出行节奏",
-      "options": [
-        { "id": "relaxed",  "label": "轻松" },
-        { "id": "moderate", "label": "适中" },
-        { "id": "intensive","label": "紧凑" }
-      ],
-      "selectionMode": "single"
-    }
-  ]
-}
-```
-
-Rules:
-- `id` must be a stable, unique string (kebab-case, e.g. `"preference-intake"`).
-- Each step `id` must be unique within the flow.
-- `selectionMode`: `"single"` (default) or `"multi"`.
-- **Return this JSON as the tool result** (not as a text reply). The Control UI renders the form.
-- After the user submits, parse their reply line-by-line (`步骤标题：答案`) to extract each field value.
-
-## `option_list` (detail)
-
-Use when you need the user to **pick from a list** in a single step (e.g., choose a route, confirm a platform). The UI renders an option card; when the user confirms, their answer arrives as a plain-text message with the selected labels joined by `、`.
-
-```json
-{
-  "id": "platform-choice",
-  "options": [
-    { "id": "search", "label": "搜索（Brave）" },
-    { "id": "xhs",    "label": "小红书" }
-  ],
-  "selectionMode": "single"
-}
-```
-
-Rules:
-- `id` must be a stable, unique string.
-- **Return this JSON as the tool result**.
-- After the user confirms, parse their reply to map label → option id.
+`question_flow` / `option_list` are no longer **tools** — they are interaction
+requests emitted via the `<ask>` XML tag and resolved via the
+`chat.interactionRespond` RPC. See the dedicated **`openclaw-interactions`**
+skill for the full component list, payload shapes, and channel fallback
+behavior.
 
 ## `code_block`, `chart`, `item_carousel`, `geo_map`, `link_preview`, `stats_display`, `terminal_output` (detail)
 

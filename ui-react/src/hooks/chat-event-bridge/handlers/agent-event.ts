@@ -1,5 +1,4 @@
 import { useChatStore, type ToolStreamEntry } from "@/store/chat.store";
-import { createInteractiveBlock, isInteractiveToolName } from "../interactive-blocks";
 import { isChatEventForActiveSession } from "../session-scope";
 import {
   normalizeRunId,
@@ -19,32 +18,6 @@ export type AgentEventPayload = {
   runId?: string;
   data?: unknown;
 };
-
-function extractInteractivePayload(data: Record<string, unknown>): unknown {
-  const candidate = data.result ?? data.meta ?? data.args;
-  if (typeof candidate === "string") {
-    return candidate;
-  }
-  if (!candidate || typeof candidate !== "object") {
-    return candidate;
-  }
-  if (!Array.isArray((candidate as { content?: unknown }).content)) {
-    return candidate;
-  }
-  const content = (candidate as { content: unknown[] }).content;
-  const text = content
-    .filter(
-      (entry): entry is { type: "text"; text: string } =>
-        !!entry &&
-        typeof entry === "object" &&
-        (entry as { type?: unknown }).type === "text" &&
-        typeof (entry as { text?: unknown }).text === "string",
-    )
-    .map((entry) => entry.text.trim())
-    .filter(Boolean)
-    .join("\n");
-  return text || candidate;
-}
 
 function handleLifecycleStream(
   ctx: BridgeRuntimeContext,
@@ -128,12 +101,14 @@ function handleToolStream(
   runId: string | undefined,
   data: Record<string, unknown>,
 ) {
+  const phase = data.phase as string | undefined;
+  const eventKind = phase === "start" ? "start" : "progress";
   if (
     !shouldAcceptRunEvent({
       activeRunBySession: ctx.activeRunBySession,
       sessionKey,
       runId,
-      eventKind: "progress",
+      eventKind,
     })
   ) {
     logBridgeEvent("warn", "drop stale tool event", {
@@ -150,46 +125,13 @@ function handleToolStream(
     return;
   }
   useChatStore.getState().markSessionGenerating(sessionKey, runId);
-  const phase = data.phase as string | undefined;
   const toolCallId = data.toolCallId as string | undefined;
   const toolName = data.name as string | undefined;
 
-  if (isInteractiveToolName(toolName)) {
-    if (phase === "start") {
-      useChatStore.getState().commitCurrentText();
-    } else if (phase === "result") {
-      const interactivePayload = extractInteractivePayload(data);
-      const block = createInteractiveBlock({
-        interactiveId: toolCallId ?? crypto.randomUUID(),
-        kind: toolName,
-        payload: interactivePayload,
-      });
-      if (import.meta.env.DEV && !block) {
-        logBridgeEvent("warn", "dropped interactive payload", {
-          toolName,
-          toolCallId,
-          phase,
-          interactivePayload,
-        }, { channel: "agent.tool", sessionKey, runId, phase });
-      }
-      if (block) {
-        useChatStore.getState().commitCurrentText();
-        useChatStore.getState().upsertInteractiveStream(block);
-        if (runId) {
-          ctx.pendingInteractiveHydrationRuns.delete(runId);
-        }
-        logBridgeEvent("debug", "interactive block upserted", {
-          toolName,
-          toolCallId,
-          sessionKey,
-          runId,
-        }, { channel: "agent.tool", sessionKey, runId, phase });
-      } else if (runId) {
-        ctx.pendingInteractiveHydrationRuns.add(runId);
-      }
-    }
-    return;
-  }
+  // NOTE: Interactive widgets (question_flow / option_list) used to be routed
+  // here as a tool-call special case. They now live on their own
+  // `stream="interaction"` event (see `handleInteractionStream`), so this
+  // function only handles plain tool calls.
 
   if (phase === "start") {
     useChatStore.getState().commitCurrentText();
@@ -340,5 +282,100 @@ export function handleAgentEvent(
   }
   if (stream === "tool") {
     handleToolStream(ctx, sessionKey, runId, data);
+    return;
+  }
+  if (stream === "interaction") {
+    handleInteractionStream(ctx, sessionKey, runId, data);
+  }
+}
+
+/**
+ * New first-class interaction protocol (replaces the tool-based `question_flow`
+ * / `option_list` path). Events arrive on `stream="interaction"` with two
+ * phases:
+ * - `phase="request"`: the LLM emitted an `<ask>` tag. We record the request
+ *   in the `interactions` slice and — critically — commit the current text
+ *   and append a content-part marker so the ordering between prose and the
+ *   interactive widget is preserved once the turn finalizes.
+ * - `phase="response"`: the user (or channel downgrade) submitted or cancelled
+ *   the interaction; we flip the status + attach the response payload.
+ */
+function handleInteractionStream(
+  ctx: BridgeRuntimeContext,
+  sessionKey: string,
+  runId: string | undefined,
+  data: Record<string, unknown>,
+) {
+  const phase = data.phase as string | undefined;
+  const activeRunId = ctx.activeRunBySession.get(sessionKey);
+  if (phase === "request") {
+    const interactionId = typeof data.interactionId === "string" ? data.interactionId : "";
+    const component = typeof data.component === "string" ? data.component : "";
+    if (!interactionId || !component) return;
+    if (
+      !shouldAcceptRunEvent({
+        activeRunBySession: ctx.activeRunBySession,
+        sessionKey,
+        runId,
+        eventKind: "start",
+      })
+    ) {
+      logBridgeEvent(
+        "warn",
+        "drop stale interaction request (run guard)",
+        { interactionId, component, eventRunId: runId, activeRunId },
+        { channel: "agent.interaction", sessionKey, runId, phase: "request" },
+      );
+      return;
+    }
+    useChatStore.getState().markSessionGenerating(sessionKey, runId);
+    useChatStore.getState().commitCurrentText();
+    useChatStore.getState().upsertInteraction({
+      interactionId,
+      component,
+      payload: data.payload,
+      schemaVersion:
+        typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
+      cancellable:
+        typeof data.cancellable === "boolean" ? data.cancellable : undefined,
+    });
+    logBridgeEvent(
+      "debug",
+      "interaction request upserted",
+      {
+        interactionId,
+        component,
+        sessionKey,
+        runId,
+        activeRunIdAfter: ctx.activeRunBySession.get(sessionKey),
+      },
+      { channel: "agent.interaction", sessionKey, runId, phase: "request" },
+    );
+    return;
+  }
+  if (phase === "response") {
+    const interactionId = typeof data.interactionId === "string" ? data.interactionId : "";
+    if (!interactionId) return;
+    const status = (data.status as string | undefined) ?? "submitted";
+    useChatStore.getState().setInteractionResponse(interactionId, {
+      status: status === "cancelled" || status === "timed_out" ? status : "submitted",
+      response: data.data,
+      responseBy:
+        data.responseBy && typeof data.responseBy === "object"
+          ? (data.responseBy as { userId?: string; channel?: string })
+          : undefined,
+    });
+    logBridgeEvent(
+      "debug",
+      "interaction response set (server confirmed)",
+      {
+        interactionId,
+        status,
+        sessionKey,
+        eventRunId: runId,
+        activeRunId,
+      },
+      { channel: "agent.interaction", sessionKey, runId, phase: "response" },
+    );
   }
 }

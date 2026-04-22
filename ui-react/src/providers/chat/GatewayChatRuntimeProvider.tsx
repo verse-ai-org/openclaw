@@ -16,6 +16,8 @@ import { ChatSendContext } from "@/components/chat/ChatSendContext";
 import { convertGatewayChatMessage } from "@/providers/chat/message-convert";
 import { parseGatewaySendPayload } from "@/providers/chat/send-payload";
 import { buildRuntimeMessages } from "@/providers/chat/stream-assembly";
+import { logChatDebug } from "@/lib/chat-debug";
+import { clearBridgeTrackedRunForSession } from "@/hooks/chat-event-bridge/run-guard-session";
 
 type SendMessageOptions = {
   attachments?: { content: string; mimeType: string; fileName: string }[];
@@ -37,6 +39,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   const toolStreamOrder = useChatStore((s) => s.toolStreamOrder);
   const interactiveStreamById = useChatStore((s) => s.interactiveStreamById);
   const interactiveStreamOrder = useChatStore((s) => s.interactiveStreamOrder);
+  const interactions = useChatStore((s) => s.interactions);
 
   const client = useGatewayStore((s) => s.client);
   const settings = useSettingsStore((s) => s.settings);
@@ -63,6 +66,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       toolStreamOrder,
       interactiveStreamById,
       interactiveStreamOrder,
+      interactions,
       effectiveRunId,
     });
   }, [
@@ -75,6 +79,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     toolStreamOrder,
     interactiveStreamById,
     interactiveStreamOrder,
+    interactions,
   ]);
 
   const sendMessage = useCallback(
@@ -135,6 +140,95 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       });
     },
     [sendMessage],
+  );
+
+  const respondInteraction = useCallback(
+    async ({
+      interactionId,
+      data,
+      status,
+    }: {
+      interactionId: string;
+      data: unknown;
+      status?: "submitted" | "cancelled";
+    }) => {
+      const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
+      if (!client) {
+        console.warn("[chat] respondInteraction called without gateway client");
+        return;
+      }
+      try {
+        logChatDebug(
+          "debug",
+          "respondInteraction: RPC start",
+          {
+            interactionId,
+            status: status ?? "submitted",
+            dataKeys:
+              data && typeof data === "object" && !Array.isArray(data)
+                ? Object.keys(data as Record<string, unknown>)
+                : [],
+          },
+          { channel: "agent.interaction", sessionKey: activeSession ?? undefined },
+        );
+        if (typeof activeSession === "string" && activeSession.trim()) {
+          const sk = activeSession.trim();
+          // Continuation can emit `agent` tool events before `lifecycle:start`
+          // and before this RPC promise resolves. If `activeRunBySession` still
+          // holds the *previous* run id, `shouldAcceptRunEvent` drops progress for
+          // the new run — tools only appear after history reload. Clear eagerly.
+          clearBridgeTrackedRunForSession(sk);
+          useChatStore.getState().markSessionGenerating(sk);
+        }
+        // Optimistically mark the interaction as submitted locally so the UI
+        // switches from the input widget to the Q/A summary immediately.
+        // If the RPC fails we roll back to `pending`.
+        const prev =
+          useChatStore.getState().interactions[interactionId]?.status;
+        useChatStore.getState().setInteractionResponse(interactionId, {
+          status: status === "cancelled" ? "cancelled" : "submitted",
+          response: data,
+        });
+        await client.request("chat.interactionRespond", {
+          sessionKey: activeSession,
+          interactionId,
+          data,
+          status: status ?? "submitted",
+        });
+        if (typeof activeSession === "string" && activeSession.trim()) {
+          clearBridgeTrackedRunForSession(activeSession.trim());
+        }
+        logChatDebug(
+          "debug",
+          "respondInteraction: RPC ok (continuation run starts on gateway)",
+          { interactionId },
+          { channel: "agent.interaction", sessionKey: activeSession ?? undefined },
+        );
+        if (prev && status !== "cancelled") {
+          // Server-side confirmation arrives through the interaction-response
+          // agent event; no follow-up needed here.
+        }
+      } catch (err) {
+        console.error("[chat] interaction respond failed:", err);
+        if (typeof activeSession === "string" && activeSession.trim()) {
+          useChatStore.getState().clearSessionGenerating(activeSession.trim());
+        }
+        // Roll back — flip back to pending so the widget re-renders.
+        const state = useChatStore.getState().interactions[interactionId];
+        if (state) {
+          useChatStore.getState().upsertInteraction({
+            interactionId,
+            component: state.component,
+            payload: state.payload,
+            schemaVersion: state.schemaVersion,
+            cancellable: state.cancellable,
+            messageId: state.messageId,
+            status: "pending",
+          });
+        }
+      }
+    },
+    [client, sessionKey, settings.sessionKey],
   );
 
   const onCancel = useCallback(async () => {
@@ -218,7 +312,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ChatSendContext.Provider value={{ sendMessage }}>
+      <ChatSendContext.Provider value={{ sendMessage, respondInteraction }}>
         {children}
       </ChatSendContext.Provider>
     </AssistantRuntimeProvider>

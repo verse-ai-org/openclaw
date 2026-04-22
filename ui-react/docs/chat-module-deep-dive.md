@@ -18,7 +18,7 @@ ChatPage
         │   ├── AssistantMarkdownPart
         │   ├── AssistantLoadingIndicator
         │   ├── AssistantToolGroup / PromotedToolResult
-        │   └── InteractiveParts    ← HITL 交互组件
+        │   └── InteractiveParts    ← `<ask>` 交互分发器（首屏渲染 QuestionFlow / OptionList）
         ├── UserMessage             ← 用户消息渲染
         └── Composer                ← 输入框 + 附件
 ```
@@ -35,12 +35,12 @@ ChatPage
 
 ```
 committedBlocks           ← 工具调用前已冻结的文本段
-  + interactiveStreamOrder → 交互式卡片（HITL）
+  + pending interactions   → 未绑定 messageId 的 <ask> 请求（来自 interactions slice）
   + toolStreamOrder        → 工具调用卡片（按到达顺序）
   + stream (当前流文本)    ← 追加在所有工具卡之后
 ```
 
-**设计意图**：保证 `text → tool → tool → text` 的交错渲染顺序正确，流文本不会把工具卡推下去。
+**设计意图**：保证 `text → tool → tool → text` 的交错渲染顺序正确，流文本不会把工具卡推下去。Pending interactions（尚未绑定到持久 messageId 的 `interaction_request`）作为 `type: "interaction"` content part 挂在 `__stream__` 占位消息上，等 runner 完整持久化后会直接出现在该助手消息的 content blocks 里。
 
 ### 1.2 消息转换 `convertMessage`
 
@@ -86,7 +86,8 @@ isRunning = sending || stream !== null || pendingForActiveSession != null
 | `agent` | `tool.start` | `commitCurrentText()` + `upsertToolStream({phase:"start"})` |
 | `agent` | `tool.result` | `upsertToolStream({phase:"result", output})` |
 | `agent` | `tool.error` | `upsertToolStream({phase:"error", error})` |
-| `agent` | `interactive.result` | `commitCurrentText()` + `upsertInteractiveStream(block)` |
+| `agent` | `stream="interaction"`, `phase="request"` | `commitCurrentText()` + `upsertInteraction({id, component, request, status:"pending"})` |
+| `agent` | `stream="interaction"`, `phase="response"` | `setInteractionResponse({id, data, status})` |
 | `chat.history` | — | `mergeToolResults` → `normalizeRole` → `extractContentBlocks` → `consolidateToolMessages` → `setMessages` |
 
 ### 2.2 Session 作用域
@@ -170,10 +171,12 @@ useMessage() → content[] (TextPart | ToolCallPart)
     ├── textParts → AssistantMarkdownPart（Markdown 渲染）
     ├── toolParts → PromotedToolResult（可提升的富媒体直接显示）
     ├── toolParts → AssistantToolGroup（折叠工具卡组）
-    └── InteractiveParts（HITL 交互组件）
+    └── InteractiveParts（`<ask>` 交互分发器，读 interactions slice）
 ```
 
 **加载动画条件**：`status.type === "running" && content.length === 0`（消息开始但尚无内容时）。
+
+`InteractiveParts` 不再接收 `messageId` prop：它通过 `useMessage()` 读取当前消息的 id，再过滤当前消息 `contentBlocks` 里 `type: "interaction"` 的 part，然后从 `chat.store.interactions[interactionId]` 取状态并交给对应渲染器。
 
 ---
 
@@ -275,67 +278,86 @@ messageIsRunning → "running"（即使已有失败，但展示 failCount）
 
 ---
 
-## 八、InteractiveParts — HITL 交互模块
+## 八、InteractiveParts — `<ask>` 交互协议
 
-### 8.1 交互块来源识别算法
+从本迭代起，`question_flow` / `option_list` **不再是工具**。助手通过内联
+`<ask component="..." id="...">…</ask>` 标签发起结构化输入请求，runner
+在流里解析标签 → 登记 pending → 生成 `interaction_request` 消息 → 挂起
+等待 `chat.interactionRespond`。详细契约见
+`skills/openclaw-interactions/SKILL.md`。
+
+### 8.1 客户端数据模型
+
+**chat.store.interactions 切片**（`Record<interactionId, InteractionState>`）：
+
+```ts
+type InteractionState = {
+  id: string;
+  component: string;             // "question_flow" | "option_list" | ...
+  request: unknown;              // payload object (schema in @openclaw/interactions)
+  status: "pending" | "submitted" | "cancelled" | "timed_out";
+  response?: unknown;            // present once resolved
+  messageId?: string;            // bound once the interaction_request message persists
+  createdAt: number;
+};
+```
+
+来源：`agent` 事件 `stream="interaction"` 由 `handlers/agent-event.ts` 分发
+给 `handleInteractionStream`（`phase="request"` → `upsertInteraction`；
+`phase="response"` → `setInteractionResponse`）。
+
+### 8.2 content part 定位
+
+当 runner 把 `interaction_request` 持久化到 session 后，消息的
+`contentBlocks` 中会出现 `{type: "interaction", interactionId}` part；
+`buildRuntimeMessages` 会把还没有 `messageId` 的 pending interaction 作为
+相同形状的 part 附加到 `__stream__` 占位消息上，保持渲染位置稳定。
+
+### 8.3 分发器
+
+`InteractiveParts` 是无状态分发器：
+
+1. `useMessage()` 读取当前消息及其 content blocks。
+2. 过滤出所有 `type === "interaction"` 的 part，拿到 `interactionId` 列表。
+3. 从 `useChatStore(state => state.interactions)` 解析 `InteractionState`。
+4. 在 `INTERACTION_RENDERERS[component]` 里找到对应渲染器（如
+   `QuestionFlow`、`OptionList`），以 `request`、`response`、`status`
+   作为 props 传入。
+5. 用户动作触发 `useChatSend().respondInteraction({ interactionId, data, status })`。
+
+未注册的 component 或未解析的 payload 会静默跳过，不抛异常。
+
+### 8.4 响应回路
 
 ```
-当前消息 ID
-    ├── "__stream__" → 从 interactiveStreamById/Order 读取实时块
-    └── 历史消息 ID
-            → 找到消息索引
-            → 向左/右扩展，合并同一 "assistant run" 的连续消息 [left, right]
-            → 找到 run 中第一条带 interactive block 的 assistant 消息
-            → 仅在 isLastAssistantInRun 时渲染（防重复）
-            → right+1 的 user 消息为 nextUserMessage
+用户操作（QuestionFlow submit / OptionList pick / Cancel）
+    ↓
+useChatSend().respondInteraction({ interactionId, data, status })
+    ↓
+GatewayChatRuntimeProvider.respondInteraction
+    ├── 乐观：useChatStore.setInteractionResponse(...)
+    └── RPC：chat.interactionRespond
+         ↓
+      Gateway: src/gateway/server-methods/interactions.ts
+         ↓
+      runner-suspend.resolvePendingInteraction(interactionId, ...)
+         ↓
+      emitAgentEvent({ stream: "interaction", phase: "response", ... })
+         ↓
+      runner: 写入 interaction_response 消息 + 恢复生成
 ```
 
-### 8.2 交互块的 3 种状态
+RPC 失败时 UI 回滚到 `status: "pending"` 并提示错误。`interactionRespond`
+handler 自身是幂等的（同一 id 第二次提交直接成功返回），因此重试安全。
+
+### 8.5 状态渲染
 
 | 状态 | 条件 | 渲染 |
 |------|------|------|
-| 等待输入 | 无 storedSummary，无 nextUserMessage | 交互组件（QuestionFlow/OptionList） |
-| 已提交（store 有记录） | `interactiveSummaryById[id]` 存在 | `QASummary`（只读摘要） |
-| 已提交（从 history 恢复） | `nextUserMessage` 存在 | 重建摘要 → `QASummary` |
+| pending | `status === "pending"` 且无 `response` | 交互组件（支持用户输入） |
+| submitted / cancelled / timed_out | `status` 非 pending | 只读摘要（`QASummary` 风格） |
+| 未知 component 或 request schema 校验失败 | — | 不渲染（由 tool group 兜底显示 raw） |
 
-### 8.3 question_flow 子类型
-
-| 子类型 | 检测条件 | 交互方式 |
-|--------|---------|---------|
-| upfront（多步问卷） | `"steps" in config` | 多步表单，`onComplete` 收集全部答案 |
-| single-step（单问题） | `"step" in config` | 单问题选择，`onSelect` 触发 |
-| receipt（已完成回执） | `"choice" in config && "summary" in config.choice` | 直接渲染 QASummary |
-
-### 8.4 提交流程
-
-```
-用户操作
-    ↓
-onComplete / onSelect / onAction("confirm", selection)
-    ↓
-useChatStore.setInteractiveSummary(interactiveId, pairs)   ← 标记已提交，切换为摘要视图
-    ↓
-sendMessage(text)   ← ChatSendContext → GatewayChatRuntimeProvider → chat.send
-    ↓
-Gateway 收到用户回复 → 继续 Agent 执行
-```
-
-### 8.5 事件桥中的解析层（interactive-blocks.ts）
-
-```
-agent event (stream=tool, phase=result, toolName ∈ {question_flow, option_list})
-    ↓
-isInteractiveToolName() 判断
-    ↓
-parseInteractivePayload()
-    ├── safeParseSerializableQuestionFlow()
-    └── safeParseSerializableOptionList()
-    ↓
-createInteractiveBlock() → InteractiveContentBlock
-    ↓
-useChatStore.commitCurrentText()     ← 冻结当前流文本段
-useChatStore.upsertInteractiveStream(block)
-```
 
 ---
 
@@ -349,13 +371,14 @@ useChatEventBridge (dispatch)
       ├── chat delta/final    → stream / messages
       ├── agent tool.start    → commitCurrentText + toolStreamById
       ├── agent tool.result   → toolStreamById (update)
-      ├── agent interactive   → interactiveStreamById
+      ├── agent interaction request  → commitCurrentText + interactions[id]=pending
+      ├── agent interaction response → interactions[id]=submitted/cancelled
       └── chat.history        → messages (normalized + consolidated)
       ↓
 chat.store (Zustand)
       ↓
 GatewayChatRuntimeProvider
-      ├── 构建流式占位消息 __stream__（committed + tools + stream）
+      ├── 构建流式占位消息 __stream__（committed + pending interactions + tools + stream）
       ├── convertMessage() → ThreadMessageLike
       └── ExternalStoreRuntime
             ↓
@@ -388,7 +411,7 @@ GatewayChatRuntimeProvider
 |--------|---------|
 | 页面入口 | `src/pages/ChatPage.tsx` |
 | 事件桥 | `src/hooks/chat-event-bridge/useChatEventBridge.ts` |
-| 交互块解析 | `src/hooks/chat-event-bridge/interactive-blocks.ts` |
+| 交互事件处理 | `src/hooks/chat-event-bridge/handlers/agent-event.ts`（`handleInteractionStream`） |
 | 消息规范化 | `src/hooks/chat-event-bridge/message-normalize.ts` |
 | 工具块提取 | `src/hooks/chat-event-bridge/tool-blocks.ts` |
 | 聊天状态 | `src/store/chat.store.ts` |
@@ -403,6 +426,9 @@ GatewayChatRuntimeProvider
 | 工具卡片 | `src/components/chat/ToolFallback/index.tsx` |
 | 富媒体解析 | `src/components/chat/ToolFallback/rich-presentation.tsx` |
 | Drawer 子组件 | `src/components/chat/ToolFallback/sections.tsx` |
-| HITL 交互 | `src/components/chat/InteractiveParts.tsx` |
+| `<ask>` 分发器 | `src/components/chat/InteractiveParts.tsx` |
+| 交互 RPC 客户端 | `src/providers/chat/GatewayChatRuntimeProvider.tsx`（`respondInteraction`） |
+| 交互协议 skill | `skills/openclaw-interactions/SKILL.md` |
+| 交互 schema/registry | `packages/interactions/src/` |
 | 协议/数据流 | `docs/chat-module.md`（本文补充文档） |
 | Tool UI 组件 | `docs/tool-ui.md` |

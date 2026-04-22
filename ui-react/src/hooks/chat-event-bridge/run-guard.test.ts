@@ -40,6 +40,19 @@ describe("run-guard", () => {
     expect(active.get("agent:travel:main")).toBe("run-1");
   });
 
+  it("continuation tool progress is accepted after clearing stale session entry", () => {
+    const active = new Map<string, string>([["agent:travel:main", "run-1"]]);
+    active.delete("agent:travel:main");
+    const accepted = shouldAcceptRunEvent({
+      activeRunBySession: active,
+      sessionKey: "agent:travel:main",
+      runId: "run-2",
+      eventKind: "progress",
+    });
+    expect(accepted).toBe(true);
+    expect(active.get("agent:travel:main")).toBe("run-2");
+  });
+
   it("promotes a new run on start event", () => {
     const active = new Map<string, string>([["agent:travel:main", "run-1"]]);
     const accepted = shouldAcceptRunEvent({

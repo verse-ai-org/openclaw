@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatStore } from "@/store/chat.store";
 import { handleAgentEvent } from "./agent-event";
+import { handleChatEvent } from "./chat-event";
 import type { BridgeRuntimeContext } from "./shared";
 
 vi.mock("../session-scope", () => ({
@@ -27,6 +28,7 @@ function resetChatState() {
     interactiveStreamById: new Map(),
     interactiveStreamOrder: [],
     interactiveSummaryById: {},
+    interactions: {},
     sending: false,
     sessionKey: "agent:travel:main",
     pendingHistoryReloadKey: null,
@@ -116,5 +118,88 @@ describe("handleAgentEvent", () => {
     const tool = useChatStore.getState().toolStreamById.get("tool-1");
     expect(tool?.phase).toBe("start");
     expect(tool?.output).toBeUndefined();
+  });
+
+  it("promotes new run on tool start when lifecycle start arrives late", () => {
+    const ctx = createCtx();
+    ctx.activeRunBySession.set("agent:travel:main", "run-1");
+
+    handleAgentEvent(ctx, {
+      sessionKey: "agent:travel:main",
+      runId: "run-2",
+      stream: "tool",
+      data: {
+        phase: "start",
+        name: "exec",
+        toolCallId: "tool-2",
+        args: { command: "echo new" },
+      },
+    });
+
+    const tool = useChatStore.getState().toolStreamById.get("tool-2");
+    expect(tool?.phase).toBe("start");
+    expect(ctx.activeRunBySession.get("agent:travel:main")).toBe("run-2");
+  });
+
+  it("persists tool-call cards on lifecycle end when chat.final has no text (e.g. ends on <ask>)", () => {
+    const ctx = createCtx();
+    ctx.activeRunBySession.set("agent:travel:main", "run-1");
+    useChatStore.setState({
+      pendingGenerationBySession: { "agent:travel:main": { runId: "run-1" } },
+      runId: "run-1",
+    });
+    useChatStore.getState().upsertToolStream({
+      id: "t-read",
+      toolName: "read",
+      phase: "result",
+      output: "ok",
+    });
+
+    handleAgentEvent(ctx, {
+      sessionKey: "agent:travel:main",
+      runId: "run-1",
+      stream: "lifecycle",
+      data: { phase: "end" },
+    });
+
+    const st = useChatStore.getState();
+    expect(st.messages).toHaveLength(1);
+    expect(st.messages[0]?.role).toBe("assistant");
+    expect(st.messages[0]?.contentBlocks?.some((b) => b.type === "tool-call")).toBe(
+      true,
+    );
+    expect(st.toolStreamOrder.length).toBe(0);
+  });
+
+  it("skips redundant history reload when chat.final follows lifecycle after tools were merged", () => {
+    const ctx = createCtx();
+    ctx.activeRunBySession.set("agent:travel:main", "run-1");
+    useChatStore.setState({
+      pendingGenerationBySession: { "agent:travel:main": { runId: "run-1" } },
+      runId: "run-1",
+    });
+    useChatStore.getState().upsertToolStream({
+      id: "t-read",
+      toolName: "read",
+      phase: "result",
+      output: "ok",
+    });
+
+    handleAgentEvent(ctx, {
+      sessionKey: "agent:travel:main",
+      runId: "run-1",
+      stream: "lifecycle",
+      data: { phase: "end" },
+    });
+
+    handleChatEvent(ctx, {
+      sessionKey: "agent:travel:main",
+      runId: "run-1",
+      state: "final",
+    });
+
+    const st = useChatStore.getState();
+    expect(st.messages).toHaveLength(1);
+    expect(st.pendingHistoryReloadKey).toBeNull();
   });
 });

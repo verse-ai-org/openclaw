@@ -1,5 +1,20 @@
 import { z } from "zod";
 import type { ReactNode } from "react";
+
+// ---------------------------------------------------------------------------
+// Shared wire schema (authoritative — lives in @openclaw/interactions).
+// Re-exported so callers don't have to reach into a separate package during
+// the migration. Local `Serializable*` types below layer runtime-only React
+// concerns (icons, action handlers, controlled selection, etc.) on top.
+// ---------------------------------------------------------------------------
+export {
+  OptionListOptionSchema as SharedOptionListOptionSchema,
+  OptionListRequestSchema,
+  OptionListResponseSchema,
+  type OptionListRequest,
+  type OptionListResponse,
+} from "@openclaw/interactions";
+
 import type { ActionsProp } from "../shared/actions-config";
 import type { EmbeddedActionsProps } from "../shared/embedded-actions";
 import {

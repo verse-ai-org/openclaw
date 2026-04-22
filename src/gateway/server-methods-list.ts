@@ -108,6 +108,7 @@ const BASE_METHODS = [
   "chat.abort",
   "chat.status",
   "chat.send",
+  "chat.interactionRespond",
   // Profile feature
   "profile.parse",
 ];

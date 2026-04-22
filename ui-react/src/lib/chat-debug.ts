@@ -3,6 +3,9 @@ export type ChatDebugChannel =
   | "chat"
   | "agent.lifecycle"
   | "agent.tool"
+  | "agent.interaction"
+  | "chat.finalize"
+  | "chat.store"
   | "chat.history"
   | "session.history"
   | "session.list";
@@ -15,10 +18,16 @@ export type ChatDebugContext = {
   phase?: string;
 };
 
+/**
+ * Verbose bridge logging (all `logChatDebug("debug", ...)` calls).
+ * Enable in the browser console: `localStorage.setItem("openclaw.chatBridge.debug","1")`
+ * (works in production builds; reload the page after setting).
+ *
+ * Covers: event bridge, finalize paths, `loadHistory` snapshots, `convertMessage` part
+ * breakdown, `InteractiveParts` id resolution, etc. `warn`/`error` lines still print
+ * without this flag (for real problems such as failed session list fetch).
+ */
 function isDebugEnabled(): boolean {
-  if (!import.meta.env.DEV) {
-    return false;
-  }
   try {
     return localStorage.getItem("openclaw.chatBridge.debug") === "1";
   } catch {
@@ -27,9 +36,6 @@ function isDebugEnabled(): boolean {
 }
 
 function shouldLog(level: ChatDebugLevel): boolean {
-  if (!import.meta.env.DEV) {
-    return false;
-  }
   if (level === "warn" || level === "error") {
     return true;
   }

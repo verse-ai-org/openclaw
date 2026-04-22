@@ -20,6 +20,12 @@ function shouldAppendId(id: string): boolean {
   return false;
 }
 
+/** Synthetic From used by gateway interaction continuation — not a human label. */
+function isSyntheticInteractionFrom(from?: string): boolean {
+  const t = from?.trim() ?? "";
+  return t.startsWith("interaction:");
+}
+
 export function resolveConversationLabel(ctx: MsgContext): string | undefined {
   const explicit = ctx.ConversationLabel?.trim();
   if (explicit) {
@@ -33,6 +39,9 @@ export function resolveConversationLabel(ctx: MsgContext): string | undefined {
 
   const chatType = normalizeChatType(ctx.ChatType);
   if (chatType === "direct") {
+    if (isSyntheticInteractionFrom(ctx.From)) {
+      return ctx.SenderName?.trim() || undefined;
+    }
     return ctx.SenderName?.trim() || ctx.From?.trim() || undefined;
   }
 
@@ -40,7 +49,7 @@ export function resolveConversationLabel(ctx: MsgContext): string | undefined {
     ctx.GroupChannel?.trim() ||
     ctx.GroupSubject?.trim() ||
     ctx.GroupSpace?.trim() ||
-    ctx.From?.trim() ||
+    (isSyntheticInteractionFrom(ctx.From) ? "" : ctx.From?.trim()) ||
     "";
   if (!base) {
     return undefined;

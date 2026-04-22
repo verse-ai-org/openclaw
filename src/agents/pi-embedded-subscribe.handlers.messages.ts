@@ -2,6 +2,7 @@ import type { AgentEvent, AgentMessage } from "@mariozechner/pi-agent-core";
 import { parseReplyDirectives } from "../auto-reply/reply/reply-directives.js";
 import { SILENT_REPLY_TOKEN } from "../auto-reply/tokens.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
+import { emitAskTagsFromAssistant } from "./interactions/emit.js";
 import { createInlineCodeState } from "../markdown/code-spans.js";
 import {
   isMessagingToolDuplicateNormalized,
@@ -426,6 +427,37 @@ export function handleMessageEnd(
 
   if (ctx.state.blockReplyBreak === "text_end" && onBlockReply) {
     emitSplitResultAsBlockReply(ctx.consumeReplyDirectives("", { final: true }));
+  }
+
+  // After the assistant turn is fully flushed, scan the final text for
+  // `<ask>` tags and materialize each one as an interaction_request row +
+  // agent event. The LLM uses `<ask>` in lieu of a tool call so no further
+  // turn is needed; the conversation resumes once the UI or a channel
+  // downgrade posts `chat.interactionRespond` (which writes the
+  // matching interaction_response and triggers the next run).
+  const sessionManagerForInteractions = (
+    ctx.params.session as { sessionManager?: unknown } | undefined
+  )?.sessionManager;
+  if (
+    rawText &&
+    ctx.params.sessionKey &&
+    sessionManagerForInteractions &&
+    typeof (sessionManagerForInteractions as { appendMessage?: unknown }).appendMessage ===
+      "function"
+  ) {
+    try {
+      emitAskTagsFromAssistant({
+        assistantText: rawText,
+        sessionManager: sessionManagerForInteractions as Parameters<
+          typeof emitAskTagsFromAssistant
+        >[0]["sessionManager"],
+        sessionKey: ctx.params.sessionKey,
+        runId: ctx.params.runId,
+        warn: (m) => ctx.log.warn(m),
+      });
+    } catch (err) {
+      ctx.log.warn(`interaction tag emit failed: ${String(err)}`);
+    }
   }
 
   ctx.state.deltaBuffer = "";

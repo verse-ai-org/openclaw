@@ -4,6 +4,8 @@ import {
   type ChatMessage,
   type ContentBlock,
 } from "@/store/chat.store";
+import { hoistAskTagsInContentBlocks } from "@/providers/chat/ask-tag-split";
+import { logChatDebug } from "@/lib/chat-debug";
 import type { RunEventKind } from "../run-guard";
 
 export type BridgeRuntimeContext = {
@@ -103,13 +105,20 @@ export function buildFinalAssistantMessage(params: {
     contentBlocks.push({ type: "text", text: params.text });
   }
 
+  // Hoist `<ask ...>...</ask>` tags out of any text block so the persisted
+  // message renders the interactive widget rather than raw XML.
+  const normalizedBlocks = hoistAskTagsInContentBlocks(contentBlocks);
+
   return {
     id: crypto.randomUUID(),
     role: "assistant",
     content: params.text,
     ts: now,
     runId: params.runId,
-    contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
+    contentBlocks:
+      normalizedBlocks && normalizedBlocks.length > 0
+        ? normalizedBlocks
+        : undefined,
   };
 }
 
@@ -123,6 +132,23 @@ export function finalizeChatRun(params: {
 }) {
   const { sessionKey, runId, state, messageText, errorMessage, ctx } = params;
   const st = useChatStore.getState();
+  const snapshot = {
+    streamLen: st.stream?.length ?? 0,
+    committedBlocks: st.committedBlocks.length,
+    toolStreamCount: st.toolStreamOrder.length,
+    interactiveStreamCount: st.interactiveStreamOrder.length,
+    messageTextLen: (messageText ?? "").length,
+    storeRunId: st.runId,
+    pendingHydrationForRun: runId
+      ? ctx.pendingInteractiveHydrationRuns.has(runId)
+      : false,
+  };
+  logChatDebug(
+    "debug",
+    "finalizeChatRun: enter",
+    { state, ...snapshot },
+    { channel: "chat.finalize", sessionKey, runId },
+  );
   st.clearSessionGenerating(sessionKey);
   if (runId && ctx.pendingInteractiveHydrationRuns.has(runId)) {
     st.setPendingHistoryReloadKey(sessionKey);
@@ -132,14 +158,80 @@ export function finalizeChatRun(params: {
 
   if (state === "final") {
     const text = messageText ?? "";
+    const hasStreamBuffers =
+      st.stream !== null || st.committedBlocks.length > 0;
+    const hasToolOrLegacyInteractive =
+      st.toolStreamOrder.length > 0 || st.interactiveStreamOrder.length > 0;
     if (text) {
+      logChatDebug(
+        "debug",
+        "finalizeChatRun: branch commitStreamAsMessage (chat payload text)",
+        {
+          textPreview: text.slice(0, 120),
+          toolStreamCount: st.toolStreamOrder.length,
+        },
+        { channel: "chat.finalize", sessionKey, runId },
+      );
       const finalMsg = buildFinalAssistantMessage({ text, runId });
       st.commitStreamAsMessage(finalMsg);
-    } else if (st.stream !== null || st.committedBlocks.length > 0) {
-      st.finalizeStream();
+    } else if (hasStreamBuffers || hasToolOrLegacyInteractive) {
+      logChatDebug(
+        "debug",
+        hasStreamBuffers
+          ? "finalizeChatRun: branch finalizeStream (stream/commit buffers ± tools)"
+          : "finalizeChatRun: branch finalizeStream (tools/interactive only — e.g. turn ends on <ask> after tools)",
+        { hasStreamBuffers, hasToolOrLegacyInteractive },
+        { channel: "chat.finalize", sessionKey, runId },
+      );
+      st.finalizeStream(runId);
     } else {
-      st.resetStream();
-      st.setPendingHistoryReloadKey(sessionKey);
+      const floatingInteractions = Object.values(st.interactions).filter(
+        (i) => i.status === "pending" && !i.messageId,
+      );
+      if (floatingInteractions.length > 0 && runId) {
+        floatingInteractions.sort((a, b) => a.createdAt - b.createdAt);
+        const interactionBlocks: ContentBlock[] = floatingInteractions.map(
+          (i) => ({
+            type: "interaction",
+            interactionId: i.interactionId,
+          }),
+        );
+        const msg: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "",
+          ts: Date.now(),
+          runId,
+          contentBlocks: interactionBlocks,
+        };
+        logChatDebug(
+          "debug",
+          "finalizeChatRun: branch commitStreamAsMessage (floating <ask> only — interaction_continue)",
+          {
+            interactionIds: floatingInteractions.map((i) => i.interactionId),
+          },
+          { channel: "chat.finalize", sessionKey, runId },
+        );
+        st.commitStreamAsMessage(msg);
+      } else {
+        const alreadyMerged =
+          Boolean(runId) &&
+          st.messages.some(
+            (m) => m.role === "assistant" && m.runId === runId,
+          );
+        logChatDebug(
+          "debug",
+          alreadyMerged
+            ? "finalizeChatRun: branch empty terminal (duplicate lifecycle+chat final — skip history reload)"
+            : "finalizeChatRun: branch resetStream + pendingHistoryReload (nothing to merge locally)",
+          { ...snapshot, runId, alreadyMerged },
+          { channel: "chat.finalize", sessionKey, runId, state: "final" },
+        );
+        st.resetStream();
+        if (!alreadyMerged) {
+          st.setPendingHistoryReloadKey(sessionKey);
+        }
+      }
     }
     st.setSending(false);
     st.setRunId(null);
