@@ -24,8 +24,9 @@ export function useSessionManager() {
   const gatewayStatus = useGatewayStore((s) => s.status);
   const settings = useSettingsStore((s) => s.settings);
   const hashSessionKey = getSessionKeyFromHash();
+  const storeSessionKey = useChatStore((s) => s.sessionKey);
   const sessionKey =
-    hashSessionKey ?? useChatStore((s) => s.sessionKey) ?? settings.sessionKey ?? "main";
+    hashSessionKey ?? storeSessionKey ?? settings.sessionKey ?? "main";
 
   const pendingReloadKey = useChatStore((s) => s.pendingHistoryReloadKey);
   const pendingSessionsReloadSeq = useChatStore(
