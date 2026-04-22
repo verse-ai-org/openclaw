@@ -3,7 +3,7 @@ import type { AppendMessage } from "@assistant-ui/react";
 import { parseGatewaySendPayload } from "./send-payload";
 
 describe("send-payload", () => {
-  it("extracts text and image blocks from message content", () => {
+  it("ignores image blocks from message content", () => {
     const message = {
       content: [
         { type: "text", text: "hello" },
@@ -18,15 +18,11 @@ describe("send-payload", () => {
     const parsed = parseGatewaySendPayload(message);
 
     expect(parsed.text).toBe("hello");
-    expect(parsed.gatewayAttachments).toEqual([
-      { content: "AAA111", mimeType: "image/png", fileName: "img.png" },
-    ]);
-    expect(parsed.displayAttachments).toEqual([
-      { fileName: "img.png", mimeType: "image/png", size: 0 },
-    ]);
+    expect(parsed.gatewayAttachments).toEqual([]);
+    expect(parsed.displayAttachments).toEqual([]);
   });
 
-  it("extracts file parts from completed attachments metadata", () => {
+  it("keeps display attachment metadata but does not inline file content", () => {
     const message = {
       content: [{ type: "text", text: "with file" }],
       attachments: [
@@ -50,9 +46,7 @@ describe("send-payload", () => {
     const parsed = parseGatewaySendPayload(message);
 
     expect(parsed.text).toBe("with file");
-    expect(parsed.gatewayAttachments).toEqual([
-      { content: "QkFTRTY0", mimeType: "text/plain", fileName: "doc.txt" },
-    ]);
+    expect(parsed.gatewayAttachments).toEqual([]);
     expect(parsed.displayAttachments).toEqual([
       { fileName: "doc.txt", mimeType: "text/plain", size: 42 },
     ]);

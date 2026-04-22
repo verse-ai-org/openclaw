@@ -38,6 +38,7 @@ import {
   resolveChatRunExpiresAtMs,
 } from "../chat-abort.js";
 import {
+  CHAT_UPLOADED_FILES_CONTENT_HEADING,
   type ChatImageContent,
   parseMessageWithAttachments,
   splitUserMessageForChatHistoryDisplay,
@@ -72,7 +73,13 @@ import {
 import { formatForLog } from "../ws-log.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
 import { setGatewayDedupeEntry } from "./agent-wait-dedupe.js";
-import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
+import {
+  normalizeRpcAttachmentsToChatAttachments,
+  normalizeRpcAttachmentRefs,
+  type ChatAttachmentRef,
+  validateAttachmentRefs,
+  validateNormalizedChatAttachments,
+} from "./attachment-normalize.js";
 import { appendInjectedAssistantMessageToTranscript } from "./chat-transcript-inject.js";
 import type {
   GatewayRequestContext,
@@ -257,6 +264,91 @@ function stripDisallowedChatControlChars(message: string): string {
     }
   }
   return output;
+}
+
+function formatAttachmentRefsForAgent(refs: ChatAttachmentRef[]): string {
+  if (refs.length === 0) {
+    return "";
+  }
+  const lines = refs.map(
+    (ref) =>
+      `- fileId=${ref.fileId}; path=${ref.path}; name=${ref.fileName || "file"}; mime=${ref.mimeType || "unknown"}; size=${ref.size}; sha256=${ref.sha256 || "unknown"}`,
+  );
+  return [
+    "Uploaded File References:",
+    "Use these exact local file paths when invoking file tools (read/write/edit/convert).",
+    ...lines,
+  ].join("\n");
+}
+
+function buildAttachmentRefsAppendix(refs: ChatAttachmentRef[]): string {
+  if (refs.length === 0) {
+    return "";
+  }
+  const lines = refs.map((ref) =>
+    [
+      `[文件: ${ref.fileName || "file"}]`,
+      `fileId=${ref.fileId}`,
+      `path=${ref.path}`,
+      `mime=${ref.mimeType || "unknown"}`,
+      `size=${ref.size}`,
+      `sha256=${ref.sha256 || "unknown"}`,
+    ].join("\n"),
+  );
+  return `${CHAT_UPLOADED_FILES_CONTENT_HEADING}\n\n${lines.join("\n\n")}`;
+}
+
+type AttachmentIntent = "read-extract" | "edit-convert" | "unknown";
+
+function classifyAttachmentIntent(text: string): AttachmentIntent {
+  const normalized = text.toLowerCase();
+  const editConvertKeywords = [
+    "convert",
+    "transform",
+    "edit",
+    "rewrite",
+    "update",
+    "modify",
+    "export",
+    "to pdf",
+    "to docx",
+    "to pptx",
+    "to xlsx",
+  ];
+  const readExtractKeywords = [
+    "read",
+    "extract",
+    "summarize",
+    "summary",
+    "analyze",
+    "analysis",
+    "classify",
+    "identify",
+  ];
+  if (editConvertKeywords.some((kw) => normalized.includes(kw))) {
+    return "edit-convert";
+  }
+  if (readExtractKeywords.some((kw) => normalized.includes(kw))) {
+    return "read-extract";
+  }
+  return "unknown";
+}
+
+function buildAttachmentRoutingHint(params: {
+  refs: ChatAttachmentRef[];
+  userText: string;
+}): string {
+  if (params.refs.length === 0) {
+    return "";
+  }
+  const intent = classifyAttachmentIntent(params.userText);
+  if (intent === "edit-convert") {
+    return "Routing hint: this request looks like editing/conversion. Prefer file-edit/convert skills and operate on the referenced file paths directly.";
+  }
+  if (intent === "read-extract") {
+    return "Routing hint: this request looks like reading/extraction. Prefer read/extract tools on the referenced file paths.";
+  }
+  return "Routing hint: attachments are in reference mode. Prefer tools that read/modify files via the referenced local file paths.";
 }
 
 export function sanitizeChatSendMessageInput(
@@ -1113,6 +1205,14 @@ export const chatHandlers: GatewayRequestHandlers = {
         fileName?: string;
         content?: unknown;
       }>;
+      attachmentRefs?: Array<{
+        fileId?: unknown;
+        path?: unknown;
+        fileName?: unknown;
+        mimeType?: unknown;
+        size?: unknown;
+        sha256?: unknown;
+      }>;
       timeoutMs?: number;
       systemInputProvenance?: InputProvenance;
       systemProvenanceReceipt?: string;
@@ -1161,8 +1261,27 @@ export const chatHandlers: GatewayRequestHandlers = {
     const normalizedAttachments = normalizeRpcAttachmentsToChatAttachments(
       p.attachments,
     );
+    const attachmentRefs = normalizeRpcAttachmentRefs(p.attachmentRefs);
+    const attachmentValidation = validateNormalizedChatAttachments(normalizedAttachments);
+    if (!attachmentValidation.ok) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, attachmentValidation.error),
+      );
+      return;
+    }
+    const attachmentRefValidation = validateAttachmentRefs(attachmentRefs);
+    if (!attachmentRefValidation.ok) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, attachmentRefValidation.error),
+      );
+      return;
+    }
     const rawMessage = inboundMessage.trim();
-    if (!rawMessage && normalizedAttachments.length === 0) {
+    if (!rawMessage && normalizedAttachments.length === 0 && attachmentRefs.length === 0) {
       respond(
         false,
         undefined,
@@ -1284,9 +1403,27 @@ export const chatHandlers: GatewayRequestHandlers = {
       const commandBody = injectThinking
         ? `/think ${p.thinking} ${parsedMessage}`
         : inboundMessage;
-      const messageForAgent = systemProvenanceReceipt
-        ? [systemProvenanceReceipt, parsedMessage].filter(Boolean).join("\n\n")
+      const attachmentRefsPrompt = formatAttachmentRefsForAgent(attachmentRefs);
+      const attachmentRoutingHint = buildAttachmentRoutingHint({
+        refs: attachmentRefs,
+        userText: inboundMessage,
+      });
+      const refsAppendix = buildAttachmentRefsAppendix(attachmentRefs);
+      const messageWithRefs = refsAppendix
+        ? [parsedMessage, refsAppendix].filter(Boolean).join("\n\n")
         : parsedMessage;
+      const messageForAgent = systemProvenanceReceipt
+        ? [
+            systemProvenanceReceipt,
+            messageWithRefs,
+            attachmentRoutingHint,
+            attachmentRefsPrompt,
+          ]
+            .filter(Boolean)
+            .join("\n\n")
+        : [messageWithRefs, attachmentRoutingHint, attachmentRefsPrompt]
+            .filter(Boolean)
+            .join("\n\n");
       const clientInfo = client?.connect?.client;
       const {
         originatingChannel,

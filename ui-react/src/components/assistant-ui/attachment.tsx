@@ -208,12 +208,18 @@ export const ComposerAddAttachment: FC = () => {
   return (
     <ComposerPrimitive.AddAttachment asChild>
       <TooltipIconButton
-        tooltip="Add Attachment"
+        tooltip="Add attachment"
+        tooltipContent={
+          <span className="flex flex-col leading-5">
+            <span>Add attachment</span>
+            <span>up to 100 MB per file, 10 files max.</span>
+          </span>
+        }
         side="bottom"
         variant="ghost"
         size="icon"
         className="aui-composer-add-attachment size-8 rounded-full p-1 font-semibold text-xs hover:bg-muted-foreground/15 dark:border-muted-foreground/15 dark:hover:bg-muted-foreground/30"
-        aria-label="Add Attachment"
+        aria-label="Add attachment. Up to 100 MB per file, 10 files max."
       >
         <PlusIcon className="aui-attachment-add-icon size-5 stroke-[1.5px]" />
       </TooltipIconButton>

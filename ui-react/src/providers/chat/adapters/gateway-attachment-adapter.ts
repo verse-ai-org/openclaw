@@ -5,16 +5,10 @@ import type {
 } from "@assistant-ui/react";
 import {
   CompositeAttachmentAdapter,
-  SimpleImageAttachmentAdapter,
 } from "@assistant-ui/react";
+import { toast } from "sonner";
 
 export const ALLOWED_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/svg+xml",
-  "image/bmp",
   "application/pdf",
   "text/plain",
   "text/markdown",
@@ -30,33 +24,36 @@ export const ALLOWED_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ]);
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per file
-const NON_IMAGE_MIME_TYPES = [...ALLOWED_MIME_TYPES].filter((m) => !m.startsWith("image/"));
-
-function fileToBase64Raw(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1] ?? result);
-    });
-    reader.addEventListener("error", () => {
-      reject(reader.error);
-    });
-    reader.readAsDataURL(file);
-  });
-}
+export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB per file
+const ALLOWED_MIME_LIST = [...ALLOWED_MIME_TYPES].join(",");
+export const MAX_ATTACHMENT_COUNT = 10;
+export const MAX_FILE_SIZE_BYTES_REFERENCE_MODE = 100 * 1024 * 1024; // 100MB per file
 
 class GatewayBinaryAttachmentAdapter implements AttachmentAdapter {
-  accept = NON_IMAGE_MIME_TYPES.join(",");
+  // Restrict picker to supported document/text MIME types.
+  accept = ALLOWED_MIME_LIST;
 
   async add(state: { file: File }): Promise<PendingAttachment> {
     const { file } = state;
-    if (file.size > MAX_FILE_SIZE) {
-      throw new Error("File exceeds 5 MB limit");
+    if (file.type.startsWith("image/")) {
+      const msg = "Image uploads are currently disabled.";
+      toast.error(msg, { duration: 3000 });
+      throw new Error(msg);
+    }
+    if (file.size <= 0) {
+      const msg = `Empty files are not supported: ${file.name}`;
+      toast.error(msg, { duration: 3000 });
+      throw new Error(msg);
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES_REFERENCE_MODE) {
+      const msg = `File is too large: ${file.name}. Max size is 100MB.`;
+      toast.error(msg, { duration: 3000 });
+      throw new Error(msg);
     }
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      throw new Error("File type is not supported");
+      const msg = `Unsupported file type: ${file.name}`;
+      toast.error(msg, { duration: 3000 });
+      throw new Error(msg);
     }
     return {
       id: crypto.randomUUID(),
@@ -69,14 +66,13 @@ class GatewayBinaryAttachmentAdapter implements AttachmentAdapter {
   }
 
   async send(attachment: PendingAttachment): Promise<CompleteAttachment> {
-    const base64 = await fileToBase64Raw(attachment.file);
     return {
       ...attachment,
       status: { type: "complete" },
       content: [
         {
           type: "file",
-          data: base64,
+          data: "",
           mimeType: attachment.file.type,
           filename: attachment.name,
         },
@@ -90,8 +86,5 @@ class GatewayBinaryAttachmentAdapter implements AttachmentAdapter {
 }
 
 export function createGatewayCompositeAttachmentAdapter(): CompositeAttachmentAdapter {
-  return new CompositeAttachmentAdapter([
-    new SimpleImageAttachmentAdapter(),
-    new GatewayBinaryAttachmentAdapter(),
-  ]);
+  return new CompositeAttachmentAdapter([new GatewayBinaryAttachmentAdapter()]);
 }

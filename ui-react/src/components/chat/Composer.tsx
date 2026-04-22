@@ -1,11 +1,23 @@
 import { ComposerPrimitive, AuiIf, useComposerRuntime } from "@assistant-ui/react";
 import { SendHorizonal, Square } from "lucide-react";
-import { useEffect, type FC } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type DragEventHandler,
+  type FC,
+  type FormEventHandler,
+} from "react";
 import { cn } from "@/lib/utils";
 import {
   ComposerAddAttachment,
   ComposerAttachments,
 } from "@/components/assistant-ui/attachment";
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_ATTACHMENT_COUNT,
+  MAX_FILE_SIZE_BYTES_REFERENCE_MODE,
+} from "@/providers/chat/adapters/gateway-attachment-adapter";
 import { useChatStore } from "@/store/chat.store";
 
 // ---------------------------------------------------------------------------
@@ -17,6 +29,43 @@ import { useChatStore } from "@/store/chat.store";
 // ---------------------------------------------------------------------------
 export const Composer: FC = () => {
   const composerRuntime = useComposerRuntime();
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+
+  const validateFiles = useCallback((files: FileList | null): string | null => {
+    if (!files || files.length === 0) {
+      return null;
+    }
+    if (files.length > MAX_ATTACHMENT_COUNT) {
+      return `Too many files selected. Maximum is ${MAX_ATTACHMENT_COUNT}.`;
+    }
+    for (const file of files) {
+      if (file.type.startsWith("image/")) {
+        return "Image uploads are currently disabled.";
+      }
+      if (file.size <= 0) {
+        return `Empty files are not supported: ${file.name}`;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES_REFERENCE_MODE) {
+        return `File is too large: ${file.name}. Max size is 100MB.`;
+      }
+      if (!ALLOWED_MIME_TYPES.has(file.type)) {
+        return `Unsupported file type: ${file.name}`;
+      }
+    }
+    return null;
+  }, []);
+
+  const handleFileInputChangeCapture = useCallback<FormEventHandler<HTMLDivElement>>((evt) => {
+    const target = evt.target as HTMLInputElement | null;
+    if (!target || target.tagName !== "INPUT" || target.type !== "file") {
+      return;
+    }
+    setAttachmentError(validateFiles(target.files));
+  }, [validateFiles]);
+
+  const handleDropCapture = useCallback<DragEventHandler<HTMLDivElement>>((evt) => {
+    setAttachmentError(validateFiles(evt.dataTransfer.files));
+  }, [validateFiles]);
 
   // Consume pendingDraftMessage once on mount to pre-fill the input.
   // Clears the store entry immediately so it only fires once.
@@ -47,6 +96,8 @@ export const Composer: FC = () => {
   return (
     <ComposerPrimitive.Root className="relative w-full">
       <ComposerPrimitive.AttachmentDropzone
+        onChangeCapture={handleFileInputChangeCapture}
+        onDropCapture={handleDropCapture}
         className={cn(
           "flex w-full flex-col rounded-2xl border border-input bg-background",
           "px-1 pt-2 outline-none transition-shadow",
@@ -72,7 +123,9 @@ export const Composer: FC = () => {
 
         {/* Action row */}
         <div className="relative mx-2 mb-2 flex items-center justify-between">
-          <ComposerAddAttachment />
+          <div className="flex items-center gap-1">
+            <ComposerAddAttachment />
+          </div>
 
           {/* Send button (shown when not running) */}
           <AuiIf condition={(s) => !s.thread.isRunning}>
@@ -109,6 +162,13 @@ export const Composer: FC = () => {
             </ComposerPrimitive.Cancel>
           </AuiIf>
         </div>
+        {attachmentError && (
+          <div className="mx-4 mb-2 rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-1.5">
+            <p className="text-xs text-destructive" role="alert">
+              {attachmentError}
+            </p>
+          </div>
+        )}
       </ComposerPrimitive.AttachmentDropzone>
     </ComposerPrimitive.Root>
   );

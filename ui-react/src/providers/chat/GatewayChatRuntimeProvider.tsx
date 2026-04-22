@@ -4,8 +4,14 @@ import {
   type AppendMessage,
 } from "@assistant-ui/react";
 import { type ReactNode, useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import type { MessageAttachment } from "@/store/chat.store";
+import {
+  type ChatAttachmentRef,
+  buildAttachmentRefsFromMessage,
+} from "@/providers/chat/attachment-ref";
 import { createGatewayCompositeAttachmentAdapter } from "@/providers/chat/adapters/gateway-attachment-adapter";
+import { MAX_ATTACHMENT_COUNT } from "@/providers/chat/adapters/gateway-attachment-adapter";
 import {
   useChatStore,
   type ChatMessage,
@@ -19,6 +25,7 @@ import { buildRuntimeMessages } from "@/providers/chat/stream-assembly";
 
 type SendMessageOptions = {
   attachments?: { content: string; mimeType: string; fileName: string }[];
+  attachmentRefs?: ChatAttachmentRef[];
   displayAttachments?: MessageAttachment[];
 };
 
@@ -111,6 +118,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           ...(opts?.attachments && opts.attachments.length > 0
             ? { attachments: opts.attachments }
             : {}),
+          ...(opts?.attachmentRefs && opts.attachmentRefs.length > 0
+            ? { attachmentRefs: opts.attachmentRefs }
+            : {}),
         });
       } catch (err) {
         console.error("[chat] send failed:", err);
@@ -126,11 +136,33 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   const onNew = useCallback(
     async (message: AppendMessage) => {
       const { text, gatewayAttachments, displayAttachments } = parseGatewaySendPayload(message);
-      if (!text.trim() && gatewayAttachments.length === 0) {
+      const attachmentCount = (
+        (message as AppendMessage & { attachments?: readonly unknown[] }).attachments?.length ?? 0
+      );
+      if (attachmentCount > MAX_ATTACHMENT_COUNT) {
+        toast.error(`Too many files. Maximum is ${MAX_ATTACHMENT_COUNT}.`, {
+          duration: 3000,
+        });
+        return;
+      }
+      const { refs: attachmentRefs, missingPathFiles } = await buildAttachmentRefsFromMessage(message);
+      if (missingPathFiles.length > 0) {
+        toast.error(
+          `Cannot resolve local file path: ${missingPathFiles.join(", ")}. Please reattach from local disk.`,
+          { duration: 4000 },
+        );
+        return;
+      }
+      if (gatewayAttachments.some((att) => att.mimeType.startsWith("image/"))) {
+        toast.error("Image uploads are currently disabled.", { duration: 3000 });
+        return;
+      }
+      if (!text.trim() && gatewayAttachments.length === 0 && attachmentRefs.length === 0) {
         return;
       }
       await sendMessage(text, {
         attachments: gatewayAttachments,
+        attachmentRefs,
         displayAttachments,
       });
     },

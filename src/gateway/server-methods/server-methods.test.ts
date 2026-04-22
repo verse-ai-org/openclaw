@@ -12,7 +12,12 @@ import { ExecApprovalManager } from "../exec-approval-manager.js";
 import { validateExecApprovalRequestParams } from "../protocol/index.js";
 import { waitForAgentJob } from "./agent-job.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
-import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
+import {
+  normalizeRpcAttachmentRefs,
+  validateAttachmentRefs,
+  normalizeRpcAttachmentsToChatAttachments,
+  validateNormalizedChatAttachments,
+} from "./attachment-normalize.js";
 import { sanitizeChatSendMessageInput } from "./chat.js";
 import { createExecApprovalHandlers } from "./exec-approval.js";
 import { logsHandlers } from "./logs.js";
@@ -256,6 +261,81 @@ describe("normalizeRpcAttachmentsToChatAttachments", () => {
     const bytes = new TextEncoder().encode("foo");
     const res = normalizeRpcAttachmentsToChatAttachments([{ content: bytes }]);
     expect(res[0]?.content).toBe("Zm9v");
+  });
+
+  it("rejects image attachments in validator", () => {
+    const res = validateNormalizedChatAttachments([
+      { mimeType: "image/png", content: "Zm9v" },
+    ]);
+    expect(res).toEqual({ ok: false, error: "image uploads are currently disabled" });
+  });
+
+  it("rejects unsupported attachment mime types in validator", () => {
+    const res = validateNormalizedChatAttachments([
+      { mimeType: "application/zip", content: "Zm9v" },
+    ]);
+    expect(res).toEqual({
+      ok: false,
+      error: "unsupported attachment mimeType: application/zip",
+    });
+  });
+
+  it("accepts supported office/text attachment mime types in validator", () => {
+    const res = validateNormalizedChatAttachments([
+      { mimeType: "application/pdf", content: "Zm9v" },
+      { mimeType: "text/markdown", content: "YmFy" },
+    ]);
+    expect(res).toEqual({ ok: true });
+  });
+});
+
+describe("attachmentRefs normalization/validation", () => {
+  it("normalizes valid refs and drops invalid entries", () => {
+    const refs = normalizeRpcAttachmentRefs([
+      {
+        fileId: "f1",
+        path: "/tmp/a.docx",
+        fileName: "a.docx",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        size: 100,
+        sha256: "abc",
+      },
+      {
+        fileId: "",
+        path: "/tmp/invalid.docx",
+      },
+    ]);
+    expect(refs).toHaveLength(1);
+    expect(refs[0]?.fileId).toBe("f1");
+    expect(refs[0]?.path).toBe("/tmp/a.docx");
+  });
+
+  it("rejects refs missing path", () => {
+    const res = validateAttachmentRefs([
+      {
+        fileId: "f1",
+        path: "",
+        fileName: "a.docx",
+        mimeType: "application/pdf",
+        size: 1,
+        sha256: "abc",
+      },
+    ]);
+    expect(res).toEqual({ ok: false, error: "attachmentRefs.path is required" });
+  });
+
+  it("accepts refs with required fields", () => {
+    const res = validateAttachmentRefs([
+      {
+        fileId: "f1",
+        path: "/tmp/a.docx",
+        fileName: "a.docx",
+        mimeType: "application/pdf",
+        size: 1,
+        sha256: "abc",
+      },
+    ]);
+    expect(res).toEqual({ ok: true });
   });
 });
 

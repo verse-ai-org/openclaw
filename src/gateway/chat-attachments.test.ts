@@ -63,7 +63,7 @@ describe("parseMessageWithAttachments", () => {
     expect(parsed.images[0]?.data).toBe(PNG_1x1);
   });
 
-  it("sniffs mime when missing", async () => {
+  it("drops attachments when mime type is missing", async () => {
     const { parsed, logs } = await parseWithWarnings("see this", [
       {
         type: "image",
@@ -72,10 +72,9 @@ describe("parseMessageWithAttachments", () => {
       },
     ]);
     expect(parsed.message).toBe("see this");
-    expect(parsed.images).toHaveLength(1);
-    expect(parsed.images[0]?.mimeType).toBe("image/png");
-    expect(parsed.images[0]?.data).toBe(PNG_1x1);
-    expect(logs).toHaveLength(0);
+    expect(parsed.images).toHaveLength(0);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatch(/missing mime type/i);
   });
 
   it("drops non-image payloads and logs", async () => {
@@ -108,14 +107,14 @@ describe("parseMessageWithAttachments", () => {
     expect(logs[0]).toMatch(/mime mismatch/i);
   });
 
-  it("drops unknown mime when sniff fails and logs", async () => {
+  it("drops missing mime attachments before sniff and logs", async () => {
     const unknown = Buffer.from("not an image").toString("base64");
     const { parsed, logs } = await parseWithWarnings("x", [
       { type: "file", fileName: "unknown.bin", content: unknown },
     ]);
     expect(parsed.images).toHaveLength(0);
     expect(logs).toHaveLength(1);
-    expect(logs[0]).toMatch(/unable to detect image mime type/i);
+    expect(logs[0]).toMatch(/missing mime type/i);
   });
 
   it("keeps valid images and drops invalid ones", async () => {
