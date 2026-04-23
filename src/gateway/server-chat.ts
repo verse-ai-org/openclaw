@@ -473,20 +473,22 @@ export function createAgentEventHandler({
     chatRunState.buffers.delete(clientRunId);
     chatRunState.deltaSentAt.delete(clientRunId);
     if (jobState === "done") {
+      const hasVisibleMessage = Boolean(text && !shouldSuppressSilent);
       const payload = {
         runId: clientRunId,
         sessionKey,
         seq,
         state: "final" as const,
         ...(stopReason && { stopReason }),
-        message:
-          text && !shouldSuppressSilent
-            ? {
+        ...(hasVisibleMessage
+          ? {
+              message: {
                 role: "assistant",
                 content: [{ type: "text", text }],
                 timestamp: Date.now(),
-              }
-            : undefined,
+              },
+            }
+          : { emptyReason: "no_visible_output" as const }),
       };
       broadcast("chat", payload);
       nodeSendToSession(sessionKey, "chat", payload);

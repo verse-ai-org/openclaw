@@ -17,7 +17,6 @@ import { convertGatewayChatMessage } from "@/providers/chat/message-convert";
 import { parseGatewaySendPayload } from "@/providers/chat/send-payload";
 import { buildRuntimeMessages } from "@/providers/chat/stream-assembly";
 import { logChatDebug } from "@/lib/chat-debug";
-import { clearBridgeTrackedRunForSession } from "@/hooks/chat-event-bridge/run-guard-session";
 
 type SendMessageOptions = {
   attachments?: { content: string; mimeType: string; fileName: string }[];
@@ -173,11 +172,6 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         );
         if (typeof activeSession === "string" && activeSession.trim()) {
           const sk = activeSession.trim();
-          // Continuation can emit `agent` tool events before `lifecycle:start`
-          // and before this RPC promise resolves. If `activeRunBySession` still
-          // holds the *previous* run id, `shouldAcceptRunEvent` drops progress for
-          // the new run — tools only appear after history reload. Clear eagerly.
-          clearBridgeTrackedRunForSession(sk);
           useChatStore.getState().markSessionGenerating(sk);
         }
         // Optimistically mark the interaction as submitted locally so the UI
@@ -195,12 +189,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           data,
           status: status ?? "submitted",
         });
-        if (typeof activeSession === "string" && activeSession.trim()) {
-          clearBridgeTrackedRunForSession(activeSession.trim());
-        }
         logChatDebug(
           "debug",
-          "respondInteraction: RPC ok (continuation run starts on gateway)",
+          "respondInteraction: RPC ok (new chat run starts on gateway)",
           { interactionId },
           { channel: "agent.interaction", sessionKey: activeSession ?? undefined },
         );

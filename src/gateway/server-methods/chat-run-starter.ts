@@ -3,7 +3,8 @@ import type { ReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.js
 import type { MsgContext } from "../../auto-reply/templating.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { resolveChatRunExpiresAtMs } from "../chat-abort.js";
-import type { GatewayRequestContext } from "./types.js";
+import { GATEWAY_CLIENT_CAPS, hasGatewayClientCap } from "../protocol/client-info.js";
+import type { GatewayClient, GatewayRequestContext } from "./types.js";
 
 export interface StartChatRunPipelineParams {
   context: GatewayRequestContext;
@@ -12,9 +13,19 @@ export interface StartChatRunPipelineParams {
   rawSessionKey: string;
   sessionId: string;
   timeoutMs: number;
-  source: "chat.send" | "interaction_continue";
+  source: "chat.send";
   msgContext: MsgContext;
   dispatcher: ReplyDispatcher;
+  /**
+   * Optional WS tool-event wiring for this run. When provided and the client
+   * advertises `tool-events`, the pipeline auto-registers the run on
+   * `onAgentRunStart`, and can also mirror the recipient to other active runs
+   * in the same session.
+   */
+  toolEventSubscription?: {
+    client: GatewayClient | null;
+    includeExistingSessionRuns?: boolean;
+  };
   replyOptions?: Parameters<typeof dispatchInboundMessage>[0]["replyOptions"];
   onAgentRunStart?: (runId: string) => void;
   onSuccess?: (info: { agentRunStarted: boolean }) => void;
@@ -39,6 +50,7 @@ export function startChatRunPipeline(params: StartChatRunPipelineParams): void {
     source,
     msgContext,
     dispatcher,
+    toolEventSubscription,
     replyOptions,
     onAgentRunStart,
     onSuccess,
@@ -73,6 +85,24 @@ export function startChatRunPipeline(params: StartChatRunPipelineParams): void {
       abortSignal: abortController.signal,
       onAgentRunStart: (agentRunId) => {
         agentRunStarted = true;
+        const connId =
+          typeof toolEventSubscription?.client?.connId === "string"
+            ? toolEventSubscription.client.connId
+            : undefined;
+        const wantsToolEvents = hasGatewayClientCap(
+          toolEventSubscription?.client?.connect?.caps,
+          GATEWAY_CLIENT_CAPS.TOOL_EVENTS,
+        );
+        if (connId && wantsToolEvents) {
+          context.registerToolEventRecipient(agentRunId, connId);
+          if (toolEventSubscription?.includeExistingSessionRuns) {
+            for (const [activeRunId, active] of context.chatAbortControllers) {
+              if (activeRunId !== agentRunId && active.sessionKey === rawSessionKey) {
+                context.registerToolEventRecipient(activeRunId, connId);
+              }
+            }
+          }
+        }
         onAgentRunStart?.(agentRunId);
       },
     },

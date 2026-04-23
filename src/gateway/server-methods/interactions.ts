@@ -5,7 +5,10 @@ import { createReplyPrefixOptions } from "../../channels/reply-prefix.js";
 import { SessionManager } from "@mariozechner/pi-coding-agent";
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
-import { type InteractionResponseMessage } from "../../agents/interactions/messages.js";
+import {
+  type InteractionResponseMessage,
+  stringifyInteractionResponseForLlm,
+} from "../../agents/interactions/messages.js";
 import {
   getPendingInteraction,
   resolvePendingInteraction,
@@ -40,12 +43,11 @@ import type { GatewayRequestHandlers } from "./types.js";
  * 5. On first resolution (!alreadyResolved):
  *    a. Persist an `interaction_response` row to the session transcript so
  *       history replay and session-transcript-repair pairing stay consistent.
- *    b. Call `requestHeartbeatNow` to wake the agent and start the next turn.
- *       The LLM will see the response via the `projectInteractionMessages`
- *       projection in `sanitizeSessionHistory` — no system-event bridge needed.
+ *    b. Start a normal chat run with the structured interaction response as
+ *       inbound content.
  */
 export const interactionHandlers: GatewayRequestHandlers = {
-  "chat.interactionRespond": ({ params, respond, context }) => {
+  "chat.interactionRespond": ({ params, respond, client, context }) => {
     if (!validateChatInteractionRespondParams(params)) {
       respond(
         false,
@@ -70,6 +72,7 @@ export const interactionHandlers: GatewayRequestHandlers = {
 
     // ── Primary path: live in-memory entry ──────────────────────────────────
     const existing = getPendingInteraction(interactionId);
+    context.logGateway.info(`[interaction] existing=${JSON.stringify(existing)}`);
     if (existing) {
       if (existing.sessionKey !== sessionKey) {
         respond(
@@ -79,7 +82,7 @@ export const interactionHandlers: GatewayRequestHandlers = {
         );
         return;
       }
-
+      context.logGateway.info(`[interaction] resolvePendingInteraction start id=${interactionId} status=${status} data=${JSON.stringify(data)} responseBy=${JSON.stringify(responseBy)}`);
       const outcome = resolvePendingInteraction({
         interactionId,
         sessionKey,
@@ -127,6 +130,7 @@ export const interactionHandlers: GatewayRequestHandlers = {
           status: outcome.status,
           data: outcome.data,
           responseBy,
+          client,
           context,
         });
       }
@@ -175,6 +179,7 @@ export const interactionHandlers: GatewayRequestHandlers = {
       status,
       data,
       responseBy,
+      client,
       context,
     });
   },
@@ -190,9 +195,11 @@ function writeResponseAndWake(params: {
   status: "submitted" | "cancelled";
   data: unknown;
   responseBy?: { userId?: string; channel?: string };
+  client: Parameters<GatewayRequestHandlers[string]>[0]["client"];
   context: Parameters<GatewayRequestHandlers[string]>[0]["context"];
 }) {
-  const { interactionId, component, runId, sessionKey, status, data, responseBy, context } = params;
+  const { interactionId, component, runId, sessionKey, status, data, responseBy, client, context } =
+    params;
   let persistedSessionId: string | undefined;
 
   context.logGateway.info(
@@ -243,10 +250,10 @@ function writeResponseAndWake(params: {
     );
   }
 
-  // ③ Start continuation run through the same gateway chat run pipeline.
+  // ③ Start a standard chat run using the interaction response as new input.
   try {
     const { cfg } = loadSessionEntry(sessionKey);
-    const continuationRunId = crypto.randomUUID();
+    const responseRunId = crypto.randomUUID();
     const agentId = resolveSessionAgentId({ sessionKey, config: cfg });
     const { onModelSelected: _onModelSelected, ...prefixOptions } = createReplyPrefixOptions({
       cfg,
@@ -256,22 +263,28 @@ function writeResponseAndWake(params: {
     const dispatcher = createReplyDispatcher({
       ...prefixOptions,
       onError: (err) =>
-        context.logGateway.warn(`[interaction] continuation dispatch error id=${interactionId}: ${String(err)}`),
+        context.logGateway.warn(`[interaction] dispatch error id=${interactionId}: ${String(err)}`),
       deliver: async () => {},
     });
-    const continuationBody = buildInteractionContinuationPrompt({
+    const responseMsgForLlm: InteractionResponseMessage = {
+      role: "interaction_response",
       interactionId,
+      component,
       status,
       data,
-    });
+      responseBy,
+      runId,
+      timestamp: new Date().toISOString(),
+    };
+    const inboundBody = stringifyInteractionResponseForLlm(responseMsgForLlm);
     context.logGateway.info(
-      `[interaction] continuation inbound summary requestRunId=${runId ?? "none"} sessionKey=${sessionKey} bodyPreview=${JSON.stringify(continuationBody).slice(0, 200)}`,
+      `[interaction] inbound response requestRunId=${runId ?? "none"} sessionKey=${sessionKey} bodyPreview=${JSON.stringify(inboundBody).slice(0, 200)}`,
     );
     const msgContext: MsgContext = {
-      Body: continuationBody,
-      RawBody: continuationBody,
-      CommandBody: continuationBody,
-      BodyForAgent: continuationBody,
+      Body: inboundBody,
+      RawBody: inboundBody,
+      CommandBody: inboundBody,
+      BodyForAgent: inboundBody,
       From: "interaction:user",
       To: "interaction:assistant",
       Provider: INTERNAL_MESSAGE_CHANNEL,
@@ -280,59 +293,33 @@ function writeResponseAndWake(params: {
       CommandAuthorized: true,
     };
     context.logGateway.info(
-      `[interaction] start continuation run id=${interactionId} continuationRunId=${continuationRunId}`,
+      `[interaction] start response run id=${interactionId} responseRunId=${responseRunId}`,
     );
     startChatRunPipeline({
       context,
       cfg,
-      runId: continuationRunId,
+      runId: responseRunId,
       rawSessionKey: sessionKey,
-      sessionId: persistedSessionId ?? continuationRunId,
+      sessionId: persistedSessionId ?? responseRunId,
       timeoutMs: resolveAgentTimeoutMs({ cfg }),
-      source: "interaction_continue",
+      source: "chat.send",
       msgContext,
       dispatcher,
+      toolEventSubscription: {
+        client,
+      },
       onSuccess: () =>
         context.logGateway.info(
-          `[interaction] continuation run finished id=${interactionId} continuationRunId=${continuationRunId}`,
+          `[interaction] response run finished id=${interactionId} responseRunId=${responseRunId}`,
         ),
       onError: (err) =>
         context.logGateway.warn(
-          `[interaction] continuation run failed id=${interactionId} continuationRunId=${continuationRunId}: ${String(err)}`,
+          `[interaction] response run failed id=${interactionId} responseRunId=${responseRunId}: ${String(err)}`,
         ),
     });
   } catch (err) {
     context.logGateway.warn(
-      `[interaction] continuation setup failed id=${interactionId}: ${String(err)}`,
+      `[interaction] response-run setup failed id=${interactionId}: ${String(err)}`,
     );
   }
-}
-
-function buildInteractionContinuationPrompt(params: {
-  interactionId: string;
-  status: "submitted" | "cancelled";
-  data: unknown;
-}): string {
-  const { interactionId, status, data } = params;
-  if (status === "cancelled") {
-    return `Interaction ${interactionId} was cancelled by the user.`;
-  }
-  if (!data || typeof data !== "object") {
-    return `Interaction ${interactionId} was submitted by the user.`;
-  }
-  const answers = (data as { answers?: unknown }).answers;
-  if (!answers || typeof answers !== "object") {
-    return `Interaction ${interactionId} was submitted by the user.`;
-  }
-  const lines = Object.entries(answers as Record<string, unknown>).map(([key, value]) => {
-    if (Array.isArray(value)) {
-      return `${key}: ${value.map((v) => String(v)).join(", ")}`;
-    }
-    return `${key}: ${String(value)}`;
-  });
-  return [
-    `Interaction ${interactionId} was submitted by the user.`,
-    "Use these answers to continue the conversation:",
-    ...lines,
-  ].join("\n");
 }

@@ -73,7 +73,7 @@ describe("handleChatEvent", () => {
     expect(ctx.activeRunBySession.get("agent:travel:main")).toBe("run-1");
   });
 
-  it("finalizes chat.final with only floating interactions (interaction_continue, no deltas)", () => {
+  it("finalizes empty chat.final by requesting history reload", () => {
     const ctx = createCtx();
     useChatStore.setState({
       pendingGenerationBySession: { "agent:travel:main": { runId: "run-cont" } },
@@ -99,16 +99,8 @@ describe("handleChatEvent", () => {
     });
 
     const st = useChatStore.getState();
-    expect(st.messages).toHaveLength(1);
-    expect(st.messages[0]?.role).toBe("assistant");
-    expect(st.messages[0]?.runId).toBe("run-cont");
-    expect(st.messages[0]?.contentBlocks?.[0]).toEqual({
-      type: "interaction",
-      interactionId: "route-platform-choice",
-    });
-    expect(st.pendingHistoryReloadKey).toBeNull();
-    expect(st.interactions["route-platform-choice"]?.messageId).toBe(
-      st.messages[0]?.id,
-    );
+    expect(st.messages).toHaveLength(0);
+    expect(st.pendingHistoryReloadKey).toBe("agent:travel:main");
+    expect(st.interactions["route-platform-choice"]?.messageId).toBeUndefined();
   });
 });

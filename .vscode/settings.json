@@ -9,7 +9,7 @@
     "editor.defaultFormatter": "oxc.oxc-vscode"
   },
   "[typescript]": {
-    "editor.defaultFormatter": "oxc.oxc-vscode"
+    "editor.defaultFormatter": "TypeScriptTeam.native-preview"
   },
   "[json]": {
     "editor.defaultFormatter": "vscode.json-language-features"

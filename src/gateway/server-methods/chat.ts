@@ -45,10 +45,8 @@ import {
   stripEnvelopeFromMessages,
 } from "../chat-sanitize.js";
 import {
-  GATEWAY_CLIENT_CAPS,
   GATEWAY_CLIENT_MODES,
   GATEWAY_CLIENT_NAMES,
-  hasGatewayClientCap,
 } from "../protocol/client-info.js";
 import {
   ErrorCodes,
@@ -1356,7 +1354,6 @@ export const chatHandlers: GatewayRequestHandlers = {
         },
       });
 
-      let agentRunStarted = false;
       startChatRunPipeline({
         context,
         cfg,
@@ -1367,34 +1364,15 @@ export const chatHandlers: GatewayRequestHandlers = {
         source: "chat.send",
         msgContext: ctx,
         dispatcher,
+        toolEventSubscription: {
+          client,
+          includeExistingSessionRuns: true,
+        },
         replyOptions: {
           images: parsedImages.length > 0 ? parsedImages : undefined,
           onModelSelected,
         },
-        onAgentRunStart: (runId) => {
-          agentRunStarted = true;
-          const connId =
-            typeof client?.connId === "string" ? client.connId : undefined;
-          const wantsToolEvents = hasGatewayClientCap(
-            client?.connect?.caps,
-            GATEWAY_CLIENT_CAPS.TOOL_EVENTS,
-          );
-          if (connId && wantsToolEvents) {
-            context.registerToolEventRecipient(runId, connId);
-            for (const [
-              activeRunId,
-              active,
-            ] of context.chatAbortControllers) {
-              if (
-                activeRunId !== runId &&
-                active.sessionKey === p.sessionKey
-              ) {
-                context.registerToolEventRecipient(activeRunId, connId);
-              }
-            }
-          }
-        },
-        onSuccess: () => {
+        onSuccess: ({ agentRunStarted }) => {
           if (!agentRunStarted) {
             const combinedReply = finalReplyParts
               .map((part) => part.trim())

@@ -7,7 +7,6 @@ import { logChatDebug } from "@/lib/chat-debug";
 import { handleAgentEvent } from "./handlers/agent-event";
 import { handleChatEvent } from "./handlers/chat-event";
 import type { BridgeRuntimeContext } from "./handlers/shared";
-import { setBridgeRunGuardClearHandler } from "./run-guard-session";
 
 export function useChatEventBridge() {
   useEffect(() => {
@@ -74,12 +73,8 @@ export function useChatEventBridge() {
       }
     };
 
-    setBridgeRunGuardClearHandler((sessionKey) => {
-      ctx.activeRunBySession.delete(sessionKey);
-    });
     registerChatDispatch(dispatch);
     return () => {
-      setBridgeRunGuardClearHandler(null);
       unregisterChatDispatch();
     };
   }, []);

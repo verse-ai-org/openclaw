@@ -185,52 +185,22 @@ export function finalizeChatRun(params: {
       );
       st.finalizeStream(runId);
     } else {
-      const floatingInteractions = Object.values(st.interactions).filter(
-        (i) => i.status === "pending" && !i.messageId,
+      const alreadyMerged =
+        Boolean(runId) &&
+        st.messages.some(
+          (m) => m.role === "assistant" && m.runId === runId,
+        );
+      logChatDebug(
+        "debug",
+        alreadyMerged
+          ? "finalizeChatRun: branch empty terminal (duplicate lifecycle+chat final — skip history reload)"
+          : "finalizeChatRun: branch resetStream + pendingHistoryReload (nothing to merge locally)",
+        { ...snapshot, runId, alreadyMerged },
+        { channel: "chat.finalize", sessionKey, runId, state: "final" },
       );
-      if (floatingInteractions.length > 0 && runId) {
-        floatingInteractions.sort((a, b) => a.createdAt - b.createdAt);
-        const interactionBlocks: ContentBlock[] = floatingInteractions.map(
-          (i) => ({
-            type: "interaction",
-            interactionId: i.interactionId,
-          }),
-        );
-        const msg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "",
-          ts: Date.now(),
-          runId,
-          contentBlocks: interactionBlocks,
-        };
-        logChatDebug(
-          "debug",
-          "finalizeChatRun: branch commitStreamAsMessage (floating <ask> only — interaction_continue)",
-          {
-            interactionIds: floatingInteractions.map((i) => i.interactionId),
-          },
-          { channel: "chat.finalize", sessionKey, runId },
-        );
-        st.commitStreamAsMessage(msg);
-      } else {
-        const alreadyMerged =
-          Boolean(runId) &&
-          st.messages.some(
-            (m) => m.role === "assistant" && m.runId === runId,
-          );
-        logChatDebug(
-          "debug",
-          alreadyMerged
-            ? "finalizeChatRun: branch empty terminal (duplicate lifecycle+chat final — skip history reload)"
-            : "finalizeChatRun: branch resetStream + pendingHistoryReload (nothing to merge locally)",
-          { ...snapshot, runId, alreadyMerged },
-          { channel: "chat.finalize", sessionKey, runId, state: "final" },
-        );
-        st.resetStream();
-        if (!alreadyMerged) {
-          st.setPendingHistoryReloadKey(sessionKey);
-        }
+      st.resetStream();
+      if (!alreadyMerged) {
+        st.setPendingHistoryReloadKey(sessionKey);
       }
     }
     st.setSending(false);

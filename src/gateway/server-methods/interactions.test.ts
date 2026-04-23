@@ -21,19 +21,25 @@ function makeContext() {
       warn: vi.fn(),
       error: vi.fn(),
     },
+    registerToolEventRecipient: vi.fn(),
   } as unknown as Parameters<(typeof interactionHandlers)["chat.interactionRespond"]>[0]["context"];
 }
 
-function invoke(params: Record<string, unknown>, respond = vi.fn()) {
+function invoke(
+  params: Record<string, unknown>,
+  respond = vi.fn(),
+  client: Parameters<(typeof interactionHandlers)["chat.interactionRespond"]>[0]["client"] = null,
+) {
+  const context = makeContext();
   interactionHandlers["chat.interactionRespond"]!({
     req: { type: "req", id: "1", method: "chat.interactionRespond" },
     params,
-    client: null,
+    client,
     isWebchatConnect: () => false,
     respond,
-    context: makeContext(),
+    context,
   });
-  return respond;
+  return { respond, context };
 }
 
 describe("chat.interactionRespond handler", () => {
@@ -43,7 +49,7 @@ describe("chat.interactionRespond handler", () => {
   });
 
   it("rejects when the interactionId has no pending entry", () => {
-    const respond = invoke({
+    const { respond } = invoke({
       sessionKey: "s1",
       interactionId: "missing",
       data: {},
@@ -62,7 +68,7 @@ describe("chat.interactionRespond handler", () => {
       interactionId: "iX",
       component: "question_flow",
     });
-    const respond = invoke({
+    const { respond } = invoke({
       sessionKey: "s-wrong",
       interactionId: "iX",
       data: {},
@@ -80,7 +86,7 @@ describe("chat.interactionRespond handler", () => {
       interactionId: "iY",
       component: "question_flow",
     });
-    const first = invoke({
+    const { respond: first } = invoke({
       sessionKey: "s1",
       interactionId: "iY",
       data: { answer: 1 },
@@ -93,7 +99,7 @@ describe("chat.interactionRespond handler", () => {
       status: "submitted",
       alreadyResolved: false,
     });
-    const second = invoke({
+    const { respond: second } = invoke({
       sessionKey: "s1",
       interactionId: "iY",
       data: { answer: 2 }, // ignored by the idempotent layer
@@ -109,13 +115,13 @@ describe("chat.interactionRespond handler", () => {
   });
 
   it("validates required params", () => {
-    const respond = invoke({ sessionKey: "s1" });
+    const { respond } = invoke({ sessionKey: "s1" });
     const [ok, _p, error] = respond.mock.calls[0]!;
     expect(ok).toBe(false);
     expect(error?.message).toMatch(/invalid/);
   });
 
-  it("starts a continuation chat run on first resolve", async () => {
+  it("starts a standard chat run on first resolve", async () => {
     const { startChatRunPipeline } = await import("./chat-run-starter.js");
 
     registerPendingInteraction({
@@ -164,7 +170,7 @@ describe("chat.interactionRespond handler", () => {
     ]);
 
     // No registerPendingInteraction — simulates gateway restart.
-    const respond = invoke({
+    const { respond } = invoke({
       sessionKey: "agent:travel-planner:restart",
       interactionId: "restarted-intake",
       data: { answers: {} },
@@ -207,7 +213,7 @@ describe("chat.interactionRespond handler", () => {
       },
     ]);
 
-    const respond = invoke({
+    const { respond } = invoke({
       sessionKey: "agent:travel-planner:done",
       interactionId: "done-intake",
       data: {},
@@ -219,7 +225,7 @@ describe("chat.interactionRespond handler", () => {
     expect(payload).toMatchObject({ alreadyResolved: true });
   });
 
-  it("does NOT start continuation run on a duplicate (alreadyResolved) call", async () => {
+  it("does NOT start a second run on a duplicate (alreadyResolved) call", async () => {
     const { startChatRunPipeline } = await import("./chat-run-starter.js");
 
     registerPendingInteraction({
@@ -231,9 +237,39 @@ describe("chat.interactionRespond handler", () => {
     // first call
     invoke({ sessionKey: "s2", interactionId: "iZ", data: {}, status: "submitted" });
     vi.clearAllMocks();
-    // second call — alreadyResolved, should NOT trigger another heartbeat
+    // second call — alreadyResolved, should NOT trigger another run
     invoke({ sessionKey: "s2", interactionId: "iZ", data: {}, status: "submitted" });
 
     expect(startChatRunPipeline).not.toHaveBeenCalled();
+  });
+
+  it("registers tool-event recipient for interaction response run when client supports tool-events", async () => {
+    const { startChatRunPipeline } = await import("./chat-run-starter.js");
+    registerPendingInteraction({
+      sessionKey: "agent:travel-planner:tool-events",
+      runId: "r-tool-events",
+      interactionId: "tool-events-intake",
+      component: "question_flow",
+    });
+    const client = {
+      connId: "conn-1",
+      connect: { caps: ["tool-events"] },
+    } as Parameters<(typeof interactionHandlers)["chat.interactionRespond"]>[0]["client"];
+    const { context } = invoke(
+      {
+        sessionKey: "agent:travel-planner:tool-events",
+        interactionId: "tool-events-intake",
+        data: { answers: { destination: ["osaka"] } },
+        status: "submitted",
+      },
+      vi.fn(),
+      client,
+    );
+    expect(startChatRunPipeline).toHaveBeenCalledTimes(1);
+    const starterArg = vi.mocked(startChatRunPipeline).mock.calls[0]?.[0];
+    expect(starterArg?.toolEventSubscription).toMatchObject({
+      client,
+    });
+    expect(context.registerToolEventRecipient).not.toHaveBeenCalled();
   });
 });
