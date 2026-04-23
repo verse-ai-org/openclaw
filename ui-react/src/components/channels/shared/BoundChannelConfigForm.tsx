@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useChannelsStore } from "@/store/channels.store";
 import type { ConfigUiHints } from "@/types/channels";
 import { ChannelConfigForm } from "@/components/channels/shared/ChannelConfigForm";
@@ -14,6 +15,7 @@ export function BoundChannelConfigForm({
   onSaved: () => void;
 }) {
   const store = useChannelsStore();
+  const [reloading, setReloading] = useState(false);
   return (
     <ChannelConfigForm
       channelId={channelId}
@@ -23,12 +25,20 @@ export function BoundChannelConfigForm({
       configSaving={store.configSaving}
       configSchemaLoading={store.configSchemaLoading}
       configFormDirty={store.configFormDirty}
+      configReloading={reloading}
       onPatch={store.patchConfig}
       onSave={async () => {
         const ok = await store.saveConfig();
         if (ok) { onSaved(); }
       }}
-      onReload={() => void store.reloadConfig()}
+      onReload={async () => {
+        setReloading(true);
+        try {
+          await Promise.all([store.reloadConfig(), store.fetchStatus(false)]);
+        } finally {
+          setReloading(false);
+        }
+      }}
     />
   );
 }

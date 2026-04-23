@@ -73,6 +73,8 @@ interface GatewayState {
   reset: () => void;
   /** Mark that we are intentionally waiting for Gateway to restart. */
   beginRestart: () => void;
+  /** Clear intentional restart state when no restart actually happens. */
+  endRestart: () => void;
 }
 
 const MAX_EVENT_LOG = 250;
@@ -124,6 +126,7 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
   },
 
   beginRestart: () => set({ restarting: true }),
+  endRestart: () => set({ restarting: false }),
 
   setDisconnected: ({ code, reason, error }) => {
     // Code 1012 = Service Restart (expected, not an error)

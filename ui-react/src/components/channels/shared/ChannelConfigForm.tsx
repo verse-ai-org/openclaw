@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -8,7 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
+import { CircleHelpIcon } from "lucide-react";
 import type { ConfigUiHints } from "@/types/channels";
 
 type JsonSchema = {
@@ -24,6 +27,24 @@ type JsonSchema = {
   enum?: unknown[];
   default?: unknown;
 };
+
+const FEISHU_DEFAULT_VALUES: Record<string, unknown> = {
+  connectionMode: "websocket",
+  dmPolicy: "open",
+  domain: "feishu",
+  groupPolicy: "open",
+  renderMode: "card",
+  requireMention: true,
+};
+
+const FEISHU_REQUIRED_FIELD_HINTS: Record<string, string> = {
+  appId: "Get your App ID from Feishu Open Platform -> App Credentials.",
+  appSecret: "Get your App Secret from Feishu Open Platform -> App Credentials.",
+  verificationToken: "Required in webhook mode for event verification.",
+  webhookPath: "Webhook callback path, for example: /feishu/events.",
+};
+
+const FEISHU_HIDDEN_OPTIONAL_KEYS = new Set(["enabled", "accounts"]);
 
 function getHint(path: Array<string | number>, hints: ConfigUiHints) {
   return hints[path.join(".")];
@@ -74,13 +95,26 @@ function resolveNode(schema: JsonSchema, path: Array<string | number>): JsonSche
   return cur;
 }
 
-function FieldWrapper({ label, help, required, children }: { label?: string; help?: string; required?: boolean; children: React.ReactNode }) {
+function FieldWrapper({
+  label,
+  help,
+  required,
+  labelHint,
+  children,
+}: {
+  label?: string;
+  help?: React.ReactNode;
+  required?: boolean;
+  labelHint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       {label && (
         <div className="flex items-center gap-1">
           <Label className="text-sm font-medium">{label}</Label>
           {required && <span className="text-[10px] font-bold text-red-500 leading-none">*</span>}
+          {labelHint}
         </div>
       )}
       {help && <p className="text-xs text-muted-foreground">{help}</p>}
@@ -118,9 +152,20 @@ interface RenderNodeProps {
   onPatch: (path: Array<string | number>, value: unknown) => void;
   showLabel?: boolean;
   required?: boolean;
+  labelHint?: React.ReactNode;
 }
 
-function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel = true, required }: RenderNodeProps) {
+function RenderNode({
+  schema,
+  path,
+  config,
+  hints,
+  disabled,
+  onPatch,
+  showLabel = true,
+  required,
+  labelHint,
+}: RenderNodeProps) {
   const hint = getHint(path, hints) as { label?: string; help?: string; placeholder?: string; sensitive?: boolean; order?: number } | undefined;
   const label = hint?.label ?? schema.title ?? String(path[path.length - 1] ?? "");
   const help = hint?.help ?? schema.description;
@@ -137,7 +182,12 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
     const literals = nonNull.flatMap((v) => v.enum ?? []);
     if (literals.length === nonNull.length) {
       return (
-        <FieldWrapper label={showLabel ? label : undefined} help={help} required={required}>
+        <FieldWrapper
+          label={showLabel ? label : undefined}
+          help={help}
+          required={required}
+          labelHint={labelHint}
+        >
           <EnumSelect value={value} options={literals} defaultVal={schema.default} disabled={disabled} onSelect={(v) => onPatch(path, v)} />
         </FieldWrapper>
       );
@@ -169,7 +219,7 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
     const items = (value as unknown[]) ?? [];
     const itemSchema = schema.items;
     return (
-      <FieldWrapper label={showLabel ? label : undefined} help={help}>
+      <FieldWrapper label={showLabel ? label : undefined} help={help} labelHint={labelHint}>
         <div className="space-y-2">
           {items.map((_, idx) => (
             <div key={idx} className="flex gap-2 items-start">
@@ -205,7 +255,12 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
 
   if (type === "number" || type === "integer") {
     return (
-      <FieldWrapper label={showLabel ? label : undefined} help={help} required={required}>
+      <FieldWrapper
+        label={showLabel ? label : undefined}
+        help={help}
+        required={required}
+        labelHint={labelHint}
+      >
         <Input type="number" value={value != null ? String(value) : ""} placeholder={placeholder} disabled={disabled}
           onChange={(e) => {
             const v = e.target.value.trim();
@@ -219,14 +274,24 @@ function RenderNode({ schema, path, config, hints, disabled, onPatch, showLabel 
 
   if (schema.enum) {
     return (
-      <FieldWrapper label={showLabel ? label : undefined} help={help} required={required}>
+      <FieldWrapper
+        label={showLabel ? label : undefined}
+        help={help}
+        required={required}
+        labelHint={labelHint}
+      >
         <EnumSelect value={value} options={schema.enum} defaultVal={schema.default} disabled={disabled} onSelect={(v) => onPatch(path, v)} />
       </FieldWrapper>
     );
   }
 
   return (
-    <FieldWrapper label={showLabel ? label : undefined} help={help} required={required}>
+    <FieldWrapper
+      label={showLabel ? label : undefined}
+      help={help}
+      required={required}
+      labelHint={labelHint}
+    >
       <Input
         type={sensitive ? "password" : "text"}
         value={typeof value === "string" ? value : (value != null ? String(value) : "")}
@@ -259,7 +324,7 @@ function ExtraChannelFields({ channelValue }: { channelValue: Record<string, unk
 
 export function ChannelConfigForm({
   channelId, configForm, configSchema, configUiHints,
-  configSaving, configSchemaLoading, configFormDirty,
+  configSaving, configSchemaLoading, configFormDirty, configReloading = false,
   onPatch, onSave, onReload,
 }: {
   channelId: string;
@@ -269,15 +334,71 @@ export function ChannelConfigForm({
   configSaving: boolean;
   configSchemaLoading: boolean;
   configFormDirty: boolean;
+  configReloading?: boolean;
   onPatch: (path: Array<string | number>, value: unknown) => void;
   onSave: () => void;
   onReload: () => void;
 }) {
-  const disabled = configSaving || configSchemaLoading;
+  const disabled = configSaving || configSchemaLoading || configReloading;
   const schema = configSchema as JsonSchema | null;
   const channelNode = schema ? resolveNode(schema, ["channels", channelId]) : null;
   const rawChannels = configForm?.channels as Record<string, unknown> | undefined;
   const channelValue = (rawChannels?.[channelId] as Record<string, unknown>) ?? {};
+  const isFeishu = channelId === "feishu";
+  const [defaultsInitialized, setDefaultsInitialized] = useState(false);
+  const [optionalExpanded, setOptionalExpanded] = useState(false);
+
+  useEffect(() => {
+    setDefaultsInitialized(false);
+    setOptionalExpanded(false);
+  }, [channelId]);
+
+  useEffect(() => {
+    if (!isFeishu || defaultsInitialized || !configForm) return;
+    for (const [key, val] of Object.entries(FEISHU_DEFAULT_VALUES)) {
+      const current = channelValue[key];
+      if (
+        current === undefined ||
+        current === null ||
+        (typeof current === "string" && current.trim() === "")
+      ) {
+        onPatch(["channels", channelId, key], val);
+      }
+    }
+    // Mark initialized after first pass so user can intentionally clear values.
+    setDefaultsInitialized(true);
+  }, [isFeishu, defaultsInitialized, configForm, channelValue, onPatch, channelId]);
+
+  const feishuRequiredKeys = useMemo(() => {
+    if (!isFeishu) return [] as string[];
+    const mode =
+      typeof channelValue.connectionMode === "string" && channelValue.connectionMode.trim()
+        ? channelValue.connectionMode
+        : "websocket";
+    return mode === "webhook"
+      ? ["appId", "appSecret", "verificationToken", "webhookPath"]
+      : ["appId", "appSecret"];
+  }, [isFeishu, channelValue.connectionMode]);
+
+  const feishuOptionalKeys = useMemo(() => {
+    if (!isFeishu || !channelNode?.properties) return [] as string[];
+    const requiredSet = new Set(feishuRequiredKeys);
+    const priorityMap = new Map(
+      Object.keys(FEISHU_DEFAULT_VALUES).map((key, idx) => [key, idx]),
+    );
+    return Object.keys(channelNode.properties)
+      .filter((key) => !requiredSet.has(key) && !FEISHU_HIDDEN_OPTIONAL_KEYS.has(key))
+      .sort((a, b) => {
+        const pa = priorityMap.get(a);
+        const pb = priorityMap.get(b);
+        if (pa !== undefined || pb !== undefined) {
+          if (pa === undefined) return 1;
+          if (pb === undefined) return -1;
+          return pa - pb;
+        }
+        return a.localeCompare(b);
+      });
+  }, [isFeishu, channelNode, feishuRequiredKeys]);
 
   return (
     <div className="mt-4 space-y-4">
@@ -287,16 +408,123 @@ export function ChannelConfigForm({
         <p className="text-xs text-muted-foreground">Loading schema…</p>
       ) : channelNode && configForm ? (
         <>
-          <RenderNode
-            schema={channelNode}
-            path={["channels", channelId]}
-            config={configForm}
-            hints={configUiHints}
-            disabled={disabled}
-            onPatch={onPatch}
-            showLabel={false}
-          />
-          <ExtraChannelFields channelValue={channelValue} />
+          {isFeishu ? (
+            <div className="space-y-5">
+              <div className="rounded-xl border bg-card p-4 shadow-sm space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Required Fields</p>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Minimum setup
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  {feishuRequiredKeys.map((key) => {
+                    const fieldSchema = channelNode.properties?.[key];
+                    if (!fieldSchema) return null;
+                    const help = FEISHU_REQUIRED_FIELD_HINTS[key];
+                    const showHoverHint = key === "appId" || key === "appSecret";
+                    const hintPath = ["channels", channelId, key];
+                    const hint = configUiHints[hintPath.join(".")] ?? {};
+                    const mergedHints = {
+                      ...configUiHints,
+                      [hintPath.join(".")]: {
+                        ...(typeof hint === "object" && hint ? hint : {}),
+                        ...(help && !showHoverHint ? { help } : {}),
+                      },
+                    } as ConfigUiHints;
+                    return (
+                      <div key={key} className="rounded-lg bg-muted/25 border border-border/60 p-3">
+                        <RenderNode
+                          schema={fieldSchema}
+                          path={hintPath}
+                          config={configForm}
+                          hints={mergedHints}
+                          disabled={disabled}
+                          onPatch={onPatch}
+                          required
+                          labelHint={
+                            showHoverHint ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                                    aria-label={`${key} help`}
+                                  >
+                                    <CircleHelpIcon className="size-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" sideOffset={8}>
+                                  {help}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : undefined
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {feishuOptionalKeys.length > 0 && (
+                <div className="rounded-xl border bg-card p-4 shadow-sm space-y-4">
+                  <div className="grid grid-cols-[minmax(120px,1fr)_auto] items-center gap-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold">Optional Settings</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={disabled}
+                      onClick={() => setOptionalExpanded((v) => !v)}
+                    >
+                      {optionalExpanded ? "Collapse" : "Expand"}
+                    </Button>
+                  </div>
+                  {optionalExpanded && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {feishuOptionalKeys.map((key) => {
+                          const fieldSchema = channelNode.properties?.[key];
+                          if (!fieldSchema) return null;
+                          return (
+                            <div key={key} className="rounded-lg bg-muted/25 border border-border/60 p-3">
+                              <RenderNode
+                                schema={fieldSchema}
+                                path={["channels", channelId, key]}
+                                config={configForm}
+                                hints={configUiHints}
+                                disabled={disabled}
+                                onPatch={onPatch}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="rounded-md border border-dashed px-3 py-2 text-[11px] text-muted-foreground">
+                        Multi-account field (`accounts`) is hidden in this UI to keep setup simple.
+                        Use config file editing if you need advanced multi-account setup.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <RenderNode
+                schema={channelNode}
+                path={["channels", channelId]}
+                config={configForm}
+                hints={configUiHints}
+                disabled={disabled}
+                onPatch={onPatch}
+                showLabel={false}
+              />
+              <ExtraChannelFields channelValue={channelValue} />
+            </>
+          )}
         </>
       ) : schema && !channelNode ? (
         <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 space-y-1">
@@ -315,7 +543,7 @@ export function ChannelConfigForm({
           {configSaving ? "Saving…" : "Save"}
         </Button>
         <Button size="sm" variant="outline" disabled={disabled} onClick={onReload}>
-          Reload
+          {configReloading ? "Reloading…" : "Reload"}
         </Button>
       </div>
     </div>

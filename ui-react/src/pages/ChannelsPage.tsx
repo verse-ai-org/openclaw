@@ -40,6 +40,7 @@ export function ChannelsPage() {
   const [activeView, setActiveView] = useState<"all" | "active" | "disabled">("all");
   const isConnected = useGatewayStore((s) => s.status === "connected");
   const beginRestart = useGatewayStore((s) => s.beginRestart);
+  const endRestart = useGatewayStore((s) => s.endRestart);
   const {
     snapshot,
     loading,
@@ -439,7 +440,10 @@ export function ChannelsPage() {
             }
           } catch {
             // RPC failed — Gateway restarted and closed the WS before responding.
-            // Keep restarting=true; setConnected() will clear it on reconnect.
+            // If we are still connected, no restart happened; clear the overlay.
+            if (useGatewayStore.getState().status === "connected") {
+              endRestart();
+            }
           }
         }}
         onCancel={() => setPendingAction(null)}

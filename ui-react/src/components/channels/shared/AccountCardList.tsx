@@ -25,28 +25,31 @@ export function AccountCardList({
           | { bot?: { username?: string } }
           | undefined;
         const botUsername = probe?.bot?.username;
+        const isDefaultAccount = account.accountId === "default";
         const title = botUsername
           ? `@${botUsername}`
-          : account.name || account.accountId;
+          : isDefaultAccount
+            ? "Default account"
+            : account.name || account.accountId;
 
         return (
           <div
             key={account.accountId}
-            className="rounded-lg border bg-muted/30 p-3 space-y-2"
+            className="rounded-lg border bg-muted/30 p-3 space-y-3"
           >
-            <div className="flex items-baseline justify-between gap-2">
+            <div className="grid grid-cols-[minmax(120px,1fr)_auto] items-center gap-3">
               <span className="text-sm font-medium truncate">{title}</span>
-              <span className="text-xs text-muted-foreground truncate">
+              <span className="text-xs text-muted-foreground font-mono text-right min-w-[72px] truncate">
                 {account.accountId}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <div className="grid grid-cols-[minmax(120px,1fr)_auto] items-center gap-x-3 gap-y-1 text-xs">
               <span className="text-muted-foreground">Running</span>
-              <span className="font-mono">{runningStatus(account)}</span>
+              <span className="font-mono text-right min-w-[56px]">{runningStatus(account)}</span>
 
               <span className="text-muted-foreground">Configured</span>
-              <span className="font-mono">
+              <span className="font-mono text-right min-w-[56px]">
                 {account.configured ? "Yes" : "No"}
               </span>
 
@@ -54,15 +57,15 @@ export function AccountCardList({
                 account.connected !== null && (
                   <>
                     <span className="text-muted-foreground">Connected</span>
-                    <span className="font-mono">
+                    <span className="font-mono text-right min-w-[56px]">
                       {account.connected ? "Yes" : "No"}
                     </span>
                   </>
                 )}
 
               <span className="text-muted-foreground">Last inbound</span>
-              <span className="font-mono">
-                {relativeTime(account.lastInboundAt)}
+              <span className="font-mono text-right min-w-[56px]">
+                {account.lastInboundAt ? relativeTime(account.lastInboundAt) : "No messages yet"}
               </span>
             </div>
 
