@@ -185,9 +185,6 @@ export const channelsHandlers: GatewayRequestHandlers = {
           channel: channelId as never,
           accountId,
         });
-        if (snapshot.lastInboundAt == null) {
-          snapshot.lastInboundAt = activity.inboundAt;
-        }
         if (snapshot.lastOutboundAt == null) {
           snapshot.lastOutboundAt = activity.outboundAt;
         }

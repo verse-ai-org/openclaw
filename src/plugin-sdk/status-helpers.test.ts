@@ -84,7 +84,6 @@ describe("buildBaseAccountStatusSnapshot", () => {
       lastStopAt: null,
       lastError: null,
       probe: undefined,
-      lastInboundAt: null,
       lastOutboundAt: null,
     });
   });
@@ -108,7 +107,6 @@ describe("buildComputedAccountStatusSnapshot", () => {
       lastStopAt: null,
       lastError: null,
       probe: undefined,
-      lastInboundAt: null,
       lastOutboundAt: null,
     });
   });

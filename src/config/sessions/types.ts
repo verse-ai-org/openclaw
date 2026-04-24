@@ -22,6 +22,19 @@ export type SessionOrigin = {
   threadId?: string | number;
 };
 
+export type SessionIdentityHints = {
+  /**
+   * Auto-learned delivery targets by channel (e.g. feishu -> user:ou_xxx).
+   * This keeps channel-specific parsing out of callers and allows adding
+   * new channels (wechat, telegram, etc.) without changing the storage shape.
+   */
+  recipientsByChannel?: Record<string, string>;
+  /** @deprecated Legacy single-channel field kept for migration compatibility. */
+  feishuDirectUserId?: string;
+  /** Epoch milliseconds when hints were last refreshed. */
+  updatedAt?: number;
+};
+
 export type SessionAcpIdentitySource = "ensure" | "status" | "event";
 
 export type SessionAcpIdentityState = "pending" | "resolved";
@@ -160,6 +173,7 @@ export type SessionEntry = {
   groupChannel?: string;
   space?: string;
   origin?: SessionOrigin;
+  identityHints?: SessionIdentityHints;
   deliveryContext?: DeliveryContext;
   lastChannel?: SessionChannelId;
   lastTo?: string;

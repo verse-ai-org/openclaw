@@ -107,17 +107,10 @@ export function formatGatewayChannelsStatusLines(payload: Record<string, unknown
       if (typeof account.connected === "boolean") {
         bits.push(account.connected ? "connected" : "disconnected");
       }
-      const inboundAt =
-        typeof account.lastInboundAt === "number" && Number.isFinite(account.lastInboundAt)
-          ? account.lastInboundAt
-          : null;
       const outboundAt =
         typeof account.lastOutboundAt === "number" && Number.isFinite(account.lastOutboundAt)
           ? account.lastOutboundAt
           : null;
-      if (inboundAt) {
-        bits.push(`in:${formatTimeAgo(Date.now() - inboundAt)}`);
-      }
       if (outboundAt) {
         bits.push(`out:${formatTimeAgo(Date.now() - outboundAt)}`);
       }

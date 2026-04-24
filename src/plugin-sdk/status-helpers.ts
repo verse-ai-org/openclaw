@@ -5,7 +5,6 @@ type RuntimeLifecycleSnapshot = {
   lastStartAt?: number | null;
   lastStopAt?: number | null;
   lastError?: string | null;
-  lastInboundAt?: number | null;
   lastOutboundAt?: number | null;
 };
 
@@ -82,7 +81,6 @@ export function buildBaseAccountStatusSnapshot(params: {
     enabled: account.enabled,
     configured: account.configured,
     ...buildRuntimeAccountStatusSnapshot({ runtime, probe }),
-    lastInboundAt: runtime?.lastInboundAt ?? null,
     lastOutboundAt: runtime?.lastOutboundAt ?? null,
   };
 }

@@ -16,9 +16,11 @@ import type { OpenClawConfig } from "../../config/config.js";
 import { loadConfig } from "../../config/config.js";
 import { GATEWAY_CLIENT_IDS, GATEWAY_CLIENT_MODES } from "../../gateway/protocol/client-info.js";
 import { getToolResult, runMessageAction } from "../../infra/outbound/message-action-runner.js";
+import { resolveAutoRecipient } from "../../infra/outbound/recipient-resolver.js";
 import { normalizeTargetForProvider } from "../../infra/outbound/target-normalization.js";
 import { POLL_CREATION_PARAM_DEFS, POLL_CREATION_PARAM_NAMES } from "../../poll-params.js";
 import { normalizeAccountId } from "../../routing/session-key.js";
+import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { stripReasoningTagsFromText } from "../../shared/text/reasoning-tags.js";
 import { normalizeMessageChannel } from "../../utils/message-channel.js";
 import { resolveSessionAgentId } from "../agent-scope.js";
@@ -29,6 +31,7 @@ import { jsonResult, readNumberParam, readStringParam } from "./common.js";
 import { resolveGatewayOptions } from "./gateway.js";
 
 const AllMessageActions = CHANNEL_MESSAGE_ACTION_NAMES;
+const log = createSubsystemLogger("message-tool");
 const EXPLICIT_TARGET_ACTIONS = new Set<ChannelMessageActionName>([
   "send",
   "sendWithEffect",
@@ -708,15 +711,57 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
       const action = readStringParam(params, "action", {
         required: true,
       }) as ChannelMessageActionName;
+      const explicitTarget =
+        (typeof params.target === "string" && params.target.trim().length > 0) ||
+        (typeof params.to === "string" && params.to.trim().length > 0) ||
+        (typeof params.channelId === "string" && params.channelId.trim().length > 0) ||
+        (Array.isArray(params.targets) &&
+          params.targets.some((value) => typeof value === "string" && value.trim().length > 0));
+      const requestedChannel = normalizeMessageChannel(readStringParam(params, "channel"));
+      if (!explicitTarget && actionNeedsExplicitTarget(action)) {
+        const senderCandidates = [options?.requesterSenderId].filter(
+          (value): value is string => typeof value === "string" && value.trim().length > 0,
+        );
+        const autoFillChannel =
+          !requestedChannel || requestedChannel === "feishu" || requestedChannel === "lark"
+            ? "feishu"
+            : requestedChannel === "openclaw-weixin" ||
+                requestedChannel === "weixin" ||
+                requestedChannel === "wechat" ||
+                requestedChannel === "wx"
+              ? "openclaw-weixin"
+              : null;
+        if (autoFillChannel) {
+          const resolved = resolveAutoRecipient({
+            channel: autoFillChannel,
+            cfg,
+            agentSessionKey: options?.agentSessionKey,
+            senderCandidates,
+          });
+          if (resolved.ok) {
+            if (!readStringParam(params, "channel")) {
+              params.channel = resolved.channel;
+            }
+            params.target = resolved.target;
+            log.debug(
+              `auto-filled ${resolved.channel} target canonical=${resolved.canonical} matchedBy=${resolved.matchedBy}`,
+            );
+          } else {
+            log.debug(`skipped ${autoFillChannel} auto-fill reason=${resolved.reason}`);
+          }
+        } else {
+          log.debug(`skipped auto-fill reason=channel-mismatch channel=${requestedChannel}`);
+        }
+      }
       const requireExplicitTarget = options?.requireExplicitTarget === true;
       if (requireExplicitTarget && actionNeedsExplicitTarget(action)) {
-        const explicitTarget =
+        const hasExplicitTarget =
           (typeof params.target === "string" && params.target.trim().length > 0) ||
           (typeof params.to === "string" && params.to.trim().length > 0) ||
           (typeof params.channelId === "string" && params.channelId.trim().length > 0) ||
           (Array.isArray(params.targets) &&
             params.targets.some((value) => typeof value === "string" && value.trim().length > 0));
-        if (!explicitTarget) {
+        if (!hasExplicitTarget) {
           throw new Error(
             "Explicit message target required for this run. Provide target/targets (and channel when needed).",
           );

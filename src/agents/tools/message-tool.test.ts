@@ -7,6 +7,9 @@ import { createMessageTool } from "./message-tool.js";
 
 const mocks = vi.hoisted(() => ({
   runMessageAction: vi.fn(),
+  loadSessionStore: vi.fn(),
+  resolveSessionStoreEntry: vi.fn(),
+  resolveStorePath: vi.fn(),
 }));
 
 vi.mock("../../infra/outbound/message-action-runner.js", async () => {
@@ -19,8 +22,26 @@ vi.mock("../../infra/outbound/message-action-runner.js", async () => {
   };
 });
 
+vi.mock("../../config/sessions.js", async () => {
+  const actual = await vi.importActual<typeof import("../../config/sessions.js")>(
+    "../../config/sessions.js",
+  );
+  return {
+    ...actual,
+    loadSessionStore: mocks.loadSessionStore,
+    resolveSessionStoreEntry: mocks.resolveSessionStoreEntry,
+    resolveStorePath: mocks.resolveStorePath,
+  };
+});
+
 function mockSendResult(overrides: { channel?: string; to?: string } = {}) {
   mocks.runMessageAction.mockClear();
+  mocks.loadSessionStore.mockReset();
+  mocks.resolveSessionStoreEntry.mockReset();
+  mocks.resolveStorePath.mockReset();
+  mocks.resolveStorePath.mockReturnValue("/tmp/session-store.json");
+  mocks.loadSessionStore.mockReturnValue({});
+  mocks.resolveSessionStoreEntry.mockReturnValue({ existing: undefined });
   mocks.runMessageAction.mockResolvedValue({
     kind: "send",
     action: "send",
@@ -466,5 +487,159 @@ describe("message tool sandbox passthrough", () => {
     });
 
     expect(call?.requesterSenderId).toBe("1234567890");
+  });
+
+  it("auto-fills feishu target from identityLinks with unique sender match", async () => {
+    mockSendResult({ channel: "feishu", to: "user:ou_abc" });
+
+    const call = await executeSend({
+      toolOptions: {
+        requesterSenderId: "web:leo",
+        config: {
+          session: {
+            identityLinks: {
+              leonard: ["web:leo", "feishu:ou_abc"],
+            },
+          },
+        } as never,
+      },
+      action: {
+        message: "你好",
+      },
+    });
+
+    expect(call?.params?.channel).toBe("feishu");
+    expect(call?.params?.target).toBe("user:ou_abc");
+  });
+
+  it("does not auto-fill feishu target when sender matches multiple canonicals", async () => {
+    mockSendResult({ channel: "telegram", to: "telegram:123" });
+
+    const call = await executeSend({
+      toolOptions: {
+        requesterSenderId: "web:shared",
+        config: {
+          session: {
+            identityLinks: {
+              userA: ["web:shared", "feishu:ou_a"],
+              userB: ["web:shared", "feishu:ou_b"],
+            },
+          },
+        } as never,
+      },
+      action: {
+        message: "你好",
+      },
+    });
+
+    expect(call?.params?.target).toBeUndefined();
+    expect(call?.params?.channel).toBeUndefined();
+  });
+
+  it("does not auto-fill feishu target when channel is explicitly non-feishu", async () => {
+    mockSendResult({ channel: "telegram", to: "telegram:123" });
+
+    const call = await executeSend({
+      toolOptions: {
+        requesterSenderId: "web:leo",
+        config: {
+          session: {
+            identityLinks: {
+              leonard: ["web:leo", "feishu:ou_abc"],
+            },
+          },
+        } as never,
+      },
+      action: {
+        channel: "telegram",
+        message: "hello",
+      },
+    });
+
+    expect(call?.params?.channel).toBe("telegram");
+    expect(call?.params?.target).toBeUndefined();
+  });
+
+  it("auto-fills feishu target from persisted session identity hints", async () => {
+    mockSendResult({ channel: "feishu", to: "user:ou_auto" });
+    mocks.loadSessionStore.mockReturnValue({
+      "agent:main:main": {
+        sessionId: "s1",
+        updatedAt: Date.now(),
+        identityHints: {
+          recipientsByChannel: {
+            feishu: "user:ou_auto",
+          },
+          feishuDirectUserId: "ou_auto",
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    mocks.resolveSessionStoreEntry.mockReturnValue({
+      existing: {
+        sessionId: "s1",
+        updatedAt: Date.now(),
+        identityHints: {
+          recipientsByChannel: {
+            feishu: "user:ou_auto",
+          },
+          feishuDirectUserId: "ou_auto",
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    const call = await executeSend({
+      toolOptions: {
+        agentSessionKey: "agent:main:main",
+        config: { session: {} } as never,
+      },
+      action: {
+        message: "你好",
+      },
+    });
+
+    expect(call?.params?.channel).toBe("feishu");
+    expect(call?.params?.target).toBe("user:ou_auto");
+  });
+
+  it("auto-fills weixin target from persisted session identity hints when channel is openclaw-weixin", async () => {
+    mockSendResult({ channel: "openclaw-weixin", to: "wxid_auto@im.wechat" });
+    mocks.loadSessionStore.mockReturnValue({
+      "agent:main:main": {
+        sessionId: "s1",
+        updatedAt: Date.now(),
+        identityHints: {
+          recipientsByChannel: {
+            "openclaw-weixin": "wxid_auto@im.wechat",
+          },
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    mocks.resolveSessionStoreEntry.mockReturnValue({
+      existing: {
+        sessionId: "s1",
+        updatedAt: Date.now(),
+        identityHints: {
+          recipientsByChannel: {
+            "openclaw-weixin": "wxid_auto@im.wechat",
+          },
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    const call = await executeSend({
+      toolOptions: {
+        agentSessionKey: "agent:main:main",
+        config: { session: {} } as never,
+      },
+      action: {
+        channel: "openclaw-weixin",
+        message: "你好",
+      },
+    });
+    expect(call?.params?.channel).toBe("openclaw-weixin");
+    expect(call?.params?.target).toBe("wxid_auto@im.wechat");
   });
 });

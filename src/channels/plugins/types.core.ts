@@ -119,7 +119,6 @@ export type ChannelAccountSnapshot = {
   lastError?: string | null;
   lastStartAt?: number | null;
   lastStopAt?: number | null;
-  lastInboundAt?: number | null;
   lastOutboundAt?: number | null;
   busy?: boolean;
   activeRuns?: number;

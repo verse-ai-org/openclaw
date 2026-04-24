@@ -1,15 +1,8 @@
 import type { ChannelAccountSnapshot } from "@/types/channels";
 import { cn } from "@/lib/utils";
-import { relativeTime } from "@/lib/relative-time";
 
 function runningStatus(account: ChannelAccountSnapshot): string {
   if (account.running) return "Yes";
-  if (
-    account.lastInboundAt &&
-    Date.now() - account.lastInboundAt < 10 * 60 * 1000
-  ) {
-    return "Active";
-  }
   return "No";
 }
 
@@ -63,10 +56,6 @@ export function AccountCardList({
                   </>
                 )}
 
-              <span className="text-muted-foreground">Last inbound</span>
-              <span className="font-mono text-right min-w-[56px]">
-                {account.lastInboundAt ? relativeTime(account.lastInboundAt) : "No messages yet"}
-              </span>
             </div>
 
             {account.lastError && (

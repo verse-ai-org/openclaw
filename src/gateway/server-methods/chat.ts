@@ -73,6 +73,9 @@ import {
 import { formatForLog } from "../ws-log.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
 import { setGatewayDedupeEntry } from "./agent-wait-dedupe.js";
+import { runMessageAction } from "../../infra/outbound/message-action-runner.js";
+import { resolveAutoRecipient } from "../../infra/outbound/recipient-resolver.js";
+import { resolveQuickSelfSendIntent } from "../../infra/outbound/quick-send-intent.js";
 import {
   normalizeRpcAttachmentsToChatAttachments,
   normalizeRpcAttachmentRefs,
@@ -995,6 +998,96 @@ function broadcastChatError(params: {
   params.context.agentRunSeq.delete(params.runId);
 }
 
+async function tryHandleQuickSelfSend(params: {
+  cfg: ReturnType<typeof loadSessionEntry>["cfg"];
+  sessionKey: string;
+  rawSessionKey: string;
+  inboundMessage: string;
+  attachmentRefs: ChatAttachmentRef[];
+  normalizedAttachmentsCount: number;
+  clientRunId: string;
+  clientInfo?: { id?: string | null };
+  context: GatewayRequestContext;
+  entry?: { sessionId?: string; sessionFile?: string };
+  agentId?: string;
+}): Promise<boolean> {
+  if (params.normalizedAttachmentsCount > 0 || params.attachmentRefs.length > 0) {
+    return false;
+  }
+  const intent = resolveQuickSelfSendIntent(params.inboundMessage);
+  if (!intent) {
+    return false;
+  }
+  const recipient = resolveAutoRecipient({
+    channel: intent.channel,
+    cfg: params.cfg,
+    agentSessionKey: params.sessionKey,
+    senderCandidates:
+      typeof params.clientInfo?.id === "string" && params.clientInfo.id.trim()
+        ? [params.clientInfo.id]
+        : [],
+  });
+  if (!recipient.ok) {
+    return false;
+  }
+
+  const result = await runMessageAction({
+    cfg: params.cfg,
+    action: "send",
+    params: {
+      action: "send",
+      channel: recipient.channel,
+      target: recipient.target,
+      message: intent.message,
+    },
+    sessionKey: params.sessionKey,
+    agentId: params.agentId,
+  });
+  const summary = `已通过 ${recipient.channel} 发送：${intent.message}`;
+  const { storePath: latestStorePath, entry: latestEntry } = loadSessionEntry(params.sessionKey);
+  const sessionId = latestEntry?.sessionId ?? params.entry?.sessionId ?? params.clientRunId;
+  const appended = appendAssistantTranscriptMessage({
+    message: summary,
+    runId: params.clientRunId,
+    sessionId,
+    storePath: latestStorePath,
+    sessionFile: latestEntry?.sessionFile,
+    agentId: params.agentId,
+    createIfMissing: true,
+  });
+  const message =
+    appended.ok && appended.message
+      ? (appended.message as Record<string, unknown>)
+      : ({
+          role: "assistant",
+          content: [{ type: "text", text: summary }],
+          timestamp: Date.now(),
+          stopReason: "stop",
+          usage: { input: 0, output: 0, totalTokens: 0 },
+        } as Record<string, unknown>);
+  broadcastChatFinal({
+    context: params.context,
+    runId: params.clientRunId,
+    sessionKey: params.rawSessionKey,
+    message,
+  });
+  setGatewayDedupeEntry({
+    dedupe: params.context.dedupe,
+    key: `chat:${params.clientRunId}`,
+    entry: {
+      ts: Date.now(),
+      ok: true,
+      payload: {
+        runId: params.clientRunId,
+        status: "ok" as const,
+        quickSend: true,
+        channel: recipient.channel,
+      },
+    },
+  });
+  return true;
+}
+
 export const chatHandlers: GatewayRequestHandlers = {
   "chat.history": async ({ params, respond, context }) => {
     if (!validateChatHistoryParams(params)) {
@@ -1425,6 +1518,26 @@ export const chatHandlers: GatewayRequestHandlers = {
             .filter(Boolean)
             .join("\n\n");
       const clientInfo = client?.connect?.client;
+      const quickHandled = await tryHandleQuickSelfSend({
+        cfg,
+        sessionKey,
+        rawSessionKey,
+        inboundMessage,
+        attachmentRefs,
+        normalizedAttachmentsCount: normalizedAttachments.length,
+        clientRunId,
+        clientInfo,
+        context,
+        entry,
+        agentId: resolveSessionAgentId({
+          sessionKey,
+          config: cfg,
+        }),
+      });
+      if (quickHandled) {
+        context.chatAbortControllers.delete(clientRunId);
+        return;
+      }
       const {
         originatingChannel,
         originatingTo,

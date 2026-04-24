@@ -116,7 +116,6 @@ export const ChannelAccountSnapshotSchema = Type.Object(
     lastError: Type.Optional(Type.String()),
     lastStartAt: Type.Optional(Type.Integer({ minimum: 0 })),
     lastStopAt: Type.Optional(Type.Integer({ minimum: 0 })),
-    lastInboundAt: Type.Optional(Type.Integer({ minimum: 0 })),
     lastOutboundAt: Type.Optional(Type.Integer({ minimum: 0 })),
     busy: Type.Optional(Type.Boolean()),
     activeRuns: Type.Optional(Type.Integer({ minimum: 0 })),
