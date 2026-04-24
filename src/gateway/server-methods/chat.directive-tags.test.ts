@@ -960,10 +960,48 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
       sourceChannel: "acp",
       sourceTool: "openclaw_acp",
     });
-    expect(mockState.lastDispatchCtx?.Body).toBe(
+    expect(mockState.lastDispatchCtx?.BodyForAgent).toContain(
       "[Source Receipt]\nbridge=openclaw-acp\noriginSessionId=acp-session-1\n[/Source Receipt]\n\nbench update",
     );
     expect(mockState.lastDispatchCtx?.RawBody).toBe("bench update");
     expect(mockState.lastDispatchCtx?.CommandBody).toBe("bench update");
+  });
+
+  it("forwards chat.send metadata into dispatch context", async () => {
+    createTranscriptFixture("openclaw-chat-send-metadata-forward-");
+    mockState.finalText = "ok";
+    const respond = vi.fn();
+    const context = createChatContext();
+
+    await runNonStreamingChatSend({
+      context,
+      respond,
+      idempotencyKey: "idem-chat-send-metadata",
+      message: "Q: Destination?\nA: Paris",
+      requestParams: {
+        metadata: {
+          interaction: {
+            id: "qf-1",
+            component: "question_flow",
+            schemaVersion: 1,
+            status: "submitted",
+            payload: { answers: { destination: ["paris"] } },
+            submittedAt: 1_717_171_717_000,
+          },
+        },
+      },
+      expectBroadcast: false,
+    });
+
+    expect(mockState.lastDispatchCtx?.MessageMetadata).toEqual({
+      interaction: {
+        id: "qf-1",
+        component: "question_flow",
+        schemaVersion: 1,
+        status: "submitted",
+        payload: { answers: { destination: ["paris"] } },
+        submittedAt: 1_717_171_717_000,
+      },
+    });
   });
 });

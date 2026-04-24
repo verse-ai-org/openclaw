@@ -3,7 +3,7 @@ import { SaveIcon, Loader2Icon, RotateCcwIcon, EyeIcon } from "lucide-react";
 import {
   ProviderModelEditDialog,
   ProviderModelSummaryCard,
-  buildProviderModelPatchOps,
+  toProviderAuth,
   deriveProviderModelState,
 } from "@/components/settings/provider-model";
 import { Button } from "@/components/ui/button";
@@ -95,8 +95,10 @@ export function ConfigPage() {
   const configLoading = useAgentsStore((s) => s.configLoading);
   const configSaving = useAgentsStore((s) => s.configSaving);
   const configDirty = useAgentsStore((s) => s.configDirty);
+  const configError = useAgentsStore((s) => s.configError);
   const loadConfig = useAgentsStore((s) => s.loadConfig);
   const patchConfig = useAgentsStore((s) => s.patchConfig);
+  const applyProviderConfig = useAgentsStore((s) => s.applyProviderConfig);
   const saveConfig = useAgentsStore((s) => s.saveConfig);
   const reloadConfig = useAgentsStore((s) => s.reloadConfig);
   const changeAgentModel = useAgentsStore((s) => s.changeAgentModel);
@@ -241,6 +243,9 @@ export function ConfigPage() {
             </Button>
           </div>
         </div>
+        {configError ? (
+          <p className="text-xs text-red-600">{configError}</p>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -281,9 +286,36 @@ export function ConfigPage() {
               onOpenChange={setEditOpen}
               onApply={(draft, validation) => {
                 setProviderValidation(validation);
-                for (const op of buildProviderModelPatchOps(draft)) {
-                  patchConfig(op.path, op.value);
-                }
+                const method = findProviderGroup(draft.providerId)?.methods.find(
+                  (m) => m.id === draft.methodId,
+                );
+                const authMode = method ? toProviderAuth(method) : "api-key";
+                const resolveProviderIdForMethod = (
+                  providerId: string,
+                  methodId: string,
+                ): string => {
+                  if (methodId === "minimax-portal" || methodId === "minimax-portal-cn") {
+                    return "minimax-portal";
+                  }
+                  if (methodId === "qwen-portal") {
+                    return "qwen-portal";
+                  }
+                  return providerId;
+                };
+                const resolvedProviderId = resolveProviderIdForMethod(
+                  draft.providerId,
+                  draft.methodId,
+                );
+                const resolvedModelId = draft.modelId.includes("/")
+                  ? `${resolvedProviderId}/${draft.modelId.split("/").slice(1).join("/")}`
+                  : draft.modelId;
+                void applyProviderConfig({
+                  providerId: resolvedProviderId,
+                  authMode,
+                  modelId: resolvedModelId || undefined,
+                  apiKey: draft.apiKey || undefined,
+                  baseUrl: draft.baseUrl || undefined,
+                });
               }}
             />
           </CardContent>

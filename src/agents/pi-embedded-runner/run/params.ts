@@ -116,6 +116,7 @@ export type RunEmbeddedPiAgentParams = {
   streamParams?: AgentStreamParams;
   ownerNumbers?: string[];
   enforceFinalTag?: boolean;
+  messageMetadata?: Record<string, unknown>;
   /**
    * Allow a single run attempt even when all auth profiles are in cooldown,
    * but only for inferred transient cooldowns like `rate_limit` or `overloaded`.

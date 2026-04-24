@@ -69,6 +69,7 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
       "12306",
       "weather",
       "openclaw-tool-ui",
+      "openclaw-interactions"
     ],
     tools: { profile: "full", deny: [] },
     identity: {

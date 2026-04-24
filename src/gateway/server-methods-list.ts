@@ -19,6 +19,7 @@ const BASE_METHODS = [
   "tts.setProvider",
   "config.get",
   "config.set",
+  "config.provider.apply",
   "config.apply",
   "config.patch",
   "config.schema",

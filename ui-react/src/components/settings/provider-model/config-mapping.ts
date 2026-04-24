@@ -5,7 +5,7 @@ import {
   type AuthProviderGroupDef,
 } from "@/data/auth-choice-groups";
 import type { AgentConfigSnapshot } from "@/types/agents";
-import type { ProviderModelDraft, ProviderModelResolvedState } from "./types";
+import type { ProviderModelResolvedState } from "./types";
 
 function readModelPrimary(model: unknown): string {
   if (typeof model === "string") {
@@ -39,7 +39,9 @@ function pickMethod(
   return group.methods.find((m) => m.type === "oauth") ?? group.methods[0];
 }
 
-export function toProviderAuth(method: AuthMethodDef): string {
+export function toProviderAuth(
+  method: AuthMethodDef,
+): "api-key" | "oauth" | "token" {
   if (method.type === "oauth") return "oauth";
   if (method.type === "proxy") return "token";
   return "api-key";
@@ -67,8 +69,8 @@ export function deriveProviderModelState(
       : "";
   const providerIdFromModel = globalModel.split("/")[0] ?? "";
   const inferredProviderId =
-    findProviderGroup(providerIdFromAuth)?.id ??
     findProviderGroup(providerIdFromModel)?.id ??
+    findProviderGroup(providerIdFromAuth)?.id ??
     fallbackGroup?.id ??
     "anthropic";
   const selectedGroup =
@@ -98,32 +100,3 @@ export function deriveProviderModelState(
   };
 }
 
-export function buildProviderModelPatchOps(
-  draft: ProviderModelDraft,
-): Array<{ path: Array<string | number>; value: unknown }> {
-  const method = findProviderGroup(draft.providerId)?.methods.find(
-    (m) => m.id === draft.methodId,
-  );
-  const auth = method ? toProviderAuth(method) : undefined;
-  const ops: Array<{ path: Array<string | number>; value: unknown }> = [
-    {
-      path: ["agents", "defaults", "model"],
-      value: draft.modelId ? { primary: draft.modelId } : undefined,
-    },
-    {
-      path: ["models", "providers", draft.providerId, "auth"],
-      value: auth,
-    },
-    {
-      path: ["models", "providers", draft.providerId, "apiKey"],
-      value: draft.apiKey.trim() ? draft.apiKey : undefined,
-    },
-  ];
-  if (method?.type === "custom") {
-    ops.push({
-      path: ["models", "providers", draft.providerId, "baseUrl"],
-      value: draft.baseUrl.trim() ? draft.baseUrl : undefined,
-    });
-  }
-  return ops;
-}

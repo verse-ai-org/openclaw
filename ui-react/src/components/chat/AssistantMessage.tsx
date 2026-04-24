@@ -11,7 +11,7 @@ import {
   PromotedToolResult,
   type AssistantToolPart,
 } from "../assistant-ui/assistant-tool-group.tsx";
-import { InteractiveParts } from "./InteractiveParts";
+import { InteractiveParts } from "./interactive";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { AgentAvatar } from "../assistant-ui/agent-avatar.tsx";

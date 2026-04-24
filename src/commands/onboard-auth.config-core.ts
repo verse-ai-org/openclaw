@@ -33,6 +33,7 @@ import type { ModelApi } from "../config/types.models.js";
 import { KILOCODE_BASE_URL } from "../providers/kilocode-shared.js";
 import {
   HUGGINGFACE_DEFAULT_MODEL_REF,
+  DEEPSEEK_DEFAULT_MODEL_REF,
   KILOCODE_DEFAULT_MODEL_REF,
   MISTRAL_DEFAULT_MODEL_REF,
   OPENROUTER_DEFAULT_MODEL_REF,
@@ -62,12 +63,16 @@ import {
 } from "./onboard-auth.config-shared.js";
 import {
   buildMistralModelDefinition,
+  buildDeepseekModelDefinition,
+  buildDeepseekFlashModelDefinition,
   buildZaiModelDefinition,
   buildMoonshotModelDefinition,
   buildXaiModelDefinition,
   buildModelStudioModelDefinition,
   MISTRAL_BASE_URL,
   MISTRAL_DEFAULT_MODEL_ID,
+  DEEPSEEK_BASE_URL,
+  DEEPSEEK_DEFAULT_MODEL_ID,
   QIANFAN_BASE_URL,
   QIANFAN_DEFAULT_MODEL_REF,
   KIMI_CODING_MODEL_ID,
@@ -467,6 +472,33 @@ export function applyMistralProviderConfig(
 export function applyMistralConfig(cfg: OpenClawConfig): OpenClawConfig {
   const next = applyMistralProviderConfig(cfg);
   return applyAgentDefaultModelPrimary(next, MISTRAL_DEFAULT_MODEL_REF);
+}
+
+export function applyDeepseekProviderConfig(
+  cfg: OpenClawConfig,
+): OpenClawConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[DEEPSEEK_DEFAULT_MODEL_REF] = {
+    ...models[DEEPSEEK_DEFAULT_MODEL_REF],
+    alias: models[DEEPSEEK_DEFAULT_MODEL_REF]?.alias ?? "DeepSeek",
+  };
+
+  const defaultModel = buildDeepseekModelDefinition();
+  const flashModel = buildDeepseekFlashModelDefinition();
+
+  return applyProviderConfigWithDefaultModels(cfg, {
+    agentModels: models,
+    providerId: "deepseek",
+    api: "openai-completions",
+    baseUrl: DEEPSEEK_BASE_URL,
+    defaultModels: [defaultModel, flashModel],
+    defaultModelId: DEEPSEEK_DEFAULT_MODEL_ID,
+  });
+}
+
+export function applyDeepseekConfig(cfg: OpenClawConfig): OpenClawConfig {
+  const next = applyDeepseekProviderConfig(cfg);
+  return applyAgentDefaultModelPrimary(next, DEEPSEEK_DEFAULT_MODEL_REF);
 }
 
 export { KILOCODE_BASE_URL };

@@ -1089,6 +1089,7 @@ export async function runEmbeddedAttempt(
         sessionKey: params.sessionKey,
         runId: params.runId,
         inputProvenance: params.inputProvenance,
+        messageMetadata: params.messageMetadata,
         allowSyntheticToolResults: transcriptPolicy.allowSyntheticToolResults,
         allowedToolNames,
       });

@@ -3,11 +3,11 @@ import {
   ToolFallback,
   type ToolFallbackPartProps,
   type ToolFallbackJsonObject,
-} from "@/components/chat/ToolFallback";
+} from "@/components/chat/tool-fallback";
 import {
   resolveRichToolPresentation,
   type RichToolPresentation,
-} from "@/components/chat/ToolFallback/rich-presentation";
+} from "@/components/chat/tool-fallback/rich-presentation";
 import { ToolCallGroup } from "@/components/chat/ToolCallGroup";
 
 export type AssistantToolPart = {

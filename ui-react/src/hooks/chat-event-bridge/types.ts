@@ -6,6 +6,7 @@ export type RawMessage = {
   text?: string;
   /** Gateway may attach file display hints when user content is shortened for history. */
   attachments?: unknown;
+  metadata?: unknown;
   ts?: number;
   timestamp?: number;
   runId?: string;

@@ -5,6 +5,7 @@ type OnboardProviderAuthOptionKey = keyof Pick<
   | "anthropicApiKey"
   | "openaiApiKey"
   | "mistralApiKey"
+  | "deepseekApiKey"
   | "openrouterApiKey"
   | "kilocodeApiKey"
   | "aiGatewayApiKey"
@@ -60,6 +61,13 @@ export const ONBOARD_PROVIDER_AUTH_FLAGS: ReadonlyArray<OnboardProviderAuthFlag>
     cliFlag: "--mistral-api-key",
     cliOption: "--mistral-api-key <key>",
     description: "Mistral API key",
+  },
+  {
+    optionKey: "deepseekApiKey",
+    authChoice: "deepseek-api-key",
+    cliFlag: "--deepseek-api-key",
+    cliOption: "--deepseek-api-key <key>",
+    description: "DeepSeek API key",
   },
   {
     optionKey: "openrouterApiKey",
