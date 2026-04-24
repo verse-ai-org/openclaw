@@ -20,8 +20,13 @@ export function useChatEventBridge() {
     };
 
     const dispatch = (event: string, payload: unknown) => {
+      const payloadObject =
+        payload && typeof payload === "object" ? (payload as Record<string, unknown>) : undefined;
       if (import.meta.env.DEV) {
-        console.log(`[ChatEventBridge] ${event}`, payload);
+        console.log(
+          `[ChatEventBridge] ${event}`,
+          payloadObject?.stream ?? payloadObject?.sessionKey ?? payloadObject?.runId,
+        );
       }
 
       switch (event) {

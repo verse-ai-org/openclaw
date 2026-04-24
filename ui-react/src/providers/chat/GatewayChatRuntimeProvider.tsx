@@ -5,7 +5,7 @@ import {
 } from "@assistant-ui/react";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import type { MessageAttachment } from "@/store/chat.store";
+import type { ChatMessageMetadata, MessageAttachment } from "@/store/chat.store";
 import {
   type ChatAttachmentRef,
   buildAttachmentRefsFromMessage,
@@ -27,6 +27,7 @@ type SendMessageOptions = {
   attachments?: { content: string; mimeType: string; fileName: string }[];
   attachmentRefs?: ChatAttachmentRef[];
   displayAttachments?: MessageAttachment[];
+  metadata?: ChatMessageMetadata;
 };
 
 interface Props {
@@ -97,6 +98,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         role: "user" as const,
         content: text,
         ts: Date.now(),
+        metadata: opts?.metadata,
         attachments:
           opts?.displayAttachments && opts.displayAttachments.length > 0
             ? opts.displayAttachments
@@ -121,6 +123,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           ...(opts?.attachmentRefs && opts.attachmentRefs.length > 0
             ? { attachmentRefs: opts.attachmentRefs }
             : {}),
+          ...(opts?.metadata ? { metadata: opts.metadata } : {}),
         });
       } catch (err) {
         console.error("[chat] send failed:", err);

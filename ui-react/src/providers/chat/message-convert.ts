@@ -1,6 +1,7 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import { normalizeRole } from "@/hooks/chat-event-bridge";
 import type { ChatMessage } from "@/store/chat.store";
+import { stripAllAskTags } from "@/components/chat/interactive";
 
 const AGENT_COMPLETE_TAG_RE = /^\s*<(final|plan)>([\s\S]*?)<\/\1>\s*$/i;
 const AGENT_OPEN_TAG_RE = /^\s*<(?:final|plan)>\n?/i;
@@ -18,7 +19,7 @@ function stripAgentWrapperTags(text: string): string {
   if (!/<\/(?:final|plan)>\s*$/iu.test(result)) {
     result = result.replace(/<\/(?:final|plan)?$/iu, "");
   }
-  return result;
+  return stripAllAskTags(result);
 }
 
 export function convertGatewayChatMessage(msg: ChatMessage): ThreadMessageLike {

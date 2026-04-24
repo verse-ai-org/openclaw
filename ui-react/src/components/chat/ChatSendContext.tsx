@@ -1,7 +1,8 @@
 import { createContext, useContext } from "react";
+import type { ChatMessageMetadata } from "@/store/chat.store";
 
 interface ChatSendContextValue {
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, options?: { metadata?: ChatMessageMetadata }) => Promise<void>;
 }
 
 export const ChatSendContext = createContext<ChatSendContextValue | null>(null);

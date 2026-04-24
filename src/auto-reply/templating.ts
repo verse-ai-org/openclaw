@@ -120,6 +120,8 @@ export type MsgContext = {
   UntrustedContext?: string[];
   /** System-attached provenance for the current inbound message. */
   InputProvenance?: InputProvenance;
+  /** Optional structured metadata attached to the current inbound message. */
+  MessageMetadata?: Record<string, unknown>;
   /** Explicit owner allowlist overrides (trusted, configuration-derived). */
   OwnerAllowFrom?: Array<string | number>;
   SenderName?: string;

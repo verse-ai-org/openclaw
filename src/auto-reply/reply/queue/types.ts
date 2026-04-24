@@ -79,6 +79,7 @@ export type FollowupRun = {
     blockReplyBreak: "text_end" | "message_end";
     ownerNumbers?: string[];
     inputProvenance?: InputProvenance;
+    messageMetadata?: Record<string, unknown>;
     extraSystemPrompt?: string;
     enforceFinalTag?: boolean;
   };

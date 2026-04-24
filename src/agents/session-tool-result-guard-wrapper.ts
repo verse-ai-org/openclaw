@@ -24,6 +24,7 @@ export function guardSessionManager(
     sessionKey?: string;
     runId?: string;
     inputProvenance?: InputProvenance;
+    messageMetadata?: Record<string, unknown>;
     allowSyntheticToolResults?: boolean;
     allowedToolNames?: Iterable<string>;
   },
@@ -68,19 +69,26 @@ export function guardSessionManager(
     message: any,
   ) => {
     const withProvenance = applyInputProvenanceToUserMessage(message, opts?.inputProvenance);
+    const role = String((withProvenance as { role?: unknown })?.role ?? "").toLowerCase();
+    const withMetadata =
+      role === "user" &&
+      opts?.messageMetadata &&
+      typeof opts.messageMetadata === "object" &&
+      !Array.isArray(opts.messageMetadata)
+        ? { ...withProvenance, metadata: opts.messageMetadata }
+        : withProvenance;
     const runId = typeof opts?.runId === "string" ? opts.runId.trim() : "";
     if (!runId) {
-      return withProvenance;
+      return withMetadata;
     }
 
-    const role = String((withProvenance as { role?: unknown })?.role ?? "").toLowerCase();
     if (role !== "assistant" && role !== "toolresult" && role !== "tool_result") {
-      return withProvenance;
+      return withMetadata;
     }
-    if (typeof (withProvenance as { runId?: unknown })?.runId === "string") {
-      return withProvenance;
+    if (typeof (withMetadata as { runId?: unknown })?.runId === "string") {
+      return withMetadata;
     }
-    return { ...withProvenance, runId };
+    return { ...withMetadata, runId };
   };
 
   const guard = installSessionToolResultGuard(sessionManager, {

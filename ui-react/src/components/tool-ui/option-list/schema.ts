@@ -112,6 +112,8 @@ const OptionListPropsSchemaBase = z.object({
    * @example "option-list-deploy-target", "format-selection"
    */
   id: ToolUIIdSchema,
+  title: z.string().optional(),
+  description: z.string().optional(),
   role: ToolUIRoleSchema.optional(),
   receipt: ToolUIReceiptSchema.optional(),
   options: z.array(OptionListOptionSchema).min(1),

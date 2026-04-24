@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { SerializableQuestionFlow } from "@/components/tool-ui/question-flow";
 import type { SerializableOptionList } from "@/components/tool-ui/option-list";
+import type { SerializableApprovalCard } from "@/components/tool-ui/approval-card/schema";
 
 // ---------------------------------------------------------------------------
 // History reload via Zustand state — set a pending key to trigger reload.
@@ -27,7 +28,7 @@ export interface ToolCallPart {
 }
 
 export type ToolStreamPhase = "start" | "running" | "result" | "error";
-export type InteractiveKind = "question_flow" | "option_list";
+export type InteractiveKind = "question_flow" | "option_list" | "approval_card";
 
 export interface ToolStreamEntry {
   id: string;
@@ -82,7 +83,7 @@ export type ContentBlock =
       type: "interactive";
       interactiveId: string;
       kind: InteractiveKind;
-      payload: SerializableQuestionFlow | SerializableOptionList;
+      payload: SerializableQuestionFlow | SerializableOptionList | SerializableApprovalCard;
     };
 
 export type InteractiveContentBlock = Extract<
@@ -105,6 +106,19 @@ export interface MessageAttachment {
   size: number;
 }
 
+export interface InteractionMessageMetadata {
+  id: string;
+  component: string;
+  schemaVersion: number;
+  status: "submitted";
+  payload: unknown;
+  submittedAt: number;
+}
+
+export interface ChatMessageMetadata {
+  interaction?: InteractionMessageMetadata;
+}
+
 export interface ChatMessage {
   id: string;
   role: ChatMessageRole;
@@ -114,6 +128,8 @@ export interface ChatMessage {
   sessionKey?: string;
   /** File attachments sent with this user message (for display only) */
   attachments?: MessageAttachment[];
+  /** Optional structured metadata attached to this message. */
+  metadata?: ChatMessageMetadata;
   /** Tool calls embedded in this message (assistant messages with tool use) */
   toolCalls?: ToolCallPart[];
   /**

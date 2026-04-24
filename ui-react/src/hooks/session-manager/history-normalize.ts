@@ -48,6 +48,10 @@ export function normalizeHistoryMessages(
       runId: m.runId,
       sessionKey,
       attachments,
+      metadata:
+        m.metadata && typeof m.metadata === "object"
+          ? (m.metadata as ChatMessage["metadata"])
+          : undefined,
       toolCalls: extractToolCallParts(m.content),
       contentBlocks: extractContentBlocks(m.content),
     };

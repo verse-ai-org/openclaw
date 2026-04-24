@@ -1213,6 +1213,7 @@ export const chatHandlers: GatewayRequestHandlers = {
         size?: unknown;
         sha256?: unknown;
       }>;
+      metadata?: Record<string, unknown>;
       timeoutMs?: number;
       systemInputProvenance?: InputProvenance;
       systemProvenanceReceipt?: string;
@@ -1456,6 +1457,7 @@ export const chatHandlers: GatewayRequestHandlers = {
         RawBody: inboundMessage,
         CommandBody: commandBody,
         InputProvenance: systemInputProvenance,
+        MessageMetadata: p.metadata,
         SessionKey: sessionKey,
         Provider: INTERNAL_MESSAGE_CHANNEL,
         Surface: INTERNAL_MESSAGE_CHANNEL,

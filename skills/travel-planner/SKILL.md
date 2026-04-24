@@ -53,15 +53,20 @@ node {baseDir}/scripts/preferences.mjs --cmd=is_initialized
 
 ### 第二步：轻量偏好采集
 
-**只问高影响项**。在 Control UI 会话中，**必须调用 `question_flow` 工具**（而非直接输出文字问答），让前端渲染交互式问卷卡片。
+### 第二步：轻量偏好采集
 
-**必须遵守**：在同一轮助手输出中完成：先写一两句面向用户的说明，再调用`question_flow`。
+**只问高影响项**。在交互式通道（Control UI / Telegram / Discord 等）中，**必须使用 `<ask component="question_flow">` 标签**（而非直接输出文字问答），让前端渲染交互式问卷卡片。`<ask>` 是 OpenClaw 的 interaction 协议，详见 `@skills/openclaw-interactions`。
 
-#### 执行方式：调用 `question_flow` 工具
+**必须遵守**：
 
-调用 `question_flow` 工具并返回以下 JSON 作为工具结果：
+- 在同一轮助手输出中：先写一两句面向用户的说明，随后紧跟 `<ask component="question_flow" id="travel-preference-intake">…</ask>` 标签。
+- `<ask>` 标签关闭后立刻结束本轮输出（不再跟其他文字）。runner 会自动挂起，等待用户提交后再触发下一轮。
+- **不要**把 `question_flow` / `option_list` 当作 tool 调用（它们不再是 tool，调用会返回 "Tool ... not found"）。
 
-```json
+#### 执行方式：在助手文本里直接写 `<ask>` 标签, 先写 1-2 句说明，告诉用户要填的是什么。
+
+```xml
+<ask component="question_flow" id="travel-preference-intake">
 {
   "id": "travel-preference-intake",
   "steps": [
@@ -83,9 +88,9 @@ node {baseDir}/scripts/preferences.mjs --cmd=is_initialized
       "id": "budget",
       "title": "预算档位",
       "options": [
-        { "id": "economy",   "label": "经济型（¥150-250/天）" },
-        { "id": "mid-range", "label": "中档（¥350-600/天）" },
-        { "id": "high-end",  "label": "高端（¥800+/天）" }
+        { "id": "economy",   "label": "经济型¥150-250/天" },
+        { "id": "mid-range", "label": "中档¥350-600/天" },
+        { "id": "high-end",  "label": "高端¥800+/天" }
       ],
       "selectionMode": "single"
     },
@@ -137,13 +142,14 @@ node {baseDir}/scripts/preferences.mjs --cmd=is_initialized
     }
   ]
 }
+</ask>
 ```
+> 注意：上面是展示用的代码块（```  包裹），真正输出时**不要用代码块包裹**，直接把 `<ask>...</ask>` 写进助手文本即可——否则 `<ask>` 会被解析器忽略。
 
 #### 解析用户回答
 
-用户完成问卷后，回答以纯文本形式到达，每步一行，格式为 `步骤标题：选中选项标签`。从中提取字段，忽略空行。
-
-> 预算分配比例与节奏设计细则见 `references/travel_guidelines.md`。
+用户完成问卷后，回答正文为 Q/A 文本，结构化数据在 `metadata.interaction.payload`。
+优先读取 `metadata.interaction.payload`；若缺失，再回退解析纯文本（每步一行，格式 `步骤标题：选中选项标签`）。
 
 保存时仅写入用户已明确提供的字段：
 
@@ -196,7 +202,7 @@ node {baseDir}/scripts/trips.mjs --cmd=add_trip --payload='{"destination_text":"
 
 **A-1｜平台选择（等用户回答后才能继续）**
 
-调用 `option_list` 工具，先写一两句面向用户的说明，再发出以下选择器：
+发出 `<ask component="option_list">`，先写一两句面向用户的说明，再给出以下选择器：
 
 ```json
 {
@@ -369,7 +375,7 @@ node {baseDir}/scripts/route-plan.mjs \
 1. `item_carousel`：展示路线点位图文卡片
 2. 保留文字版路线摘要作为降级兜底
 
-`option_list_allowed=false` 时禁止调用 `option_list`；严格按 `step4_tool_call_order` 执行工具顺序。
+`option_list_allowed=false` 时禁止发起 `option_list` 交互；严格按 `step4_tool_call_order` 执行顺序。
 
 ---
 
@@ -402,7 +408,7 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=save_route_plan \
 
 **A-7｜让用户选择路线**
 
-`item_carousel` 渲染完成后，调用 `option_list`（必须在图文展示之后，不得提前）：
+`item_carousel` 渲染完成后，发起 `<ask component="option_list">`（必须在图文展示之后，不得提前）：
 
 ```json
 {
@@ -417,13 +423,13 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=save_route_plan \
 ```
 
 - `options[].id` 和 `label` 必须使用真实的 `route_id`，不得另造映射 ID。
-- 若用户已在本轮明确说出 `route_id`，可直接采用，无需重复发起 `option_list`。
+- 若用户已在本轮明确说出 `route_id`，可直接采用，无需重复发起 `option_list` 交互。
 
 ---
 
 **A-8｜持久化用户选择 + 清理临时文件**
 
-守卫：用户已通过 `option_list` 明确选中 `route_id` 后才能执行。
+守卫：用户已通过 `option_list` 交互明确选中 `route_id` 后才能执行。
 
 ```bash
 node {baseDir}/scripts/trip-workflow.mjs --cmd=confirm_route_choice \
@@ -455,7 +461,7 @@ rm -f ~/.openclaw/agents/travel-planner/data/poi/cache-upserts.json
 
 - 先输出平台与降级信息：`used_platform`、`fallback_count`、`fallback_reason`
 - 给出 2-3 条 `route_id` 路线选项，每条 1 行权衡（时间成本/换乘压力/景观收益）
-- 候选路线选择阶段必须用 `option_list` 让用户点选具体 `route_id`
+- 候选路线选择阶段必须用 `option_list` 交互让用户点选具体 `route_id`
 - 最后说明下一步将调研目的地的交通与天气情况
 
 ### 第五步：验证交通天气 + 确认计划骨架
@@ -575,7 +581,22 @@ node {baseDir}/scripts/plan-generator.mjs --cmd=plan_overview --trip-id=<trip_id
 3. `天气情况：`（主锚点天气表格，列：Day / 地点 / 日期 / 天气 / 温度 / 风险）
 4. verdict 为 `block` 时：末尾显著标注安全风险，征询用户是否继续。
 
-守卫：骨架展示后等待用户明确确认（如"确认/继续/按这个走"），未确认不得进入第六步。
+骨架展示后，必须立刻发起 `approval_card` 交互确认（不要只靠自由文本确认）：
+
+```xml
+<ask component="approval_card" id="plan-overview-approval">
+{
+  "id": "plan-overview-approval",
+  "title": "确认按这个计划骨架继续吗？",
+  "description": "确认后我会进入第六步，生成逐日详细计划。",
+  "variant": "default",
+  "confirmLabel": "确认，继续第六步",
+  "cancelLabel": "先调整骨架"
+}
+</ask>
+```
+
+守卫：仅当 `metadata.interaction.payload.decision === "approved"` 时，才能进入第六步；若为 `denied`，先根据用户反馈调整骨架，再次发起 `approval_card`。
 
 #### 兜底处理
 

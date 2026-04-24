@@ -1,9 +1,14 @@
 import { safeParseSerializableQuestionFlow } from "@/components/tool-ui/question-flow/schema";
 import { safeParseSerializableOptionList } from "@/components/tool-ui/option-list/schema";
+import { safeParseSerializableApprovalCard } from "@/components/tool-ui/approval-card/schema";
 import type { InteractiveContentBlock, InteractiveKind } from "@/store/chat.store";
 
 export function isInteractiveToolName(toolName: string | undefined): toolName is InteractiveKind {
-  return toolName === "question_flow" || toolName === "option_list";
+  return (
+    toolName === "question_flow" ||
+    toolName === "option_list" ||
+    toolName === "approval_card"
+  );
 }
 
 export function parseInteractivePayload(
@@ -33,7 +38,11 @@ export function parseInteractivePayload(
     return safeParseSerializableQuestionFlow(parsed);
   }
 
-  return safeParseSerializableOptionList(parsed);
+  if (toolName === "option_list") {
+    return safeParseSerializableOptionList(parsed);
+  }
+
+  return safeParseSerializableApprovalCard(parsed);
 }
 
 export function createInteractiveBlock(args: {

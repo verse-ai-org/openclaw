@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { type FC, type PropsWithChildren, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { classifyTool, TOOL_CATEGORY_CONFIG } from "./ToolFallback";
+import { classifyTool, TOOL_CATEGORY_CONFIG } from "./tool-fallback";
 
 // ---------------------------------------------------------------------------
 // Types
