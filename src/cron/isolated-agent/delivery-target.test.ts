@@ -17,6 +17,10 @@ vi.mock("../../infra/outbound/target-resolver.js", () => ({
   maybeResolveIdLikeTarget: vi.fn(),
 }));
 
+vi.mock("../../infra/outbound/recipient-resolver.js", () => ({
+  resolveAutoRecipient: vi.fn(() => ({ ok: false, reason: "channel-missing" })),
+}));
+
 vi.mock("../../pairing/pairing-store.js", () => ({
   readChannelAllowFromStoreSync: vi.fn(() => []),
 }));
@@ -27,6 +31,7 @@ vi.mock("../../web/accounts.js", () => ({
 
 import { loadSessionStore } from "../../config/sessions.js";
 import { resolveMessageChannelSelection } from "../../infra/outbound/channel-selection.js";
+import { resolveAutoRecipient } from "../../infra/outbound/recipient-resolver.js";
 import { maybeResolveIdLikeTarget } from "../../infra/outbound/target-resolver.js";
 import { readChannelAllowFromStoreSync } from "../../pairing/pairing-store.js";
 import { resolveWhatsAppAccount } from "../../web/accounts.js";
@@ -307,6 +312,90 @@ describe("resolveDeliveryTarget", () => {
     expect(result.to).toBe("thread-chat");
   });
 
+  it("auto-resolves feishu recipient when delivery.to is missing", async () => {
+    setMainSessionEntry(undefined);
+    vi.mocked(resolveAutoRecipient).mockClear();
+    vi.mocked(resolveMessageChannelSelection).mockResolvedValueOnce({
+      channel: "feishu",
+      configured: ["feishu"],
+    });
+    vi.mocked(resolveAutoRecipient).mockReturnValueOnce({
+      ok: true,
+      channel: "feishu",
+      target: "user:ou_auto_1",
+      matchedBy: "session.identityHints",
+      canonical: "session.identityHints",
+    });
+
+    const result = await resolveDeliveryTarget(makeCfg({ bindings: [] }), AGENT_ID, {
+      channel: "last",
+      to: undefined,
+    });
+
+    expect(vi.mocked(resolveAutoRecipient)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        channel: "feishu",
+      }),
+    );
+    expect(result.channel).toBe("feishu");
+  });
+
+  it("auto-resolves openclaw-weixin recipient when delivery.to is missing", async () => {
+    setMainSessionEntry(undefined);
+    vi.mocked(resolveAutoRecipient).mockClear();
+    vi.mocked(resolveMessageChannelSelection).mockResolvedValueOnce({
+      channel: "openclaw-weixin",
+      configured: ["openclaw-weixin"],
+    });
+    vi.mocked(resolveAutoRecipient).mockReturnValueOnce({
+      ok: true,
+      channel: "openclaw-weixin",
+      target: "wxid_auto_1@im.wechat",
+      matchedBy: "session.identityHints",
+      canonical: "session.identityHints",
+    });
+
+    const result = await resolveDeliveryTarget(makeCfg({ bindings: [] }), AGENT_ID, {
+      channel: "last",
+      to: undefined,
+    });
+
+    expect(vi.mocked(resolveAutoRecipient)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        channel: "openclaw-weixin",
+      }),
+    );
+    expect(result.channel).toBe("openclaw-weixin");
+  });
+
+  it("drops weixin-style target when explicit channel resolves to feishu", async () => {
+    setMainSessionEntry(undefined);
+    vi.mocked(resolveAutoRecipient).mockClear();
+    vi.mocked(resolveMessageChannelSelection).mockResolvedValueOnce({
+      channel: "feishu",
+      configured: ["feishu"],
+    });
+    vi.mocked(resolveAutoRecipient).mockReturnValueOnce({
+      ok: true,
+      channel: "feishu",
+      target: "user:ou_auto_fixed",
+      matchedBy: "session.identityHints",
+      canonical: "session.identityHints",
+    });
+
+    const result = await resolveDeliveryTarget(makeCfg({ bindings: [] }), AGENT_ID, {
+      channel: "last",
+      to: "o9cq802lL02rki-iQdUVR0qBZ6S4@im.wechat",
+    });
+
+    expect(result.channel).toBe("feishu");
+    expect(vi.mocked(resolveAutoRecipient)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        channel: "feishu",
+      }),
+    );
+  });
+
   it("uses main session channel when channel=last and session route exists", async () => {
     setMainSessionEntry({
       sessionId: "sess-4",
@@ -323,6 +412,28 @@ describe("resolveDeliveryTarget", () => {
     expect(result.channel).toBe("telegram");
     expect(result.to).toBe("987654");
     expect(result.ok).toBe(true);
+  });
+
+  it("does not fall back to last channel when explicit channel is unsupported", async () => {
+    setMainSessionEntry({
+      sessionId: "sess-explicit",
+      updatedAt: 1000,
+      lastChannel: "openclaw-weixin",
+      lastTo: "wxid_prev@im.wechat",
+    });
+
+    const result = await resolveDeliveryTarget(makeCfg({ bindings: [] }), AGENT_ID, {
+      channel: "lark",
+      to: undefined,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.channel).toBeUndefined();
+    expect(result.to).toBeUndefined();
+    if (result.ok) {
+      throw new Error("expected explicit channel resolution failure");
+    }
+    expect(result.error.message).toContain("Unsupported or unavailable delivery channel");
   });
 
   it("explicit delivery.accountId overrides session-derived accountId", async () => {

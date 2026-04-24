@@ -257,6 +257,7 @@ DELIVERY (top-level):
   - announce: send to chat channel (optional channel/to target)
   - webhook: send finished-run event as HTTP POST to delivery.to (URL required)
   - If the task needs to send to a specific chat/recipient, set announce delivery.channel/to; do not call messaging tools inside the run.
+  - channel="feishu"/"lark": delivery.to is OPTIONAL. For "my Feishu" requests, prefer leaving delivery.to empty so backend can auto-resolve recipient from session identity hints. Do NOT ask for open_id unless auto-resolution later fails.
   - IMPORTANT: channel="openclaw-weixin" REQUIRES delivery.to set to the WeChat user ID (format: <id>@im.wechat). Without it the job will fail at runtime. Always extract the WeChat ID from context and set delivery.to explicitly.
 
 CRITICAL CONSTRAINTS:

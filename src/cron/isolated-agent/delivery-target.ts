@@ -6,6 +6,7 @@ import {
   resolveStorePath,
 } from "../../config/sessions.js";
 import { resolveMessageChannelSelection } from "../../infra/outbound/channel-selection.js";
+import { resolveAutoRecipient } from "../../infra/outbound/recipient-resolver.js";
 import { maybeResolveIdLikeTarget } from "../../infra/outbound/target-resolver.js";
 import type { OutboundChannel } from "../../infra/outbound/targets.js";
 import {
@@ -37,6 +38,25 @@ export type DeliveryTargetResolution =
       error: Error;
     };
 
+const CHANNEL_ALIAS_CANDIDATES: Record<string, string[]> = {
+  feishu: ["feishu", "lark"],
+  lark: ["lark", "feishu"],
+  "openclaw-weixin": ["openclaw-weixin", "weixin", "wechat", "wx"],
+  weixin: ["weixin", "openclaw-weixin", "wechat", "wx"],
+  wechat: ["wechat", "openclaw-weixin", "weixin", "wx"],
+  wx: ["wx", "openclaw-weixin", "weixin", "wechat"],
+};
+
+function isLikelyWeixinTarget(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.endsWith("@im.wechat") || /^wxid_[a-z0-9_-]+$/i.test(trimmed);
+}
+
+function isLikelyFeishuTarget(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  return /^user:/i.test(trimmed) || /^chat:/i.test(trimmed) || /^o[un]_/i.test(trimmed);
+}
+
 export async function resolveDeliveryTarget(
   cfg: OpenClawConfig,
   agentId: string,
@@ -49,6 +69,8 @@ export async function resolveDeliveryTarget(
   },
 ): Promise<DeliveryTargetResolution> {
   const requestedChannel = typeof jobPayload.channel === "string" ? jobPayload.channel : "last";
+  const requestedChannelNormalized = requestedChannel.trim().toLowerCase();
+  const hasExplicitChannel = requestedChannelNormalized !== "last";
   const explicitTo = typeof jobPayload.to === "string" ? jobPayload.to : undefined;
   const allowMismatchedLastTo = requestedChannel === "last";
 
@@ -63,17 +85,37 @@ export async function resolveDeliveryTarget(
   const threadEntry = threadSessionKey ? store[threadSessionKey] : undefined;
   const main = threadEntry ?? store[mainSessionKey];
 
-  const preliminary = resolveSessionDeliveryTarget({
+  let preliminary = resolveSessionDeliveryTarget({
     entry: main,
     requestedChannel,
     explicitTo,
     allowMismatchedLastTo,
   });
 
+  if (!preliminary.channel && hasExplicitChannel) {
+    const candidates = CHANNEL_ALIAS_CANDIDATES[requestedChannelNormalized] ?? [requestedChannel];
+    for (const candidate of candidates) {
+      const retried = resolveSessionDeliveryTarget({
+        entry: main,
+        requestedChannel: candidate as ChannelId,
+        explicitTo,
+        allowMismatchedLastTo: false,
+      });
+      if (retried.channel) {
+        preliminary = retried;
+        break;
+      }
+    }
+  }
+
   let fallbackChannel: Exclude<OutboundChannel, "none"> | undefined;
   let channelResolutionError: Error | undefined;
   if (!preliminary.channel) {
-    if (preliminary.lastChannel) {
+    if (hasExplicitChannel) {
+      channelResolutionError = new Error(
+        `Unsupported or unavailable delivery channel "${requestedChannel}". Check channel id/alias and channel status.`,
+      );
+    } else if (preliminary.lastChannel) {
       fallbackChannel = preliminary.lastChannel;
     } else {
       try {
@@ -102,6 +144,30 @@ export async function resolveDeliveryTarget(
   const channel = resolved.channel ?? fallbackChannel;
   const mode = resolved.mode as "explicit" | "implicit";
   let toCandidate = resolved.to;
+
+  // Guard against channel/target mismatches (e.g. Feishu channel carrying a
+  // Weixin recipient id from model extraction). Drop the mismatched explicit
+  // target and let channel-specific auto-recipient resolution recover it.
+  if (channel === "feishu" && toCandidate && isLikelyWeixinTarget(toCandidate)) {
+    toCandidate = undefined;
+  }
+  if (channel === "openclaw-weixin" && toCandidate && isLikelyFeishuTarget(toCandidate)) {
+    toCandidate = undefined;
+  }
+
+  // For Feishu/Weixin cron announce runs, allow automatic recipient recovery
+  // from session identity hints when delivery.to is omitted in job config.
+  if (!toCandidate && channel) {
+    const autoRecipient = resolveAutoRecipient({
+      channel,
+      cfg,
+      agentSessionKey: threadSessionKey ?? mainSessionKey,
+      senderCandidates: [],
+    });
+    if (autoRecipient.ok && autoRecipient.channel === channel) {
+      toCandidate = autoRecipient.target;
+    }
+  }
 
   // Prefer an explicit accountId from the job's delivery config (set via
   // --account on cron add/edit). Fall back to the session's lastAccountId,

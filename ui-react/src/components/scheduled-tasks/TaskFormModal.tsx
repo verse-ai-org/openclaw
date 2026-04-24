@@ -216,11 +216,14 @@ export function TaskFormModal({
   const isOneTimeValid = form.scheduleKind !== "one-time" || Boolean(oneTimeDate);
   const isEveryValid =
     form.scheduleKind !== "every" || parseInt(form.everyAmount, 10) > 0;
+  const selectedDeliveryChannel =
+    form.deliveryMode === "announce"
+      ? form.deliveryChannel?.trim() || channelOptions?.[0]?.id
+      : undefined;
+  const isFeishuChannel = selectedDeliveryChannel === "feishu" || selectedDeliveryChannel === "lark";
   // openclaw-weixin requires an explicit deliveryTo
   const isWeixinChannel =
-    form.deliveryMode === "announce" &&
-    (form.deliveryChannel === "openclaw-weixin" ||
-      (!form.deliveryChannel && channelOptions?.some((c) => c.id === "openclaw-weixin")));
+    form.deliveryMode === "announce" && selectedDeliveryChannel === "openclaw-weixin";
   const isDeliveryToValid = !isWeixinChannel || Boolean(form.deliveryTo?.trim());
   const isValid =
     form.name.trim().length > 0 &&
@@ -522,23 +525,29 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* deliveryTo — required for openclaw-weixin, optional for others */}
-          {form.deliveryMode === "announce" && (form.deliveryChannel === "openclaw-weixin" || (!form.deliveryChannel && channelOptions?.some((c) => c.id === "openclaw-weixin"))) && (
+          {/* deliveryTo — weixin required, feishu optional */}
+          {form.deliveryMode === "announce" && (isWeixinChannel || isFeishuChannel) && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="task-delivery-to" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Recipient ID <span className="text-destructive">*</span>
+                Recipient ID {isWeixinChannel ? <span className="text-destructive">*</span> : null}
               </Label>
               <Input
                 id="task-delivery-to"
                 type="password"
                 autoComplete="off"
-                placeholder="e.g. o9cq8xxxxxxxx@im.wechat"
+                placeholder={
+                  isWeixinChannel
+                    ? "e.g. wxid_xxxxx@im.wechat"
+                    : "e.g. user:ou_xxx (optional)"
+                }
                 value={form.deliveryTo ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, deliveryTo: e.target.value.trim() }))}
                 disabled={saving}
               />
               <p className="text-xs text-muted-foreground">
-                WeChat user ID (ends with @im.wechat). Required for openclaw-weixin delivery — find it in the conversation context or channel logs.
+                {isWeixinChannel
+                  ? "WeChat user ID (ends with @im.wechat). Required for openclaw-weixin delivery."
+                  : "Feishu recipient is optional. Leave empty to auto-resolve from session identity hints when available."}
               </p>
             </div>
           )}

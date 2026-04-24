@@ -30,6 +30,15 @@ type PageTab = "my-tasks" | "run-history";
 
 type SortBy = "created-desc" | "created-asc";
 
+const CHANNEL_PRIORITY: Record<string, number> = {
+  "openclaw-weixin": 0,
+  weixin: 0,
+  wechat: 0,
+  wx: 0,
+  feishu: 1,
+  lark: 1,
+};
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -65,6 +74,14 @@ export function ScheduledTasksPage() {
             channelsSnapshot.channelLabels[id] ??
             id,
         }))
+        .toSorted((a, b) => {
+          const pa = CHANNEL_PRIORITY[a.id] ?? 99;
+          const pb = CHANNEL_PRIORITY[b.id] ?? 99;
+          if (pa !== pb) {
+            return pa - pb;
+          }
+          return a.label.localeCompare(b.label);
+        })
     : [];
 
   // ── Scheduled Tasks store slice ─────────────────────────────────────────

@@ -30,4 +30,18 @@ describe("resolveQuickSelfSendIntent", () => {
       message: "你好",
     });
   });
+
+  it("does not match chinese scheduled-task creation phrasing", () => {
+    const intent = resolveQuickSelfSendIntent(
+      "帮我创建一个定时任务，1分钟后发送消息：大家好，到我的飞书",
+    );
+    expect(intent).toBeNull();
+  });
+
+  it("does not match english scheduled-task creation phrasing", () => {
+    const intent = resolveQuickSelfSendIntent(
+      "create a scheduled task to send hello to my wechat in 1 minute",
+    );
+    expect(intent).toBeNull();
+  });
 });

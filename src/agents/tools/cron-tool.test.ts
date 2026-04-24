@@ -112,6 +112,12 @@ describe("cron tool", () => {
     expect(tool.ownerOnly).toBe(true);
   });
 
+  it("documents feishu delivery.to as optional with auto-resolution", () => {
+    const tool = createCronTool();
+    expect(tool.description).toContain('channel="feishu"/"lark": delivery.to is OPTIONAL');
+    expect(tool.description).toContain("Do NOT ask for open_id unless auto-resolution later fails");
+  });
+
   it.each([
     [
       "update",
