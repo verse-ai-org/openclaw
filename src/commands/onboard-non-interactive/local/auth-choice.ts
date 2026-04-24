@@ -7,6 +7,7 @@ import type { RuntimeEnv } from "../../../runtime.js";
 import { resolveDefaultSecretProviderAlias } from "../../../secrets/ref-contract.js";
 import { normalizeSecretInput } from "../../../utils/normalize-secret-input.js";
 import { normalizeSecretInputModeInput } from "../../auth-choice.apply-helpers.js";
+import { applyKnownProviderConfig } from "../../provider-config-orchestration.js";
 import {
   buildTokenProfileId,
   validateAnthropicSetupToken,
@@ -16,28 +17,12 @@ import { applyPrimaryModel } from "../../model-picker.js";
 import {
   applyAuthProfileConfig,
   applyCloudflareAiGatewayConfig,
-  applyKilocodeConfig,
-  applyQianfanConfig,
-  applyModelStudioConfig,
   applyModelStudioConfigCn,
-  applyKimiCodeConfig,
   applyMinimaxApiConfig,
   applyMinimaxApiConfigCn,
   applyMinimaxConfig,
   applyMoonshotConfig,
   applyMoonshotConfigCn,
-  applyOpencodeGoConfig,
-  applyOpencodeZenConfig,
-  applyOpenrouterConfig,
-  applySyntheticConfig,
-  applyVeniceConfig,
-  applyTogetherConfig,
-  applyHuggingfaceConfig,
-  applyVercelAiGatewayConfig,
-  applyLitellmConfig,
-  applyMistralConfig,
-  applyXaiConfig,
-  applyXiaomiConfig,
   applyZaiConfig,
   setAnthropicApiKey,
   setCloudflareAiGatewayConfig,
@@ -49,6 +34,7 @@ import {
   setKimiCodingApiKey,
   setLitellmApiKey,
   setMistralApiKey,
+  setDeepseekApiKey,
   setMinimaxApiKey,
   setMoonshotApiKey,
   setOpenaiApiKey,
@@ -379,7 +365,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "xiaomi",
       mode: "api_key",
     });
-    return applyXiaomiConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "xiaomi", "default-model");
   }
 
   if (authChoice === "xai-api-key") {
@@ -406,7 +392,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "xai",
       mode: "api_key",
     });
-    return applyXaiConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "xai", "default-model");
   }
 
   if (authChoice === "mistral-api-key") {
@@ -433,7 +419,34 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "mistral",
       mode: "api_key",
     });
-    return applyMistralConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "mistral", "default-model");
+  }
+
+  if (authChoice === "deepseek-api-key") {
+    const resolved = await resolveApiKey({
+      provider: "deepseek",
+      cfg: baseConfig,
+      flagValue: opts.deepseekApiKey,
+      flagName: "--deepseek-api-key",
+      envVar: "DEEPSEEK_API_KEY",
+      runtime,
+    });
+    if (!resolved) {
+      return null;
+    }
+    if (
+      !(await maybeSetResolvedApiKey(resolved, (value) =>
+        setDeepseekApiKey(value, undefined, apiKeyStorageOptions),
+      ))
+    ) {
+      return null;
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "deepseek:default",
+      provider: "deepseek",
+      mode: "api_key",
+    });
+    return applyKnownProviderConfig(nextConfig, "deepseek", "default-model");
   }
 
   if (authChoice === "volcengine-api-key") {
@@ -514,7 +527,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "qianfan",
       mode: "api_key",
     });
-    return applyQianfanConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "qianfan", "default-model");
   }
 
   if (authChoice === "modelstudio-api-key-cn") {
@@ -568,7 +581,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "modelstudio",
       mode: "api_key",
     });
-    return applyModelStudioConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "modelstudio", "default-model");
   }
 
   if (authChoice === "openai-api-key") {
@@ -622,7 +635,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "openrouter",
       mode: "api_key",
     });
-    return applyOpenrouterConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "openrouter", "default-model");
   }
 
   if (authChoice === "kilocode-api-key") {
@@ -649,7 +662,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "kilocode",
       mode: "api_key",
     });
-    return applyKilocodeConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "kilocode", "default-model");
   }
 
   if (authChoice === "litellm-api-key") {
@@ -676,7 +689,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "litellm",
       mode: "api_key",
     });
-    return applyLitellmConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "litellm", "default-model");
   }
 
   if (authChoice === "ai-gateway-api-key") {
@@ -703,7 +716,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "vercel-ai-gateway",
       mode: "api_key",
     });
-    return applyVercelAiGatewayConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "ai-gateway", "default-model");
   }
 
   if (authChoice === "cloudflare-ai-gateway-api-key") {
@@ -815,7 +828,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "kimi-coding",
       mode: "api_key",
     });
-    return applyKimiCodeConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "kimi-coding", "default-model");
   }
 
   if (authChoice === "synthetic-api-key") {
@@ -842,7 +855,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "synthetic",
       mode: "api_key",
     });
-    return applySyntheticConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "synthetic", "default-model");
   }
 
   if (authChoice === "venice-api-key") {
@@ -869,7 +882,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "venice",
       mode: "api_key",
     });
-    return applyVeniceConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "venice", "default-model");
   }
 
   if (
@@ -941,7 +954,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "opencode",
       mode: "api_key",
     });
-    return applyOpencodeZenConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "opencode", "default-model");
   }
 
   if (authChoice === "opencode-go") {
@@ -968,7 +981,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "opencode-go",
       mode: "api_key",
     });
-    return applyOpencodeGoConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "opencode-go", "default-model");
   }
 
   if (authChoice === "together-api-key") {
@@ -995,7 +1008,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "together",
       mode: "api_key",
     });
-    return applyTogetherConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "together", "default-model");
   }
 
   if (authChoice === "huggingface-api-key") {
@@ -1022,7 +1035,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "huggingface",
       mode: "api_key",
     });
-    return applyHuggingfaceConfig(nextConfig);
+    return applyKnownProviderConfig(nextConfig, "huggingface", "default-model");
   }
 
   if (authChoice === "custom-api-key") {

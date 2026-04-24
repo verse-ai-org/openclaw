@@ -329,6 +329,22 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
     ],
   },
   {
+    id: "deepseek",
+    label: "DeepSeek",
+    hint: "API key",
+    methods: [
+      {
+        id: "deepseek-api-key",
+        label: "DeepSeek API key",
+        type: "api-key",
+        envVar: "DEEPSEEK_API_KEY",
+        consoleUrl: "https://platform.deepseek.com/api_keys",
+        keyPlaceholder: "sk-...",
+        defaultModelId: "deepseek/deepseek-v4-flash",
+      }
+    ],
+  },
+  {
     id: "mistral",
     label: "Mistral AI",
     hint: "API key",

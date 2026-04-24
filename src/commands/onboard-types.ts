@@ -47,6 +47,7 @@ export type AuthChoice =
   | "qwen-portal"
   | "xai-api-key"
   | "mistral-api-key"
+  | "deepseek-api-key"
   | "volcengine-api-key"
   | "byteplus-api-key"
   | "qianfan-api-key"
@@ -74,6 +75,7 @@ export type AuthChoiceGroupId =
   | "synthetic"
   | "venice"
   | "mistral"
+  | "deepseek"
   | "qwen"
   | "together"
   | "huggingface"
@@ -117,6 +119,7 @@ export type OnboardOptions = {
   anthropicApiKey?: string;
   openaiApiKey?: string;
   mistralApiKey?: string;
+  deepseekApiKey?: string;
   openrouterApiKey?: string;
   kilocodeApiKey?: string;
   litellmApiKey?: string;

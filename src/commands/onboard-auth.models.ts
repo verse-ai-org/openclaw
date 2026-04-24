@@ -177,6 +177,43 @@ export function buildMistralModelDefinition(): ModelDefinitionConfig {
   };
 }
 
+export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+export const DEEPSEEK_DEFAULT_MODEL_ID = "deepseek-v4-pro";
+export const DEEPSEEK_FLASH_MODEL_ID = "deepseek-v4-flash";
+export const DEEPSEEK_DEFAULT_MODEL_REF = `deepseek/${DEEPSEEK_DEFAULT_MODEL_ID}`;
+export const DEEPSEEK_DEFAULT_CONTEXT_WINDOW = 1000000;
+export const DEEPSEEK_DEFAULT_MAX_TOKENS = 384000;
+export const DEEPSEEK_DEFAULT_COST = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
+export function buildDeepseekModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: DEEPSEEK_DEFAULT_MODEL_ID,
+    name: "DeepSeek V4 Pro",
+    reasoning: true,
+    input: ["text"],
+    cost: DEEPSEEK_DEFAULT_COST,
+    contextWindow: DEEPSEEK_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: DEEPSEEK_DEFAULT_MAX_TOKENS,
+  };
+}
+
+export function buildDeepseekFlashModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: DEEPSEEK_FLASH_MODEL_ID,
+    name: "DeepSeek V4 Flash",
+    reasoning: true,
+    input: ["text"],
+    cost: DEEPSEEK_DEFAULT_COST,
+    contextWindow: DEEPSEEK_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: DEEPSEEK_DEFAULT_MAX_TOKENS,
+  };
+}
+
 export function buildZaiModelDefinition(params: {
   id: string;
   name?: string;

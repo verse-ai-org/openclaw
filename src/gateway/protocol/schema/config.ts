@@ -17,6 +17,18 @@ export const ConfigSetParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ConfigProviderApplyParamsSchema = Type.Object(
+  {
+    providerId: NonEmptyString,
+    authMode: Type.Union([Type.Literal("api-key"), Type.Literal("oauth"), Type.Literal("token")]),
+    modelId: Type.Optional(NonEmptyString),
+    apiKey: Type.Optional(Type.String()),
+    baseUrl: Type.Optional(Type.String()),
+    baseHash: Type.Optional(NonEmptyString),
+  },
+  { additionalProperties: false },
+);
+
 const ConfigApplyLikeParamsSchema = Type.Object(
   {
     raw: NonEmptyString,

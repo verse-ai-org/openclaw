@@ -1,4 +1,9 @@
-import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../../agents/agent-scope.js";
+import {
+  resolveAgentWorkspaceDir,
+  resolveDefaultAgentId,
+  resolveAgentDir,
+} from "../../agents/agent-scope.js";
+import { upsertAuthProfile } from "../../agents/auth-profiles.js";
 import { listChannelPlugins } from "../../channels/plugins/index.js";
 import {
   createConfigIO,
@@ -24,6 +29,8 @@ import {
 } from "../../config/schema.js";
 import { extractDeliveryInfo } from "../../config/sessions.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { applyAuthProfileConfig } from "../../commands/onboard-auth.js";
+import { applyKnownProviderConfig } from "../../commands/provider-config-orchestration.js";
 import {
   formatDoctorNonInteractiveHint,
   type RestartSentinelPayload,
@@ -44,6 +51,7 @@ import {
   validateConfigApplyParams,
   validateConfigGetParams,
   validateConfigPatchParams,
+  validateConfigProviderApplyParams,
   validateConfigSchemaLookupParams,
   validateConfigSchemaLookupResult,
   validateConfigSchemaParams,
@@ -126,6 +134,36 @@ function sanitizeLookupPathForLog(path: string): string {
     return code < 0x20 || code === 0x7f ? "?" : char;
   }).join("");
   return sanitized.length > 120 ? `${sanitized.slice(0, 117)}...` : sanitized;
+}
+
+function summarizeValidationIssues(
+  issues: Array<{
+    instancePath?: string;
+    message?: string;
+  }>,
+): string {
+  return issues
+    .slice(0, 6)
+    .map((issue) => {
+      const at = issue.instancePath?.trim() ? issue.instancePath : "<root>";
+      const message = issue.message?.trim() || "validation error";
+      return `${at}: ${message}`;
+    })
+    .join("; ");
+}
+
+function findExistingProfileId(
+  config: OpenClawConfig,
+  providerId: string,
+  mode: "api_key" | "oauth" | "token",
+): string | null {
+  const profiles = config.auth?.profiles ?? {};
+  for (const [profileId, profile] of Object.entries(profiles)) {
+    if (profile.provider === providerId && profile.mode === mode) {
+      return profileId;
+    }
+  }
+  return null;
 }
 
 function parseValidateConfigFromRawOrRespond(
@@ -259,6 +297,11 @@ function loadSchemaWithPlugins(): ConfigSchemaResponse {
   });
 }
 
+function applyProviderBootstrap(config: OpenClawConfig, providerId: string): void {
+  const next = applyKnownProviderConfig(config, providerId, "provider");
+  Object.assign(config, next);
+}
+
 export const configHandlers: GatewayRequestHandlers = {
   "config.get": async ({ params, respond, context }) => {
     if (!assertValidParams(params, validateConfigGetParams, "config.get", respond)) {
@@ -333,6 +376,160 @@ export const configHandlers: GatewayRequestHandlers = {
         ok: true,
         path: createConfigIO().configPath,
         config: redactConfigObject(parsed.config, parsed.schema.uiHints),
+      },
+      undefined,
+    );
+  },
+  "config.provider.apply": async ({ params, respond, context }) => {
+    if (
+      !assertValidParams(
+        params,
+        validateConfigProviderApplyParams,
+        "config.provider.apply",
+        respond,
+      )
+    ) {
+      return;
+    }
+    const { snapshot, writeOptions } = await readConfigFileSnapshotForWrite();
+    if (!requireConfigBaseHash(params, snapshot, respond)) {
+      return;
+    }
+    if (!snapshot.valid) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "invalid config; fix before applying provider"),
+      );
+      return;
+    }
+
+    const request = params as {
+      providerId: string;
+      authMode: "api-key" | "oauth" | "token";
+      modelId?: string;
+      apiKey?: string;
+      baseUrl?: string;
+    };
+    const redactedRequest = {
+      providerId: request.providerId,
+      authMode: request.authMode,
+      modelId: request.modelId,
+      hasApiKey: Boolean(request.apiKey?.trim()),
+      hasBaseUrl: Boolean(request.baseUrl?.trim()),
+    };
+    context?.logGateway?.info(
+      `config.provider.apply request provider=${redactedRequest.providerId} mode=${redactedRequest.authMode} model=${redactedRequest.modelId ?? "<none>"} hasApiKey=${redactedRequest.hasApiKey} hasBaseUrl=${redactedRequest.hasBaseUrl}`,
+    );
+
+    let nextConfig: OpenClawConfig = structuredClone(snapshot.config);
+    applyProviderBootstrap(nextConfig, request.providerId);
+
+    if (request.modelId?.trim()) {
+      const normalizedModelId = request.modelId.includes("/")
+        ? request.modelId.trim()
+        : `${request.providerId}/${request.modelId.trim()}`;
+      const nextAgents = { ...(nextConfig.agents ?? {}) };
+      const nextDefaults = { ...(nextAgents.defaults ?? {}) };
+      nextDefaults.model = { primary: normalizedModelId };
+      nextAgents.defaults = nextDefaults;
+      nextConfig.agents = nextAgents;
+    }
+
+    if (request.authMode === "api-key" && request.apiKey?.trim()) {
+      const providers = (nextConfig.models.providers ??= {});
+      const provider = providers[request.providerId];
+      if (provider) {
+        provider.auth = "api-key";
+        provider.apiKey = request.apiKey.trim();
+        if (request.baseUrl?.trim()) {
+          provider.baseUrl = request.baseUrl.trim();
+        }
+      }
+      const profileId =
+        findExistingProfileId(nextConfig, request.providerId, "api_key") ??
+        `${request.providerId}:default`;
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId,
+        provider: request.providerId,
+        mode: "api_key",
+      });
+      const defaultAgentId = resolveDefaultAgentId(nextConfig);
+      const agentDir = resolveAgentDir(nextConfig, defaultAgentId);
+      upsertAuthProfile({
+        profileId,
+        agentDir,
+        credential: {
+          type: "api_key",
+          provider: request.providerId,
+          key: request.apiKey.trim(),
+        },
+      });
+      context?.logGateway?.info(
+        `config.provider.apply auth profile selected provider=${request.providerId} mode=api_key profileId=${profileId}`,
+      );
+    } else if (request.authMode === "oauth") {
+      const providers = (nextConfig.models.providers ??= {});
+      const provider = providers[request.providerId];
+      if (provider) {
+        provider.auth = "oauth";
+        delete provider.apiKey;
+      }
+      const profileId =
+        findExistingProfileId(nextConfig, request.providerId, "oauth") ??
+        `${request.providerId}:default`;
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId,
+        provider: request.providerId,
+        mode: "oauth",
+      });
+      context?.logGateway?.info(
+        `config.provider.apply auth profile selected provider=${request.providerId} mode=oauth profileId=${profileId}`,
+      );
+    } else if (request.authMode === "token") {
+      const providers = (nextConfig.models.providers ??= {});
+      const provider = providers[request.providerId];
+      if (provider) {
+        provider.auth = "token";
+        delete provider.apiKey;
+      }
+      const profileId =
+        findExistingProfileId(nextConfig, request.providerId, "token") ??
+        `${request.providerId}:default`;
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId,
+        provider: request.providerId,
+        mode: "token",
+      });
+      context?.logGateway?.info(
+        `config.provider.apply auth profile selected provider=${request.providerId} mode=token profileId=${profileId}`,
+      );
+    }
+
+    const validated = validateConfigObjectWithPlugins(nextConfig);
+    if (!validated.ok) {
+      const issueSummary = summarizeValidationIssues(validated.issues);
+      context?.logGateway?.warn(
+        `config.provider.apply invalid config provider=${request.providerId} mode=${request.authMode} issues=${issueSummary}`,
+      );
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "invalid config", {
+          details: { issues: validated.issues },
+        }),
+      );
+      return;
+    }
+
+    const schema = loadSchemaWithPlugins();
+    await writeConfigFile(validated.config, writeOptions);
+    respond(
+      true,
+      {
+        ok: true,
+        path: createConfigIO().configPath,
+        config: redactConfigObject(validated.config, schema.uiHints),
       },
       undefined,
     );

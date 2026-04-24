@@ -306,6 +306,23 @@ describe("onboard (non-interactive): provider auth", () => {
     });
   });
 
+  it("infers DeepSeek auth choice from --deepseek-api-key and sets default model", async () => {
+    await withOnboardEnv("openclaw-onboard-deepseek-infer-", async (env) => {
+      const cfg = await runOnboardingAndReadConfig(env, {
+        deepseekApiKey: "deepseek-test-key", // pragma: allowlist secret
+      });
+
+      expect(cfg.auth?.profiles?.["deepseek:default"]?.provider).toBe("deepseek");
+      expect(cfg.auth?.profiles?.["deepseek:default"]?.mode).toBe("api_key");
+      expect(cfg.agents?.defaults?.model?.primary).toBe("deepseek/deepseek-v4-pro");
+      await expectApiKeyProfile({
+        profileId: "deepseek:default",
+        provider: "deepseek",
+        key: "deepseek-test-key",
+      });
+    });
+  });
+
   it("stores Volcano Engine API key and sets default model", async () => {
     await withOnboardEnv("openclaw-onboard-volcengine-", async (env) => {
       const cfg = await runOnboardingAndReadConfig(env, {
@@ -422,6 +439,14 @@ describe("onboard (non-interactive): provider auth", () => {
       optionKey: "openrouterApiKey",
       flagName: "--openrouter-api-key",
       envVar: "OPENROUTER_API_KEY",
+    },
+    {
+      name: "deepseek",
+      prefix: "openclaw-onboard-ref-flag-deepseek-",
+      authChoice: "deepseek-api-key",
+      optionKey: "deepseekApiKey",
+      flagName: "--deepseek-api-key",
+      envVar: "DEEPSEEK_API_KEY",
     },
     {
       name: "xai",

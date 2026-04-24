@@ -77,6 +77,12 @@ const AUTH_CHOICE_GROUP_DEFS: {
     choices: ["xai-api-key"],
   },
   {
+    value: "deepseek",
+    label: "DeepSeek",
+    hint: "API key",
+    choices: ["deepseek-api-key"],
+  },
+  {
     value: "mistral",
     label: "Mistral AI",
     hint: "API key",

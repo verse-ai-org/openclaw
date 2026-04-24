@@ -36,6 +36,10 @@ function getErrorMessage(err: unknown): string {
   return String(err);
 }
 
+function isConfigBaseHashConflict(err: unknown): boolean {
+  return getErrorMessage(err).includes("config changed since last load");
+}
+
 /**
  * Find the first usable channel ID from the channels snapshot.
  * Returns null if no channels are configured/connected.
@@ -147,6 +151,7 @@ interface AgentsState {
   configLoading: boolean;
   configSaving: boolean;
   configDirty: boolean;
+  configError: string | null;
 
   agentFilesLoading: boolean;
   agentFilesError: string | null;
@@ -192,6 +197,13 @@ interface AgentsState {
   loadAgentIdentity: (agentId: string) => Promise<void>;
   loadConfig: () => Promise<void>;
   patchConfig: (path: Array<string | number>, value: unknown) => void;
+  applyProviderConfig: (params: {
+    providerId: string;
+    authMode: "api-key" | "oauth" | "token";
+    modelId?: string;
+    apiKey?: string;
+    baseUrl?: string;
+  }) => Promise<void>;
   saveConfig: () => Promise<void>;
   reloadConfig: () => Promise<void>;
   changeAgentModel: (agentId: string, modelId: string | null) => void;
@@ -267,6 +279,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   configLoading: false,
   configSaving: false,
   configDirty: false,
+  configError: null,
   agentFilesLoading: false,
   agentFilesError: null,
   agentFilesList: null,
@@ -387,13 +400,18 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (!client || !isConnected()) {
       return;
     }
-    set({ configLoading: true });
+    set({ configLoading: true, configError: null });
     try {
       const res = await client.request<{ config?: Record<string, unknown>; hash?: string }>(
         "config.get",
         {},
       );
-      set({ configForm: res?.config ?? null, configBaseHash: res?.hash ?? null, configDirty: false });
+      set({
+        configForm: res?.config ?? null,
+        configBaseHash: res?.hash ?? null,
+        configDirty: false,
+        configError: null,
+      });
     } catch {
       // non-fatal
     } finally {
@@ -406,6 +424,53 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     set({ configForm: applyPatch(current, path, value), configDirty: true });
   },
 
+  applyProviderConfig: async ({ providerId, authMode, modelId, apiKey, baseUrl }) => {
+    const client = getClient();
+    if (!client) {
+      return;
+    }
+    set({ configSaving: true, configError: null });
+    try {
+      let configBaseHash = get().configBaseHash;
+      if (!configBaseHash) {
+        const latest = await client.request<{ hash?: string }>("config.get", {});
+        configBaseHash = latest?.hash ?? null;
+        if (configBaseHash) {
+          set({ configBaseHash });
+        }
+      }
+
+      const runApply = async (baseHash: string | null) =>
+        client.request("config.provider.apply", {
+          providerId,
+          authMode,
+          modelId,
+          apiKey,
+          baseUrl,
+          ...(baseHash ? { baseHash } : {}),
+        });
+
+      try {
+        await runApply(configBaseHash);
+      } catch (err) {
+        if (!isConfigBaseHashConflict(err)) {
+          throw err;
+        }
+        const latest = await client.request<{ hash?: string }>("config.get", {});
+        const refreshedHash = latest?.hash ?? null;
+        set({ configBaseHash: refreshedHash });
+        await runApply(refreshedHash);
+      }
+      await get().loadConfig();
+      await get().loadAgents();
+    } catch (err) {
+      const message = getErrorMessage(err);
+      set({ error: message, configError: message });
+    } finally {
+      set({ configSaving: false });
+    }
+  },
+
   saveConfig: async () => {
     const client = getClient();
     if (!client) {
@@ -415,20 +480,43 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (!configForm) {
       return;
     }
-    set({ configSaving: true });
+    set({ configSaving: true, configError: null });
     try {
       // config.set requires raw (JSON string) + optional baseHash for conflict detection
       const raw = JSON.stringify(configForm, null, 2);
-      const configBaseHash = get().configBaseHash;
-      const params: Record<string, unknown> = { raw };
-      if (configBaseHash) { params.baseHash = configBaseHash; }
-      await client.request("config.set", params);
+      let configBaseHash = get().configBaseHash;
+      if (!configBaseHash) {
+        const latest = await client.request<{ hash?: string }>("config.get", {});
+        configBaseHash = latest?.hash ?? null;
+        if (configBaseHash) {
+          set({ configBaseHash });
+        }
+      }
+      const runSet = async (baseHash: string | null) => {
+        const params: Record<string, unknown> = { raw };
+        if (baseHash) {
+          params.baseHash = baseHash;
+        }
+        await client.request("config.set", params);
+      };
+      try {
+        await runSet(configBaseHash);
+      } catch (err) {
+        if (!isConfigBaseHashConflict(err)) {
+          throw err;
+        }
+        const latest = await client.request<{ hash?: string }>("config.get", {});
+        const refreshedHash = latest?.hash ?? null;
+        set({ configBaseHash: refreshedHash });
+        await runSet(refreshedHash);
+      }
       set({ configDirty: false });
       // Reload to get updated hash for subsequent saves
       await get().loadConfig();
       await get().loadAgents();
     } catch (err) {
-      set({ error: getErrorMessage(err) });
+      const message = getErrorMessage(err);
+      set({ error: message, configError: message });
     } finally {
       set({ configSaving: false });
     }
