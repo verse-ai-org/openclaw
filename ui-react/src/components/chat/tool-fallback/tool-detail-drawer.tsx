@@ -19,7 +19,7 @@ import { ToolSection, type ToolDetailField } from "./sections";
 import { StatusBadge } from "./status-badge";
 import type { ToolCategoryConfig, ToolStatus } from "./types";
 
-const RESULT_PREVIEW_MAX_LINES = 10;
+const PREVIEW_MAX_LINES = 10;
 
 interface ToolDetailDrawerProps {
   open: boolean;
@@ -56,6 +56,7 @@ export function ToolDetailDrawer({
 }: ToolDetailDrawerProps) {
   const Icon = categoryConfig.Icon;
   const [showRawArgs, setShowRawArgs] = useState(false);
+  const [isCommandExpanded, setIsCommandExpanded] = useState(false);
   const [isResultExpanded, setIsResultExpanded] = useState(false);
   const commandFieldIndex = argsFields.findIndex((field) => field.label === "Command");
   const commandField = commandFieldIndex >= 0 ? argsFields[commandFieldIndex] : undefined;
@@ -64,10 +65,15 @@ export function ToolDetailDrawer({
   const commandDisplayText =
     commandField?.value ??
     (hasRawArgs ? `${toolLabel} ${argsText!.trim()}` : toolLabel);
+  const commandLines = commandDisplayText.split(/\r?\n/);
+  const isLongCommand = commandLines.length > PREVIEW_MAX_LINES;
+  const commandPreviewText = isLongCommand
+    ? commandLines.slice(0, PREVIEW_MAX_LINES).join("\n")
+    : commandDisplayText;
   const resultLines = (resultStr ?? "").split(/\r?\n/);
-  const isLongResult = resultLines.length > RESULT_PREVIEW_MAX_LINES;
+  const isLongResult = resultLines.length > PREVIEW_MAX_LINES;
   const resultPreviewText = isLongResult
-    ? resultLines.slice(0, RESULT_PREVIEW_MAX_LINES).join("\n")
+    ? resultLines.slice(0, PREVIEW_MAX_LINES).join("\n")
     : resultStr;
   const hasResult = typeof resultStr === "string" && resultStr.length > 0;
   const showResultPreview = hasResult && !isResultExpanded;
@@ -133,6 +139,22 @@ export function ToolDetailDrawer({
               title="Command"
               action={
                 <div className="flex items-center gap-1">
+                  {isLongCommand && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 text-muted-foreground"
+                      aria-label={isCommandExpanded ? "Collapse command" : "Expand command"}
+                      title={isCommandExpanded ? "Collapse command" : "Expand command"}
+                      onClick={() => setIsCommandExpanded((prev) => !prev)}
+                    >
+                      {isCommandExpanded ? (
+                        <Minimize2Icon className="size-3.5" />
+                      ) : (
+                        <Maximize2Icon className="size-3.5" />
+                      )}
+                    </Button>
+                  )}
                   {hasRawArgs && (
                     <Button
                       variant="ghost"
@@ -164,10 +186,23 @@ export function ToolDetailDrawer({
                     ? `cwd: ${workingDirField.value}`
                     : "shell session"}
                 </div>
-                <pre className="overflow-x-auto bg-white px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
-                  <span className="text-emerald-600">$ </span>
-                  {commandDisplayText}
-                </pre>
+                {!isCommandExpanded && (
+                  <div className="relative">
+                    <pre className="overflow-x-auto bg-white px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
+                      <span className="text-emerald-600">$ </span>
+                      {commandPreviewText}
+                    </pre>
+                    {isLongCommand && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-white to-transparent" />
+                    )}
+                  </div>
+                )}
+                {isCommandExpanded && (
+                  <pre className="overflow-x-auto bg-white px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
+                    <span className="text-emerald-600">$ </span>
+                    {commandDisplayText}
+                  </pre>
+                )}
               </div>
               {showRawArgs && hasRawArgs && (
                 <pre className="mt-3 rounded-lg border bg-white p-3 text-xs leading-relaxed whitespace-pre-wrap break-all">
@@ -220,13 +255,13 @@ export function ToolDetailDrawer({
               }
             >
               {richContent && statusType === "complete" && canPromoteRichContent && (
-                <div className="mb-3 overflow-hidden rounded-3xl border bg-background shadow-sm">
+                <div className="mb-3 overflow-hidden rounded-lg">
                   {richContent}
                 </div>
               )}
               {showResultPreview && resultPreviewText && (
                 <div className="relative">
-                  <pre className="overflow-x-auto bg-background rounded-3xl p-4 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
+                  <pre className="overflow-x-auto bg-background rounded-lg p-4 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
                     {resultPreviewText}
                   </pre>
                   {isLongResult && (

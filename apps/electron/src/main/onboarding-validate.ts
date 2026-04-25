@@ -29,9 +29,8 @@ const AUTH_METHOD_TO_PROVIDER: Record<string, string> = {
   "gemini-api-key": "google",
   "google-gemini-cli": "google",
   // MiniMax
+  "minimax-api-key": "minimax",
   "minimax-api": "minimax",
-  "minimax-cloud": "minimax",
-  "minimax-api-lightning": "minimax",
   "minimax-api-key-cn": "minimax-cn",
   // Mistral
   "mistral-api-key": "mistral",

@@ -26,7 +26,6 @@ describe("buildAuthChoiceOptions", () => {
       "xiaomi-api-key",
       "minimax-api",
       "minimax-api-key-cn",
-      "minimax-api-lightning",
       "moonshot-api-key",
       "moonshot-api-key-cn",
       "kimi-code-api-key",

@@ -58,6 +58,29 @@ function eraseInteractiveHandler<TPayload>(
   return handler as unknown as ErasedInteractiveComponentHandler;
 }
 
+function humanizeInteractionId(id: string): string {
+  const normalized = id
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) {
+    return "Your choice";
+  }
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function resolveOptionListQuestion(payload: SerializableOptionList): string {
+  const title = payload.title?.trim();
+  if (title) {
+    return title;
+  }
+  const description = payload.description?.trim();
+  if (description) {
+    return description;
+  }
+  return humanizeInteractionId(payload.id);
+}
+
 function buildUpfrontSummary(
   config: SerializableUpfrontMode,
   answers: Record<string, string[]>,
@@ -171,14 +194,15 @@ const questionFlowHandler: InteractiveComponentHandler<SerializableQuestionFlow>
 const optionListHandler: InteractiveComponentHandler<SerializableOptionList> = {
   kind: "option_list",
   buildSubmittedSummary: (config, nextUserMessage) => {
+    const question = resolveOptionListQuestion(config);
     if (!nextUserMessage) {
       return null;
     }
     const qaPairs = parseQaPairsFromMessage(nextUserMessage.content);
     if (qaPairs.length > 0) {
-      return [{ question: config.id, answer: qaPairs[0]?.answer || "—" }];
+      return [{ question, answer: qaPairs[0]?.answer || "—" }];
     }
-    return [{ question: config.id, answer: nextUserMessage.content || "—" }];
+    return [{ question, answer: nextUserMessage.content || "—" }];
   },
   renderPending: ({ interactiveId, payload, sendMessage, setInteractiveSummary }) => (
     <OptionList
@@ -198,7 +222,9 @@ const optionListHandler: InteractiveComponentHandler<SerializableOptionList> = {
           .filter((o: OptionListOption) => ids.includes(o.id))
           .map((o: OptionListOption) => o.label);
         const answer = labels.join("、") || "—";
-        const pairs: InteractiveSummaryPair[] = [{ question: payload.id, answer }];
+        const pairs: InteractiveSummaryPair[] = [
+          { question: resolveOptionListQuestion(payload), answer },
+        ];
         setInteractiveSummary(pairs);
         await sendMessage(formatQaDisplayText(pairs), {
           metadata: buildInteractionMetadata({

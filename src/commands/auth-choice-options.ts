@@ -50,12 +50,11 @@ const AUTH_CHOICE_GROUP_DEFS: {
   {
     value: "minimax",
     label: "MiniMax",
-    hint: "M2.5 (recommended)",
+    hint: "OAuth + API key (model selected separately)",
     choices: [
       "minimax-portal",
       "minimax-api",
       "minimax-api-key-cn",
-      "minimax-api-lightning",
     ],
   },
   {
@@ -292,11 +291,6 @@ const BASE_AUTH_CHOICE_OPTIONS: ReadonlyArray<AuthChoiceOption> = [
     value: "xiaomi-api-key",
     label: "Xiaomi API key",
   },
-  {
-    value: "minimax-portal",
-    label: "MiniMax OAuth",
-    hint: "Oauth plugin for MiniMax",
-  },
   { value: "qwen-portal", label: "Qwen OAuth" },
   {
     value: "copilot-proxy",
@@ -309,16 +303,16 @@ const BASE_AUTH_CHOICE_OPTIONS: ReadonlyArray<AuthChoiceOption> = [
     label: "OpenCode Zen catalog",
     hint: "Claude, GPT, Gemini via opencode.ai/zen",
   },
-  { value: "minimax-api", label: "MiniMax M2.7" },
+  {
+    value: "minimax-portal",
+    label: "MiniMax OAuth",
+    hint: "OAuth plugin for MiniMax",
+  },
+  { value: "minimax-api", label: "MiniMax API key" },
   {
     value: "minimax-api-key-cn",
-    label: "MiniMax M2.7 (CN)",
+    label: "MiniMax China API key",
     hint: "China endpoint (api.minimaxi.com)",
-  },
-  {
-    value: "minimax-api-lightning",
-    label: "MiniMax M2.7 Highspeed",
-    hint: "Official fast tier (legacy: Lightning)",
   },
   { value: "qianfan-api-key", label: "Qianfan API key" },
   {

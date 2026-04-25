@@ -13,6 +13,7 @@ export type BridgeRuntimeContext = {
     { phase: "result" | "error"; data: Record<string, unknown> }
   >;
   activeRunBySession: Map<string, string>;
+  finalizedRunBySession: Map<string, string>;
 };
 
 export function toRunEventKindFromChatState(state: string | undefined): RunEventKind {
@@ -122,6 +123,13 @@ export function finalizeChatRun(params: {
   ctx: BridgeRuntimeContext;
 }) {
   const { sessionKey, runId, state, messageText, errorMessage, ctx } = params;
+  if (runId) {
+    const finalizedRunId = ctx.finalizedRunBySession.get(sessionKey);
+    if (finalizedRunId === runId) {
+      return;
+    }
+    ctx.finalizedRunBySession.set(sessionKey, runId);
+  }
   const st = useChatStore.getState();
   st.clearSessionGenerating(sessionKey);
   if (runId && ctx.pendingInteractiveHydrationRuns.has(runId)) {

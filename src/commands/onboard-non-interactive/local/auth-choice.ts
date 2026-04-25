@@ -20,7 +20,6 @@ import {
   applyModelStudioConfigCn,
   applyMinimaxApiConfig,
   applyMinimaxApiConfigCn,
-  applyMinimaxConfig,
   applyMoonshotConfig,
   applyMoonshotConfigCn,
   applyZaiConfig,
@@ -886,10 +885,8 @@ export async function applyNonInteractiveAuthChoice(params: {
   }
 
   if (
-    authChoice === "minimax-cloud" ||
     authChoice === "minimax-api" ||
-    authChoice === "minimax-api-key-cn" ||
-    authChoice === "minimax-api-lightning"
+    authChoice === "minimax-api-key-cn"
   ) {
     const isCn = authChoice === "minimax-api-key-cn";
     const providerId = isCn ? "minimax-cn" : "minimax";
@@ -917,17 +914,10 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: providerId,
       mode: "api_key",
     });
-    const modelId =
-      authChoice === "minimax-api-lightning"
-        ? "MiniMax-M2.7-highspeed"
-        : "MiniMax-M2.7";
+    const modelId = "MiniMax-M2.7";
     return isCn
       ? applyMinimaxApiConfigCn(nextConfig, modelId)
       : applyMinimaxApiConfig(nextConfig, modelId);
-  }
-
-  if (authChoice === "minimax") {
-    return applyMinimaxConfig(nextConfig);
   }
 
   if (authChoice === "opencode-zen") {

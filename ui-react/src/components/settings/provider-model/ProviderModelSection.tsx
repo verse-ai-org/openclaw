@@ -1,18 +1,19 @@
-import { CheckCircle2Icon, Loader2Icon, RefreshCwIcon, XCircleIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { findAuthMethod, findProviderGroup } from "@/data/auth-choice-groups";
-import { useOptionalWizardAdapter } from "@/context/AdapterContext";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  CheckCircle2Icon,
+  EyeIcon,
+  EyeOffIcon,
+  Loader2Icon,
+  RefreshCwIcon,
+  XCircleIcon,
+  XIcon,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  findAuthMethod,
+  findProviderGroup,
+  PROVIDER_MODEL_CANDIDATES,
+} from "@/data/auth-choice-groups";
+import { useOptionalWizardAdapter } from "@/context/AdapterContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +90,7 @@ export function ProviderModelSection({
       ]
     : ["agents.defaults.model.primary"];
   const [testing, setTesting] = useState(false);
+  const [revealCredential, setRevealCredential] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [oauthPhase, setOauthPhase] = useState<
@@ -104,8 +106,13 @@ export function ProviderModelSection({
     const list = (selectedGroup?.methods ?? [])
       .map((m) => m.defaultModelId ?? "")
       .filter((m): m is string => !!m.trim());
-    return Array.from(new Set(list));
-  }, [selectedGroup]);
+    return Array.from(
+      new Set([
+        ...list,
+        ...(selectedProviderId ? (PROVIDER_MODEL_CANDIDATES[selectedProviderId] ?? []) : []),
+      ]),
+    );
+  }, [selectedGroup, selectedProviderId]);
   const requiresValidation =
     selectedMethod?.type === "api-key" ||
     selectedMethod?.type === "custom" ||
@@ -118,6 +125,7 @@ export function ProviderModelSection({
   useEffect(() => {
     setTestResult(null);
     setTestError(null);
+    setRevealCredential(false);
     setOauthPhase("idle");
     setOauthError(null);
     setDeviceCode(null);
@@ -313,7 +321,6 @@ export function ProviderModelSection({
       ) : null}
       {showProviderStep ? (
         <div className="space-y-1.5">
-          <Label className="text-xs">Provider</Label>
           <ProviderPicker
             selectedProviderId={selectedProviderId}
             onSelect={onProviderChange}
@@ -321,7 +328,7 @@ export function ProviderModelSection({
         </div>
       ) : null}
 
-      {showAuthStep && selectedGroup ? (
+      {showAuthStep && selectedGroup && selectedGroup.methods.length > 1 ? (
         <div className="space-y-1.5">
           <Label className="text-xs">Auth method</Label>
           <AuthMethodTabs
@@ -329,9 +336,6 @@ export function ProviderModelSection({
             selectedMethodId={selectedMethodId}
             onSelect={onMethodChange}
           />
-          {selectedMethod ? (
-            <p className="text-xs text-muted-foreground">{selectedMethod.label}</p>
-          ) : null}
         </div>
       ) : null}
 
@@ -412,16 +416,47 @@ export function ProviderModelSection({
               <Label className="text-xs">
                 {selectedMethod.type === "proxy" ? "Access token / key" : "API key"}
               </Label>
-              <Input
-                value={apiKey}
-                placeholder={selectedMethod.keyPlaceholder ?? "Paste credential"}
-                className="h-8 text-sm font-mono"
-                onChange={(e) => onApiKeyChange(e.target.value)}
-              />
               <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={revealCredential ? "text" : "password"}
+                    value={apiKey}
+                    placeholder={selectedMethod.keyPlaceholder ?? "Paste credential"}
+                    className="pr-16 text-sm font-mono"
+                    onChange={(e) => onApiKeyChange(e.target.value)}
+                  />
+                  {apiKey.trim() ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="absolute right-1 top-1.5 size-6 text-muted-foreground hover:text-foreground"
+                      onClick={handleClearCredential}
+                      aria-label="Clear credential"
+                    >
+                      <XIcon className="size-3.5" />
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className={[
+                      "absolute right-1 top-1.5 size-6 text-muted-foreground hover:text-foreground",
+                      apiKey.trim() ? "right-7" : "right-1",
+                    ].join(" ")}
+                    onClick={() => setRevealCredential((prev) => !prev)}
+                    aria-label={revealCredential ? "Hide credential" : "Show credential"}
+                  >
+                    {revealCredential ? (
+                      <EyeOffIcon className="size-3.5" />
+                    ) : (
+                      <EyeIcon className="size-3.5" />
+                    )}
+                  </Button>
+                </div>
                 <Button
                   type="button"
-                  size="sm"
                   variant={testResult === "success" ? "outline" : "default"}
                   onClick={() => {
                     void handleTestConnection();
@@ -442,33 +477,17 @@ export function ProviderModelSection({
                     "Test Connection"
                   )}
                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button type="button" size="sm" variant="ghost">
-                      Clear
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent size="sm">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Clear credential?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This removes the current provider credential from config draft.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearCredential}>
-                        Clear
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-                {testResult === "error" ? (
-                  <span className="text-xs text-red-600">
-                    {testError ?? "Validation failed."}
-                  </span>
-                ) : null}
               </div>
+              {testResult === "error" ? (
+                <p className="text-xs text-red-600">
+                  {testError ?? "Validation failed."}
+                </p>
+              ) : null}
+              {requiresValidation && !validated ? (
+                <p className="text-xs text-amber-700">
+                  Please verify credentials before continuing.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -478,7 +497,7 @@ export function ProviderModelSection({
               <Input
                 value={baseUrl}
                 placeholder="https://your-endpoint.example.com/v1"
-                className="h-8 text-sm font-mono"
+                className="text-sm font-mono"
                 onChange={(e) => onBaseUrlChange(e.target.value)}
               />
             </div>

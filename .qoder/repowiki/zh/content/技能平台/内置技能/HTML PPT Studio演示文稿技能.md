@@ -14,7 +14,15 @@
 - [render.sh](file://skills/html-ppt-skill/scripts/render.sh)
 - [demo-deck/index.html](file://skills/html-ppt-skill/examples/demo-deck/index.html)
 - [presenter-mode-reveal/index.html](file://skills/html-ppt-skill/templates/full-decks/presenter-mode-reveal/index.html)
+- [deck.html](file://skills/html-ppt-skill/templates/deck.html)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 更新了资产管理和部署能力章节，反映新的自包含演示文稿生成机制
+- 新增了脚本增强功能的详细说明
+- 更新了演示者模式的部署能力和自包含特性
+- 增强了PNG导出和渲染流程的描述
 
 ## 目录
 1. [简介](#简介)
@@ -22,10 +30,11 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考虑](#性能考虑)
-8. [故障排除指南](#故障排除指南)
-9. [结论](#结论)
+6. [资产管理和部署能力](#资产管理和部署能力)
+7. [依赖关系分析](#依赖关系分析)
+8. [性能考虑](#性能考虑)
+9. [故障排除指南](#故障排除指南)
+10. [结论](#结论)
 
 ## 简介
 
@@ -327,6 +336,64 @@ HTML PPT Studio提供了15个完整的演示文稿模板，每个模板都是自
 **章节来源**
 - [presenter-mode-reveal/index.html:1-188](file://skills/html-ppt-skill/templates/full-decks/presenter-mode-reveal/index.html#L1-L188)
 
+## 资产管理和部署能力
+
+### 自包含演示文稿生成
+
+HTML PPT Studio的最新更新实现了真正自包含的演示文稿生成能力。新的`new-deck.sh`脚本不仅复制资产文件，还智能重写模板路径，确保生成的演示文稿完全独立。
+
+**核心功能**：
+- **资产复制**：自动复制`assets/`目录到新项目
+- **路径重写**：将模板中的相对路径转换为本地相对路径
+- **自包含输出**：生成的HTML文件不再依赖外部资源
+
+**更新**：新增的资产管理和部署能力显著提升了演示文稿的便携性和独立性
+
+**章节来源**
+- [new-deck.sh:1-85](file://skills/html-ppt-skill/scripts/new-deck.sh#L1-L85)
+
+### 脚本增强功能
+
+#### new-deck.sh 脚本改进
+
+新的脚本实现了更智能的资产管理和路径处理：
+
+```mermaid
+flowchart TD
+Start([执行 new-deck.sh]) --> CheckArgs["检查参数"]
+CheckArgs --> GetTemplate["获取模板路径"]
+GetTemplate --> CopyAssets["复制 assets/ 目录"]
+CopyAssets --> RewritePaths["重写模板路径"]
+RewritePaths --> GenerateDeck["生成自包含HTML"]
+GenerateDeck --> OutputSuccess["输出成功信息"]
+OutputSuccess --> NextSteps["显示下一步操作"]
+```
+
+**图表来源**
+- [new-deck.sh:60-75](file://skills/html-ppt-skill/scripts/new-deck.sh#L60-L75)
+
+#### render.sh 脚本优化
+
+渲染脚本现在支持更灵活的输出配置：
+
+- **自动幻灯片计数**：支持`all`参数自动检测幻灯片数量
+- **自定义输出目录**：支持指定自定义输出目录
+- **跨平台兼容**：改进了Windows和macOS的路径处理
+
+**章节来源**
+- [render.sh:1-96](file://skills/html-ppt-skill/scripts/render.sh#L1-L96)
+
+### 演示者模式部署增强
+
+演示者模式现在支持更好的部署和共享能力：
+
+- **独立窗口管理**：每个演示者窗口独立管理，支持多显示器环境
+- **主题同步**：演示者窗口和观众窗口之间的主题同步机制
+- **布局持久化**：卡片布局和尺寸自动保存到localStorage
+
+**章节来源**
+- [runtime.js:223-265](file://skills/html-ppt-skill/assets/runtime.js#L223-L265)
+
 ## 依赖关系分析
 
 HTML PPT Studio的依赖关系相对简单，主要依赖关系如下：
@@ -349,6 +416,8 @@ end
 subgraph "工具脚本"
 NEWDECK[new-deck.sh]
 RENDER[render.sh]
+ENDDECK[自包含演示文稿]
+ENDRENDER[PNG导出]
 end
 RUNTIME --> BASE
 RUNTIME --> ANIM
@@ -366,6 +435,8 @@ LAYOUTS --> ANIM
 LAYOUTS --> THEMES
 TEMPLATES --> LAYOUTS
 TEMPLATES --> RUNTIME
+NEWDECK --> ENDDECK
+ENDRENDER --> ENDDECK
 ```
 
 **图表来源**
@@ -422,6 +493,11 @@ TEMPLATES --> RUNTIME
 - 检查HTML文件路径是否正确
 - 验证是否有足够的磁盘空间
 
+**问题5：自包含演示文稿无法加载资产**
+- 确认`assets/`目录已正确复制到输出目录
+- 检查生成的HTML文件中的相对路径是否正确
+- 验证文件权限和路径分隔符
+
 **章节来源**
 - [runtime.js:111-200](file://skills/html-ppt-skill/assets/runtime.js#L111-L200)
 - [render.sh:14-18](file://skills/html-ppt-skill/scripts/render.sh#L14-L18)
@@ -434,5 +510,10 @@ HTML PPT Studio是一个功能强大且设计精良的演示文稿制作技能�
 2. **用户体验优秀**：完整的键盘导航、演示者模式和实时预览
 3. **扩展性强**：模块化设计，易于添加新的主题、布局和特效
 4. **性能优化**：合理的资源管理和渲染优化
+
+**最新更新亮点**：
+- **自包含演示文稿生成**：通过增强的脚本实现真正的自包含演示文稿
+- **资产管理和部署能力**：提升了演示文稿的便携性和独立性
+- **演示者模式增强**：改进了部署和共享能力
 
 该技能特别适合需要高质量演示文稿的技术团队和内容创作者，能够显著提高演示文稿制作效率和质量。通过其丰富的模板系统和特效库，用户可以快速创建专业级的演示文稿，满足各种场合的需求。

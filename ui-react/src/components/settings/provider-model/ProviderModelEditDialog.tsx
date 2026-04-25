@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronRightIcon } from "lucide-react";
 import { findAuthMethod, findProviderGroup } from "@/data/auth-choice-groups";
 import {
   Dialog,
@@ -25,10 +26,14 @@ export function ProviderModelEditDialog({
   onOpenChange,
   onApply,
 }: ProviderModelEditDialogProps) {
-  const steps: Array<{ key: "provider" | "auth" | "model"; label: string }> = [
-    { key: "provider", label: "Choose provider" },
-    { key: "auth", label: "Select auth and verify" },
-    { key: "model", label: "Pick default model" },
+  const steps: Array<{
+    key: "provider" | "auth" | "model";
+    title: string;
+    subtitle: string;
+  }> = [
+    { key: "provider", title: "Provider", subtitle: "Choose provider" },
+    { key: "auth", title: "Authentication", subtitle: "Select and verify auth" },
+    { key: "model", title: "Model", subtitle: "Pick default model" },
   ];
   const [draft, setDraft] = useState<ProviderModelDraft>(initialDraft);
   const [stepIndex, setStepIndex] = useState(0);
@@ -89,6 +94,9 @@ export function ProviderModelEditDialog({
     validation.requiresValidation,
     validation.validated,
   ]);
+  const hideFooterValidationHint =
+    currentStep === "auth" &&
+    nextBlockedReason === "Please verify credentials before continuing.";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,21 +108,58 @@ export function ProviderModelEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground sm:grid-cols-3">
-          {steps.map((step, idx) => (
-            <div
-              key={step.key}
-              className={[
-                "rounded-md px-2 py-1",
-                idx === stepIndex
-                  ? "bg-primary/10 text-primary"
-                  : "bg-background text-muted-foreground",
-              ].join(" ")}
-            >
-              <span className="font-semibold text-foreground">{idx + 1}.</span>{" "}
-              {step.label}
-            </div>
-          ))}
+        <div className="overflow-x-auto py-3">
+          <div className="flex w-full items-stretch gap-2 sm:gap-3">
+            {steps.map((step, idx) => {
+              const isCurrent = idx === stepIndex;
+              const isDone = idx < stepIndex;
+              return (
+                <div key={step.key} className="flex min-w-0 flex-1 items-stretch gap-2 sm:gap-3">
+                  <div
+                    className={[
+                      "flex w-full min-w-0 items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
+                      isCurrent
+                        ? "border-primary bg-primary/5"
+                        : isDone
+                          ? "border-emerald-500/40 bg-emerald-500/5"
+                          : "border-border bg-muted/20",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "inline-flex size-8 items-center justify-center rounded-full text-xs font-semibold",
+                        isCurrent
+                          ? "bg-primary text-primary-foreground"
+                          : isDone
+                            ? "bg-emerald-600 text-white"
+                            : "bg-muted text-muted-foreground",
+                      ].join(" ")}
+                    >
+                      {idx + 1}
+                    </span>
+                    <span className="min-w-0">
+                      <span
+                        className={[
+                          "block truncate text-sm font-semibold",
+                          isCurrent || isDone ? "text-foreground" : "text-muted-foreground",
+                        ].join(" ")}
+                      >
+                        {step.title}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {step.subtitle}
+                      </span>
+                    </span>
+                  </div>
+                  {idx < steps.length - 1 ? (
+                    <span className="flex items-center justify-center self-stretch">
+                      <ChevronRightIcon className="size-4 text-muted-foreground/70" />
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <ProviderModelSection
@@ -171,7 +216,7 @@ export function ProviderModelEditDialog({
             {" · "}
             {selectedMethod?.label ?? "No auth method"}
           </div>
-          {stepIndex < steps.length - 1 && nextBlockedReason ? (
+          {stepIndex < steps.length - 1 && nextBlockedReason && !hideFooterValidationHint ? (
             <p className="mr-2 text-xs text-amber-700">{nextBlockedReason}</p>
           ) : null}
           {stepIndex === steps.length - 1 && applyBlockedReason ? (

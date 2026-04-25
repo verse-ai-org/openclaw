@@ -52,16 +52,10 @@ export const AssistantMessage: FC = () => {
     return !prev || prev.role === "user";
   }, [messages, messageId]);
 
-  // Show loading indicator only on the last assistant message of the thread.
-  // messageId === "__stream__" means it's the live streaming placeholder;
-  // otherwise check if it's the last stored message.
-  const isLastMessage = useMemo(() => {
-    if (messageId === "__stream__") { return true; }
-    const last = messages.filter((m) => m.role === "assistant").at(-1);
-    return last?.id === messageId;
-  }, [messages, messageId]);
-
-  const showLoading = isSessionRunning && isLastMessage;
+  // During generation, runtime always injects a synthetic "__stream__" assistant row.
+  // Only that live row should show the loading indicator; otherwise the previous
+  // finalized assistant message in history also appears as loading.
+  const showLoading = isSessionRunning && messageId === "__stream__";
   // const shouldShowAvatar = isFirstInTurn || (messageId === "__stream__" && isSessionRunning);
 
   const content = ((message as unknown as { content?: AssistantContentPart[] }).content ?? []) as

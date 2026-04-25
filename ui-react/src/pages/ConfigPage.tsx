@@ -29,7 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { findAuthMethod, findProviderGroup } from "@/data/auth-choice-groups";
+import {
+  findAuthMethod,
+  findProviderGroup,
+  PROVIDER_MODEL_CANDIDATES,
+} from "@/data/auth-choice-groups";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
@@ -64,18 +68,13 @@ function AgentConfigRow({
         </p>
       </div>
       <Select
-        value={primaryModel || "__inherit__"}
-        onValueChange={(value) =>
-          onModelChange(agent.id, value === "__inherit__" ? "" : value)
-        }
+        value={primaryModel || inheritedModel || undefined}
+        onValueChange={(value) => onModelChange(agent.id, value)}
       >
         <SelectTrigger className="h-7 w-full text-xs font-mono">
-          <SelectValue placeholder="inherit default" />
+          <SelectValue placeholder="Select model" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="__inherit__">
-            {inheritedModel ? `default: ${inheritedModel}` : "inherit default"}
-          </SelectItem>
           {modelOptions.map((model) => (
             <SelectItem key={model} value={model} className="font-mono text-xs">
               {model}
@@ -133,6 +132,7 @@ export function ConfigPage() {
     new Set(
       [
         ...configuredModelOptions,
+        ...(PROVIDER_MODEL_CANDIDATES[providerState.providerId] ?? []),
         ...(selectedGroup?.methods ?? [])
           .map((m) => m.defaultModelId ?? "")
           .filter((id): id is string => !!id.trim()),
@@ -141,26 +141,26 @@ export function ConfigPage() {
   );
   const methodStatus = (() => {
     if (!selectedMethod) {
-      return { label: "Unknown", tone: "neutral" as const };
+      return { label: "Unknown method", tone: "neutral" as const };
     }
     if (selectedMethod.type === "oauth") {
-      return { label: "OAuth", tone: "neutral" as const };
+      return { label: "OAuth selected", tone: "neutral" as const };
     }
     if (selectedMethod.type === "custom") {
       const ready = !!providerState.apiKey.trim() && !!providerState.baseUrl.trim();
       return {
-        label: ready ? "Configured" : "Missing config",
+        label: ready ? "Credential fields set" : "Missing required fields",
         tone: ready ? ("success" as const) : ("warning" as const),
       };
     }
     if (selectedMethod.type === "api-key" || selectedMethod.type === "proxy") {
       const ready = !!providerState.apiKey.trim();
       return {
-        label: ready ? "Configured" : "Missing credential",
+        label: ready ? "Credential field set" : "Missing credential",
         tone: ready ? ("success" as const) : ("warning" as const),
       };
     }
-    return { label: "Unknown", tone: "neutral" as const };
+    return { label: "Unknown method", tone: "neutral" as const };
   })();
   const saveBlockedReason =
     providerValidation.requiresValidation && !providerValidation.validated
@@ -195,27 +195,6 @@ export function ConfigPage() {
             <p className="text-lg font-medium text-muted-foreground">
               Server system configuration.
             </p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                Provider verification
-              </span>
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
-                  providerValidation.requiresValidation
-                    ? providerValidation.validated
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-amber-100 text-amber-700"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                {!providerValidation.requiresValidation
-                  ? "Not required"
-                  : providerValidation.validated
-                    ? "Verified"
-                    : "Pending"}
-              </span>
-            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button

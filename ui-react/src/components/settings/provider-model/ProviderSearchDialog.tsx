@@ -2,8 +2,11 @@ import { CheckIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { AuthProviderGroupDef } from "@/data/auth-choice-groups";
-import { AUTH_PROVIDER_GROUPS } from "@/data/auth-choice-groups";
-import { PROVIDER_EMOJI } from "./provider-constants";
+import {
+  AUTH_PROVIDER_GROUPS,
+  PROVIDER_EMOJI,
+  PROVIDER_LOGO,
+} from "@/data/auth-choice-groups";
 
 interface ProviderSearchDialogProps {
   selectedProviderId: string | null;
@@ -54,17 +57,20 @@ export function ProviderSearchDialog({
                 ].join(" ")}
               >
                 <span className="inline-flex size-8 items-center justify-center rounded-md bg-muted text-base">
-                  {PROVIDER_EMOJI[group.id] ?? "🤖"}
+                  {PROVIDER_LOGO[group.id] ? (
+                    <img
+                      src={PROVIDER_LOGO[group.id]}
+                      alt={`${group.label} logo`}
+                      className="size-6 object-contain"
+                    />
+                  ) : (
+                    PROVIDER_EMOJI[group.id] ?? "🤖"
+                  )}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">
                     {group.label}
                   </span>
-                  {group.hint ? (
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {group.hint}
-                    </span>
-                  ) : null}
                 </span>
                 {selected ? (
                   <CheckIcon className="size-4 text-primary" />

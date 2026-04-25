@@ -211,29 +211,4 @@ describe("applyAuthChoiceMiniMax", () => {
     }
   });
 
-  it("uses minimax-api-lightning default model", async () => {
-    const { agentDir, result, text, confirm } = await runMiniMaxChoice({
-      authChoice: "minimax-api-lightning",
-      opts: {
-        tokenProvider: "minimax",
-        token: "mm-lightning-token",
-      },
-    });
-
-    expect(result).not.toBeNull();
-    expect(result?.config.auth?.profiles?.["minimax:default"]).toMatchObject({
-      provider: "minimax",
-      mode: "api_key",
-    });
-    expect(
-      resolveAgentModelPrimaryValue(result?.config.agents?.defaults?.model),
-    ).toBe("minimax/MiniMax-M2.7-highspeed");
-    expect(text).not.toHaveBeenCalled();
-    expect(confirm).not.toHaveBeenCalled();
-
-    const parsed = await readAuthProfiles(agentDir);
-    expect(parsed.profiles?.["minimax:default"]?.key).toBe(
-      "mm-lightning-token",
-    );
-  });
 });

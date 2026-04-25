@@ -17,6 +17,7 @@ export function useChatEventBridge() {
         { phase: "result" | "error"; data: Record<string, unknown> }
       >(),
       activeRunBySession: new Map<string, string>(),
+      finalizedRunBySession: new Map<string, string>(),
     };
 
     const dispatch = (event: string, payload: unknown) => {

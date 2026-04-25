@@ -18,8 +18,6 @@ import {
   applyMinimaxApiConfigCn,
   applyMinimaxApiProviderConfig,
   applyMinimaxApiProviderConfigCn,
-  applyMinimaxConfig,
-  applyMinimaxProviderConfig,
   setMinimaxApiKey,
 } from "./onboard-auth.js";
 
@@ -118,20 +116,13 @@ export async function applyAuthChoiceMiniMax(
     });
   }
 
-  if (
-    params.authChoice === "minimax-cloud" ||
-    params.authChoice === "minimax-api" ||
-    params.authChoice === "minimax-api-lightning"
-  ) {
+  if (params.authChoice === "minimax-api") {
     return await applyMinimaxApiVariant({
       profileId: "minimax:default",
       provider: "minimax",
       promptMessage: "Enter MiniMax API key",
       modelRefPrefix: "minimax",
-      modelId:
-        params.authChoice === "minimax-api-lightning"
-          ? "MiniMax-M2.7-highspeed"
-          : "MiniMax-M2.7",
+      modelId: "MiniMax-M2.7",
       applyDefaultConfig: applyMinimaxApiConfig,
       applyProviderConfig: applyMinimaxApiProviderConfig,
     });
@@ -147,15 +138,6 @@ export async function applyAuthChoiceMiniMax(
       applyDefaultConfig: applyMinimaxApiConfigCn,
       applyProviderConfig: applyMinimaxApiProviderConfigCn,
     });
-  }
-
-  if (params.authChoice === "minimax") {
-    await applyProviderDefaultModel({
-      defaultModel: "lmstudio/minimax-m2.5-gs32",
-      applyDefaultConfig: applyMinimaxConfig,
-      applyProviderConfig: applyMinimaxProviderConfig,
-    });
-    return { config: nextConfig, agentModelOverride };
   }
 
   return null;

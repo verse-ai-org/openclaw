@@ -9,6 +9,18 @@
  * Do NOT import directly from src/ — this package must not depend on CLI internals.
  */
 
+import anthropicLogo from "@/assets/anthropic.png";
+import chatgptLogo from "@/assets/chatgpt.png";
+import deepseekLogo from "@/assets/deepseek-color.webp";
+import googleLogo from "@/assets/google.webp";
+import grokLogo from "@/assets/grok.webp";
+import kimiLogo from "@/assets/kimi.webp";
+import minimaxLogo from "@/assets/minimax.png";
+import opencodeLogo from "@/assets/opencode.webp";
+import openrouterLogo from "@/assets/openrouter.png";
+import qwenLogo from "@/assets/qwen.webp";
+import zhipuLogo from "@/assets/zhipu.webp";
+
 export type AuthMethodType = "api-key" | "oauth" | "custom" | "proxy";
 
 export interface AuthMethodDef {
@@ -36,6 +48,70 @@ export interface AuthProviderGroupDef {
   featured?: boolean;
   methods: AuthMethodDef[];
 }
+
+/** Provider-level display metadata used by setup/config UIs. */
+export const PROVIDER_EMOJI: Record<string, string> = {
+  anthropic: "🟠",
+  openai: "🟢",
+  google: "🔵",
+  minimax: "⚡",
+  "minimax-cn": "⚡",
+  moonshot: "🌙",
+  xai: "✖️",
+  mistral: "🌊",
+  volcengine: "🌋",
+  byteplus: "🔶",
+  openrouter: "🔀",
+  deepseek: "🐋",
+  qwen: "☁️",
+  qianfan: "🦅",
+  modelstudio: "☁️",
+  copilot: "🐙",
+  chutes: "🧵",
+  vllm: "🏠",
+  "ai-gateway": "△",
+  "cloudflare-ai-gateway": "🟠",
+  opencode: "</>",
+  xiaomi: "📱",
+  synthetic: "🧪",
+  together: "🤝",
+  huggingface: "🤗",
+  venice: "🏛️",
+  litellm: "🔗",
+  custom: "🔧",
+};
+
+/** Optional provider logos used by settings/setup cards. */
+export const PROVIDER_LOGO: Partial<Record<string, string>> = {
+  anthropic: anthropicLogo,
+  openai: chatgptLogo,
+  google: googleLogo,
+  deepseek: deepseekLogo,
+  minimax: minimaxLogo,
+  "minimax-cn": minimaxLogo,
+  moonshot: kimiLogo,
+  xai: grokLogo,
+  openrouter: openrouterLogo,
+  opencode: opencodeLogo,
+  qwen: qwenLogo,
+  zai: zhipuLogo,
+};
+
+/** Provider-level model candidates for settings fallback choices. */
+export const PROVIDER_MODEL_CANDIDATES: Partial<Record<string, string[]>> = {
+  minimax: [
+    "minimax/MiniMax-M2.7",
+    "minimax/MiniMax-M2.7-highspeed",
+    "minimax/MiniMax-M2.5",
+    "minimax/MiniMax-M2.5-highspeed",
+  ],
+  "minimax-cn": [
+    "minimax-cn/MiniMax-M2.7",
+    "minimax-cn/MiniMax-M2.7-highspeed",
+    "minimax-cn/MiniMax-M2.5",
+    "minimax-cn/MiniMax-M2.5-highspeed",
+  ],
+};
 
 export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
   // ── Featured providers (shown as cards on first screen) ──────────────────
@@ -111,9 +187,25 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
     ],
   },
   {
+    id: "deepseek",
+    label: "DeepSeek",
+    hint: "API key",
+    methods: [
+      {
+        id: "deepseek-api-key",
+        label: "DeepSeek API key",
+        type: "api-key",
+        envVar: "DEEPSEEK_API_KEY",
+        consoleUrl: "https://platform.deepseek.com/api_keys",
+        keyPlaceholder: "sk-...",
+        defaultModelId: "deepseek/deepseek-v4-flash",
+      }
+    ],
+  },
+  {
     id: "minimax",
     label: "MiniMax",
-    hint: "M2.5 Global (recommended)",
+    hint: "Global endpoint (platform.minimaxi.com)",
     methods: [
       {
         id: "minimax-portal",
@@ -123,42 +215,13 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         defaultModelId: "minimax/MiniMax-M2.7",
       },
       {
-        id: "minimax-api-m2.5",
-        label: "MiniMax M2.5 API key",
-        type: "api-key",
-        envVar: "MINIMAX_API_KEY",
-        consoleUrl: "https://platform.minimaxi.com",
-        keyPlaceholder: "...",
-        defaultModelId: "minimax/MiniMax-M2.5",
-      },
-      {
-        id: "minimax-api-m2.5-highspeed",
-        label: "MiniMax M2.5 Highspeed",
-        hint: "Official fast tier",
-        type: "api-key",
-        envVar: "MINIMAX_API_KEY",
-        consoleUrl: "https://platform.minimaxi.com",
-        keyPlaceholder: "...",
-        defaultModelId: "minimax/MiniMax-M2.5-highspeed",
-      },
-      {
-        id: "minimax-api-m2.7",
-        label: "MiniMax M2.7 API key",
+        id: "minimax-api",
+        label: "MiniMax API key",
         type: "api-key",
         envVar: "MINIMAX_API_KEY",
         consoleUrl: "https://platform.minimaxi.com",
         keyPlaceholder: "...",
         defaultModelId: "minimax/MiniMax-M2.7",
-      },
-      {
-        id: "minimax-api-m2.7-highspeed",
-        label: "MiniMax M2.7 Highspeed",
-        hint: "Official fast tier",
-        type: "api-key",
-        envVar: "MINIMAX_API_KEY",
-        consoleUrl: "https://platform.minimaxi.com",
-        keyPlaceholder: "...",
-        defaultModelId: "minimax/MiniMax-M2.7-highspeed",
       },
     ],
   },
@@ -175,41 +238,14 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         defaultModelId: "minimax-cn/MiniMax-M2.7",
       },
       {
-        id: "minimax-api-cn-m2.7",
-        label: "MiniMax M2.7 China API key",
+        id: "minimax-api-key-cn",
+        label: "MiniMax China API key",
         hint: "China endpoint (api.minimaxi.com)",
         type: "api-key",
         envVar: "MINIMAX_API_KEY",
         consoleUrl: "https://api.minimaxi.com",
-        keyPlaceholder: "Minimax M2.7 API key",
+        keyPlaceholder: "MiniMax China API key",
         defaultModelId: "minimax-cn/MiniMax-M2.7",
-      },
-      {
-        id: "minimax-api-cn-m2.7-highspeed",
-        label: "MiniMax M2.7 China API key",
-        type: "api-key",
-        envVar: "MINIMAX_API_KEY",
-        consoleUrl: "https://api.minimaxi.com",
-        keyPlaceholder: "Minimax M2.7 Highspeed API key",
-        defaultModelId: "minimax-cn/MiniMax-M2.7-highspeed",
-      },
-      {
-        id: "minimax-api-cn-m2.5",
-        label: "MiniMax M2.5 China API key",
-        type: "api-key",
-        envVar: "MINIMAX_API_KEY",
-        consoleUrl: "https://api.minimaxi.com",
-        keyPlaceholder: "Minimax M2.5 API key",
-        defaultModelId: "minimax-cn/MiniMax-M2.5",
-      },
-      {
-        id: "minimax-api-cn-m2.5-highspeed",
-        label: "MiniMax M2.5 China API key",
-        type: "api-key",
-        envVar: "MINIMAX_API_KEY",
-        consoleUrl: "https://api.minimaxi.com",
-        keyPlaceholder: "Minimax M2.5 Highspeed API key",
-        defaultModelId: "minimax-cn/MiniMax-M2.5-highspeed",
       },
     ],
   },
@@ -313,6 +349,22 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
     ],
   },
   {
+    id: "xiaomi",
+    label: "Xiaomi",
+    hint: "API key",
+    methods: [
+      {
+        id: "xiaomi-api-key",
+        label: "Xiaomi API key",
+        type: "api-key",
+        envVar: "XIAOMI_API_KEY",
+        consoleUrl: "https://ai.xiaomi.com",
+        keyPlaceholder: "...",
+        defaultModelId: "xiaomi/mimo-v2-flash",
+      },
+    ],
+  },
+  {
     id: "xai",
     label: "xAI (Grok)",
     hint: "API key",
@@ -329,86 +381,6 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
     ],
   },
   {
-    id: "deepseek",
-    label: "DeepSeek",
-    hint: "API key",
-    methods: [
-      {
-        id: "deepseek-api-key",
-        label: "DeepSeek API key",
-        type: "api-key",
-        envVar: "DEEPSEEK_API_KEY",
-        consoleUrl: "https://platform.deepseek.com/api_keys",
-        keyPlaceholder: "sk-...",
-        defaultModelId: "deepseek/deepseek-v4-flash",
-      }
-    ],
-  },
-  {
-    id: "mistral",
-    label: "Mistral AI",
-    hint: "API key",
-    methods: [
-      {
-        id: "mistral-api-key",
-        label: "Mistral API key",
-        type: "api-key",
-        envVar: "MISTRAL_API_KEY",
-        consoleUrl: "https://console.mistral.ai/api-keys",
-        keyPlaceholder: "...",
-        defaultModelId: "mistral/mistral-large-latest",
-      },
-    ],
-  },
-  {
-    id: "volcengine",
-    label: "Volcano Engine",
-    hint: "API key",
-    methods: [
-      {
-        id: "volcengine-api-key",
-        label: "Volcano Engine API key",
-        type: "api-key",
-        envVar: "VOLCENGINE_API_KEY",
-        consoleUrl: "https://console.volcengine.com",
-        keyPlaceholder: "...",
-        defaultModelId: "volcengine/doubao-pro-32k",
-      },
-    ],
-  },
-  {
-    id: "byteplus",
-    label: "BytePlus",
-    hint: "API key",
-    methods: [
-      {
-        id: "byteplus-api-key",
-        label: "BytePlus API key",
-        type: "api-key",
-        envVar: "BYTEPLUS_API_KEY",
-        consoleUrl: "https://console.byteplus.com",
-        keyPlaceholder: "...",
-        defaultModelId: "byteplus/doubao-pro-32k",
-      },
-    ],
-  },
-  {
-    id: "kilocode",
-    label: "Kilo Gateway",
-    hint: "API key (OpenRouter-compatible)",
-    methods: [
-      {
-        id: "kilocode-api-key",
-        label: "Kilo Gateway API key",
-        type: "api-key",
-        envVar: "KILOCODE_API_KEY",
-        consoleUrl: "https://kilocode.ai",
-        keyPlaceholder: "...",
-        defaultModelId: "kilocode/anthropic/claude-opus-4-6",
-      },
-    ],
-  },
-  {
     id: "qwen",
     label: "Qwen",
     hint: "OAuth",
@@ -418,130 +390,6 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
         label: "Qwen OAuth",
         type: "oauth",
         defaultModelId: "qwen/qwen-plus",
-      },
-    ],
-  },
-  {
-    id: "qianfan",
-    label: "Qianfan",
-    hint: "API key",
-    methods: [
-      {
-        id: "qianfan-api-key",
-        label: "Qianfan API key",
-        type: "api-key",
-        envVar: "QIANFAN_API_KEY",
-        consoleUrl: "https://console.bce.baidu.com",
-        keyPlaceholder: "...",
-        defaultModelId: "qianfan/ernie-4.0-8k",
-      },
-    ],
-  },
-  {
-    id: "modelstudio",
-    label: "Alibaba Cloud Model Studio",
-    hint: "Coding Plan API key (CN / Global)",
-    methods: [
-      {
-        id: "modelstudio-api-key-cn",
-        label: "Coding Plan API Key (China)",
-        hint: "coding.dashscope.aliyuncs.com",
-        type: "api-key",
-        envVar: "MODELSTUDIO_API_KEY",
-        consoleUrl: "https://bailian.console.aliyun.com",
-        keyPlaceholder: "...",
-        defaultModelId: "modelstudio/qwen3.5-plus",
-      },
-      {
-        id: "modelstudio-api-key",
-        label: "Coding Plan API Key (Global/Intl)",
-        hint: "coding-intl.dashscope.aliyuncs.com",
-        type: "api-key",
-        envVar: "MODELSTUDIO_API_KEY",
-        consoleUrl: "https://bailian.console.aliyun.com",
-        keyPlaceholder: "...",
-        defaultModelId: "modelstudio/qwen3.5-plus",
-      },
-    ],
-  },
-  {
-    id: "copilot",
-    label: "Copilot",
-    hint: "GitHub + local proxy",
-    methods: [
-      {
-        id: "github-copilot",
-        label: "GitHub Copilot (GitHub device login)",
-        hint: "Uses GitHub device flow",
-        type: "oauth",
-        defaultModelId: "copilot/gpt-4o",
-      },
-      {
-        id: "copilot-proxy",
-        label: "Copilot Proxy (local)",
-        hint: "Local proxy for VS Code Copilot models",
-        type: "proxy",
-        defaultModelId: "copilot/gpt-4o",
-      },
-    ],
-  },
-  {
-    id: "chutes",
-    label: "Chutes",
-    hint: "OAuth",
-    methods: [
-      {
-        id: "chutes",
-        label: "Chutes (OAuth)",
-        type: "oauth",
-        defaultModelId: "chutes/deepseek-ai/DeepSeek-V3-0324",
-      },
-    ],
-  },
-  {
-    id: "vllm",
-    label: "vLLM",
-    hint: "Local/self-hosted OpenAI-compatible",
-    methods: [
-      {
-        id: "vllm",
-        label: "vLLM (custom URL + model)",
-        hint: "Local/self-hosted OpenAI-compatible server",
-        type: "custom",
-        defaultModelId: "",
-      },
-    ],
-  },
-  {
-    id: "ai-gateway",
-    label: "Vercel AI Gateway",
-    hint: "API key",
-    methods: [
-      {
-        id: "ai-gateway-api-key",
-        label: "Vercel AI Gateway API key",
-        type: "api-key",
-        envVar: "AI_GATEWAY_API_KEY",
-        consoleUrl: "https://vercel.com/dashboard",
-        keyPlaceholder: "...",
-        defaultModelId: "vercel-ai-gateway/anthropic/claude-opus-4.6",
-      },
-    ],
-  },
-  {
-    id: "cloudflare-ai-gateway",
-    label: "Cloudflare AI Gateway",
-    hint: "Account ID + Gateway ID + API key",
-    methods: [
-      {
-        id: "cloudflare-ai-gateway-api-key",
-        label: "Cloudflare AI Gateway",
-        hint: "Account ID + Gateway ID + API key",
-        type: "api-key",
-        envVar: "CLOUDFLARE_AI_GATEWAY_API_KEY",
-        consoleUrl: "https://dash.cloudflare.com",
-        keyPlaceholder: "...",
-        defaultModelId: "cloudflare-ai-gateway/claude-sonnet-4-5",
       },
     ],
   },
@@ -572,105 +420,277 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
       },
     ],
   },
-  {
-    id: "xiaomi",
-    label: "Xiaomi",
-    hint: "API key",
-    methods: [
-      {
-        id: "xiaomi-api-key",
-        label: "Xiaomi API key",
-        type: "api-key",
-        envVar: "XIAOMI_API_KEY",
-        consoleUrl: "https://ai.xiaomi.com",
-        keyPlaceholder: "...",
-        defaultModelId: "xiaomi/mimo-v2-flash",
-      },
-    ],
-  },
-  {
-    id: "synthetic",
-    label: "Synthetic",
-    hint: "Anthropic-compatible (multi-model)",
-    methods: [
-      {
-        id: "synthetic-api-key",
-        label: "Synthetic API key",
-        type: "api-key",
-        envVar: "SYNTHETIC_API_KEY",
-        consoleUrl: "https://syntheticai.com",
-        keyPlaceholder: "...",
-        defaultModelId: "synthetic/hf:MiniMaxAI/MiniMax-M2.7",
-      },
-    ],
-  },
-  {
-    id: "together",
-    label: "Together AI",
-    hint: "API key",
-    methods: [
-      {
-        id: "together-api-key",
-        label: "Together AI API key",
-        type: "api-key",
-        envVar: "TOGETHER_API_KEY",
-        consoleUrl: "https://api.together.ai",
-        keyPlaceholder: "...",
-        defaultModelId: "together/moonshotai/Kimi-K2.5",
-      },
-    ],
-  },
-  {
-    id: "huggingface",
-    label: "Hugging Face",
-    hint: "Inference API (HF token)",
-    methods: [
-      {
-        id: "huggingface-api-key",
-        label: "Hugging Face token",
-        hint: "Inference Providers — OpenAI-compatible chat",
-        type: "api-key",
-        envVar: "HUGGINGFACE_API_KEY",
-        consoleUrl: "https://huggingface.co/settings/tokens",
-        keyPlaceholder: "hf_...",
-        defaultModelId: "huggingface/deepseek-ai/DeepSeek-R1",
-      },
-    ],
-  },
-  {
-    id: "venice",
-    label: "Venice AI",
-    hint: "Privacy-focused (uncensored models)",
-    methods: [
-      {
-        id: "venice-api-key",
-        label: "Venice AI API key",
-        hint: "Privacy-focused inference",
-        type: "api-key",
-        envVar: "VENICE_API_KEY",
-        consoleUrl: "https://venice.ai",
-        keyPlaceholder: "...",
-        defaultModelId: "venice/llama-3.3-70b",
-      },
-    ],
-  },
-  {
-    id: "litellm",
-    label: "LiteLLM",
-    hint: "Unified LLM gateway (100+ providers)",
-    methods: [
-      {
-        id: "litellm-api-key",
-        label: "LiteLLM API key",
-        hint: "Unified gateway for 100+ LLM providers",
-        type: "api-key",
-        envVar: "LITELLM_API_KEY",
-        consoleUrl: "https://litellm.ai",
-        keyPlaceholder: "sk-...",
-        defaultModelId: "litellm/claude-opus-4-6",
-      },
-    ],
-  },
+  // {
+  //   id: "volcengine",
+  //   label: "Volcano Engine",
+  //   hint: "API key",
+  //   methods: [
+  //     {
+  //       id: "volcengine-api-key",
+  //       label: "Volcano Engine API key",
+  //       type: "api-key",
+  //       envVar: "VOLCENGINE_API_KEY",
+  //       consoleUrl: "https://console.volcengine.com",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "volcengine/doubao-pro-32k",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "byteplus",
+  //   label: "BytePlus",
+  //   hint: "API key",
+  //   methods: [
+  //     {
+  //       id: "byteplus-api-key",
+  //       label: "BytePlus API key",
+  //       type: "api-key",
+  //       envVar: "BYTEPLUS_API_KEY",
+  //       consoleUrl: "https://console.byteplus.com",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "byteplus/doubao-pro-32k",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "kilocode",
+  //   label: "Kilo Gateway",
+  //   hint: "API key (OpenRouter-compatible)",
+  //   methods: [
+  //     {
+  //       id: "kilocode-api-key",
+  //       label: "Kilo Gateway API key",
+  //       type: "api-key",
+  //       envVar: "KILOCODE_API_KEY",
+  //       consoleUrl: "https://kilocode.ai",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "kilocode/anthropic/claude-opus-4-6",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "mistral",
+  //   label: "Mistral AI",
+  //   hint: "API key",
+  //   methods: [
+  //     {
+  //       id: "mistral-api-key",
+  //       label: "Mistral API key",
+  //       type: "api-key",
+  //       envVar: "MISTRAL_API_KEY",
+  //       consoleUrl: "https://console.mistral.ai/api-keys",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "mistral/mistral-large-latest",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "qianfan",
+  //   label: "Qianfan",
+  //   hint: "API key",
+  //   methods: [
+  //     {
+  //       id: "qianfan-api-key",
+  //       label: "Qianfan API key",
+  //       type: "api-key",
+  //       envVar: "QIANFAN_API_KEY",
+  //       consoleUrl: "https://console.bce.baidu.com",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "qianfan/ernie-4.0-8k",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "modelstudio",
+  //   label: "Alibaba Cloud Model Studio",
+  //   hint: "Coding Plan API key (CN / Global)",
+  //   methods: [
+  //     {
+  //       id: "modelstudio-api-key-cn",
+  //       label: "Coding Plan API Key (China)",
+  //       hint: "coding.dashscope.aliyuncs.com",
+  //       type: "api-key",
+  //       envVar: "MODELSTUDIO_API_KEY",
+  //       consoleUrl: "https://bailian.console.aliyun.com",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "modelstudio/qwen3.5-plus",
+  //     },
+  //     {
+  //       id: "modelstudio-api-key",
+  //       label: "Coding Plan API Key (Global/Intl)",
+  //       hint: "coding-intl.dashscope.aliyuncs.com",
+  //       type: "api-key",
+  //       envVar: "MODELSTUDIO_API_KEY",
+  //       consoleUrl: "https://bailian.console.aliyun.com",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "modelstudio/qwen3.5-plus",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "copilot",
+  //   label: "Copilot",
+  //   hint: "GitHub + local proxy",
+  //   methods: [
+  //     {
+  //       id: "github-copilot",
+  //       label: "GitHub Copilot (GitHub device login)",
+  //       hint: "Uses GitHub device flow",
+  //       type: "oauth",
+  //       defaultModelId: "copilot/gpt-4o",
+  //     },
+  //     {
+  //       id: "copilot-proxy",
+  //       label: "Copilot Proxy (local)",
+  //       hint: "Local proxy for VS Code Copilot models",
+  //       type: "proxy",
+  //       defaultModelId: "copilot/gpt-4o",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "chutes",
+  //   label: "Chutes",
+  //   hint: "OAuth",
+  //   methods: [
+  //     {
+  //       id: "chutes",
+  //       label: "Chutes (OAuth)",
+  //       type: "oauth",
+  //       defaultModelId: "chutes/deepseek-ai/DeepSeek-V3-0324",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "vllm",
+  //   label: "vLLM",
+  //   hint: "Local/self-hosted OpenAI-compatible",
+  //   methods: [
+  //     {
+  //       id: "vllm",
+  //       label: "vLLM (custom URL + model)",
+  //       hint: "Local/self-hosted OpenAI-compatible server",
+  //       type: "custom",
+  //       defaultModelId: "",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "ai-gateway",
+  //   label: "Vercel AI Gateway",
+  //   hint: "API key",
+  //   methods: [
+  //     {
+  //       id: "ai-gateway-api-key",
+  //       label: "Vercel AI Gateway API key",
+  //       type: "api-key",
+  //       envVar: "AI_GATEWAY_API_KEY",
+  //       consoleUrl: "https://vercel.com/dashboard",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "vercel-ai-gateway/anthropic/claude-opus-4.6",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "cloudflare-ai-gateway",
+  //   label: "Cloudflare AI Gateway",
+  //   hint: "Account ID + Gateway ID + API key",
+  //   methods: [
+  //     {
+  //       id: "cloudflare-ai-gateway-api-key",
+  //       label: "Cloudflare AI Gateway",
+  //       hint: "Account ID + Gateway ID + API key",
+  //       type: "api-key",
+  //       envVar: "CLOUDFLARE_AI_GATEWAY_API_KEY",
+  //       consoleUrl: "https://dash.cloudflare.com",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "cloudflare-ai-gateway/claude-sonnet-4-5",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "synthetic",
+  //   label: "Synthetic",
+  //   hint: "Anthropic-compatible (multi-model)",
+  //   methods: [
+  //     {
+  //       id: "synthetic-api-key",
+  //       label: "Synthetic API key",
+  //       type: "api-key",
+  //       envVar: "SYNTHETIC_API_KEY",
+  //       consoleUrl: "https://syntheticai.com",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "synthetic/hf:MiniMaxAI/MiniMax-M2.7",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "together",
+  //   label: "Together AI",
+  //   hint: "API key",
+  //   methods: [
+  //     {
+  //       id: "together-api-key",
+  //       label: "Together AI API key",
+  //       type: "api-key",
+  //       envVar: "TOGETHER_API_KEY",
+  //       consoleUrl: "https://api.together.ai",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "together/moonshotai/Kimi-K2.5",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "huggingface",
+  //   label: "Hugging Face",
+  //   hint: "Inference API (HF token)",
+  //   methods: [
+  //     {
+  //       id: "huggingface-api-key",
+  //       label: "Hugging Face token",
+  //       hint: "Inference Providers — OpenAI-compatible chat",
+  //       type: "api-key",
+  //       envVar: "HUGGINGFACE_API_KEY",
+  //       consoleUrl: "https://huggingface.co/settings/tokens",
+  //       keyPlaceholder: "hf_...",
+  //       defaultModelId: "huggingface/deepseek-ai/DeepSeek-R1",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "venice",
+  //   label: "Venice AI",
+  //   hint: "Privacy-focused (uncensored models)",
+  //   methods: [
+  //     {
+  //       id: "venice-api-key",
+  //       label: "Venice AI API key",
+  //       hint: "Privacy-focused inference",
+  //       type: "api-key",
+  //       envVar: "VENICE_API_KEY",
+  //       consoleUrl: "https://venice.ai",
+  //       keyPlaceholder: "...",
+  //       defaultModelId: "venice/llama-3.3-70b",
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "litellm",
+  //   label: "LiteLLM",
+  //   hint: "Unified LLM gateway (100+ providers)",
+  //   methods: [
+  //     {
+  //       id: "litellm-api-key",
+  //       label: "LiteLLM API key",
+  //       hint: "Unified gateway for 100+ LLM providers",
+  //       type: "api-key",
+  //       envVar: "LITELLM_API_KEY",
+  //       consoleUrl: "https://litellm.ai",
+  //       keyPlaceholder: "sk-...",
+  //       defaultModelId: "litellm/claude-opus-4-6",
+  //     },
+  //   ],
+  // },
   {
     id: "custom",
     label: "Custom Provider",
