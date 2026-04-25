@@ -6,7 +6,13 @@ Self-contained multi-slide HTML decks under `templates/full-decks/<name>/`. Each
 - `style.css` — scoped with `.tpl-<name>` class prefix so multiple templates can coexist
 - `README.md` — short rationale, inspiration, and use guidance
 
-All templates pull the shared `assets/fonts.css`, `assets/base.css`, and `assets/runtime.js` from the skill root. Navigate with `← →` / `space`, use `F` for fullscreen, `O` for overview.
+Template sources pull shared `assets/fonts.css`, `assets/base.css`, and `assets/runtime.js` from the skill root. For exported/user-facing decks, use:
+
+```bash
+./skills/html-ppt-skill/scripts/new-full-deck.sh <template-name> <deck-name>
+```
+
+This scaffolds a self-contained output (`index.html` + `style.css` + `assets/`) with local `./assets/...` links that can be shared directly.
 
 Use these when you want a coherent, opinionated look for an entire deck — not a mix-and-match of layouts. Each template is visually distinctive enough to be identified at a glance.
 
@@ -95,4 +101,5 @@ Each folder: `index.html`, scoped `style.css` (prefixed `.tpl-<name>`), `README.
 - Every template scopes its CSS under `.tpl-<name>` so two or more templates can load on the same page without collisions.
 - Swap demo content, but keep the structural classes — they are what gives each template its identity.
 - The shared runtime (`assets/runtime.js`) provides keyboard nav, fullscreen, overview grid, theme cycling — you don't need to add any JS.
+- For standalone output, prefer `scripts/new-full-deck.sh`; avoid repo-coupled links like `../../../skills/html-ppt-skill/...`.
 - Charts are hand-rolled SVG (no CDN dependency). Feel free to replace with chart.js / echarts if you need interactive data.

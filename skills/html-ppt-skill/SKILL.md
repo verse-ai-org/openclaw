@@ -99,6 +99,7 @@ Only after those are clear, scaffold the deck and start writing.
    ./skills/html-ppt-skill/scripts/new-deck.sh my-talk
    open "$HOME/Documents/Bossim/Html/my-talk/index.html"
    ```
+   This creates a **self-contained deck**: `index.html + assets/`.
 2. **Pick a theme.** Open the deck and press `T` to cycle. Or hard-code it:
    ```html
    <link rel="stylesheet" id="theme-link" href="./assets/themes/aurora.css">
@@ -112,10 +113,17 @@ Only after those are clear, scaffold the deck and start writing.
    For canvas FX, use `<div data-fx="knowledge-graph">...</div>` and include
    `<script src="./assets/animations/fx-runtime.js"></script>`.
    Catalog in [references/animations.md](references/animations.md).
-5. **Use a full-deck template.** Copy `templates/full-decks/<name>/` into
-   `examples/my-talk/` as a starting point. Each folder is self-contained with
-   scoped CSS. Catalog in [references/full-decks.md](references/full-decks.md)
-   and gallery at `templates/full-decks-index.html`.
+5. **Use a full-deck template (recommended for polished decks).**
+   ```bash
+   ./skills/html-ppt-skill/scripts/new-full-deck.sh knowledge-arch-blueprint my-talk
+   open "$HOME/Documents/Bossim/Html/my-talk/index.html"
+   ```
+   This creates a **shareable self-contained output**:
+   - `index.html`
+   - `style.css`
+   - `assets/`
+   Catalog in [references/full-decks.md](references/full-decks.md) and gallery at
+   `templates/full-decks-index.html`.
 6. **Render to PNG.**
    ```bash
    ./scripts/render.sh templates/theme-showcase.html       # one shot
@@ -133,8 +141,12 @@ Only after those are clear, scaffold the deck and start writing.
   a new `templates/single-page/*.html` if none of the 30 fit.
 - **Respect chrome slots.** `.deck-header`, `.deck-footer`, `.slide-number`
   and the progress bar are provided by `assets/base.css` + `runtime.js`.
-- **Keyboard-first.** Always include `<script src="../assets/runtime.js"></script>`
-  so the deck supports ← → / T / A / F / S / O / hash deep-links.
+- **Keyboard-first.** Always include a local runtime path like
+  `<script src="./assets/runtime.js"></script>` so the deck supports
+  ← → / T / A / F / S / O / hash deep-links.
+- **Use local asset paths in exported decks.** For files outside this skill folder,
+  links MUST use local relative paths (`./assets/...`, `./style.css`). Do **not**
+  emit repo-coupled paths like `../../../skills/html-ppt-skill/...`.
 - **One `.slide` per logical page.** `runtime.js` makes `.slide.is-active`
   visible; all others are hidden.
 - **Supply notes.** Wrap speaker notes in `<div class="notes">…</div>` inside
@@ -187,6 +199,7 @@ html-ppt/
 │   └── single-page/*.html         (31 layout files with demo data)
 ├── scripts/
 │   ├── new-deck.sh                (scaffold a deck from deck.html)
+│   ├── new-full-deck.sh           (scaffold self-contained deck from full-decks/<name>)
 │   └── render.sh                  (headless Chrome → PNG)
 └── examples/demo-deck/            (complete working deck)
 ```

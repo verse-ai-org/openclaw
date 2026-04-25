@@ -33,6 +33,20 @@ If the user asks for **any** document-related task — creating, editing, analyz
 
 Always read the relevant `SKILL.md` before acting. Do not skip this step to save time — the skill file defines the correct workflow and tool usage patterns.
 
+### HTML PPT export rule (hard requirement)
+
+For any HTML PPT generated to a user-facing/output directory (for example under `~/Documents/Bossim/Html`), you MUST produce a **self-contained deck**:
+
+- Include local assets in the output folder (`index.html` + `assets/`, and `style.css` for full-deck templates).
+- Use local relative links only (`./assets/...`, `./style.css`).
+- Do **not** emit repo-coupled links such as `../../../skills/html-ppt-skill/...`.
+
+Preferred workflow:
+
+```bash
+./skills/html-ppt-skill/scripts/new-full-deck.sh <template-name> <deck-name>
+```
+
 ### Understand before you act
 
 Before touching a document:
