@@ -4,8 +4,8 @@
 # Usage:
 #   new-deck.sh <name> [output-parent-dir]
 #
-# Creates <parent>/<name>/index.html with paths rewritten to point at the
-# skill's shared assets/themes/animations. Defaults to Documents/Bossim/Html.
+# Creates a self-contained deck at <parent>/<name>/ by copying `assets/` and
+# rewriting template paths to local `./assets/...`. Defaults to Documents/Bossim/Html.
 
 set -euo pipefail
 
@@ -55,22 +55,13 @@ if [[ -e "$OUT_DIR" ]]; then
   exit 1
 fi
 mkdir -p "$OUT_DIR"
+cp -R "$HERE/assets" "$OUT_DIR/assets"
 
-# Compute a portable relative path from output deck dir to skill assets dir.
-ASSETS_DIR="$HERE/assets"
-ASSETS_REL="$(python3 - "$OUT_DIR" "$ASSETS_DIR" <<'PY'
-import os, sys
-out_dir = os.path.abspath(sys.argv[1])
-assets_dir = os.path.abspath(sys.argv[2])
-print(os.path.relpath(assets_dir, out_dir).replace("\\", "/"))
-PY
-)"
-
-python3 - "$TEMPLATE" "$OUT_DIR/index.html" "$ASSETS_REL" <<'PY'
+python3 - "$TEMPLATE" "$OUT_DIR/index.html" <<'PY'
 import sys
 
-tpl_path, out_path, assets_rel = sys.argv[1], sys.argv[2], sys.argv[3].rstrip("/")
-prefix = f"{assets_rel}/"
+tpl_path, out_path = sys.argv[1], sys.argv[2]
+prefix = "./assets/"
 
 with open(tpl_path, "r", encoding="utf-8") as f:
     html = f.read()

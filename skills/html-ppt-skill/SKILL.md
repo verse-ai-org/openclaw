@@ -96,12 +96,12 @@ Only after those are clear, scaffold the deck and start writing.
 
 1. **Scaffold a new deck.** From the repo root:
    ```bash
-   ./scripts/new-deck.sh my-talk
+   ./skills/html-ppt-skill/scripts/new-deck.sh my-talk
    open "$HOME/Documents/Bossim/Html/my-talk/index.html"
    ```
 2. **Pick a theme.** Open the deck and press `T` to cycle. Or hard-code it:
    ```html
-   <link rel="stylesheet" id="theme-link" href="../assets/themes/aurora.css">
+   <link rel="stylesheet" id="theme-link" href="./assets/themes/aurora.css">
    ```
    Catalog in [references/themes.md](references/themes.md).
 3. **Pick layouts.** Copy `<section class="slide">...</section>` blocks out of
@@ -110,7 +110,7 @@ Only after those are clear, scaffold the deck and start writing.
 4. **Add animations.** Put `data-anim="fade-up"` (or `class="anim-fade-up"`) on
    any element. On `<ul>`/grids, use `anim-stagger-list` for sequenced reveals.
    For canvas FX, use `<div data-fx="knowledge-graph">...</div>` and include
-   `<script src="../assets/animations/fx-runtime.js"></script>`.
+   `<script src="./assets/animations/fx-runtime.js"></script>`.
    Catalog in [references/animations.md](references/animations.md).
 5. **Use a full-deck template.** Copy `templates/full-decks/<name>/` into
    `examples/my-talk/` as a starting point. Each folder is self-contained with
