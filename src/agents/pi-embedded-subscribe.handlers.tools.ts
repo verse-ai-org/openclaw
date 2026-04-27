@@ -217,6 +217,28 @@ function readExecApprovalUnavailableDetails(result: unknown): {
   };
 }
 
+function readInteractionPendingDetails(result: unknown): {
+  component: string;
+  payload: unknown;
+} | null {
+  if (!result || typeof result !== "object") {
+    return null;
+  }
+  const outer = result as Record<string, unknown>;
+  const details =
+    outer.details && typeof outer.details === "object" && !Array.isArray(outer.details)
+      ? (outer.details as Record<string, unknown>)
+      : outer;
+  if (details.status !== "interaction-pending") {
+    return null;
+  }
+  const component = typeof details.component === "string" ? details.component : "";
+  if (!component) {
+    return null;
+  }
+  return { component, payload: details.payload };
+}
+
 async function emitToolResultOutput(params: {
   ctx: ToolHandlerContext;
   toolName: string;
@@ -245,7 +267,7 @@ async function emitToolResultOutput(params: {
           warningText: approvalPending.warningText,
         }),
       );
-      ctx.state.deterministicApprovalPromptSent = true;
+      ctx.state.deterministicPromptSent = true;
     } catch {
       // ignore delivery failures
     }
@@ -263,10 +285,18 @@ async function emitToolResultOutput(params: {
           sentApproverDms: approvalUnavailable.sentApproverDms,
         }),
       );
-      ctx.state.deterministicApprovalPromptSent = true;
+      ctx.state.deterministicPromptSent = true;
     } catch {
       // ignore delivery failures
     }
+    return;
+  }
+
+  // Interaction tools (question_flow, option_list, approval_card) return
+  // `interaction-pending`; suppress further assistant text for this turn.
+  const interactionPending = readInteractionPendingDetails(result);
+  if (!isToolError && interactionPending) {
+    ctx.state.deterministicPromptSent = true;
     return;
   }
 

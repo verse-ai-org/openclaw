@@ -26,6 +26,7 @@ import { createTtsTool } from "./tools/tts-tool.js";
 import { createWeatherWidgetTool } from "./tools/weather-widget-tool.js";
 import { createQuestionFlowTool } from "./tools/question-flow-tool.js";
 import { createOptionListTool } from "./tools/option-list-tool.js";
+import { createApprovalCardTool } from "./tools/approval-card-tool.js";
 import { createCodeBlockTool } from "./tools/code-block-tool.js";
 import { createChartTool } from "./tools/chart-tool.js";
 import { createGeoMapTool } from "./tools/geo-map-tool.js";
@@ -177,6 +178,7 @@ export function createOpenClawTools(
     createWeatherWidgetTool(),
     createQuestionFlowTool(),
     createOptionListTool(),
+    createApprovalCardTool(),
     createCodeBlockTool(),
     createChartTool(),
     createItemCarouselTool(),

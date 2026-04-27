@@ -45,7 +45,7 @@ function createTestContext(): {
       messagingToolSentMediaUrls: [],
       messagingToolSentTargets: [],
       successfulCronAdds: 0,
-      deterministicApprovalPromptSent: false,
+      deterministicPromptSent: false,
     },
     shouldEmitToolResult: () => false,
     shouldEmitToolOutput: () => false,
@@ -216,7 +216,7 @@ describe("handleToolExecutionEnd exec approval prompts", () => {
         },
       }),
     );
-    expect(ctx.state.deterministicApprovalPromptSent).toBe(true);
+    expect(ctx.state.deterministicPromptSent).toBe(true);
   });
 
   it("emits a deterministic unavailable payload when the initiating surface cannot approve", async () => {
@@ -266,7 +266,7 @@ describe("handleToolExecutionEnd exec approval prompts", () => {
         text: expect.not.stringContaining("CWD:"),
       }),
     );
-    expect(ctx.state.deterministicApprovalPromptSent).toBe(true);
+    expect(ctx.state.deterministicPromptSent).toBe(true);
   });
 
   it("emits the shared approver-DM notice when another approval client received the request", async () => {
@@ -297,7 +297,7 @@ describe("handleToolExecutionEnd exec approval prompts", () => {
         text: "Approval required. I sent the allowed approvers DMs.",
       }),
     );
-    expect(ctx.state.deterministicApprovalPromptSent).toBe(true);
+    expect(ctx.state.deterministicPromptSent).toBe(true);
   });
 
   it("does not suppress assistant output when deterministic prompt delivery rejects", async () => {
@@ -327,7 +327,130 @@ describe("handleToolExecutionEnd exec approval prompts", () => {
       } as never,
     );
 
-    expect(ctx.state.deterministicApprovalPromptSent).toBe(false);
+    expect(ctx.state.deterministicPromptSent).toBe(false);
+  });
+});
+
+describe("interaction-pending detection", () => {
+  it("sets deterministicPromptSent when a tool returns interaction-pending", async () => {
+    const { ctx } = createTestContext();
+    ctx.params.onToolResult = vi.fn();
+
+    await handleToolExecutionEnd(
+      ctx as never,
+      {
+        type: "tool_execution_end",
+        toolName: "question_flow",
+        toolCallId: "tool-qf-1",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "{}" }],
+          details: {
+            status: "interaction-pending",
+            component: "question_flow",
+            payload: { id: "travel-intake", steps: [] },
+          },
+        },
+      } as never,
+    );
+
+    expect(ctx.state.deterministicPromptSent).toBe(true);
+  });
+
+  it("does not set the flag when tool result is an error", async () => {
+    const { ctx } = createTestContext();
+    ctx.params.onToolResult = vi.fn();
+
+    await handleToolExecutionEnd(
+      ctx as never,
+      {
+        type: "tool_execution_end",
+        toolName: "question_flow",
+        toolCallId: "tool-qf-err",
+        isError: true,
+        result: {
+          content: [{ type: "text", text: "validation failed" }],
+          details: {
+            status: "interaction-pending",
+            component: "question_flow",
+            payload: {},
+          },
+        },
+      } as never,
+    );
+
+    expect(ctx.state.deterministicPromptSent).toBe(false);
+  });
+
+  it("does not set the flag for non-interaction tool results", async () => {
+    const { ctx } = createTestContext();
+    ctx.params.onToolResult = vi.fn();
+
+    await handleToolExecutionEnd(
+      ctx as never,
+      {
+        type: "tool_execution_end",
+        toolName: "web_search",
+        toolCallId: "tool-ws-1",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "search results" }],
+          details: { status: "completed" },
+        },
+      } as never,
+    );
+
+    expect(ctx.state.deterministicPromptSent).toBe(false);
+  });
+
+  it("sets the flag for option_list interaction-pending", async () => {
+    const { ctx } = createTestContext();
+    ctx.params.onToolResult = vi.fn();
+
+    await handleToolExecutionEnd(
+      ctx as never,
+      {
+        type: "tool_execution_end",
+        toolName: "option_list",
+        toolCallId: "tool-ol-1",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "{}" }],
+          details: {
+            status: "interaction-pending",
+            component: "option_list",
+            payload: { id: "pick-platform", options: [] },
+          },
+        },
+      } as never,
+    );
+
+    expect(ctx.state.deterministicPromptSent).toBe(true);
+  });
+
+  it("sets the flag for approval_card interaction-pending", async () => {
+    const { ctx } = createTestContext();
+    ctx.params.onToolResult = vi.fn();
+
+    await handleToolExecutionEnd(
+      ctx as never,
+      {
+        type: "tool_execution_end",
+        toolName: "approval_card",
+        toolCallId: "tool-ac-1",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "{}" }],
+          details: {
+            status: "interaction-pending",
+            component: "approval_card",
+            payload: { id: "confirm-delete", title: "Delete workflow?" },
+          },
+        },
+      } as never,
+    );
+
+    expect(ctx.state.deterministicPromptSent).toBe(true);
   });
 });
 

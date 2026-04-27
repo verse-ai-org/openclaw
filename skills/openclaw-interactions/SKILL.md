@@ -1,17 +1,17 @@
 ---
 name: openclaw-interactions
-description: "OpenClaw interactive input protocol (`<ask>` tags). Use when the agent needs a structured reply from the user — multi-step questionnaires, option pickers, confirmations — instead of parsing free-form text. Prefer `<ask>`"
+description: "OpenClaw interactive input (tool-based). Use when the agent needs a structured reply from the user — multi-step questionnaires, option pickers, confirmations — instead of parsing free-form text."
 metadata: { "openclaw": { "emoji": "❓" } }
 ---
 
-# OpenClaw Interactions (`<ask>` protocol)
+# OpenClaw Interactions（工具化交互）
 
 OpenClaw provides a **first-class interaction protocol** for cases where the
 assistant needs a *structured* reply from the user — selecting from a list,
 answering a multi-step form, confirming a destructive action.
 
-Interactions are emitted via `<ask>` tags directly in assistant text.
-In the current chat-native implementation, the UI renders the interaction
+Interactions are emitted via **tool calls**.
+In the current Control UI implementation, the UI renders the interaction card
 and user submission returns through normal `chat.send` as:
 
 - user-visible Q/A text in the message body
@@ -21,7 +21,7 @@ Use this skill **instead of**:
 
 - Inventing ad-hoc multiple-choice prompts in free text (fragile, no
   structured answer).
-- Calling a tool solely to ask a question (legacy fallback only; `<ask>` first).
+- Asking the user to reply “1/2/3” in plain text when a structured picker/form is available.
 
 This skill focuses on **interactive input collection** only.
 
@@ -33,30 +33,18 @@ This skill focuses on **interactive input collection** only.
 | Multi-step preference intake / onboarding form     | yes — `question_flow` |
 | Confirming a destructive or expensive action       | yes — `approval_card` |
 | Asking for free-form text (a description, a name)  | **no** — just ask in prose |
-| Reporting / displaying data (no input required)    | **no** — answer normally without `<ask>` |
+| Reporting / displaying data (no input required)    | **no** — answer normally without an interaction |
 
-## Tag syntax
+## Tool call 语义（核心约束）
 
-```
-<ask component="<name>" id="<stable-id>" [cancellable="true"] [timeoutMs="60000"]>
-{JSON payload matching the component's request schema}
-</ask>
-```
+当你需要交互式输入时，直接调用对应工具：`question_flow` / `option_list` / `approval_card`。
 
 Rules:
 
-- `component` must be one of the registered component ids below.
-- `id` must be unique per **turn** (kebab-case recommended; becomes
-  `interactionId` in the protocol).
-- Body must be **valid JSON** that passes the component's Zod schema
-  (`requestSchema`). The stream parser drops malformed payloads and emits an
-  error event — the user sees nothing, so prefer small well-tested shapes.
-- Only one `<ask>` per assistant turn is the common case; multiple are
-  allowed but render sequentially.
-- `<ask>` tags inside fenced code blocks (` ``` `) are **ignored** by the
-  parser — safe to quote examples.
-- End the assistant turn immediately after the `</ask>`; the runner will
-  automatically suspend until a response arrives.
+- `id` 必须是稳定且唯一的交互实例 id（建议 kebab-case），用于跨重渲染/刷新识别该卡片。
+- 工具参数必须是 **合法 JSON 且满足 canonical Zod schema**（由服务端在 tool `execute` 中校验）。不符合会触发 `ToolInputError`，模型应当自我纠错后重试。
+- **调用交互工具后必须 STOP**：不要继续输出后续步骤/结论，等待用户提交后，在下一轮 turn 中继续。
+- 用户提交后会产生一条新的用户消息；结构化结果在 `metadata.interaction`（同时也会有一段可读的摘要 text）。
 
 ## Registered components
 
@@ -68,8 +56,9 @@ Rules:
 
 ### `question_flow`
 
-```xml
-<ask component="question_flow" id="travel-intake">
+Call tool `question_flow` with:
+
+```json
 {
   "id": "travel-intake",
   "steps": [
@@ -77,9 +66,9 @@ Rules:
       "id": "budget",
       "title": "预算档位",
       "options": [
-        { "id": "economy",   "label": "经济型" },
+        { "id": "economy", "label": "经济型" },
         { "id": "mid-range", "label": "中档" },
-        { "id": "high-end",  "label": "高端" }
+        { "id": "high-end", "label": "高端" }
       ],
       "selectionMode": "single"
     },
@@ -87,16 +76,15 @@ Rules:
       "id": "pace",
       "title": "出行节奏",
       "options": [
-        { "id": "relaxed",   "label": "轻松" },
+        { "id": "relaxed", "label": "轻松" },
         { "id": "intensive", "label": "紧凑" }
       ]
     }
   ]
 }
-</ask>
 ```
 
-Response payload (current implementation stores it in `metadata.interaction.payload`):
+Response payload（示例形态，具体字段以 schema 为准；通常出现在 `metadata.interaction` 中）：
 
 ```json
 { "answers": { "budget": ["mid-range"], "pace": ["relaxed"] } }
@@ -104,21 +92,20 @@ Response payload (current implementation stores it in `metadata.interaction.payl
 
 ### `option_list`
 
-```xml
-<ask component="option_list" id="platform-choice">
+Call tool `option_list` with:
+
+```json
 {
   "id": "platform-choice",
-  "title": "选择平台",
   "options": [
     { "id": "search", "label": "搜索（Brave）" },
-    { "id": "xhs",    "label": "小红书" }
+    { "id": "xhs", "label": "小红书" }
   ],
   "selectionMode": "single"
 }
-</ask>
 ```
 
-Response payload (in `metadata.interaction.payload`):
+Response payload（示例形态）：
 
 ```json
 { "selected": ["xhs"] }
@@ -126,8 +113,9 @@ Response payload (in `metadata.interaction.payload`):
 
 ### `approval_card`
 
-```xml
-<ask component="approval_card" id="approve-delete">
+Call tool `approval_card` with:
+
+```json
 {
   "id": "approve-delete",
   "title": "Delete this workflow?",
@@ -136,7 +124,6 @@ Response payload (in `metadata.interaction.payload`):
   "confirmLabel": "Delete",
   "cancelLabel": "Keep"
 }
-</ask>
 ```
 
 Request fields:
@@ -150,7 +137,7 @@ Request fields:
 - `confirmLabel` (optional): confirm button text.
 - `cancelLabel` (optional): deny button text.
 
-Response payload (in `metadata.interaction.payload`):
+Response payload（示例形态）：
 
 ```json
 { "decision": "approved" }
@@ -166,52 +153,19 @@ Possible response payloads:
 { "decision": "denied" }
 ```
 
-## Channel behaviour
+## Channel behavior（当前保证）
 
-Interactions degrade per-channel. The runtime picks a mode based on the
-channel's advertised capabilities (`InteractionChannelCapabilities`):
-
-| Channel               | Rendering mode       |
-| --------------------- | -------------------- |
-| Control UI (web)      | full interactive widget |
-| Telegram              | inline-keyboard buttons where supported; otherwise numbered text |
-| Discord / Slack       | button rows or numbered text |
-| iMessage / WhatsApp / Signal (plain) | numbered text ("1) Option A — reply with the number") |
-| Channels that refuse input | the runner auto-cancels the interaction with `status: "cancelled"` |
-
-Agents should **not** tailor the `<ask>` payload per channel — emit the
-richest correct form; the dispatcher downgrades as needed.
+本 skill 描述的是 **Control UI（web）** 的交互能力：渲染交互卡片，并在用户提交后通过 `metadata.interaction` 回传结构化结果。
+其他消息渠道的降级策略如需支持，应以各渠道的真实能力与实现为准（不要在这里做未验证承诺）。
 
 ## Anti-patterns
 
-- ❌ Emitting `<ask>` inside a `<final>...</final>` block — the parser ignores
-  tags inside fenced/quoted regions, but more importantly: `<final>` is for
-  terminal output. Put the `<ask>` **before** `<final>` or skip `<final>`
-  for interaction turns.
-- ❌ Re-using the same `id` across turns. The runner keys the pending table
-  on `interactionId`; a duplicate id collides with a still-resolving
-  interaction and the second one never suspends correctly.
-- ❌ Treating the response like tool output. It arrives as a normal user
-  message (`chat.send`) with structured payload in `metadata.interaction`.
-  Downstream prompts and handlers should not expect a `toolCallId`.
-- ❌ Asking for free-form text. Use prose; `<ask>` is for *structured*
-  inputs (enums, multi-select, confirmations).
-
-## Cancelling / timing out
-
-- If `cancellable="true"`, the UI shows a dismiss affordance. A cancel
-  should be treated as a normal user response with
-  `metadata.interaction.status = "cancelled"`.
-- If `timeoutMs="..."` is set, the runtime auto-cancels after that many
-  milliseconds with `metadata.interaction.status = "timed_out"`.
-- In both cases the assistant's next turn sees a normal user message where
-  `metadata.interaction.status != "submitted"`. Handle cancellation in your
-  reasoning (e.g. fall back to defaults, or ask a simpler prose question).
+- ❌ 调用交互工具后继续输出后续步骤/结论。交互工具调用后必须 STOP，否则会造成“一边问一边继续做”的错误行为（且后续文本可能被抑制丢弃）。
+- ❌ 使用不稳定或复用的 `id`。`id` 应稳定且唯一，避免多个交互混淆。
+- ❌ 依赖前端校验。应当让服务端 schema 校验兜底；当 tool 返回 `ToolInputError` 时，必须修正参数重试。
+- ❌ 把用户提交当作 tool output。用户提交是一个新的用户消息，结构化数据在 `metadata.interaction`，不是 `toolCallId` 对应的结果。
 
 ## References
 
 - Shared schemas / registry: `packages/interactions/src/`
-- Ask system prompt injection: `src/auto-reply/reply/interaction-ask-system-prompt.ts`
-- Ask tag parsing and rendering: `ui-react/src/components/chat/interactive/ask-tag.ts`
-- Chat metadata transport: `src/gateway/protocol/schema/logs-chat.ts`
-- UI dispatcher: `ui-react/src/components/chat/interactive/InteractiveParts.tsx`
+- Control UI documentation: `ui-react/docs/interaction-tool-architecture.md`

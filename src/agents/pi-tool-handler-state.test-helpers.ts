@@ -10,7 +10,7 @@ export function createBaseToolHandlerState() {
     messagingToolSentTextsNormalized: [] as string[],
     messagingToolSentMediaUrls: [] as string[],
     messagingToolSentTargets: [] as unknown[],
-    deterministicApprovalPromptSent: false,
+    deterministicPromptSent: false,
     blockBuffer: "",
   };
 }

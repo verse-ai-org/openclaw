@@ -102,7 +102,7 @@ export function buildEmbeddedRunPayloads(params: {
   suppressToolErrorWarnings?: boolean;
   inlineToolResultsAllowed: boolean;
   didSendViaMessagingTool?: boolean;
-  didSendDeterministicApprovalPrompt?: boolean;
+  didSendDeterministicPrompt?: boolean;
 }): Array<{
   text?: string;
   mediaUrl?: string;
@@ -126,7 +126,7 @@ export function buildEmbeddedRunPayloads(params: {
   }> = [];
 
   const useMarkdown = params.toolResultFormat === "markdown";
-  const suppressAssistantArtifacts = params.didSendDeterministicApprovalPrompt === true;
+  const suppressAssistantArtifacts = params.didSendDeterministicPrompt === true;
   const lastAssistantErrored = params.lastAssistant?.stopReason === "error";
   const errorText = params.lastAssistant
     ? suppressAssistantArtifacts

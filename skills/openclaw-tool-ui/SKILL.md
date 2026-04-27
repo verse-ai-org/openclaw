@@ -37,6 +37,8 @@ This skill is the **single place** for that channel preference. **Domain skills*
 
 Passthrough tools: the model passes the **same JSON** as tool arguments; the tool returns it as the tool result so Control UI can `safeParse` and render the matching component.
 
+Interactive tools（HITL）: `question_flow` / `option_list` / `approval_card` are tool-based interactions. They return `interaction-pending` results and are rendered under the assistant message by the interactive UI area, not as inline passthrough cards.
+
 Add new rows here when OpenClaw ships additional Tool UI–aligned tools.
 
 ## `weather_widget` (detail)
@@ -64,7 +66,7 @@ These mirror the serializable schemas under `ui-react/src/components/tool-ui/*/s
 ## Relationship to other skills
 
 - **weather** — Domain: wttr.in formats, curl examples, when to answer weather questions. Does **not** duplicate Control UI card policy; point here for `weather_widget`.
-- **openclaw-interactions** — Canonical protocol for structured user input (`<ask>`, `metadata.interaction`, channel downgrade semantics). Use it for all primary interactive-input flows.
+- **openclaw-interactions** — Tool-based structured user input (`question_flow`, `option_list`, `approval_card`, `metadata.interaction`). Use it for primary interactive-input flows.
 - **Future Tool UI components** — Document new tools in the table above; keep domain logic in the relevant domain skill.
 
 ## References

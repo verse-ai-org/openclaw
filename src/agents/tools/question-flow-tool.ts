@@ -1,15 +1,16 @@
 /**
  * question_flow — Control UI structured questionnaire tool.
  *
- * This is a passthrough tool: the LLM provides the question flow config
- * as parameters, the tool returns it as JSON, and the Control UI frontend
- * renders it as an interactive multi-step form (InteractiveCardArea).
+ * The LLM provides the question flow config as parameters, the tool validates
+ * against the canonical schema, returns an `interaction-pending` result, and
+ * the Control UI frontend renders it as an interactive multi-step form.
  *
  * When the user completes the form, their answers arrive as a new chat
- * message in the format: "步骤标题：选中选项标签\n步骤标题：选中选项标签"
+ * message with structured metadata in `metadata.interaction`.
  */
+import { QUESTION_FLOW_MANIFEST } from "@openclaw/interactions";
 import { Type } from "@sinclair/typebox";
-import { type AnyAgentTool, jsonResult } from "./common.js";
+import { type AnyAgentTool, ToolInputError, interactionPendingResult } from "./common.js";
 
 const OptionSchema = Type.Object({
   id: Type.String({ description: "Option value key (e.g. 'economy', 'mid-range')." }),
@@ -52,10 +53,20 @@ export function createQuestionFlowTool(): AnyAgentTool {
       "Use this instead of asking questions in plain text when you need to collect " +
       "multiple structured answers (e.g. preference intake, onboarding). " +
       "The user sees a form with all steps upfront, selects options, and submits. " +
-      "Their answers arrive as a new chat message formatted as 'step.title：selected.label' per line. " +
+      "Their structured answers arrive in the next user message's metadata.interaction field. " +
+      "After calling this tool, STOP and wait for the user's response — do not continue. " +
       "Only available in Control UI sessions (sender label: openclaw-control-ui).",
     parameters: ParametersSchema,
-    // Passthrough: return the config as JSON; the frontend maps tool name → UI component.
-    execute: async (_toolCallId, args) => jsonResult(args),
+    execute: async (_toolCallId, args) => {
+      const parsed = QUESTION_FLOW_MANIFEST.requestSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new ToolInputError(
+          `question_flow schema validation failed: ${parsed.error.issues
+            .map((issue) => `${issue.path.join(".") || "$"} ${issue.message}`)
+            .join("; ")}`,
+        );
+      }
+      return interactionPendingResult("question_flow", parsed.data);
+    },
   };
 }

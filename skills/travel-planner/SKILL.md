@@ -55,18 +55,16 @@ node {baseDir}/scripts/preferences.mjs --cmd=is_initialized
 
 ### 第二步：轻量偏好采集
 
-**只问高影响项**。在交互式通道（Control UI / Telegram / Discord 等）中，**必须使用 `<ask component="question_flow">` 标签**（而非直接输出文字问答），让前端渲染交互式问卷卡片。`<ask>` 是 OpenClaw 的 interaction 协议，详见 `@skills/openclaw-interactions`。
+**只问高影响项**。在交互式通道（Control UI）中，**必须调用 `question_flow` 工具**（而非直接输出文字问答），让前端渲染交互式问卷卡片。交互协议详见 `@skills/openclaw-interactions`。
 
 **必须遵守**：
 
-- 在同一轮助手输出中：先写一两句面向用户的说明，随后紧跟 `<ask component="question_flow" id="travel-preference-intake">…</ask>` 标签。
-- `<ask>` 标签关闭后立刻结束本轮输出（不再跟其他文字）。runner 会自动挂起，等待用户提交后再触发下一轮。
-- **不要**把 `question_flow` / `option_list` 当作 tool 调用（它们不再是 tool，调用会返回 "Tool ... not found"）。
+- 调用交互工具后必须 STOP，等待用户提交后再继续下一步。
+- 优先读取用户消息的 `metadata.interaction` 结构化结果；若缺失再回退解析纯文本摘要。
 
-#### 执行方式：在助手文本里直接写 `<ask>` 标签, 先写 1-2 句说明，告诉用户要填的是什么。
+#### 执行方式：调用 `question_flow` 工具（先写 1-2 句说明，随后调用工具）
 
-```xml
-<ask component="question_flow" id="travel-preference-intake">
+```json
 {
   "id": "travel-preference-intake",
   "steps": [
@@ -142,9 +140,7 @@ node {baseDir}/scripts/preferences.mjs --cmd=is_initialized
     }
   ]
 }
-</ask>
 ```
-> 注意：上面是展示用的代码块（```  包裹），真正输出时**不要用代码块包裹**，直接把 `<ask>...</ask>` 写进助手文本即可——否则 `<ask>` 会被解析器忽略。
 
 #### 解析用户回答
 
@@ -202,7 +198,7 @@ node {baseDir}/scripts/trips.mjs --cmd=add_trip --payload='{"destination_text":"
 
 **A-1｜平台选择（等用户回答后才能继续）**
 
-发出 `<ask component="option_list">`，先写一两句面向用户的说明，再给出以下选择器：
+调用 `option_list` 工具，先写一两句面向用户的说明，再给出以下选择器参数：
 
 ```json
 {
@@ -408,7 +404,7 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=save_route_plan \
 
 **A-7｜让用户选择路线**
 
-`item_carousel` 渲染完成后，发起 `<ask component="option_list">`（必须在图文展示之后，不得提前）：
+`item_carousel` 渲染完成后，调用 `option_list` 工具（必须在图文展示之后，不得提前）：
 
 ```json
 {
@@ -583,8 +579,7 @@ node {baseDir}/scripts/plan-generator.mjs --cmd=plan_overview --trip-id=<trip_id
 
 骨架展示后，必须立刻发起 `approval_card` 交互确认（不要只靠自由文本确认）：
 
-```xml
-<ask component="approval_card" id="plan-overview-approval">
+```json
 {
   "id": "plan-overview-approval",
   "title": "确认按这个计划骨架继续吗？",
@@ -593,7 +588,6 @@ node {baseDir}/scripts/plan-generator.mjs --cmd=plan_overview --trip-id=<trip_id
   "confirmLabel": "确认，继续第六步",
   "cancelLabel": "先调整骨架"
 }
-</ask>
 ```
 
 守卫：仅当 `metadata.interaction.payload.decision === "approved"` 时，才能进入第六步；若为 `denied`，先根据用户反馈调整骨架，再次发起 `approval_card`。

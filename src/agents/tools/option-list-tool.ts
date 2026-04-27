@@ -1,15 +1,16 @@
 /**
  * option_list — Control UI single-step option picker tool.
  *
- * Passthrough tool: the LLM provides the option list config as parameters,
- * the tool returns it as JSON, and the Control UI renders an interactive
- * option card (InteractiveCardArea).
+ * The LLM provides the option list config as parameters, the tool validates
+ * against the canonical schema, returns an `interaction-pending` result, and
+ * the Control UI renders an interactive option card.
  *
- * When the user confirms their selection, it arrives as a new chat message
- * with the selected option labels joined by "、".
+ * When the user confirms their selection, their structured answer arrives
+ * in the next user message's metadata.interaction field.
  */
+import { OPTION_LIST_MANIFEST } from "@openclaw/interactions";
 import { Type } from "@sinclair/typebox";
-import { type AnyAgentTool, jsonResult } from "./common.js";
+import { type AnyAgentTool, ToolInputError, interactionPendingResult } from "./common.js";
 
 const OptionSchema = Type.Object({
   id: Type.String({ description: "Option value key (e.g. 'search', 'xhs')." }),
@@ -33,8 +34,8 @@ const ParametersSchema = Type.Object({
       description:
         "'single' (default) — user picks exactly one option. " +
         "'multi' — user picks one or more options. " +
-        "When the user confirms, their answer arrives as a new chat message " +
-        "with selected labels joined by '、'.",
+        "When the user confirms, their structured answer arrives in the next " +
+        "user message's metadata.interaction field.",
     }),
   ),
 });
@@ -47,11 +48,21 @@ export function createOptionListTool(): AnyAgentTool {
       "Render an interactive single-step option picker card in the Control UI. " +
       "Use this instead of plain text when you need the user to choose from a short list " +
       "(e.g. select platform, confirm route). " +
-      "The user selects option(s) and confirms; their answer arrives as a new chat message " +
-      "with the selected labels joined by '、'. " +
+      "The user selects option(s) and confirms; their structured answer arrives in the next " +
+      "user message's metadata.interaction field. " +
+      "After calling this tool, STOP and wait for the user's response — do not continue. " +
       "Only available in Control UI sessions (sender label: openclaw-control-ui).",
     parameters: ParametersSchema,
-    // Passthrough: return the config as JSON; the frontend maps tool name → UI component.
-    execute: async (_toolCallId, args) => jsonResult(args),
+    execute: async (_toolCallId, args) => {
+      const parsed = OPTION_LIST_MANIFEST.requestSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new ToolInputError(
+          `option_list schema validation failed: ${parsed.error.issues
+            .map((issue) => `${issue.path.join(".") || "$"} ${issue.message}`)
+            .join("; ")}`,
+        );
+      }
+      return interactionPendingResult("option_list", parsed.data);
+    },
   };
 }

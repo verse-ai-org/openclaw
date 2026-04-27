@@ -231,7 +231,7 @@ function createSubscriptionMock() {
     getMessagingToolSentTargets: () => [] as unknown[],
     getSuccessfulCronAdds: () => 0,
     didSendViaMessagingTool: () => false,
-    didSendDeterministicApprovalPrompt: () => false,
+    didSendDeterministicPrompt: () => false,
     getLastToolError: () => undefined,
     getUsageTotals: () => undefined,
     getCompactionCount: () => 0,

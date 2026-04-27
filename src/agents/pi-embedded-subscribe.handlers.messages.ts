@@ -85,7 +85,7 @@ export function handleMessageUpdate(
   }
 
   ctx.noteLastAssistant(msg);
-  if (ctx.state.deterministicApprovalPromptSent) {
+  if (ctx.state.deterministicPromptSent) {
     return;
   }
 
@@ -264,7 +264,7 @@ export function handleMessageEnd(
   const assistantMessage = msg;
   ctx.noteLastAssistant(assistantMessage);
   ctx.recordAssistantUsage((assistantMessage as { usage?: unknown }).usage);
-  if (ctx.state.deterministicApprovalPromptSent) {
+  if (ctx.state.deterministicPromptSent) {
     return;
   }
   promoteThinkingTagsToBlocks(assistantMessage);

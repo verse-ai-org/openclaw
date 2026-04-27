@@ -239,6 +239,30 @@ export function jsonResult(payload: unknown): AgentToolResult<unknown> {
   };
 }
 
+/**
+ * Build a tool result that signals the frontend to render an interactive card
+ * and suppresses further assistant text for this turn (mirrors exec's
+ * `approval-pending` pattern).
+ */
+export function interactionPendingResult(
+  toolName: string,
+  payload: unknown,
+): AgentToolResult<unknown> {
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(payload, null, 2),
+      },
+    ],
+    details: {
+      status: "interaction-pending",
+      component: toolName,
+      payload,
+    },
+  };
+}
+
 export function wrapOwnerOnlyToolExecution(
   tool: AnyAgentTool,
   senderIsOwner: boolean,
