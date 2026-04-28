@@ -80,6 +80,8 @@ const TRIP_DEFAULTS = {
   date_flexibility: "",
   transport_preferences: [],
   constraints: [],
+  mobility_mode: "",
+  self_drive_allowed: null,
   must_do: [],
   nice_to_have: [],
   chosen_route_id: "",
@@ -441,6 +443,41 @@ export function getSelectedRoute(trip) {
   if (!id) return {};
   const options = Array.isArray(trip.route_options) ? trip.route_options : [];
   return options.find((o) => o?.route_id === id) ?? {};
+}
+
+/**
+ * Canonical self-drive permission inference.
+ *
+ * Priority:
+ * 1) structured flag: `trip.self_drive_allowed` (boolean)
+ * 2) structured enum: `trip.mobility_mode` (`self_drive | private_car | public_transport | mixed`)
+ * 3) legacy natural-language `constraints[]` (see references/data-contracts.md)
+ *
+ * Returns:
+ * - true/false when we can infer confidently
+ * - undefined when not specified
+ */
+export function inferSelfDriveAllowed(trip) {
+  if (!trip || typeof trip !== "object") return undefined;
+  if (typeof trip.self_drive_allowed === "boolean") return trip.self_drive_allowed;
+
+  const mode = String(trip.mobility_mode || "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_");
+  if (mode === "self_drive") return true;
+  if (mode === "public_transport" || mode === "private_car") return false;
+  if (mode === "mixed") return true;
+
+  const constraints = Array.isArray(trip.constraints) ? trip.constraints : [];
+  const normalized = constraints.map((item) => String(item || "").trim());
+  const hasAllow = normalized.some((v) => v === "自驾" || v === "可自驾");
+  const hasDeny = normalized.some(
+    (v) => v === "不自驾" || v === "不自驾游" || v === "不考虑自驾",
+  );
+  if (hasAllow && !hasDeny) return true;
+  if (hasDeny && !hasAllow) return false;
+  return undefined;
 }
 
 export function getTrips(status = "all") {

@@ -41,7 +41,11 @@
 
 使用 `@skills/amap-lbs-skill` 查询相邻站点驾车时长。单日转场 > 4 小时在骨架中标注提醒。
 
-判定口径：以 `references/data-contracts.md` 为准（避免“自驾/不自驾”自然语言歧义）。
+判定口径（优先级从高到低）：
+
+- `trip.self_drive_allowed: true|false`（结构化字段，推荐）
+- `trip.mobility_mode: self_drive | private_car | public_transport | mixed`
+- 历史 `trip.constraints[]`（如 `"不自驾"` / `"可自驾"`；兼容映射见 `references/data-contracts.md`）
 
 ## B-4｜调研天气（始终执行）
 

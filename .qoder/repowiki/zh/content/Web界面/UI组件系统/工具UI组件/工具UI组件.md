@@ -50,6 +50,7 @@
 - 增强了富工具UI组件的聊天事件桥接功能
 - 新增了rich-presentation.tsx用于富工具UI内容的解析和展示
 - 新增了parse-tool-ui-payload.ts和parse-weather-widget-payload.ts用于工具UI负载解析
+- **更新** tool-detail-drawer.tsx新增了长命令输出的展开/折叠功能，包括预览按钮和渐变遮罩，显著改善了长命令执行的用户体验
 - 保持了原有的OptionList、QuestionFlow、Chart、CodeBlock、LinkPreview、StatsDisplay、Terminal等组件
 
 ## 目录
@@ -68,6 +69,8 @@
 工具UI组件是OpenClaw项目中用于展示和交互AI工具调用结果的核心界面组件。该组件系统提供了统一的工具调用可视化、状态管理和用户交互功能，支持多种工具类型（读取、写入、执行、搜索、网络请求等）的分类显示和详细查看。
 
 **更新** ToolFallback组件经过重大重构，从单一的ToolFallback.tsx文件演进为模块化的组件架构。新的架构将工具回退功能分解为多个专门的组件：ToolFallback/index.tsx作为主入口，sections.tsx提供通用的工具UI段落组件，tool-detail-drawer.tsx负责详情抽屉功能，status-badge.tsx管理状态徽章，rich-presentation.tsx处理富工具UI内容的解析和展示。
+
+**更新** tool-detail-drawer.tsx组件新增了长命令输出的展开/折叠功能，包括预览按钮和渐变遮罩，显著改善了长命令执行的用户体验。该功能通过PREVIEW_MAX_LINES常量（默认10行）控制预览长度，并在命令或结果超过指定行数时自动显示展开/折叠控件和渐变遮罩。
 
 该组件系统采用现代化的React设计，结合Tailwind CSS样式系统和专业的第三方库（如Recharts、Shiki、ansi-to-react），为用户提供直观且功能丰富的工具调用体验。组件支持响应式设计，在桌面端和移动端都能提供优秀的用户体验。
 
@@ -158,15 +161,15 @@ A2 --> TF
 **图表来源**
 - [ToolFallback/index.tsx:1-631](file://ui-react/src/components/chat/ToolFallback/index.tsx#L1-L631)
 - [ToolFallback/sections.tsx:1-139](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L1-L139)
-- [ToolFallback/tool-detail-drawer.tsx:1-308](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L308)
-- [ToolFallback/status-badge.tsx:1-33](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L33)
+- [ToolFallback/tool-detail-drawer.tsx:1-329](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L329)
+- [ToolFallback/status-badge.tsx:1-34](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L34)
 - [ToolFallback/rich-presentation.tsx:1-235](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L1-L235)
 
 **章节来源**
 - [ToolFallback/index.tsx:1-631](file://ui-react/src/components/chat/ToolFallback/index.tsx#L1-L631)
 - [ToolFallback/sections.tsx:1-139](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L1-L139)
-- [ToolFallback/tool-detail-drawer.tsx:1-308](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L308)
-- [ToolFallback/status-badge.tsx:1-33](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L33)
+- [ToolFallback/tool-detail-drawer.tsx:1-329](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L329)
+- [ToolFallback/status-badge.tsx:1-34](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L34)
 - [ToolFallback/rich-presentation.tsx:1-235](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L1-L235)
 
 ## 核心组件
@@ -208,11 +211,14 @@ A2 --> TF
 - **RawResultContent**: 原始结果内容组件，支持Markdown解析和frontmatter处理
 
 ##### tool-detail-drawer.tsx - 详情抽屉组件
+**更新** 新增长命令输出的展开/折叠功能：
 - **命令显示**: 展示工具命令和工作目录信息
 - **结果预览**: 支持结果内容的预览和完整显示
 - **错误处理**: 显示工具执行过程中的错误信息
 - **富内容展示**: 支持富工具UI内容的结构化预览
 - **复制功能**: 提供命令和结果的快速复制功能
+- **长输出处理**: 当命令或结果超过10行时自动启用预览模式，显示展开/折叠按钮和渐变遮罩
+- **状态管理**: 管理命令展开(isCommandExpanded)和结果展开(isResultExpanded)状态
 
 ##### status-badge.tsx - 状态徽章组件
 - **运行状态**: 显示工具执行中的旋转指示器
@@ -235,8 +241,10 @@ A2 --> TF
 - [ToolFallback/index.tsx:32-47](file://ui-react/src/components/chat/ToolFallback/index.tsx#L32-L47)
 - [ToolFallback/index.tsx:49-116](file://ui-react/src/components/chat/ToolFallback/index.tsx#L49-L116)
 - [ToolFallback/sections.tsx:19-31](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L19-L31)
-- [ToolFallback/tool-detail-drawer.tsx:41-56](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L41-L56)
-- [ToolFallback/status-badge.tsx:9-32](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L9-L32)
+- [ToolFallback/tool-detail-drawer.tsx:22](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L22)
+- [ToolFallback/tool-detail-drawer.tsx:58-60](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L58-L60)
+- [ToolFallback/tool-detail-drawer.tsx:68-77](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L68-L77)
+- [ToolFallback/status-badge.tsx:9-33](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L9-L33)
 - [ToolFallback/rich-presentation.tsx:127-135](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L127-L135)
 
 ## 架构概览
@@ -327,8 +335,8 @@ N --> A
 **图表来源**
 - [ToolFallback/index.tsx:132-144](file://ui-react/src/components/chat/ToolFallback/index.tsx#L132-L144)
 - [ToolFallback/sections.tsx:1-139](file://ui-react/src/components/chat/ToolFallback/sections.tsx#L1-L139)
-- [ToolFallback/tool-detail-drawer.tsx:1-308](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L308)
-- [ToolFallback/status-badge.tsx:1-33](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L33)
+- [ToolFallback/tool-detail-drawer.tsx:1-329](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L1-L329)
+- [ToolFallback/status-badge.tsx:1-34](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L1-L34)
 - [ToolFallback/rich-presentation.tsx:1-235](file://ui-react/src/components/chat/ToolFallback/rich-presentation.tsx#L1-L235)
 
 ## 详细组件分析
@@ -454,7 +462,7 @@ P --> R[解析frontmatter和body]
 
 ### tool-detail-drawer.tsx 详情抽屉组件
 
-tool-detail-drawer.tsx提供了完整的工具调用详情展示功能：
+**更新** tool-detail-drawer.tsx提供了完整的工具调用详情展示功能，现已新增长命令输出的展开/折叠功能：
 
 ```mermaid
 sequenceDiagram
@@ -464,14 +472,16 @@ participant SE as sections
 participant SB as StatusBadge
 U->>DD : 打开详情抽屉
 DD->>DD : 解析工具参数和结果
-DD->>SE : 显示命令段落
+DD->>DD : 检测长命令和长结果
+DD->>SE : 显示命令段落(预览模式)
 SE-->>DD : 返回命令内容
-DD->>SE : 显示结果段落
+DD->>SE : 显示结果段落(预览模式)
 SE-->>DD : 返回结果内容
 DD->>SB : 显示状态徽章
 SB-->>DD : 返回状态信息
 DD->>U : 展示完整详情
 Note over DD : 支持命令复制、结果预览、错误信息展示
+Note over DD : 长输出自动启用预览模式和渐变遮罩
 ```
 
 **图表来源**
@@ -487,9 +497,14 @@ Note over DD : 支持命令复制、结果预览、错误信息展示
 4. **富内容展示**: 支持富工具UI内容的结构化预览
 5. **复制功能**: 提供命令和结果的快速复制功能
 6. **状态指示**: 显示工具执行状态和取消状态
+7. **长输出处理**: 当命令或结果超过10行时自动启用预览模式
+8. **渐变遮罩**: 在预览模式下显示渐变遮罩，提示还有更多内容
+9. **展开/折叠控件**: 提供展开/折叠按钮，用户可手动控制内容显示
 
 **章节来源**
-- [ToolFallback/tool-detail-drawer.tsx:41-56](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L41-L56)
+- [ToolFallback/tool-detail-drawer.tsx:22](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L22)
+- [ToolFallback/tool-detail-drawer.tsx:58-60](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L58-L60)
+- [ToolFallback/tool-detail-drawer.tsx:68-77](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L68-L77)
 - [ToolFallback/tool-detail-drawer.tsx:132-177](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L132-L177)
 - [ToolFallback/tool-detail-drawer.tsx:187-273](file://ui-react/src/components/chat/ToolFallback/tool-detail-drawer.tsx#L187-L273)
 
@@ -525,7 +540,7 @@ StatusBadge --> ToolStatus : "使用"
 4. **简洁设计**: 使用圆角徽章提供清晰的状态指示
 
 **章节来源**
-- [ToolFallback/status-badge.tsx:9-32](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L9-L32)
+- [ToolFallback/status-badge.tsx:9-33](file://ui-react/src/components/chat/ToolFallback/status-badge.tsx#L9-L33)
 - [ToolFallback/types.ts:3](file://ui-react/src/components/chat/ToolFallback/types.ts#L3)
 
 ### rich-presentation.tsx 富工具UI解析组件
@@ -1227,6 +1242,7 @@ SH6 --> Z
 5. **动画优化**: 使用CSS动画而非JavaScript动画
 6. **HTML缓存**: CodeBlock组件使用缓存机制减少重复渲染
 7. **模块化加载**: ToolFallback组件按需加载各个模块
+8. **长输出优化**: 通过预览模式减少长命令和结果的渲染开销
 
 ### 内存管理
 1. **事件监听器清理**: 自动清理媒体查询监听器
@@ -1243,6 +1259,7 @@ SH6 --> Z
 4. **加载状态**: 提供清晰的加载和执行状态反馈
 5. **性能监控**: 关键操作的性能指标收集
 6. **模块化体验**: 按需加载提高初始渲染性能
+7. **渐进式加载**: 长输出内容的渐进式展示
 
 ### 第三方库优化
 1. **Recharts优化**: 图表组件的懒加载和数据优化
@@ -1355,6 +1372,34 @@ SH6 --> Z
 3. 确认状态徽章组件的正确使用
 4. 检查样式类名的正确性
 
+#### tool-detail-drawer组件问题
+
+**更新** 新增tool-detail-drawer组件相关问题解决：
+
+##### 长输出预览不显示
+**问题**: 长命令或结果没有显示预览模式
+**解决方案**:
+1. 检查PREVIEW_MAX_LINES常量设置（默认10行）
+2. 验证命令行数计算逻辑
+3. 确认isLongCommand和isLongResult状态判断
+4. 检查渐变遮罩的CSS类名
+
+##### 展开/折叠按钮无效
+**问题**: 展开/折叠按钮无法正常工作
+**解决方案**:
+1. 检查isCommandExpanded和isResultExpanded状态管理
+2. 验证按钮的onClick事件处理器
+3. 确认aria-label和title属性的正确设置
+4. 检查按钮的可见性条件
+
+##### 渐变遮罩显示异常
+**问题**: 渐变遮罩样式不正确或位置错误
+**解决方案**:
+1. 检查CSS类名"bg-linear-to-t"和"bg-gradient-to-t"
+2. 验证渐变遮罩的定位和尺寸
+3. 确认遮罩在预览模式下的显示条件
+4. 检查响应式布局下的遮罩适配
+
 #### OptionList选择问题
 **更新** 新增OptionList相关问题解决：
 **问题**: 选项无法正确选择或状态异常
@@ -1394,7 +1439,7 @@ SH6 --> Z
 
 工具UI组件系统为OpenClaw项目提供了强大而灵活的工具调用可视化解决方案。通过模块化的组件设计、智能的状态管理和丰富的用户交互功能，该系统能够有效提升用户对AI工具调用的理解和控制能力。
 
-**更新** 本次更新大幅增强了组件系统的功能，重构后的ToolFallback模块提供了更加专业和完善的工具调用可视化能力：
+**更新** 本次更新大幅增强了组件系统的功能，重构后的ToolFallback模块提供了更加专业和完善的工具调用可视化能力，特别是tool-detail-drawer.tsx组件新增的长命令输出展开/折叠功能，显著改善了用户体验：
 
 ### 主要优势包括：
 - **高度模块化**: ToolFallback采用模块化架构设计，便于维护和扩展
@@ -1408,6 +1453,7 @@ SH6 --> Z
 - **类型安全**: 使用Zod提供完整的运行时类型验证
 - **无障碍友好**: 完整的键盘导航和ARIA支持
 - **第三方库集成**: 专业库的深度集成提升了组件的专业性和稳定性
+- **长输出优化**: 新增的预览模式和渐变遮罩显著改善了长命令和结果的显示体验
 
 ### 新增功能特性：
 - **模块化架构**: ToolFallback/index.tsx作为主入口，sections.tsx提供通用组件，tool-detail-drawer.tsx负责详情展示，status-badge.tsx管理状态，rich-presentation.tsx处理富内容
@@ -1416,6 +1462,9 @@ SH6 --> Z
 - **增强的工具UI**: 为复杂的工具调用提供更好的用户体验
 - **类型安全**: 新增的types.ts提供完整的类型定义和验证
 - **模块化依赖**: 各组件模块独立，便于单独测试和维护
+- **长输出处理**: tool-detail-drawer.tsx新增的预览模式和渐变遮罩功能
+- **展开/折叠控制**: 用户可手动控制长命令和结果的显示范围
+- **渐进式加载**: 通过预览模式减少长内容的渲染开销
 
 ### 未来发展方向：
 - **更多工具类型支持**: 扩展支持更多专业领域的工具UI组件
@@ -1424,5 +1473,6 @@ SH6 --> Z
 - **高级交互模式**: 实现更复杂的用户交互和数据处理流程
 - **性能进一步优化**: 深入优化大型数据集和复杂图表的渲染性能
 - **模块化扩展**: 继续优化模块化架构，提高组件的可扩展性
+- **用户体验增强**: 基于用户反馈持续改进界面设计和交互体验
 
-本次更新反映了ToolFallback组件的重大重构，体现了工具UI组件向更专业、更完善的工具发展，为OpenClaw项目提供了更加强大和灵活的工具调用可视化解决方案。
+本次更新反映了ToolFallback组件的重大重构，特别是tool-detail-drawer.tsx组件的长输出处理功能，体现了工具UI组件向更专业、更完善的工具发展，为OpenClaw项目提供了更加强大和灵活的工具调用可视化解决方案。

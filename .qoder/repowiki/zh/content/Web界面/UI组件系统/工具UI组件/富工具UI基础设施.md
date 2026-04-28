@@ -24,26 +24,37 @@
 - [ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx](file://ui-react/src/components/tool-ui/weather-widget/weather-widget-container.tsx)
 - [ui-react/src/components/chat/ToolFallback.tsx](file://ui-react/src/components/chat/ToolFallback.tsx)
 - [skills/openclaw-tool-ui/SKILL.md](file://skills/openclaw-tool-ui/SKILL.md)
+- [src/agents/tools/common.ts](file://src/agents/tools/common.ts)
+- [src/agents/pi-embedded-subscribe.handlers.tools.ts](file://src/agents/pi-embedded-subscribe.handlers.tools.ts)
+- [src/agents/pi-embedded-subscribe.handlers.tools.test.ts](file://src/agents/pi-embedded-subscribe.handlers.tools.test.ts)
+- [ui-react/src/components/chat/tool-fallback/rich-presentation.tsx](file://ui-react/src/components/chat/tool-fallback/rich-presentation.tsx)
+- [ui-react/src/components/chat/interactive/interactive-registry.tsx](file://ui-react/src/components/chat/interactive/interactive-registry.tsx)
+- [src/agents/tools/approval-card-tool.ts](file://src/agents/tools/approval-card-tool.ts)
+- [src/agents/pi-embedded-subscribe.handlers.types.ts](file://src/agents/pi-embedded-subscribe.handlers.types.ts)
 </cite>
 
 ## 更新摘要
 **所做更改**
-- 新增富工具展示系统章节，详细介绍tool-rich-presentation.tsx组件及其相关工具UI组件
-- 添加天气小部件、图表、统计信息、链接预览、代码块和终端输出的可视化展示能力说明
-- 更新UI组件系统架构图以反映富工具展示系统的集成
-- 新增工具UI组件的详细技术规格和使用示例
+- 新增工具化交互系统基础架构变更章节，重点介绍interactionPendingResult函数和工具执行流程更新
+- 更新工具执行状态管理机制，包括deterministicPromptSent标志位的作用和交互式工具的状态处理
+- 新增交互式工具组件系统，包括question_flow、option_list、approval_card的处理机制
+- 更新工具执行流程图以反映新的状态管理和交互式工具处理逻辑
+- 新增工具执行结果处理的详细分析，包括approval-pending和interaction-pending的区别
 
 ## 目录
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
 4. [富工具展示系统](#富工具展示系统)
-5. [架构概览](#架构概览)
-6. [详细组件分析](#详细组件分析)
-7. [依赖关系分析](#依赖关系分析)
-8. [性能考虑](#性能考虑)
-9. [故障排除指南](#故障排除指南)
-10. [结论](#结论)
+5. [工具化交互系统基础架构](#工具化交互系统基础架构)
+6. [工具执行流程](#工具执行流程)
+7. [交互式工具组件系统](#交互式工具组件系统)
+8. [架构概览](#架构概览)
+9. [详细组件分析](#详细组件分析)
+10. [依赖关系分析](#依赖关系分析)
+11. [性能考虑](#性能考虑)
+12. [故障排除指南](#故障排除指南)
+13. [结论](#结论)
 
 ## 简介
 
@@ -51,7 +62,7 @@ OpenClaw是一个个人AI助手平台，提供富工具UI基础设施，支持�
 
 项目的核心目标是为用户提供本地化、快速且始终在线的个人AI助手体验，支持多种消息渠道（WhatsApp、Telegram、Slack、Discord等）和设备平台（macOS、iOS、Android）。
 
-**更新** 新增富工具展示系统，提供丰富的工具输出可视化展示能力，包括天气小部件、图表、统计信息、链接预览、代码块和终端输出的精美呈现。
+**更新** 新增工具化交互系统基础架构变更，重点反映了interactionPendingResult函数的引入和工具执行流程的更新，包括deterministicPromptSent标志位的使用和交互式工具的状态管理机制。
 
 ## 项目结构
 
@@ -77,6 +88,7 @@ Src[src/ 核心源码]
 Web[src/web/ Web服务]
 Gateway[src/gateway/ 网关服务]
 Channels[src/channels/ 频道集成]
+Agents[src/agents/ 代理引擎]
 end
 subgraph "用户界面"
 UI[ui/ 原生UI]
@@ -91,18 +103,29 @@ end
 subgraph "富工具展示系统"
 ToolUI[ui-react/src/components/tool-ui/ 工具UI组件]
 RichPresentation[ui-react/src/components/chat/tool-rich-presentation.tsx 富工具展示]
-End
+InteractiveRegistry[ui-react/src/components/chat/interactive/interactive-registry.tsx 交互式组件注册]
+end
+subgraph "工具化交互系统"
+CommonTools[src/agents/tools/common.ts 通用工具函数]
+ToolHandlers[src/agents/pi-embedded-subscribe.handlers.tools.ts 工具处理程序]
+ToolTypes[src/agents/pi-embedded-subscribe.handlers.types.ts 工具类型定义]
+end
 Root --> Src
 Root --> UI
 Root --> Extensions
 Src --> Web
 Src --> Gateway
 Src --> Channels
+Src --> Agents
 Shared --> MacOS
 Shared --> iOS
 Shared --> Android
 UIReact --> ToolUI
 UIReact --> RichPresentation
+UIReact --> InteractiveRegistry
+Agents --> CommonTools
+Agents --> ToolHandlers
+Agents --> ToolTypes
 ```
 
 **图表来源**
@@ -167,12 +190,18 @@ class ToolUIComponents {
 +LinkPreview : Component
 +Terminal : Component
 }
+class InteractiveComponents {
++QuestionFlow : Component
++OptionList : Component
++ApprovalCard : Component
+}
 ReactUI --> GatewayIntegration : "集成"
 NativeUI --> GatewayIntegration : "集成"
 GatewayIntegration --> DeviceNodes : "控制"
 UIControlPanel --> ReactUI : "管理"
 UIControlPanel --> NativeUI : "管理"
 RichToolPresentation --> ToolUIComponents : "渲染"
+InteractiveComponents --> ToolUIComponents : "扩展"
 ```
 
 **图表来源**
@@ -224,6 +253,7 @@ subgraph "富工具展示系统"
 RichPresentation[tool-rich-presentation.tsx 富工具解析器]
 PayloadParser[parse-tool-ui-payload.ts 负载解析器]
 WeatherParser[parse-weather-widget-payload.ts 天气解析器]
+RichPresentationFallback[rich-presentation.tsx 富工具回退解析器]
 end
 subgraph "工具UI组件"
 WeatherWidget[WeatherWidget 天气小部件]
@@ -232,6 +262,8 @@ CodeBlock[CodeBlock 代码块]
 StatsDisplay[StatsDisplay 统计显示]
 LinkPreview[LinkPreview 链接预览]
 Terminal[Terminal 终端输出]
+ItemCarousel[ItemCarousel 项目轮播]
+GeoMap[GeoMap 地图组件]
 end
 subgraph "技能系统"
 OpenClawToolUI[openclaw-tool-ui 技能]
@@ -239,12 +271,15 @@ WeatherSkill[weather 技能]
 end
 RichPresentation --> PayloadParser
 RichPresentation --> WeatherParser
+RichPresentation --> RichPresentationFallback
 RichPresentation --> WeatherWidget
 RichPresentation --> Chart
 RichPresentation --> CodeBlock
 RichPresentation --> StatsDisplay
 RichPresentation --> LinkPreview
 RichPresentation --> Terminal
+RichPresentation --> ItemCarousel
+RichPresentation --> GeoMap
 OpenClawToolUI --> RichPresentation
 WeatherSkill --> WeatherWidget
 ```
@@ -256,16 +291,18 @@ WeatherSkill --> WeatherWidget
 
 ### 支持的工具类型
 
-富工具展示系统目前支持以下六种主要的工具输出类型：
+富工具展示系统目前支持以下七种主要的工具输出类型：
 
-| 工具名称 | 组件类型 | 主要用途 | 可推广性 |
-|---------|---------|---------|---------|
-| `weather_widget` | 天气小部件 | 天气预报和实时天气信息 | ✅ 是 |
-| `chart` | 图表组件 | 数据可视化和趋势分析 | ✅ 是 |
-| `code_block` | 代码块 | 语法高亮的代码片段展示 | ❌ 否 |
-| `link_preview` | 链接预览 | 网页内容预览和摘要 | ✅ 是 |
-| `stats_display` | 统计显示 | KPI仪表板和指标展示 | ✅ 是 |
-| `terminal_output` | 终端输出 | 命令行输出和日志展示 | ❌ 否 |
+| 工具名称 | 组件类型 | 主要用途 | 可推广性 | 富展示支持 |
+|---------|---------|---------|---------|-----------|
+| `weather_widget` | 天气小部件 | 天气预报和实时天气信息 | ✅ 是 | ✅ 是 |
+| `chart` | 图表组件 | 数据可视化和趋势分析 | ✅ 是 | ✅ 是 |
+| `code_block` | 代码块 | 语法高亮的代码片段展示 | ❌ 否 | ❌ 否 |
+| `link_preview` | 链接预览 | 网页内容预览和摘要 | ✅ 是 | ✅ 是 |
+| `stats_display` | 统计显示 | KPI仪表板和指标展示 | ✅ 是 | ✅ 是 |
+| `terminal_output` | 终端输出 | 命令行输出和日志展示 | ❌ 否 | ❌ 否 |
+| `item_carousel` | 项目轮播 | 图片和内容轮播展示 | ✅ 是 | ✅ 是 |
+| `geo_map` | 地图组件 | 地理位置和路线可视化 | ✅ 是 | ✅ 是 |
 
 ### 工具解析流程
 
@@ -283,18 +320,24 @@ CheckToolType --> |code_block| ParseCodeBlock[解析代码块]
 CheckToolType --> |link_preview| ParseLinkPreview[解析链接预览]
 CheckToolType --> |stats_display| ParseStats[解析统计数据]
 CheckToolType --> |terminal_output| ParseTerminal[解析终端输出]
+CheckToolType --> |item_carousel| ParseItemCarousel[解析项目轮播]
+CheckToolType --> |geo_map| ParseGeoMap[解析地图数据]
 ParseWeather --> BuildWeatherSummary[构建天气摘要]
 ParseChart --> BuildChartSummary[构建图表摘要]
 ParseCodeBlock --> BuildCodeSummary[构建代码摘要]
 ParseLinkPreview --> BuildLinkSummary[构建链接摘要]
 ParseStats --> BuildStatsSummary[构建统计摘要]
 ParseTerminal --> BuildTerminalSummary[构建终端摘要]
+ParseItemCarousel --> BuildItemCarouselSummary[构建轮播摘要]
+ParseGeoMap --> BuildGeoMapSummary[构建地图摘要]
 BuildWeatherSummary --> CreateComponent[创建组件实例]
 BuildChartSummary --> CreateComponent
 BuildCodeSummary --> CreateComponent
 BuildLinkSummary --> CreateComponent
 BuildStatsSummary --> CreateComponent
 BuildTerminalSummary --> CreateComponent
+BuildItemCarouselSummary --> CreateComponent
+BuildGeoMapSummary --> CreateComponent
 CreateComponent --> ReturnRichPresentation[返回富展示对象]
 ReturnNull --> End([结束])
 ReturnRichPresentation --> End
@@ -459,6 +502,208 @@ CodeBlock --> CodeBlockSharedState : "管理状态"
 - [ui-react/src/components/tool-ui/code-block/schema.ts:1-44](file://ui-react/src/components/tool-ui/code-block/schema.ts#L1-L44)
 - [ui-react/src/components/tool-ui/code-block/code-block.tsx:1-468](file://ui-react/src/components/tool-ui/code-block/code-block.tsx#L1-L468)
 
+## 工具化交互系统基础架构
+
+### interactionPendingResult函数
+
+OpenClaw引入了interactionPendingResult函数作为工具执行结果的标准格式，用于处理需要用户交互的工具调用：
+
+```mermaid
+flowchart TD
+Start([工具执行开始]) --> ExecuteTool[执行工具函数]
+ExecuteTool --> ValidateArgs{验证参数}
+ValidateArgs --> |验证失败| ThrowError[抛出ToolInputError]
+ValidateArgs --> |验证成功| BuildResult[构建interactionPendingResult]
+BuildResult --> SetStatus[设置status: "interaction-pending"]
+SetStatus --> SetComponent[设置component: 工具名称]
+SetComponent --> SetPayload[设置payload: 工具参数]
+SetPayload --> ReturnResult[返回工具结果]
+ThrowError --> End([结束])
+ReturnResult --> End
+```
+
+**图表来源**
+- [src/agents/tools/common.ts:247-264](file://src/agents/tools/common.ts#L247-L264)
+
+### 工具执行状态管理
+
+工具执行状态管理通过deterministicPromptSent标志位控制助手回复的确定性输出：
+
+```mermaid
+stateDiagram-v2
+[*] --> ToolExecutionStart
+ToolExecutionStart --> ToolExecutionEnd
+ToolExecutionEnd --> CheckResult{检查工具结果}
+CheckResult --> |approval-pending| SetDeterministicFlag[设置deterministicPromptSent=true]
+CheckResult --> |interaction-pending| SetDeterministicFlag
+CheckResult --> |普通结果| NoAction[无操作]
+SetDeterministicFlag --> SuppressAssistant[抑制助手文本]
+NoAction --> EmitToolOutput[发出工具输出]
+SuppressAssistant --> [*]
+EmitToolOutput --> [*]
+```
+
+**图表来源**
+- [src/agents/pi-embedded-subscribe.handlers.tools.ts:295-301](file://src/agents/pi-embedded-subscribe.handlers.tools.ts#L295-L301)
+
+**章节来源**
+- [src/agents/tools/common.ts:247-264](file://src/agents/tools/common.ts#L247-L264)
+- [src/agents/pi-embedded-subscribe.handlers.tools.ts:295-301](file://src/agents/pi-embedded-subscribe.handlers.tools.ts#L295-L301)
+
+## 工具执行流程
+
+### 工具执行生命周期
+
+OpenClaw的工具执行流程经历了从简单结果输出到复杂交互式处理的演进：
+
+```mermaid
+sequenceDiagram
+participant Agent as 代理引擎
+participant Handler as 工具处理器
+participant Tool as 工具函数
+participant UI as 用户界面
+Agent->>Handler : handleToolExecutionStart
+Handler->>Handler : 记录工具开始时间
+Handler->>Handler : 跟踪消息发送状态
+Handler->>Tool : 执行工具函数
+Tool-->>Handler : 返回工具结果
+Handler->>Handler : 解析工具结果
+alt approval-pending
+Handler->>UI : 发送批准待处理消息
+Handler->>Handler : 设置deterministicPromptSent=true
+else interaction-pending
+Handler->>Handler : 设置deterministicPromptSent=true
+Note over Handler : 抑制助手文本
+else 普通结果
+Handler->>UI : 发送工具输出
+end
+Agent->>Handler : handleToolExecutionEnd
+Handler->>Handler : 提交消息发送状态
+Handler->>Handler : 触发插件钩子
+```
+
+**图表来源**
+- [src/agents/pi-embedded-subscribe.handlers.tools.ts:328-606](file://src/agents/pi-embedded-subscribe.handlers.tools.ts#L328-L606)
+
+### 工具执行状态跟踪
+
+工具执行状态通过EmbeddedPiSubscribeState进行跟踪，包括消息发送状态和确定性提示标志：
+
+```mermaid
+classDiagram
+class EmbeddedPiSubscribeState {
++deterministicPromptSent : boolean
++messagingToolSentTexts : string[]
++messagingToolSentTargets : MessagingToolSend[]
++messagingToolSentMediaUrls : string[]
++pendingMessagingTexts : Map~string,string~
++pendingMessagingTargets : Map~string,MessagingToolSend~
++pendingMessagingMediaUrls : Map~string,string[]~
++lastToolError : ToolErrorSummary
++toolMetas : Array
++toolMetaById : Map
++toolSummaryById : Set
+}
+class ToolHandlerContext {
++state : ToolHandlerState
++params : ToolHandlerParams
++log : EmbeddedSubscribeLogger
++flushBlockReplyBuffer() void
++shouldEmitToolResult() boolean
++emitToolOutput() void
+}
+class ToolHandlerState {
++deterministicPromptSent : boolean
++pagingToolSentTexts : Map
++pagingToolSentTargets : Map
++pagingToolSentMediaUrls : Map
++pendingMessagingTexts : Map
++pendingMessagingTargets : Map
++pendingMessagingMediaUrls : Map
+}
+EmbeddedPiSubscribeState --> ToolHandlerContext : "包含"
+ToolHandlerContext --> ToolHandlerState : "使用"
+```
+
+**图表来源**
+- [src/agents/pi-embedded-subscribe.handlers.types.ts:33-81](file://src/agents/pi-embedded-subscribe.handlers.types.ts#L33-L81)
+- [src/agents/pi-embedded-subscribe.handlers.types.ts:145-160](file://src/agents/pi-embedded-subscribe.handlers.types.ts#L145-L160)
+
+**章节来源**
+- [src/agents/pi-embedded-subscribe.handlers.tools.ts:328-606](file://src/agents/pi-embedded-subscribe.handlers.tools.ts#L328-L606)
+- [src/agents/pi-embedded-subscribe.handlers.types.ts:33-81](file://src/agents/pi-embedded-subscribe.handlers.types.ts#L33-L81)
+
+## 交互式工具组件系统
+
+### 交互式工具处理机制
+
+OpenClaw实现了完整的交互式工具处理机制，支持question_flow、option_list、approval_card三种主要的交互式工具：
+
+```mermaid
+graph TB
+subgraph "交互式工具处理"
+InteractiveRegistry[interactive-registry.tsx 交互式组件注册]
+QuestionFlow[QuestionFlow 问答流组件]
+OptionList[OptionList 选项列表组件]
+ApprovalCard[ApprovalCard 批准卡片组件]
+end
+subgraph "工具执行处理"
+ToolHandlers[pi-embedded-subscribe.handlers.tools.ts 工具处理器]
+InteractionPending[interaction-pending检测]
+DeterministicFlag[deterministicPromptSent标志]
+end
+subgraph "用户交互"
+UserInput[用户输入]
+InteractionMetadata[交互元数据]
+EndResult[最终结果]
+end
+InteractiveRegistry --> QuestionFlow
+InteractiveRegistry --> OptionList
+InteractiveRegistry --> ApprovalCard
+ToolHandlers --> InteractionPending
+InteractionPending --> DeterministicFlag
+DeterministicFlag --> UserInput
+UserInput --> InteractionMetadata
+InteractionMetadata --> EndResult
+```
+
+**图表来源**
+- [ui-react/src/components/chat/interactive/interactive-registry.tsx:283-290](file://ui-react/src/components/chat/interactive/interactive-registry.tsx#L283-L290)
+- [src/agents/pi-embedded-subscribe.handlers.tools.ts:295-301](file://src/agents/pi-embedded-subscribe.handlers.tools.ts#L295-L301)
+
+### 交互式工具类型
+
+| 工具名称 | 组件类型 | 主要用途 | 参数验证 | 交互模式 |
+|---------|---------|---------|---------|---------|
+| `question_flow` | 问答流 | 复杂的多步骤问答流程 | ✅ 是 | 步骤式交互 |
+| `option_list` | 选项列表 | 单一问题的选项选择 | ✅ 是 | 列表式选择 |
+| `approval_card` | 批准卡片 | 敏感操作的显式确认 | ✅ 是 | 确认/拒绝 |
+
+### 交互式工具执行流程
+
+```mermaid
+flowchart TD
+Start([工具执行开始]) --> CreateTool[创建交互式工具]
+CreateTool --> ValidateArgs{验证参数}
+ValidateArgs --> |验证失败| ThrowError[抛出ToolInputError]
+ValidateArgs --> |验证成功| CallInteractionPending[调用interactionPendingResult]
+CallInteractionPending --> SetDeterministicFlag[设置deterministicPromptSent=true]
+SetDeterministicFlag --> RenderComponent[渲染交互式组件]
+RenderComponent --> WaitForUserInput[等待用户输入]
+WaitForUserInput --> ProcessUserInput[处理用户输入]
+ProcessUserInput --> BuildInteractionMetadata[构建交互元数据]
+BuildInteractionMetadata --> SendUserMessage[发送用户消息]
+SendUserMessage --> End([工具执行结束])
+ThrowError --> End
+```
+
+**图表来源**
+- [src/agents/tools/approval-card-tool.ts:46-56](file://src/agents/tools/approval-card-tool.ts#L46-L56)
+
+**章节来源**
+- [ui-react/src/components/chat/interactive/interactive-registry.tsx:100-290](file://ui-react/src/components/chat/interactive/interactive-registry.tsx#L100-L290)
+- [src/agents/tools/approval-card-tool.ts:35-58](file://src/agents/tools/approval-card-tool.ts#L35-L58)
+
 ## 架构概览
 
 OpenClaw采用分层架构设计，确保系统的可扩展性和维护性：
@@ -470,48 +715,57 @@ WebUI[Web控制界面]
 MobileUI[移动应用界面]
 DesktopUI[桌面应用界面]
 RichToolUI[富工具展示系统]
+InteractiveUI[交互式工具组件]
 end
 subgraph "应用层"
 Gateway[网关服务]
 ChannelHandlers[频道处理器]
 PluginEngine[插件引擎]
 ToolPresentation[工具展示引擎]
+InteractiveEngine[交互式工具引擎]
 end
 subgraph "业务逻辑层"
 SessionManager[会话管理器]
 MessageRouter[消息路由器]
 ToolExecutor[工具执行器]
 RichPresentationResolver[富展示解析器]
+InteractiveHandler[交互式处理器]
 end
 subgraph "数据访问层"
 ConfigStore[配置存储]
 CredentialStore[凭据存储]
 MessageStore[消息存储]
 ToolUISchemaStore[工具UI模式存储]
+InteractiveSchemaStore[交互式模式存储]
 end
 subgraph "外部集成"
 MessagingChannels[消息渠道]
 DeviceNodes[设备节点]
 CloudServices[云服务]
 ToolComponents[工具组件库]
+InteractiveComponents[交互式组件库]
 end
 WebUI --> Gateway
 MobileUI --> Gateway
 DesktopUI --> Gateway
 RichToolUI --> ToolPresentation
+InteractiveUI --> InteractiveEngine
 Gateway --> ChannelHandlers
 Gateway --> PluginEngine
 ChannelHandlers --> MessageRouter
 PluginEngine --> ToolExecutor
 ToolPresentation --> RichPresentationResolver
+InteractiveEngine --> InteractiveHandler
 SessionManager --> MessageRouter
 MessageRouter --> DeviceNodes
 MessageRouter --> MessagingChannels
 RichPresentationResolver --> ToolComponents
+InteractiveHandler --> InteractiveComponents
 ConfigStore --> Gateway
 CredentialStore --> Gateway
 MessageStore --> SessionManager
 ToolUISchemaStore --> ToolComponents
+InteractiveSchemaStore --> InteractiveComponents
 ```
 
 **图表来源**
@@ -661,12 +915,18 @@ class RichToolPresentation {
 +buildCodeBlockSummary() string
 +buildTerminalSummary() string
 }
+class InteractiveComponents {
++QuestionFlow : Component
++OptionList : Component
++ApprovalCard : Component
+}
 App --> ChatInterface : "包含"
 App --> SettingsPanel : "包含"
 ChatInterface --> MessageInput : "使用"
 ChatInterface --> Sidebar : "使用"
 SettingsPanel --> ThemeProvider : "依赖"
 ToolFallback --> RichToolPresentation : "使用"
+InteractiveComponents --> RichToolPresentation : "扩展"
 ```
 
 **图表来源**
@@ -721,6 +981,10 @@ Croner[Croner]
 Remark[Remark GFM]
 ReactMarkdown[React Markdown]
 end
+subgraph "交互式工具"
+VercelAI[OpenInteractions]
+TypeBox[TypeBox]
+end
 NodeJS --> React
 NodeJS --> Lit
 NodeJS --> Baileys
@@ -739,6 +1003,7 @@ Zod --> TypeBox
 WebSocket --> Bonjour
 Bonjour --> Tailscale
 Tailscale --> Sparkle
+VercelAI --> TypeBox
 ```
 
 **图表来源**
@@ -772,6 +1037,7 @@ OpenClaw在UI基础设施中实施了多项性能优化策略：
 3. **状态管理**：使用Zustand进行轻量级状态管理，避免不必要的重渲染
 4. **缓存策略**：实现多层缓存机制，包括内存缓存和持久化缓存
 5. **富工具组件优化**：代码块组件使用HTML缓存和主题切换优化
+6. **交互式组件优化**：交互式工具组件使用懒加载和状态缓存
 
 ### 网络性能优化
 
@@ -789,6 +1055,7 @@ OpenClaw在UI基础设施中实施了多项性能优化策略：
 3. **图表渲染优化**：Recharts组件使用memo化和事件委托优化
 4. **代码高亮优化**：Shiki语法高亮器单例模式和HTML缓存
 5. **天气效果优化**：动画效果根据系统偏好设置自动调整
+6. **交互式组件优化**：交互式工具组件使用状态持久化和渲染缓存
 
 ## 故障排除指南
 
@@ -821,15 +1088,25 @@ OpenClaw在UI基础设施中实施了多项性能优化策略：
 3. **调试组件渲染**：使用React DevTools检查组件树
 4. **查看控制台错误**：检查是否有JavaScript错误或警告
 
+#### 交互式工具问题
+
+如果遇到交互式工具处理异常：
+
+1. **检查工具参数验证**：确认TypeBox模式验证通过
+2. **验证工具执行状态**：检查deterministicPromptSent标志位
+3. **调试交互式组件**：使用React DevTools检查组件状态
+4. **查看工具执行日志**：检查工具执行过程中的错误信息
+
 **章节来源**
 - [src/web/login-qr.ts:216-295](file://src/web/login-qr.ts#L216-L295)
 - [ui-react/src/components/chat/tool-rich-presentation.tsx:100-104](file://ui-react/src/components/chat/tool-rich-presentation.tsx#L100-L104)
+- [src/agents/pi-embedded-subscribe.handlers.tools.test.ts:334-455](file://src/agents/pi-embedded-subscribe.handlers.tools.test.ts#L334-L455)
 
 ## 结论
 
 OpenClaw的富工具UI基础设施展现了现代全栈应用的设计理念，通过模块化架构、响应式设计和高性能实现，为用户提供了流畅的AI助手体验。项目在技术选型上注重实用性与可扩展性，既满足了当前的功能需求，也为未来的功能扩展奠定了坚实基础。
 
-**更新** 新增的富工具展示系统进一步增强了OpenClaw的用户体验，通过专业的工具输出可视化展示了天气、图表、代码、链接预览等多种信息类型，为用户提供了更加直观和交互式的界面。
+**更新** 新增的工具化交互系统基础架构进一步增强了OpenClaw的用户体验，通过专业的工具输出可视化和交互式工具处理展示了天气、图表、代码、链接预览等多种信息类型，为用户提供了更加直观和交互式的界面。
 
 该基础设施的关键优势包括：
 
@@ -837,7 +1114,8 @@ OpenClaw的富工具UI基础设施展现了现代全栈应用的设计理念，�
 2. **实时通信能力**：基于WebSocket的即时消息传递
 3. **模块化架构**：清晰的组件分离便于维护和扩展
 4. **富工具展示系统**：专业的工具输出可视化能力
-5. **性能优化**：从架构层面考虑的性能优化策略
-6. **开发友好性**：完善的开发工具链和文档体系
+5. **交互式工具处理**：完整的用户交互处理机制
+6. **性能优化**：从架构层面考虑的性能优化策略
+7. **开发友好性**：完善的开发工具链和文档体系
 
-随着AI助手功能的不断发展，这套UI基础设施将继续演进，为用户提供更加智能化和个性化的交互体验。富工具展示系统的引入标志着OpenClaw在工具输出可视化方面的重大进步，为未来的功能扩展和技术演进提供了坚实的基础。
+随着AI助手功能的不断发展，这套UI基础设施将继续演进，为用户提供更加智能化和个性化的交互体验。工具化交互系统基础架构的引入标志着OpenClaw在工具执行状态管理和用户交互处理方面的重大进步，为未来的功能扩展和技术演进提供了坚实的基础。
