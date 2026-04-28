@@ -734,7 +734,7 @@ export function selectRouteCandidates(tripRequest) {
       comparison: [],
       next_action:
         "Fetch Xiaohongshu route evidence first: call @skills/xiaohongshu search-feeds, " +
-        "then normalize to RouteEvidenceV1 and persist with save_route_evidence before route planning.",
+        "then normalize to RouteEvidence and persist with save_route_evidence before route planning.",
       planning_note:
         "Xiaohongshu-first policy active. No XHS evidence found. " +
         "Must complete XHS search fallback before route framing can proceed.",

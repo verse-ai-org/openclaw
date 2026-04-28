@@ -255,8 +255,12 @@ export function generateDailyItinerary(
 export function calculateBudgetBreakdown(
   totalBudget,
   numDays,
-  accommodationLevel = "mid-range",
+  accommodationLevel = "mid_range",
 ) {
+  const normalizedLevel = String(accommodationLevel || "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_");
   const allocations = {
     budget: {
       accommodation: 0.38,
@@ -265,24 +269,31 @@ export function calculateBudgetBreakdown(
       transportation: 0.14,
       miscellaneous: 0.06,
     },
-    "mid-range": {
+    mid_range: {
       accommodation: 0.35,
       food: 0.24,
       activities: 0.22,
       transportation: 0.13,
       miscellaneous: 0.06,
     },
-    luxury: {
+    high_end: {
       accommodation: 0.43,
       food: 0.2,
       activities: 0.18,
       transportation: 0.13,
       miscellaneous: 0.06,
     },
+    economy: {
+      accommodation: 0.32,
+      food: 0.25,
+      activities: 0.2,
+      transportation: 0.17,
+      miscellaneous: 0.06,
+    },
   };
 
   const allocation =
-    allocations[accommodationLevel] || allocations["mid-range"];
+    allocations[normalizedLevel] || allocations.mid_range;
   const breakdown = {};
   for (const [category, percentage] of Object.entries(allocation)) {
     const amount = totalBudget * percentage;
@@ -631,7 +642,7 @@ export function generateTripPlan(tripData) {
   const interests = tripData.interests || preferences.interests || [];
   const pace =
     tripData.pace_preference || preferences.pace_preference || "moderate";
-  const accommodationLevel = preferences.budget_level || "mid-range";
+  const accommodationLevel = preferences.budget_level || "mid_range";
 
   const routePlanView = buildRoutePlanView(tripData);
   const routeChoiceConfirmed = tripData.route_choice_confirmed === true;

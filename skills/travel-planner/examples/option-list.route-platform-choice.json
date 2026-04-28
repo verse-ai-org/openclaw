@@ -1,0 +1,9 @@
+{
+  "id": "route-platform-choice",
+  "title": "选择路线证据来源",
+  "options": [
+    { "id": "search", "label": "搜索（默认，速度快）" },
+    { "id": "xhs", "label": "小红书（内容驱动，可能需要降级）" }
+  ],
+  "selectionMode": "single"
+}

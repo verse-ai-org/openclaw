@@ -1,0 +1,8 @@
+{
+  "id": "itinerary-skeleton-approval",
+  "title": "确认按这个每日行程骨架进入细化阶段吗？",
+  "description": "确认后我会进入下一步：基于实时查询补齐每天的交通与住宿候选。",
+  "variant": "default",
+  "confirmLabel": "确认，进入细化",
+  "cancelLabel": "先调整每日行程骨架"
+}

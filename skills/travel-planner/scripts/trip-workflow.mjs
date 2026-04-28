@@ -178,11 +178,40 @@ function evaluateStepGate(trip, step) {
   const options = Array.isArray(trip.route_options) ? trip.route_options : [];
   const reasons = [];
 
-  if (normalizedStep === "route_validation" || normalizedStep === "step5" || normalizedStep === "5") {
+  // Workflow-aligned step aliases (primary):
+  // - Step 2: route planning (候选路线已持久化)
+  // - Step 3: validate transport & weather (route_validation 已落盘)
+  // - Step 4: itinerary skeleton (需要 Step 3 结果 + route_choice_confirmed)
+  // - Step 5: itinerary detail & booking-ready (需要 Step 3 结果 + route_choice_confirmed)
+  // - Step 6: in-trip support (需要 bookings_confirmed)
+  //
+  // Backward-compat: keep older internal numbering (step5..step9) and named aliases.
+  if (
+    normalizedStep === "route_plan" ||
+    normalizedStep === "step2" ||
+    normalizedStep === "2"
+  ) {
+    // Step 2 (route planning): route_options must already be persisted.
+    if (options.length < 2) {
+      reasons.push("需要至少 2 条候选路线（route_options >= 2）。");
+    }
+  } else if (
+    normalizedStep === "route_validation" ||
+    normalizedStep === "step3" ||
+    normalizedStep === "3"
+  ) {
+    // Step 3 (validate transport & weather) — historically referenced as step5.
     if (!trip.route_choice_confirmed || !trip.chosen_route_id) {
       reasons.push("需要先确认路线（route_choice_confirmed=true 且存在 chosen_route_id）。");
     }
-  } else if (normalizedStep === "plan_summary" || normalizedStep === "step6" || normalizedStep === "6") {
+  } else if (
+    normalizedStep === "itinerary_skeleton" ||
+    normalizedStep === "plan_summary" ||
+    normalizedStep === "step4_itinerary" ||
+    normalizedStep === "step4" ||
+    normalizedStep === "4"
+  ) {
+    // Step 4 (itinerary skeleton) — historically referenced as plan_summary / step6.
     if (!trip.route_choice_confirmed || !trip.chosen_route_id) {
       reasons.push("需要先确认路线后才能进入骨架确认。");
     }
@@ -191,9 +220,13 @@ function evaluateStepGate(trip, step) {
     }
   } else if (
     normalizedStep === "detailed_plan" ||
+    normalizedStep === "booking_ready" ||
+    normalizedStep === "step5" ||
+    normalizedStep === "5" ||
     normalizedStep === "step7" ||
     normalizedStep === "7"
   ) {
+    // Step 5 (detail & booking-ready) — historically split across step7/step8.
     if (!trip.route_choice_confirmed || !trip.chosen_route_id) {
       reasons.push("需要先确认路线。");
     }
@@ -201,23 +234,25 @@ function evaluateStepGate(trip, step) {
       reasons.push("需要先完成交通/天气验证（Step 5）。");
     }
   } else if (
-    normalizedStep === "booking_ready" ||
     normalizedStep === "step8" ||
     normalizedStep === "8"
   ) {
+    // Legacy alias for booking-ready stage gate.
     if (!trip.route_choice_confirmed || !trip.chosen_route_id) {
       reasons.push("需要先确认路线。");
     }
     if (!String(trip.route_validation?.verdict || "").trim()) {
       reasons.push("需要先完成 route_validation。");
     }
-  } else if (normalizedStep === "in_trip" || normalizedStep === "step9" || normalizedStep === "9") {
+  } else if (
+    normalizedStep === "in_trip" ||
+    normalizedStep === "step6" ||
+    normalizedStep === "step9" ||
+    normalizedStep === "9"
+  ) {
+    // Step 6 (in-trip) — historically step9.
     if (!trip.bookings_confirmed) {
       reasons.push("需要先确认关键预订项（bookings_confirmed=true）。");
-    }
-  } else if (normalizedStep === "route_plan" || normalizedStep === "step4" || normalizedStep === "4") {
-    if (options.length < 2) {
-      reasons.push("需要至少 2 条候选路线（route_options >= 2）。");
     }
   } else {
     reasons.push(`不支持的 step: ${step}`);

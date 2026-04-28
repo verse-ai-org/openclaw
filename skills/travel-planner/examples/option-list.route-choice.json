@@ -1,0 +1,8 @@
+{
+  "id": "route-choice",
+  "title": "路线选择",
+  "options": [
+    { "id": "<route_id>", "label": "<route_id>" }
+  ],
+  "selectionMode": "single"
+}

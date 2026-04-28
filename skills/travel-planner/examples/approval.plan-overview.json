@@ -1,0 +1,8 @@
+{
+  "id": "plan-overview-approval",
+  "title": "确认按这个计划骨架继续吗？",
+  "description": "确认后我会进入下一步，生成详细的每日计划。",
+  "variant": "default",
+  "confirmLabel": "确认，继续",
+  "cancelLabel": "先调整骨架"
+}

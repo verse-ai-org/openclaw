@@ -40,7 +40,7 @@ const PROMOTION_PRIORITY: Record<string, number> = {
 };
 
 const MAX_PROMOTED_TEXT_LENGTH = 400;
-const MAX_PROMOTED_TOOL_COUNT = 15;
+const MAX_PROMOTED_TOOL_COUNT = 20;
 const MAX_PROMOTED_CANDIDATES = 2;
 const MIN_PROMOTION_SCORE = 70;
 const ROUTE_VISUAL_TOOL_NAMES = new Set(["item_carousel", "geo_map"]);

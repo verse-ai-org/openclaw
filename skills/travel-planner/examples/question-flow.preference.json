@@ -1,0 +1,71 @@
+{
+  "id": "travel-preferences-intake",
+  "steps": [
+    {
+      "id": "departure_city",
+      "title": "你通常从哪里出发？",
+      "options": [
+        { "id": "上海", "label": "上海" },
+        { "id": "北京", "label": "北京" },
+        { "id": "广州", "label": "广州" },
+        { "id": "深圳", "label": "深圳" },
+        { "id": "other", "label": "其他（我会在文本里补充）" }
+      ],
+      "selectionMode": "single"
+    },
+    {
+      "id": "budget_level",
+      "title": "预算档位",
+      "options": [
+        { "id": "economy", "label": "经济型" },
+        { "id": "mid_range", "label": "中档" },
+        { "id": "high_end", "label": "高端" }
+      ],
+      "selectionMode": "single"
+    },
+    {
+      "id": "pace_preference",
+      "title": "出行节奏",
+      "options": [
+        { "id": "relaxed", "label": "轻松" },
+        { "id": "moderate", "label": "适中" },
+        { "id": "intensive", "label": "紧凑" }
+      ],
+      "selectionMode": "single"
+    },
+    {
+      "id": "travel_companions",
+      "title": "出行同伴",
+      "options": [
+        { "id": "solo", "label": "独自出行" },
+        { "id": "couple", "label": "情侣/两人" },
+        { "id": "family", "label": "家庭" },
+        { "id": "group", "label": "多人结伴" }
+      ],
+      "selectionMode": "single"
+    },
+    {
+      "id": "transport_preferences",
+      "title": "交通偏好（可多选）",
+      "options": [
+        { "id": "public_transport", "label": "公共交通优先" },
+        { "id": "private_car", "label": "包车/司机" },
+        { "id": "self_drive", "label": "可自驾" },
+        { "id": "short_flight_ok", "label": "可接受短途飞行" }
+      ],
+      "selectionMode": "multiple"
+    },
+    {
+      "id": "interests",
+      "title": "偏好主题（可多选）",
+      "options": [
+        { "id": "nature", "label": "自然风光" },
+        { "id": "food", "label": "美食" },
+        { "id": "culture", "label": "人文历史" },
+        { "id": "photography", "label": "拍照/摄影" },
+        { "id": "citywalk", "label": "城市漫步" }
+      ],
+      "selectionMode": "multiple"
+    }
+  ]
+}

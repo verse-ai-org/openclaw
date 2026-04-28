@@ -1,0 +1,10 @@
+{
+  "id": "active-trip-choice",
+  "title": "发现进行中的行程：继续还是新建？",
+  "options": [
+    { "id": "<trip_id>", "label": "<destination_text>（<duration_days>天，stage=<stage>）" },
+    { "id": "new", "label": "开始新的行程" }
+  ],
+  "selectionMode": "single"
+}
+

@@ -1,10 +1,10 @@
 # 路线协议参考
 
-本文件供第四步（路线规划）和第五步（调研验证）按需查阅。包含：证据协议字段规范、JSON 示例、行程阶段值枚举。
+本文件供路线规划与后续验证/预订步骤按需查阅（与 `workflows/step2-route-planning.md`、`workflows/step3-validate-transport-weather.md`、`workflows/step5-itinerary-detail-booking.md` 对齐）。包含：证据协议字段规范、JSON 示例、行程阶段值枚举。
 
 ---
 
-## 统一证据协议：RouteEvidenceV1
+## 统一证据协议：RouteEvidence
 
 所有平台（`xhs/search/...`）统一走 `save_route_evidence`，不得平台私有化绕过。
 
@@ -23,7 +23,7 @@
 | `route_hints` | object | 路线线索（可选）。`search` 场景建议提供 `key_destinations` 或 `popular_loops` |
 | `meta` | object | 适配器信息（可选） |
 
-> 新平台接入只需做"平台结果 -> RouteEvidenceV1"的适配映射，不改持久化主流程。
+> 新平台接入只需做"平台结果 -> RouteEvidence"的适配映射，不改持久化主流程。
 
 ---
 
@@ -106,7 +106,7 @@
 | 字段 | 含义 | 约定 |
 |------|------|------|
 | `chosen_route_id` | 当前选中的路线 ID | **单一真实来源（single source of truth）** |
-| `route_choice_confirmed` | 用户是否明确确认了 `chosen_route_id` | `true` 后才可进入 Step 5/6/7 |
+| `route_choice_confirmed` | 用户是否明确确认了 `chosen_route_id` | `true` 后才可进入后续验证/骨架/细化（见 workflows Step 3+） |
 | `route_options` | 完整候选路线对象数组 | 用于展示给用户，也用于按 `chosen_route_id` 解析当前路线 |
 | `route_plan` | 轻量路线框定摘要 | 只存 `recommended_route_id / alternative_ids / rejected_route_ids / decision_summary / platform` 等字段，不存完整路线对象 |
 
@@ -114,11 +114,11 @@
 
 | 字段 | 含义 |
 |------|------|
-| `route_validation` | 第五步调研验证后的持久化摘要（交通 / 天气 / verdict） |
-| `booking_ready` | 第八步实时检索后生成的 booking-ready 包 |
+| `route_validation` | 验证阶段持久化摘要（交通 / 天气 / verdict；workflow Step 3） |
+| `booking_ready` | 实时检索后生成的 booking-ready 包（workflow Step 5；落盘文件名沿用 `step8.booking-ready.json`） |
 | `bookings_confirmed` | 是否已经确认关键预订项（如航班 / 酒店） |
 | `confirmed_bookings` | 各预订类别的已确认结果 |
-| `live_results` | 第八步实时查询得到的原始结果集合（transport / hotel / poi / dining 等） |
+| `live_results` | 实时查询得到的原始结果集合（workflow Step 5；落盘文件名沿用 `step8.live-results.json`） |
 
 ### stage guard（状态守卫）
 
