@@ -34,33 +34,36 @@ metadata:
 - **降级透明**：平台或工具降级（如 `xhs -> search`）必须显式提示并记录原因；不得静默切换
 - **轻量提问**：只问高影响项，不做超长问卷；到达日/返程日默认轻负荷
 - **行程约束**：体力/天气/换乘摩擦是硬约束；每天最多“1 个主锚点 + 1 个附近备选”；大区域目的地先框路线再铺每日
+- **计划落盘**：`plan-details.json` 仅在 Step 5 末尾落盘一次；Step 4 禁止 `save_details`。`plan_overview` 路径下用户在 `approval_card` 确认继续后须调用 `workflow.mjs --cmd=confirm_plan_overview`，否则 `save_details` 失败。
+- **完整行程展示**：`save_details` 成功后，在对话里用 Markdown 回复用户时，**必须按 `references/plan-details.md` 的章节完整展开已落盘 JSON 的全部内容**（含 `destination` 各段、`transport` 去程/返程/备注、`weather` 总述与 `by_stop`、**每日**的 `summary` 与已填的 `morning`/`afternoon`/`evening`/`risks_or_notes`、**清单每一项**、`etiquette`/`safety` 的 `summary` 与 **全部 `bullets`**、`geo.text_fallback_route` 及已填坐标点说明）。**禁止**仅用「速览 /  Executive Summary / 表格浓缩」代替全文；若篇幅过长可分段发送或首条写「续下条」并在后续消息补全，不得省略字段。
 
 ## Quick start（按需阅读）
 
 1. 先读 `workflows/step1-intake.md`
-2. 路线框定：`workflows/step2-route-planning.md`
-3. 交通/天气验证 + 骨架确认：`workflows/step3-validate-transport-weather.md`
-3（可选）逐日骨架：`workflows/step3-optional-itinerary-skeleton.md`
-4. 全面计划详情（交通/天气/逐日细化 + Geo Map）：`workflows/step4-plan-details.md`
-4（可选）推荐酒店（实时查询）：`workflows/step4-optional-hotels.md`
-5. 行中支持（含可选推送）：`workflows/step5-in-trip-support.md`
-6. 行后沉淀：`workflows/step6-post-trip.md`
+2. 证据与选线：`workflows/step2-evidence-and-route-choice.md`
+3. 选中路线景点详情与单条计划落盘：`workflows/step3-route-poi-and-plan.md`
+4. 交通/天气验证 + 是否先预览摘要：`workflows/step4-validate-transport-weather.md`；若选 `plan_overview` 则预览落盘：`workflows/step4-optional-itinerary-skeleton.md`
+5. 全面计划详情 + Geo Map：`workflows/step5-plan-details.md`；（可选）酒店：`workflows/step5-optional-hotels.md`（须已 `plan_ready`）
+6. 行中支持（含可选推送）：`workflows/step6-in-trip-support.md`
+7. 行后沉淀：`workflows/step7-post-trip.md`
 
 ## 工作流索引
 
 - Step 1：Intake（偏好/Trip 建档）→ `workflows/step1-intake.md`
-- Step 2：Route planning（证据→候选→选择→持久化）→ `workflows/step2-route-planning.md`
-- Step 3：Validate transport & weather → `workflows/step3-validate-transport-weather.md`
-- Step 3（Optional）：Itinerary skeleton → `workflows/step3-optional-itinerary-skeleton.md`
-- Step 4：Plan details → `workflows/step4-plan-details.md`
-- Step 4（Optional）：Hotels → `workflows/step4-optional-hotels.md`
-- Step 5：In-trip support → `workflows/step5-in-trip-support.md`
-- Step 6：Post-trip → `workflows/step6-post-trip.md`
+- Step 2：Evidence & route choice（证据→**景点预览（§2，默认）**→锁线）→ `workflows/step2-evidence-and-route-choice.md`
+- Step 3：Route POI & plan（**全线景点缓存**→单条 `route-plan`→确认）→ `workflows/step3-route-poi-and-plan.md`
+- Step 4：Validate transport & weather → `workflows/step4-validate-transport-weather.md`
+- Step 4b（计划预览，仅 `plan_overview`）：`workflows/step4-optional-itinerary-skeleton.md`
+- Step 5：Plan details → `workflows/step5-plan-details.md`
+- Step 5（Optional）：Hotels → `workflows/step5-optional-hotels.md`
+- Step 6：In-trip support → `workflows/step6-in-trip-support.md`
+- Step 7：Post-trip → `workflows/step7-post-trip.md`
 
 ## 参考资料（只在需要时读）
 
 - **工具可用性/降级**：`references/capability-matrix.md`
 - **字段契约/枚举口径**：`references/data-contracts.md`
+- **完整行程 JSON 结构（plan-details）**：`references/plan-details.md`
 - **协议**：`references/route-protocol.md`
 - **行前清单/安全**：`references/travel-guidelines.md`
 - **礼仪文化**：`references/cultural-etiquette.md`
@@ -71,7 +74,8 @@ metadata:
 |------|------|
 | `scripts/preferences.mjs` | 偏好域存储与读写 |
 | `scripts/trips.mjs` | Trip 数据层：schema 标准化、CRUD |
-| `scripts/workflow.mjs` | 流程层：阶段守卫、evidence/plan/validation 持久化、路线选择确认、出发流转、doctor |
-| `scripts/plan.mjs` | 计划产物落盘：plan-overview / plan-details（由 agent 生成内容，脚本负责守卫与存储） |
+| `scripts/workflow.mjs` | 流程层：阶段守卫、evidence、`save_route_choice`、plan/validation 持久化、`confirm_route_choice`、`confirm_plan_overview`、出发流转、doctor |
+| `scripts/poi.mjs` | 景点预览/缓存（`poi-preview.json` / `poi-cache.json`）落盘；全局 `data/poi/` upsert；`ingest` / `resolve` / `get_entry` / `doctor_store` |
+| `scripts/plan.mjs` | 计划落盘：`save_overview`（预览）；`save_details` **仅在 Step 5 末尾调用一次**，且校验 `plan-details` schema（见 `references/plan-details.md`） |
 | `scripts/booking.mjs` | 实时结果与 booking-ready 存储、预订确认（bookings_confirmed） |
 | `scripts/briefing.mjs` | 行前/每日简报输入聚合（由 agent 生成内容） |

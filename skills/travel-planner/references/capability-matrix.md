@@ -48,13 +48,12 @@
 
 ### `@skills/amap-lbs-skill`
 
-- **用途**：驾车时长评估、路线可行性（尤其自驾场景）
-- **降级**：失败 → 转场评估标注“未验证”；不要把不确定的时长当事实
+- **用途**：驾车时长评估、路线可行性（尤其自驾场景）；**Step 2 §2** 少量景点预览与 **Step 3** 全线景点缓存（`poi-cache.json`）的坐标来源
+- **降级**：失败 → 转场评估标注“未验证”；不要把不确定的时长当事实；若 Step 2 预览因此无法做 → 在对话中说明，再进入选线（不得静默跳过而不告知）
 
 ### `@skills/xiaohongshu`
 
 - **用途**：小红书证据拉取（search-feeds + get-feed-detail）
 - **降级（强制交互）**：
-  - detail 不可用 → 必须二选一确认：用户手动粘贴 / 切换到搜索（见 `workflows/step2-route-planning.md` 的 A-2-F）
+  - detail 不可用 → 必须二选一确认：用户手动粘贴 / 切换到搜索（见 `workflows/step2-evidence-and-route-choice.md` 的 S2-2 / xhs 异常分流）
   - 不得静默切换平台
-

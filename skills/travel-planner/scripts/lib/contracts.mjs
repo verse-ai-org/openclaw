@@ -1,5 +1,6 @@
 export const STAGES = /** @type {const} */ ({
   INTAKE: "intake",
+  ROUTE_SELECTED: "route_selected",
   ROUTE_PLANNED: "route_planned",
   ROUTE_CONFIRMED: "route_confirmed",
   VALIDATED: "validated",
@@ -11,12 +12,12 @@ export const STAGES = /** @type {const} */ ({
 
 export const ARTIFACTS = /** @type {const} */ ({
   POI_CACHE: "poi-cache",
+  POI_PREVIEW: "poi-preview",
   ROUTE_EVIDENCE: "route-evidence",
   ROUTE_PLAN: "route-plan",
   ROUTE_VALIDATION: "route-validation",
   PLAN_OVERVIEW: "plan-overview",
   PLAN_DETAILS: "plan-details",
-  HOTELS: "hotels",
   LIVE_RESULTS: "live-results",
   BOOKING_READY: "booking-ready",
 });
@@ -24,4 +25,3 @@ export const ARTIFACTS = /** @type {const} */ ({
 export function isStage(value) {
   return Object.values(STAGES).includes(String(value));
 }
-

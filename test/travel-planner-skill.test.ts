@@ -65,7 +65,6 @@ describe("travel-planner JS modules", () => {
       route_source_preference: "xhs",
     });
     expect(result.route_options).toEqual([]);
-    expect(result.route_tool_ui_ready).toBe(false);
     expect(result.next_action).toMatch(/Xiaohongshu/i);
     expect(result.planning_note).toMatch(/Xiaohongshu-first|fallback/i);
   });
@@ -175,16 +174,16 @@ describe("travel-planner JS modules", () => {
     expect(result.route_options[0]?.source_platform).toBe("xhs");
   });
 
-  it("buildFeasibilityVerdict respects Step 5 transport_result / weather_result status", () => {
+  it("buildFeasibilityVerdict respects Step 5 transport / weather status", () => {
     const rv = {
-      transport_result: {
+      transport: {
         required: true,
         mode: "flight",
         checked: true,
         raw: {},
         status: "ok",
       },
-      weather_result: {
+      weather: {
         locations_checked: ["成都"],
         raw: {},
         status: "caution",
@@ -601,14 +600,14 @@ describe("travel-planner JS modules", () => {
     const step5 = {
       verdict: "go",
       checked_at: "2026-04-17T00:00:00.000Z",
-      transport_result: {
+      transport: {
         required: false,
         mode: "",
         checked: true,
         raw: {},
         status: "not_required",
       },
-      weather_result: {
+      weather: {
         locations_checked: ["康定"],
         status: "go",
         raw: {
@@ -639,14 +638,14 @@ describe("travel-planner JS modules", () => {
       route_options: [{ route_id: "r1", title: "Loop", stops: ["康定", "新都桥"] }],
       route_validation: {
         stage: "",
-        transport_result: {
+        transport: {
           required: false,
           mode: "",
           checked: false,
           raw: {},
           status: "",
         },
-        weather_result: { locations_checked: [], raw: {}, status: "" },
+        weather: { locations_checked: [], raw: {}, status: "" },
         verdict: "",
         verdict_reasons: [],
         checked_at: "",
@@ -669,14 +668,14 @@ describe("travel-planner JS modules", () => {
     const step5 = {
       verdict: "go",
       checked_at: "2026-04-17T12:00:00.000Z",
-      transport_result: {
+      transport: {
         required: true,
         mode: "flight",
         checked: true,
         status: "ok",
         raw: { flights: [{ from: "SHA", to: "KGT" }] },
       },
-      weather_result: { locations_checked: [], raw: {}, status: "go" },
+      weather: { locations_checked: [], raw: {}, status: "go" },
     };
     writeFileSync(
       path.join(tripDir, "step5.route-validation.json"),
@@ -693,14 +692,14 @@ describe("travel-planner JS modules", () => {
       route_options: [{ route_id: "r1", title: "Loop", stops: ["康定"] }],
       route_validation: {
         stage: "",
-        transport_result: {
+        transport: {
           required: true,
           mode: "flight",
           checked: false,
           raw: {},
           status: "",
         },
-        weather_result: { locations_checked: ["康定"], raw: {}, status: "go" },
+        weather: { locations_checked: ["康定"], raw: {}, status: "go" },
         verdict: "",
         verdict_reasons: [],
         checked_at: "",
@@ -715,7 +714,7 @@ describe("travel-planner JS modules", () => {
     mkdirSync(tripDir, { recursive: true });
     const step5 = {
       stage: "validated",
-      transport_result: {
+      transport: {
         required: true,
         mode: "flight_plus_self_drive",
         checked: true,
@@ -727,7 +726,7 @@ describe("travel-planner JS modules", () => {
         },
         status: "ok",
       },
-      weather_result: {
+      weather: {
         locations_checked: ["成都", "四姑娘山"],
         raw: {
           成都: {
@@ -780,7 +779,6 @@ describe("travel-planner JS modules", () => {
       "current",
     );
     const planFull = {
-      route_tool_ui_ready: true,
       route_options: [{ route_id: "r1", title: "Loop", stops: ["A", "B"] }],
     };
     updateTrip(id, {
@@ -802,8 +800,7 @@ describe("travel-planner JS modules", () => {
     const plan = generateTripPlan(trip!);
     expect(plan.route_plan).toMatchObject({ source: "step4.plan-output.json" });
     expect(plan.route_plan.plan_output).toMatchObject({
-      route_tool_ui_ready: true,
-      route_options: [{ route_id: "r1" }],
+      route_options: [{ route_id: "r1" }]
     });
     expect(plan.route_plan.decision).toMatchObject({ recommended_route_id: "r1" });
   });

@@ -12,9 +12,17 @@
 
 ## Trip 字段（关键）
 
+### `plan_depth_choice`（验证后是否先预览；对用户展示文案见 option-list 模板）
+
+- 取值：`plan_overview` | `full_plan`
+- **`plan_overview`**：先根据已有 `route-plan` + `route-validation` 生成并保存 `plan-overview.json`，用户 `confirm_plan_overview` 后再做 Step 5 详单。
+- **`full_plan`**：不保存 `plan-overview`，`set_plan_depth_choice` 后**直接** Step 5 详单（输入仍为 `route-plan` + `route-validation`）。
+- 在 `save_route_validation` 成功后被清空；用户从 `option_list` 选定后须 `workflow.mjs --cmd=set_plan_depth_choice`
+- **`plan.mjs save_details`**（Step 5 唯一落盘）：`plan_overview` 须已存在 `plan-overview.json` 且 `plan_overview_confirmed === true`；payload 须通过 **`validatePlanDetails`**（`schema_version: 1`，见 `references/plan-details.md`）
+
 ### `constraints`
 
-**推荐（下一版）**：改为结构化字段，避免歧义：
+**推荐**：改为结构化字段，避免歧义：
 
 - `mobility_mode`: `self_drive | private_car | public_transport | mixed`
 - `self_drive_allowed`: `true | false`

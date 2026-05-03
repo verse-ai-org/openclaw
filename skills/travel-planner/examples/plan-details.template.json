@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-03T12:00:00.000Z",
+  "trip_id": "00000000-0000-4000-8000-000000000001",
+  "chosen_route_id": "route-example",
+  "destination": {
+    "summary": "目的地一句话概述（给用户看的）",
+    "geography": "所在区域、地形气候带、与周边关系等",
+    "culture_and_customs": "与本次行程相关的文化背景与日常习俗概览"
+  },
+  "transport": {
+    "outbound": "去程：方式、大致时段与注意事项（与验证结论一致）",
+    "return": "返程：方式、大致时段与注意事项",
+    "notes": "可选：联程、缓冲、未验证项说明"
+  },
+  "weather": {
+    "summary": "行程期间天气总体判断与着装/风险提示",
+    "by_stop": [
+      { "label": "代表地点 A", "summary": "该点天气与对当日影响" },
+      { "label": "代表地点 B", "summary": "…" }
+    ]
+  },
+  "days": [
+    {
+      "day_index": 1,
+      "date": "2026-05-10",
+      "title": "第 1 天主题",
+      "summary": "当天一句话",
+      "morning": "可选：上午安排",
+      "afternoon": "可选：下午安排",
+      "evening": "可选：晚间安排",
+      "risks_or_notes": "可选：天气/体力/转场提醒"
+    },
+    {
+      "day_index": 2,
+      "title": "第 2 天主题",
+      "summary": "当天一句话"
+    }
+  ],
+  "pre_departure_checklist": {
+    "items": [
+      { "label": "证件与预订信息", "done": false },
+      { "label": "常用药品与防护用品" }
+    ]
+  },
+  "etiquette_and_culture": {
+    "summary": "礼仪与文化注意事项总述",
+    "bullets": ["条目一", "条目二"]
+  },
+  "safety_and_emergency": {
+    "summary": "安全与应急总述",
+    "emergency_numbers_note": "可选：报警/救援/领事保护等提示（占位或通用说明）",
+    "bullets": ["高风险场景提醒", "行程内应急原则"]
+  },
+  "geo": {
+    "text_fallback_route": "按天或按段描述动线，不依赖地图也能跟随",
+    "points": [],
+    "legs": []
+  }
+}

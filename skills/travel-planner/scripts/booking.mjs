@@ -45,7 +45,7 @@ function main() {
 
       const trip = loadTrip(tripId);
       if (!trip) return failJson("trip not found");
-      const gate = requireStageAtLeast(trip, STAGES.VALIDATED);
+      const gate = requireStageAtLeast(trip, STAGES.PLAN_READY);
       if (!gate.ok) return failJson("guard failed", { reasons: gate.reasons });
 
       writeArtifact(tripId, ARTIFACTS.LIVE_RESULTS, parsed.data);
@@ -62,7 +62,7 @@ function main() {
 
       const trip = loadTrip(tripId);
       if (!trip) return failJson("trip not found");
-      const gate = requireStageAtLeast(trip, STAGES.VALIDATED);
+      const gate = requireStageAtLeast(trip, STAGES.PLAN_READY);
       if (!gate.ok) return failJson("guard failed", { reasons: gate.reasons });
 
       writeArtifact(tripId, ARTIFACTS.BOOKING_READY, parsed.data);
@@ -80,7 +80,7 @@ function main() {
 
       const trip = loadTrip(tripId);
       if (!trip) return failJson("trip not found");
-      const gate = requireStageAtLeast(trip, STAGES.VALIDATED);
+      const gate = requireStageAtLeast(trip, STAGES.PLAN_READY);
       if (!gate.ok) return failJson("guard failed", { reasons: gate.reasons });
 
       const confirmed = trip.confirmed_bookings && typeof trip.confirmed_bookings === "object"

@@ -1,0 +1,15 @@
+{
+  "source": "amap-lbs-skill",
+  "context_key": "<与 route-evidence.destination 一致>",
+  "entries": [
+    {
+      "poi_id": "<高德POI ID>",
+      "name": "<展示名>",
+      "query_name": "<检索词，与路线点名或规范点名一致>",
+      "lat": 0,
+      "lng": 0,
+      "image": "https://example.com/poi-preview-cover.jpg",
+      "resolved_at": "2026-05-03T00:00:00.000Z"
+    }
+  ]
+}

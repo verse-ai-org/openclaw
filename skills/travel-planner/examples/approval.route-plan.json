@@ -1,0 +1,8 @@
+{
+  "id": "route-plan-approval",
+  "title": "确认按这条路线与站点计划继续吗？",
+  "description": "确认后行程将进入交通与天气验证等后续步骤；若需改站点或顺序，请先点「要调整」并说明。",
+  "variant": "default",
+  "confirmLabel": "确认，继续",
+  "cancelLabel": "要调整"
+}

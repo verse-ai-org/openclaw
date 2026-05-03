@@ -1,7 +1,7 @@
 import { parseArgs, requireFlag, optionalFlag, okJson, failJson } from "./lib/cli.mjs";
 import { readMaybeJsonFromCliValue } from "./lib/json.mjs";
 import { ARTIFACTS, STAGES } from "./lib/contracts.mjs";
-import { readArtifact, writeArtifact } from "./lib/artifacts.mjs";
+import { existsArtifact, readArtifact, writeArtifact } from "./lib/artifacts.mjs";
 import { appendTripEvent } from "./lib/events.mjs";
 import { requireStageAtLeast, requireBookingsConfirmed } from "./lib/guards.mjs";
 import {
@@ -99,24 +99,21 @@ function collectUsedPoiIds(routeOptions) {
   return usedPoiIds;
 }
 
-function buildMergedPointsFromEvidence(evidence) {
-  const routes = Array.isArray(evidence?.routes) ? evidence.routes : [];
+/** Unique stop `name` values across all route_options (for single-route POI coverage gate). */
+function buildStopNamesFromRouteOptions(routeOptions) {
   const names = new Set();
-
-  for (const route of routes) {
-    const stops = Array.isArray(route?.stops) ? route.stops : [];
+  for (const opt of routeOptions) {
+    const stops = Array.isArray(opt?.stop_points) ? opt.stop_points : [];
     for (const stop of stops) {
       const name = String(stop?.name || "").trim();
-      if (!name) continue;
-      names.add(name);
+      if (name) names.add(name);
     }
   }
-
   return [...names.values()].sort((a, b) => a.localeCompare(b));
 }
 
-function validatePoiCacheCoversMergedPoints(poiCache, evidence) {
-  const mergedPoints = Array.isArray(evidence?.merged_points) ? evidence.merged_points : [];
+function validatePoiCacheCoversPointNames(poiCache, pointNames) {
+  const mergedPoints = Array.isArray(pointNames) ? pointNames : [];
   if (mergedPoints.length === 0) return { ok: true };
   const entries = Array.isArray(poiCache?.entries) ? poiCache.entries : [];
   const querySet = new Set(
@@ -132,7 +129,7 @@ function validatePoiCacheCoversMergedPoints(poiCache, evidence) {
   if (missing.length > 0) {
     return {
       ok: false,
-      message: "poi gate failed: poi-cache does not cover route-evidence.merged_points",
+      message: "poi gate failed: poi-cache does not cover required stop names (query_name match)",
       extra: { missing_points: missing },
     };
   }
@@ -264,10 +261,12 @@ function main() {
       okJson({
         commands: [
           "save_route_evidence",
+          "save_route_choice",
           "save_route_plan",
           "confirm_route_choice",
           "save_route_validation",
           "set_plan_depth_choice",
+          "confirm_plan_overview",
           "start_trip",
           "doctor",
         ],
@@ -283,12 +282,38 @@ function main() {
       const check = validateRouteEvidence(parsed.data);
       if (!check.ok) return failJson("route-evidence rejected", { reasons: check.reasons });
 
-      const merged_points = buildMergedPointsFromEvidence(parsed.data);
-      const nextEvidence =
-        merged_points.length > 0 ? { ...parsed.data, merged_points } : { ...parsed.data };
-
-      writeArtifact(tripId, ARTIFACTS.ROUTE_EVIDENCE, nextEvidence);
+      writeArtifact(tripId, ARTIFACTS.ROUTE_EVIDENCE, parsed.data);
       appendTripEvent(tripId, "route_evidence_saved", {});
+      okJson();
+      return;
+    }
+
+    if (cmd === "save_route_choice") {
+      const tripId = requireFlag(args, "trip-id");
+      const routeId = String(requireFlag(args, "route-id") || "").trim();
+      if (!routeId) return failJson("route-id required");
+
+      const trip = loadTrip(tripId);
+      if (!trip) return failJson("trip not found");
+      if (String(trip.stage || "") !== STAGES.INTAKE) {
+        return failJson("guard failed: save_route_choice only allowed from intake", {
+          current_stage: trip.stage || "",
+        });
+      }
+
+      const evidenceGate = validateSavedRouteEvidence(tripId);
+      if (!evidenceGate.ok) return failJson(evidenceGate.message, evidenceGate.extra);
+
+      const routes = Array.isArray(evidenceGate.evidence?.routes) ? evidenceGate.evidence.routes : [];
+      const okRoute = routes.some((r) => r && String(r.route_id || "").trim() === routeId);
+      if (!okRoute) return failJson("route-id not found in route-evidence", { route_id: routeId });
+
+      const out = patchTripStage(tripId, {
+        chosen_route_id: routeId,
+        stage: STAGES.ROUTE_SELECTED,
+      });
+      if (!out.ok) return failJson("trip update failed", { reasons: out.reasons });
+      appendTripEvent(tripId, "route_choice_saved", { route_id: routeId });
       okJson();
       return;
     }
@@ -304,6 +329,23 @@ function main() {
       if (!evidenceGate.ok) return failJson(evidenceGate.message, evidenceGate.extra);
       const routeOptions = getRouteOptions(parsed.data);
 
+      const tripBefore = loadTrip(tripId);
+      if (!tripBefore) return failJson("trip not found");
+      if (String(tripBefore.stage || "") !== STAGES.ROUTE_SELECTED) {
+        return failJson("guard failed: save_route_plan only allowed at stage route_selected (after save_route_choice)", {
+          current_stage: tripBefore.stage || "",
+        });
+      }
+      const chosenEarly = String(tripBefore.chosen_route_id || "").trim();
+      if (!chosenEarly) return failJson("guard failed: chosen_route_id required");
+      const onlyId = String(routeOptions[0]?.route_id || "").trim();
+      if (onlyId !== chosenEarly) {
+        return failJson("route_plan rejected: route_id must match trip.chosen_route_id", {
+          expected_route_id: chosenEarly,
+          got_route_id: onlyId,
+        });
+      }
+
       const routeIdGate = validateRouteOptionIdsAgainstEvidence(routeOptions, evidenceGate.evidence);
       if (!routeIdGate.ok) return failJson(routeIdGate.message, routeIdGate.extra);
 
@@ -312,7 +354,8 @@ function main() {
       if (!poiGate.ok) return failJson(poiGate.message, poiGate.extra);
 
       const poiCache = readArtifact(tripId, ARTIFACTS.POI_CACHE);
-      const coverageGate = validatePoiCacheCoversMergedPoints(poiCache, evidenceGate.evidence);
+      const pointNamesForCoverage = buildStopNamesFromRouteOptions(routeOptions);
+      const coverageGate = validatePoiCacheCoversPointNames(poiCache, pointNamesForCoverage);
       if (!coverageGate.ok) return failJson(coverageGate.message, coverageGate.extra);
 
       writeArtifact(tripId, ARTIFACTS.ROUTE_PLAN, parsed.data);
@@ -330,6 +373,14 @@ function main() {
       if (!trip) return failJson("trip not found");
       const gate = requireStageAtLeast(trip, STAGES.ROUTE_PLANNED);
       if (!gate.ok) return failJson("guard failed", { reasons: gate.reasons });
+
+      const locked = String(trip.chosen_route_id || "").trim();
+      if (locked && locked !== routeId) {
+        return failJson("route-id must match trip.chosen_route_id", {
+          expected_route_id: locked,
+          got_route_id: routeId,
+        });
+      }
 
       const plan = readArtifact(tripId, ARTIFACTS.ROUTE_PLAN);
       const options = Array.isArray(plan?.route_options) ? plan.route_options : [];
@@ -360,10 +411,17 @@ function main() {
       if (!gate.ok) return failJson("guard failed", { reasons: gate.reasons });
 
       writeArtifact(tripId, ARTIFACTS.ROUTE_VALIDATION, parsed.data);
-      // Clear any previous plan depth decision; Step 3 must re-confirm the next depth after validation.
-      const out = patchTripStage(tripId, { stage: STAGES.VALIDATED, plan_depth_choice: undefined });
+      // Clear any previous plan depth decision; Step 4 must re-confirm the next depth after validation.
+      const out = patchTripStage(tripId, {
+        stage: STAGES.VALIDATED,
+        plan_depth_choice: undefined,
+        plan_overview_confirmed: false,
+      });
       if (!out.ok) return failJson("trip update failed", { reasons: out.reasons });
-      appendTripEvent(tripId, "route_validated", { verdict: parsed.data.verdict });
+      appendTripEvent(tripId, "route_validated", {
+        verdict: parsed.data.verdict,
+        cleared_plan_depth: true,
+      });
       okJson();
       return;
     }
@@ -380,9 +438,34 @@ function main() {
       const gate = requireStageAtLeast(trip, STAGES.VALIDATED);
       if (!gate.ok) return failJson("guard failed", { reasons: gate.reasons });
 
-      const out = patchTripStage(tripId, { plan_depth_choice: choice });
+      const out = patchTripStage(tripId, {
+        plan_depth_choice: choice,
+        plan_overview_confirmed: false,
+      });
       if (!out.ok) return failJson("trip update failed", { reasons: out.reasons });
       appendTripEvent(tripId, "plan_depth_chosen", { choice });
+      okJson();
+      return;
+    }
+
+    if (cmd === "confirm_plan_overview") {
+      const tripId = requireFlag(args, "trip-id");
+      const trip = loadTrip(tripId);
+      if (!trip) return failJson("trip not found");
+      const gate = requireStageAtLeast(trip, STAGES.VALIDATED);
+      if (!gate.ok) return failJson("guard failed", { reasons: gate.reasons });
+      const depth = String(trip.plan_depth_choice || "").trim();
+      if (depth !== "plan_overview") {
+        return failJson("guard failed: confirm_plan_overview requires plan_depth_choice=plan_overview", {
+          plan_depth_choice: depth || "(missing)",
+        });
+      }
+      if (!existsArtifact(tripId, ARTIFACTS.PLAN_OVERVIEW)) {
+        return failJson("guard failed: plan-overview.json missing (run plan.mjs save_overview first)");
+      }
+      const out = patchTripStage(tripId, { plan_overview_confirmed: true });
+      if (!out.ok) return failJson("trip update failed", { reasons: out.reasons });
+      appendTripEvent(tripId, "plan_overview_confirmed", {});
       okJson();
       return;
     }
@@ -409,12 +492,12 @@ function main() {
       if (!trip) return failJson("trip not found");
       const artifacts = {
         poi_cache: !!readArtifact(tripId, ARTIFACTS.POI_CACHE),
+        poi_preview: !!readArtifact(tripId, ARTIFACTS.POI_PREVIEW),
         route_evidence: !!readArtifact(tripId, ARTIFACTS.ROUTE_EVIDENCE),
         route_plan: !!readArtifact(tripId, ARTIFACTS.ROUTE_PLAN),
         route_validation: !!readArtifact(tripId, ARTIFACTS.ROUTE_VALIDATION),
         plan_overview: !!readArtifact(tripId, ARTIFACTS.PLAN_OVERVIEW),
         plan_details: !!readArtifact(tripId, ARTIFACTS.PLAN_DETAILS),
-        hotels: !!readArtifact(tripId, ARTIFACTS.HOTELS),
         live_results: !!readArtifact(tripId, ARTIFACTS.LIVE_RESULTS),
         booking_ready: !!readArtifact(tripId, ARTIFACTS.BOOKING_READY),
       };

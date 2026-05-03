@@ -1,0 +1,17 @@
+{
+  "title": "完整行程表已保存，接下来需要什么？",
+  "description": "可以开始用在路上的咨询与提醒，也可以再查酒店（不查也能继续，看您是否需要实时价格与链接）。",
+  "selectionMode": "single",
+  "options": [
+    {
+      "id": "step6_in_trip",
+      "label": "人在路上：改线、天气、当天安排",
+      "description": "适合已经或即将出发：临时调整路线、要当日简报、或设置行程提醒等。"
+    },
+    {
+      "id": "hotels_optional",
+      "label": "再查一轮酒店（可选）",
+      "description": "按需查入住城市/日期的实时候选与链接"
+    }
+  ]
+}

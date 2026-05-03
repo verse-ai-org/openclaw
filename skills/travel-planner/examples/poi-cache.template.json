@@ -1,13 +1,14 @@
 {
   "source": "amap-lbs-skill",
+  "context_key": "<与 route-evidence.destination 或 adcode 一致的地理作用域>",
   "entries": [
     {
       "poi_id": "<高德POI ID>",
       "name": "<POI名>",
-      "query_name": "<用户查询词>",
+      "query_name": "<用户查询词，与 stop 规范点名一致>",
       "lat": 0,
       "lng": 0,
-      "image": "",
+      "image": "https://example.com/image.jpg",
       "detail_url": "",
       "subtitle": "",
       "resolved_at": "2026-04-29T00:00:00.000Z"
