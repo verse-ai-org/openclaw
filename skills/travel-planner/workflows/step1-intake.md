@@ -43,7 +43,8 @@ node {baseDir}/scripts/preferences.mjs --cmd=save --payload='{"departure_city":"
 node {baseDir}/scripts/trips.mjs --cmd=get_active
 ```
 
-- 若返回 `active_trips` 为空数组：直接新建
+- **判定**：`active_trips` 为 `current_trips` 中**尚未定稿主规划**的行程：`stage` 不是 `completed` / `cancelled`，且**不是** `plan_ready`。
+- 若返回为空数组：直接新建
 - 若返回有 1 条或多条：必须询问用户“继续其中某个 / 新建”
 - 不得在用户明确回答前自行判断或跳过此问
 

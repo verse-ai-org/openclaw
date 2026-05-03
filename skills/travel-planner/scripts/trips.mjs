@@ -64,11 +64,13 @@ function listPastTrips() {
   return Array.isArray(idx.past_trips) ? idx.past_trips : [];
 }
 
+/** For Step 1 `create` guard: current trips still in core planning (excludes completed/cancelled/plan_ready). */
 function getActiveTrips() {
+  const excluded = [STAGES.COMPLETED, STAGES.CANCELLED, STAGES.PLAN_READY];
   return listCurrentTrips()
     .map((t) => loadTrip(t.id))
     .filter(Boolean)
-    .filter((t) => ![STAGES.COMPLETED, STAGES.CANCELLED].includes(t.stage));
+    .filter((t) => !excluded.includes(t.stage));
 }
 
 function createTrip(payload) {
@@ -192,4 +194,3 @@ function main() {
 }
 
 main();
-
