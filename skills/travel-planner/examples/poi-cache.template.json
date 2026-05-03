@@ -1,0 +1,16 @@
+{
+  "source": "amap-lbs-skill",
+  "entries": [
+    {
+      "poi_id": "<高德POI ID>",
+      "name": "<POI名>",
+      "query_name": "<用户查询词>",
+      "lat": 0,
+      "lng": 0,
+      "image": "",
+      "detail_url": "",
+      "subtitle": "",
+      "resolved_at": "2026-04-29T00:00:00.000Z"
+    }
+  ]
+}

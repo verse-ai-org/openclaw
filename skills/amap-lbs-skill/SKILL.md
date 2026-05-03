@@ -316,6 +316,7 @@ http://a.amap.com/jsapi_demo_show/static/openclaw/heatmap.html?mapStyle={地图�
 
 ```bash
 # 基础搜索
+node scripts/poi-search.js --keywords=肯德基
 node scripts/poi-search.js --keywords=肯德基 --city=北京
 
 # 搜索更多结果
@@ -335,7 +336,7 @@ node scripts/poi-search.js --keywords=酒店 --location=116.397428,39.90923 --ra
 | `--location` | 中心点坐标（经度,纬度） | 否 | `--location=116.397428,39.90923` |
 | `--radius` | 搜索半径（米） | 否 | `--radius=1000` |
 | `--page` | 页码 | 否 | `--page=1` |
-| `--offset` | 每页数量（最大25） | 否 | `--offset=10` |
+| `--offset` | 每页数量（最大25，默认1） | 否 | `--offset=1` |
 
 ### 在代码中使用
 
@@ -347,7 +348,7 @@ async function example() {
     keywords: '咖啡厅',
     city: '杭州',
     page: 1,
-    offset: 10
+    offset: 1
   });
   
   if (result && result.pois) {

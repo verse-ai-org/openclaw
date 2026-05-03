@@ -94,6 +94,7 @@ async function searchPOI(params) {
     keywords: params.keywords || '',
     region: params.city || '',
     city_limit: params.cityLimit !== false,
+    show_fields: 'photos',
     ...params
   };
   

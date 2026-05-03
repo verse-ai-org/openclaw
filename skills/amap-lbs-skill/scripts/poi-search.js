@@ -21,6 +21,19 @@ function parseArgs() {
   return args;
 }
 
+function printPoiPhotos(poi) {
+  const photos = Array.isArray(poi.photos) ? poi.photos : [];
+  if (photos.length === 0) {
+    console.log('   🖼️  图片: 无');
+    return;
+  }
+  console.log(`   🖼️  图片: ${photos.length} 张`);
+  photos.slice(0, 3).forEach((photo, index) => {
+    const url = photo && photo.url ? photo.url : '';
+    if (url) console.log(`      ${index + 1}) ${url}`);
+  });
+}
+
 // 主函数
 async function main() {
   const args = parseArgs();
@@ -31,16 +44,7 @@ async function main() {
     console.log('\n使用方法:');
     console.log('node scripts/poi-search.js --keywords=关键词 [--city=城市] [--types=类型] [--page=页码] [--offset=每页数量]');
     console.log('\n示例:');
-    console.log('node scripts/poi-search.js --keywords=肯德基 --city=北京 --page=1 --offset=20');
-    process.exit(1);
-  }
-  
-  // 检查是否设置了 AMAP_KEY
-  if (!process.env.AMAP_KEY) {
-    console.error('❌ 请设置环境变量 AMAP_KEY');
-    console.log('\n示例:');
-    console.log('export AMAP_KEY=your_amap_key');
-    console.log('node scripts/poi-search.js --keywords=美食 --location=116.397428,39.90923 --radius=1000');
+    console.log('node scripts/poi-search.js --keywords=肯德基 --city=北京 --page=1 --offset=1');
     process.exit(1);
   }
   
@@ -50,7 +54,7 @@ async function main() {
     city: args.city || '',
     types: args.types || '',
     page: parseInt(args.page) || 1,
-    offset: parseInt(args.offset) || 10
+    offset: parseInt(args.offset) || 1
   };
   
   // 可选参数
@@ -72,6 +76,7 @@ async function main() {
         console.log(`   🏷️  类型: ${poi.type}`);
         console.log(`   📞 电话: ${poi.tel || '无'}`);
         console.log(`   🗺️  坐标: ${poi.location}`);
+        printPoiPhotos(poi);
         if (poi.distance) {
           console.log(`   📏 距离: ${poi.distance}米`);
         }

@@ -37,31 +37,33 @@ metadata:
 
 ## Quick start（按需阅读）
 
-1. 先读 `workflows/step1-intake.md`（偏好/Trip 建档 + active trip 守卫）
+1. 先读 `workflows/step1-intake.md`
 2. 路线框定：`workflows/step2-route-planning.md`
 3. 交通/天气验证 + 骨架确认：`workflows/step3-validate-transport-weather.md`
-4. 逐日骨架：`workflows/step4-itinerary-skeleton.md`
-5. 逐日细化 + booking-ready：`workflows/step5-itinerary-detail-booking.md`
-6. 行中支持（含可选推送）：`workflows/step6-in-trip-support.md`
-7. 行后沉淀：`workflows/step7-post-trip.md`
+3（可选）逐日骨架：`workflows/step3-optional-itinerary-skeleton.md`
+4. 全面计划详情（交通/天气/逐日细化 + Geo Map）：`workflows/step4-plan-details.md`
+4（可选）推荐酒店（实时查询）：`workflows/step4-optional-hotels.md`
+5. 行中支持（含可选推送）：`workflows/step5-in-trip-support.md`
+6. 行后沉淀：`workflows/step6-post-trip.md`
 
 ## 工作流索引
 
 - Step 1：Intake（偏好/Trip 建档）→ `workflows/step1-intake.md`
 - Step 2：Route planning（证据→候选→选择→持久化）→ `workflows/step2-route-planning.md`
-- Step 3：Validate transport & weather + 骨架确认 → `workflows/step3-validate-transport-weather.md`
-- Step 4：Itinerary skeleton → `workflows/step4-itinerary-skeleton.md`
-- Step 5：Itinerary detail & booking → `workflows/step5-itinerary-detail-booking.md`
-- Step 6：In-trip support → `workflows/step6-in-trip-support.md`
-- Step 7：Post-trip → `workflows/step7-post-trip.md`
+- Step 3：Validate transport & weather → `workflows/step3-validate-transport-weather.md`
+- Step 3（Optional）：Itinerary skeleton → `workflows/step3-optional-itinerary-skeleton.md`
+- Step 4：Plan details → `workflows/step4-plan-details.md`
+- Step 4（Optional）：Hotels → `workflows/step4-optional-hotels.md`
+- Step 5：In-trip support → `workflows/step5-in-trip-support.md`
+- Step 6：Post-trip → `workflows/step6-post-trip.md`
 
 ## 参考资料（只在需要时读）
 
 - **工具可用性/降级**：`references/capability-matrix.md`
 - **字段契约/枚举口径**：`references/data-contracts.md`
 - **协议**：`references/route-protocol.md`
-- **行前清单/安全**：`references/travel_guidelines.md`
-- **礼仪文化**：`references/cultural_etiquette.md`
+- **行前清单/安全**：`references/travel-guidelines.md`
+- **礼仪文化**：`references/cultural-etiquette.md`
 
 ## 资源索引（scripts）
 
@@ -69,10 +71,7 @@ metadata:
 |------|------|
 | `scripts/preferences.mjs` | 偏好域存储与读写 |
 | `scripts/trips.mjs` | Trip 数据层：schema 标准化、CRUD |
-| `scripts/trip-workflow.mjs` | 流程层：阶段守卫、路线确认、evidence/plan 持久化、预订与启程流转 |
-| `scripts/route-plan.mjs` | 路线候选结构化输出 |
-| `scripts/poi-cache.mjs` | POI 缓存与 stop_media/stop_points 构建 |
-| `scripts/xhs-evidence-builder.mjs` | 小红书证据规范化 |
-| `scripts/plan-generator.mjs` | 计划骨架与总结生成 |
-| `scripts/booking-ready.mjs` | 合并实时结果生成 booking-ready 包 |
-| `scripts/briefing.mjs` | 行前/每日简报 |
+| `scripts/workflow.mjs` | 流程层：阶段守卫、evidence/plan/validation 持久化、路线选择确认、出发流转、doctor |
+| `scripts/plan.mjs` | 计划产物落盘：plan-overview / plan-details（由 agent 生成内容，脚本负责守卫与存储） |
+| `scripts/booking.mjs` | 实时结果与 booking-ready 存储、预订确认（bookings_confirmed） |
+| `scripts/briefing.mjs` | 行前/每日简报输入聚合（由 agent 生成内容） |

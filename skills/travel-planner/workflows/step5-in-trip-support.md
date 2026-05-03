@@ -1,8 +1,10 @@
-# Step 6 - In-trip Support（行中支持：应急改线、简报、可选推送）
+# Step 5 - In-trip Support（行中支持：应急改线、简报、可选推送）
 
-本文件覆盖主流程 Step 6（E-1 ~ E-4）。
+本文件覆盖主流程 Step 5（E-1 ~ E-4）。
 
-**进入条件**：用户已在行程中（或明确表示“正在路上/今天在XX/刚到XX”）。
+**进入条件**：
+- 用户已在行程中（或明确表示“正在路上/今天在XX/刚到XX”）
+- 或用户在 Step 4（Plan details）末尾选择“直接进入 Step 5（行中支持）”
 **产出**：应急改线建议/当日简报；可选创建推送任务（需用户确认）。
 **失败/降级**：实时工具失败→标注“未验证”并提供替代动作；推送细节见 `references/push-cards.md`。
 
@@ -17,8 +19,12 @@
 
 ## E-1｜标记出发
 
+说明：
+- `start_trip` 会推进 trip 状态到 `in_trip`，并受流程守卫约束（需要已确认关键预订项）。
+- 若用户尚未确认预订（例如未做可选酒店推荐），仍可提供行中支持与简报，但不要强行调用 `start_trip`。
+
 ```bash
-node {baseDir}/scripts/trip-workflow.mjs --cmd=start_trip --trip-id=<trip_id>
+node {baseDir}/scripts/workflow.mjs --cmd=start_trip --trip-id=<trip_id>
 ```
 
 ## E-2｜确认每日行程卡片推送（必须先问）
@@ -40,14 +46,10 @@ node {baseDir}/scripts/trip-workflow.mjs --cmd=start_trip --trip-id=<trip_id>
 
 ```bash
 # 出发前简报
-node {baseDir}/scripts/briefing.mjs --mode=pre_trip \
-  --trip=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/trip.json \
-  --plan=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step6.plan-overview.json
+node {baseDir}/scripts/briefing.mjs --cmd=pre_trip \
+  --trip-id=<trip_id>
 
 # 每日简报（与 cron 推送内容一致，可手动触发）
-node {baseDir}/scripts/briefing.mjs --mode=daily \
-  --trip=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/trip.json \
-  --plan=@~/.openclaw/agents/travel-planner/data/trips/<trip_id>/step6.plan-overview.json \
-  --day=<N>
+node {baseDir}/scripts/briefing.mjs --cmd=daily \
+  --trip-id=<trip_id> --day=<N>
 ```
-

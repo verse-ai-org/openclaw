@@ -1,0 +1,17 @@
+{
+  "title": "下一步想看哪种深度？",
+  "description": "验证完成后，你可以选择先看骨架（便于调整），或直接生成逐日行程（详细版）。",
+  "selectionMode": "single",
+  "options": [
+    {
+      "id": "plan_overview",
+      "label": "生成行程骨架（便于先调整）",
+      "description": "先输出路线总览、风险与确认问题；我确认/调整后再展开每天。"
+    },
+    {
+      "id": "full_plan",
+      "label": "直接生成逐日行程（详细版）",
+      "description": "现在就生成逐日结构化行程（不含实时价格/库存/班次保证）。"
+    }
+  ]
+}

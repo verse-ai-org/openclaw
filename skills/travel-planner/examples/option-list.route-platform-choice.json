@@ -1,9 +1,10 @@
 {
   "id": "route-platform-choice",
-  "title": "选择路线证据来源",
+  "title": "选择路线规划平台",
+  "description": "请选择路线证据来源平台：搜索（默认，速度快）或小红书（抄作业，需要登录）",
+  "selectionMode": "single",
   "options": [
     { "id": "search", "label": "搜索（默认，速度快）" },
-    { "id": "xhs", "label": "小红书（内容驱动，可能需要降级）" }
+    { "id": "xhs", "label": "小红书（抄作业，需要登录）" }
   ],
-  "selectionMode": "single"
 }
