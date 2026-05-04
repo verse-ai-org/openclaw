@@ -2,6 +2,7 @@ export {
   getActiveChatSessionKey,
   isChatEventForActiveSession,
 } from "./session-scope";
+export { resolveActiveChatSessionKey } from "./active-session";
 export {
   normalizeContent,
   normalizeHistoryAttachmentHints,

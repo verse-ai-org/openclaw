@@ -54,7 +54,7 @@ export const AgentAvatar: FC<AgentAvatarProps> = ({ size = "md", showLoading = f
   }, [isConnected, agentsList, loadAgents]);
 
   // isLoading is now driven by the showLoading prop passed from AssistantMessage,
-  // which checks both pendingGenerationBySession AND whether this is the last message.
+  // which checks session run status AND whether this is the last message.
   // This prevents all historical message avatars from showing the loading indicator.
 
   const { emoji, avatarUrl, name } = useMemo(() => {

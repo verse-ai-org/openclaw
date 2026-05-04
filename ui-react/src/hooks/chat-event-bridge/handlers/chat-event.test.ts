@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useRunProjectionStore } from "@/run-projection/store";
+import { useRunStatusStore } from "@/run-status/store";
 import { useChatStore } from "@/store/chat.store";
 import { handleChatEvent } from "./chat-event";
 import type { BridgeRuntimeContext } from "./shared";
@@ -17,24 +19,18 @@ function createCtx(): BridgeRuntimeContext {
 }
 
 function resetChatState() {
+  useRunProjectionStore.getState().reset();
+  useRunStatusStore.getState().reset();
   useChatStore.setState({
     messages: [],
     messagesLoading: false,
-    stream: null,
     runId: null,
-    committedBlocks: [],
-    toolStreamById: new Map(),
-    toolStreamOrder: [],
-    interactiveStreamById: new Map(),
-    interactiveStreamOrder: [],
-    interactiveSummaryById: {},
     sending: false,
     sessionKey: "agent:travel:main",
     pendingHistoryReloadKey: null,
     pendingSessionsReloadSeq: 0,
     lastError: null,
     pendingDraftMessage: null,
-    pendingGenerationBySession: {},
   });
 }
 
@@ -43,7 +39,7 @@ describe("handleChatEvent", () => {
     resetChatState();
   });
 
-  it("applies delta and marks session generating", () => {
+  it("applies delta to projection", () => {
     const ctx = createCtx();
     handleChatEvent(ctx, {
       sessionKey: "agent:travel:main",
@@ -52,9 +48,7 @@ describe("handleChatEvent", () => {
       message: { content: [{ type: "text", text: "hello" }] },
     });
 
-    const st = useChatStore.getState();
-    expect(st.stream).toBe("hello");
-    expect(st.pendingGenerationBySession["agent:travel:main"]?.runId).toBe("run-1");
+    expect(useRunProjectionStore.getState().liveCumulativeText).toBe("hello");
   });
 
   it("drops stale run events for same session", () => {
@@ -68,8 +62,7 @@ describe("handleChatEvent", () => {
       message: { content: [{ type: "text", text: "should-not-apply" }] },
     });
 
-    const st = useChatStore.getState();
-    expect(st.stream).toBeNull();
+    expect(useRunProjectionStore.getState().liveCumulativeText).toBeNull();
     expect(ctx.activeRunBySession.get("agent:travel:main")).toBe("run-1");
   });
 });

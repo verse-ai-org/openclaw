@@ -27,17 +27,17 @@ ChatPage
 
 ## 一、GatewayChatRuntimeProvider
 
-**核心职责**：将 Zustand `chat.store` + Gateway WebSocket 客户端桥接为 `assistant-ui` 的 `ExternalStoreRuntime`。
+**核心职责**：将 committed 历史（`chat.store`）+ client-only 运行投影（`run-projection`）桥接为 `assistant-ui` 的 `ExternalStoreRuntime`。
 
 ### 1.1 流式占位消息构建
 
-生成进行中时，动态构造 `id="__stream__"` 的临时 assistant 消息，`contentBlocks` 按以下顺序合并：
+生成进行中时，动态构造 `id="__stream__"` 的临时 assistant 消息（由 `run-projection/selectThreadMessages` 生成），`contentBlocks` 按以下顺序合并：
 
 ```
-committedBlocks           ← 工具调用前已冻结的文本段
-  + interactiveStreamOrder → 交互式卡片（HITL）
-  + toolStreamOrder        → 工具调用卡片（按到达顺序）
-  + stream (当前流文本)    ← 追加在所有工具卡之后
+committedBlocks                 ← 工具调用前已冻结的文本段
+  + interactiveStreamOrder      → 交互式卡片（HITL）
+  + toolStreamOrder             → 工具调用卡片（按到达顺序）
+  + liveCumulativeText tail     ← 追加在所有工具卡之后（来自 `chat` delta 的累积文本）
 ```
 
 **设计意图**：保证 `text → tool → tool → text` 的交错渲染顺序正确，流文本不会把工具卡推下去。
@@ -56,42 +56,57 @@ committedBlocks           ← 工具调用前已冻结的文本段
 |------|------|
 | 发送新消息 `onNew` | 解析附件 → 乐观追加用户消息 → `chat.send` |
 | 编辑历史消息 `onEdit` | `truncateMessagesAfter(parentId)` → 重新发送 |
-| 取消生成 `onCancel` | `chat.abort` + 重置 stream 状态 |
+| 取消生成 `onCancel` | `chat.abort` + 重置 run-projection 状态 |
 | 附件处理 | `createGatewayCompositeAttachmentAdapter`（图片/文件 base64）|
 
 ### 1.4 `isRunning` 判断
 
 ```ts
-isRunning = sending || stream !== null || pendingForActiveSession != null
+isRunning = sending || liveCumulativeText !== null || activeRunsBySession[activeSessionKey] != null
 ```
 
-`pendingForActiveSession` 支持跨 session 切换场景：用户切走再切回时，若 Gateway 仍在生成，UI 仍显示 running 状态。
+`activeRunsBySession` 支持跨 session 切换场景：用户切走再切回时，若 Gateway 仍在生成，UI 仍显示 running 状态。
 
 ---
 
 ## 二、useChatEventBridge
 
-注册全局 dispatch，将 Gateway 推送的 WebSocket 事件转换为 Zustand store 操作。
+注册全局 dispatch，将 Gateway 推送的 WebSocket 事件转换为：
+
+- `chat.store`（历史/发送状态）
+- `run-projection`（当前 turn 的 live text / 工具卡 / HITL 卡）
+- `run-status`（跨 session 的 in-flight run 标记）
+
+> 入口统一在 `dispatch-gateway-chat.ts`，用于集中 WS ingress 日志与 outcome（applied/finalized/ignored）统计。
 
 ### 2.1 处理的事件矩阵
 
 | 事件 | 状态/条件 | Store 操作 |
 |------|---------|-----------|
-| `chat` | `delta` | `setStream(text)` 设置累积流文本，`markSessionGenerating` |
-| `chat` | `final`（有文本+工具） | 合并 `contentBlocks` → `setMessages` → `resetStream` |
-| `chat` | `final`（有文本，无工具） | 追加 assistant 行 → `resetStream` |
-| `chat` | `final`（无文本，有缓冲） | `finalizeStream()` |
-| `chat` | `final`（无文本，无缓冲） | `resetStream` + `setPendingHistoryReloadKey` |
-| `chat` | `error` / `aborted` | `resetStream` + `setSending(false)` + 设置错误提示 |
-| `agent` | `tool.start` | `commitCurrentText()` + `upsertToolStream({phase:"start"})` |
-| `agent` | `tool.result` | `upsertToolStream({phase:"result", output})` |
-| `agent` | `tool.error` | `upsertToolStream({phase:"error", error})` |
-| `agent` | `interactive.result` | `commitCurrentText()` + `upsertInteractiveStream(block)` |
+| `chat` | `delta` | `run-projection.CHAT_DELTA(text)`；run-status `RUN_PROGRESS_SEEN` |
+| `chat` | `final`（有文本） | `finalizeChatRun` → append assistant row（merge projection blocks + final text）→ reset projection |
+| `chat` | `final`（无文本，有投影缓冲） | `finalizeChatRun` → finalize projection → append assistant row → reset projection |
+| `chat` | `final`（无文本，无缓冲） | reset projection + `setPendingHistoryReloadKey` |
+| `chat` | `error` / `aborted` | reset projection + `setSending(false)` +（error 时设置错误提示） |
+| `agent.lifecycle` | `start/end/error` | 只来自 `agent`；`end` 可能触发 `finalizeChatRun` 作为 `chat.final` 丢失的兜底 |
+| `agent.tool` | `start/update/result/error` | `COMMIT_CURRENT_TEXT` + `UPSERT_TOOL_STREAM`；interactive 工具会写入 `UPSERT_INTERACTIVE_STREAM` |
 | `chat.history` | — | `mergeToolResults` → `normalizeRole` → `extractContentBlocks` → `consolidateToolMessages` → `setMessages` |
 
 ### 2.2 Session 作用域
 
-所有事件先通过 `isChatEventForActiveSession(sessionKey)` 过滤，只处理当前活跃 session 的消息。跨 session 的生成状态（`markSessionGenerating`/`clearSessionGenerating`）不受此过滤，实现后台静默跟踪。
+所有事件先通过 `isChatEventForActiveSession(sessionKey)` 过滤，只处理当前活跃 session 的消息。
+
+跨 session 的运行态由独立的 `run-status`（`activeRunsBySession`）维护：
+
+- WS 入口根据 outcome（applied/finalized/ignored）更新 `run-status`
+- 进入某个 session 时会通过 `chat.status` 做一次 `syncSessionRunStatusFromGateway` 补偿
+
+### 2.3 调试日志开关（DEV）
+
+桥接层日志集中在 `dispatch-gateway-chat.ts`（WS ingress + outcome）、`run-projection/store.ts`（projection actions）、`run-status/store.ts`（run status actions），通过 localStorage 控制：
+
+- `openclaw.chatBridge.debug=1` 开启 debug
+- `openclaw.chatBridge.group=1` 使用 console.group 折叠输出
 
 ---
 

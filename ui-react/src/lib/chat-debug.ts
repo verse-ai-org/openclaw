@@ -3,6 +3,9 @@ export type ChatDebugChannel =
   | "chat"
   | "agent.lifecycle"
   | "agent.tool"
+  | "bridge.ingress"
+  | "projection"
+  | "run.status"
   | "chat.history"
   | "session.history"
   | "session.list";

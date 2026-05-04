@@ -1,9 +1,15 @@
+/**
+ * Bridge **terminal** seam: live assistant assembly is `run-projection` +
+ * handlers; this file owns run completion (append assistant rows, projection
+ * reset, pending generation, errors) via `finalizeChatRun` / `buildFinalAssistantMessage`.
+ */
+import { useChatStore } from "@/store/chat.store";
 import {
-  useChatStore,
-  toolStreamEntryToResultText,
-  type ChatMessage,
-  type ContentBlock,
-} from "@/store/chat.store";
+  buildFinalAssistantMessageFromProjection,
+  finalizeProjectionToAssistantMessage,
+  hasBufferedAssistantProjection,
+  useRunProjectionStore,
+} from "@/run-projection";
 import type { RunEventKind } from "../run-guard";
 
 export type BridgeRuntimeContext = {
@@ -50,68 +56,14 @@ export function buildFinalAssistantMessage(params: {
   text: string;
   runId?: string;
   nowMs?: number;
-}): ChatMessage {
-  const now = params.nowMs ?? Date.now();
-  const storeState = useChatStore.getState();
-  const {
-    committedBlocks,
-    toolStreamById,
-    toolStreamOrder,
-    interactiveStreamById,
-    interactiveStreamOrder,
-  } = storeState;
-
-  const hasToolCalls = toolStreamOrder.length > 0;
-  const hasInteractive = interactiveStreamOrder.length > 0;
-  const hasCommitted = committedBlocks.length > 0;
-
-  if (!hasToolCalls && !hasInteractive && !hasCommitted) {
-    return {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: params.text,
-      ts: now,
-      runId: params.runId,
-    };
-  }
-
-  const contentBlocks: ContentBlock[] = [...committedBlocks];
-  for (const id of interactiveStreamOrder) {
-    const entry = interactiveStreamById.get(id);
-    if (!entry) {
-      continue;
-    }
-    contentBlocks.push(entry);
-  }
-  for (const id of toolStreamOrder) {
-    const entry = toolStreamById.get(id);
-    if (!entry) {
-      continue;
-    }
-    contentBlocks.push({
-      type: "tool-call",
-      toolCallId: entry.id,
-      toolName: entry.toolName ?? "tool",
-      argsText:
-        entry.input != null
-          ? JSON.stringify(entry.input, null, 2)
-          : undefined,
-      result: toolStreamEntryToResultText(entry),
-      phase: toToolCallBlockPhase(entry.phase),
-    });
-  }
-  if (params.text.trim()) {
-    contentBlocks.push({ type: "text", text: params.text });
-  }
-
-  return {
-    id: crypto.randomUUID(),
-    role: "assistant",
-    content: params.text,
-    ts: now,
+}) {
+  const projection = useRunProjectionStore.getState();
+  return buildFinalAssistantMessageFromProjection({
+    projection,
+    text: params.text,
     runId: params.runId,
-    contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
-  };
+    nowMs: params.nowMs,
+  });
 }
 
 export function finalizeChatRun(params: {
@@ -131,7 +83,7 @@ export function finalizeChatRun(params: {
     ctx.finalizedRunBySession.set(sessionKey, runId);
   }
   const st = useChatStore.getState();
-  st.clearSessionGenerating(sessionKey);
+  const projection = useRunProjectionStore.getState();
   if (runId && ctx.pendingInteractiveHydrationRuns.has(runId)) {
     st.setPendingHistoryReloadKey(sessionKey);
     ctx.pendingInteractiveHydrationRuns.delete(runId);
@@ -143,10 +95,15 @@ export function finalizeChatRun(params: {
     if (text) {
       const finalMsg = buildFinalAssistantMessage({ text, runId });
       st.commitStreamAsMessage(finalMsg);
-    } else if (st.stream !== null || st.committedBlocks.length > 0) {
-      st.finalizeStream();
+      useRunProjectionStore.getState().reset();
+    } else if (hasBufferedAssistantProjection(projection)) {
+      const msg = finalizeProjectionToAssistantMessage(projection, st.runId);
+      if (msg) {
+        st.commitStreamAsMessage(msg);
+      }
+      useRunProjectionStore.getState().reset();
     } else {
-      st.resetStream();
+      useRunProjectionStore.getState().reset();
       st.setPendingHistoryReloadKey(sessionKey);
     }
     st.setSending(false);
@@ -155,7 +112,7 @@ export function finalizeChatRun(params: {
     return;
   }
 
-  st.resetStream();
+  useRunProjectionStore.getState().reset();
   st.setSending(false);
   st.setRunId(null);
   if (state === "error") {

@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { sliceStreamAfterCommittedAssistant } from "@/providers/chat/committed-stream-prefix";
+import { useRunProjectionStore } from "@/run-projection/store";
+import { useRunStatusStore } from "@/run-status/store";
 import type { SerializableQuestionFlow } from "@/components/tool-ui/question-flow";
 import type { SerializableOptionList } from "@/components/tool-ui/option-list";
 import type { SerializableApprovalCard } from "@/components/tool-ui/approval-card/schema";
@@ -146,26 +147,8 @@ interface ChatState {
   messages: ChatMessage[];
   messagesLoading: boolean;
 
-  // Live streaming
-  stream: string | null;
+  /** Gateway run id for the active send (live row metadata). */
   runId: string | null;
-
-  /**
-   * Frozen content blocks accumulated before the current stream cursor.
-   * When a tool call starts mid-stream, the current text is committed here
-   * so it stays visible while the tool call card renders below it.
-   * Cleared on resetStream / finalizeStream.
-   */
-  committedBlocks: ContentBlock[];
-
-  // Tool call streaming
-  toolStreamById: Map<string, ToolStreamEntry>;
-  toolStreamOrder: string[];
-
-  // Interactive input streaming
-  interactiveStreamById: Map<string, InteractiveContentBlock>;
-  interactiveStreamOrder: string[];
-  interactiveSummaryById: Record<string, InteractiveSummaryPair[]>;
 
   // Input state
   sending: boolean;
@@ -190,13 +173,6 @@ interface ChatState {
    */
   pendingDraftMessage: string | null;
 
-  /**
-   * Sessions with an in-flight gateway generation (user switched away, or multi-tab).
-   * Updated from `chat` / `agent` events even when that session is not the active UI tab.
-   * Cleared on terminal `chat` (final/error/aborted) for that sessionKey.
-   */
-  pendingGenerationBySession: Record<string, { runId?: string | null }>;
-
   // Actions
   setSending: (v: boolean) => void;
   setMessages: (msgs: ChatMessage[]) => void;
@@ -204,260 +180,47 @@ interface ChatState {
   clearMessages: () => void;
   setSessionKey: (key: string | null) => void;
   setPendingDraftMessage: (msg: string | null) => void;
-  appendStreamChunk: (text: string) => void;
-  setStream: (text: string) => void;
   setRunId: (id: string | null) => void;
-  resetStream: () => void;
-  commitCurrentText: () => void;
-  finalizeStream: () => void;
+  /** Appends a finalized assistant message; caller resets `useRunProjectionStore` when needed. */
   commitStreamAsMessage: (msg: ChatMessage) => void;
-  upsertToolStream: (entry: ToolStreamEntry) => void;
-  resetToolStream: () => void;
-  upsertInteractiveStream: (entry: InteractiveContentBlock) => void;
-  resetInteractiveStream: () => void;
-  setInteractiveSummary: (
-    interactiveId: string,
-    pairs: InteractiveSummaryPair[],
-  ) => void;
-  clearInteractiveSummary: (interactiveId: string) => void;
   setPendingHistoryReloadKey: (key: string | null) => void;
   triggerSessionsReload: () => void;
   setLastError: (msg: string | null) => void;
   truncateMessagesAfter: (parentId: string | null) => void;
-  markSessionGenerating: (sessionKey: string, runId?: string | null) => void;
-  clearSessionGenerating: (sessionKey: string) => void;
 }
 
-export const useChatStore = create<ChatState>()((set, get) => ({
+export const useChatStore = create<ChatState>()((set) => ({
   messages: [],
   messagesLoading: false,
-  stream: null,
   runId: null,
-  committedBlocks: [],
-  toolStreamById: new Map(),
-  toolStreamOrder: [],
-  interactiveStreamById: new Map(),
-  interactiveStreamOrder: [],
-  interactiveSummaryById: {},
   sending: false,
   sessionKey: null,
   pendingHistoryReloadKey: null,
   pendingSessionsReloadSeq: 0,
   lastError: null,
   pendingDraftMessage: null,
-  pendingGenerationBySession: {},
 
   setSending: (v) => set({ sending: v }),
 
   setMessages: (msgs) => set({ messages: msgs }),
   setMessagesLoading: (v) => set({ messagesLoading: v }),
-  clearMessages: () =>
+  clearMessages: () => {
+    useRunProjectionStore.getState().reset();
+    useRunStatusStore.getState().reset();
     set({
       messages: [],
-      stream: null,
       runId: null,
-      committedBlocks: [],
-      toolStreamById: new Map(),
-      toolStreamOrder: [],
-      interactiveStreamById: new Map(),
-      interactiveStreamOrder: [],
-      interactiveSummaryById: {},
-    }),
+    });
+  },
   setSessionKey: (key) => set({ sessionKey: key }),
   setPendingDraftMessage: (msg) => set({ pendingDraftMessage: msg }),
 
-  appendStreamChunk: (text) => {
-    set((state) => ({
-      stream: (state.stream ?? "") + text,
-    }));
-  },
-
-  // Replace the entire stream buffer with a new cumulative value
-  setStream: (text) => {
-    set({ stream: text });
-  },
-
   setRunId: (id) => set({ runId: id }),
-
-  commitCurrentText: () => {
-    const { stream, committedBlocks } = get();
-    if (!stream || !stream.trim()) {
-      return;
-    }
-    // Gateway sends cumulative assistant text; only append the suffix not already
-    // represented in committed blocks (see stream-assembly prefix strip).
-    const suffix = sliceStreamAfterCommittedAssistant(stream, committedBlocks);
-    if (!suffix.trim()) {
-      set({ stream: "" });
-      return;
-    }
-    set({
-      committedBlocks: [...committedBlocks, { type: "text", text: suffix }],
-      stream: "",
-    });
-  },
-
-  finalizeStream: () => {
-    const {
-      stream,
-      runId,
-      committedBlocks,
-      toolStreamById,
-      toolStreamOrder,
-      interactiveStreamById,
-      interactiveStreamOrder,
-    } = get();
-
-    // Build ordered content blocks: committed text segments + interactive inputs + tool calls + trailing stream text
-    // Order matches the `chat final` path in useChatEventBridge for consistent rendering.
-    const contentBlocks: ContentBlock[] = [...committedBlocks];
-
-    for (const id of interactiveStreamOrder) {
-      const entry = interactiveStreamById.get(id);
-      if (!entry) {
-        continue;
-      }
-      contentBlocks.push(entry);
-    }
-
-    for (const id of toolStreamOrder) {
-      const entry = toolStreamById.get(id);
-      if (!entry) {
-        continue;
-      }
-      contentBlocks.push({
-        type: "tool-call",
-        toolCallId: entry.id,
-        toolName: entry.toolName ?? "tool",
-        argsText:
-          entry.input != null
-            ? JSON.stringify(entry.input, null, 2)
-            : undefined,
-        result: toolStreamEntryToResultText(entry),
-        phase:
-          entry.phase === "result"
-            ? "result"
-            : entry.phase === "error"
-              ? "error"
-              : "call",
-      });
-    }
-
-    // Trailing text goes last, consistent with chat-final merge order.
-    if (stream && stream.trim()) {
-      contentBlocks.push({ type: "text", text: stream });
-    }
-
-    // Only persist if there is something to save
-    if (contentBlocks.length === 0 && !stream) {
-      set({
-        stream: null,
-        runId: null,
-        committedBlocks: [],
-        toolStreamById: new Map(),
-        toolStreamOrder: [],
-        interactiveStreamById: new Map(),
-        interactiveStreamOrder: [],
-      });
-      return;
-    }
-
-    // Derive flat text content for the content field (backward compat)
-    const flatText = contentBlocks
-      .filter((b): b is { type: "text"; text: string } => b.type === "text")
-      .map((b) => b.text)
-      .join("\n");
-
-    const msg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: flatText,
-      ts: Date.now(),
-      runId: runId ?? undefined,
-      contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
-    };
-
-    set((state) => ({
-      messages: [...state.messages, msg],
-      stream: null,
-      runId: null,
-      committedBlocks: [],
-      toolStreamById: new Map(),
-      toolStreamOrder: [],
-      interactiveStreamById: new Map(),
-      interactiveStreamOrder: [],
-    }));
-  },
-
-  // Clears streaming buffers and in-flight tool stream state (same turn).
-  resetStream: () =>
-    set({
-      stream: null,
-      runId: null,
-      committedBlocks: [],
-      toolStreamById: new Map(),
-      toolStreamOrder: [],
-      interactiveStreamById: new Map(),
-      interactiveStreamOrder: [],
-    }),
 
   commitStreamAsMessage: (msg) =>
     set((state) => ({
       messages: [...state.messages, msg],
-      stream: null,
-      runId: null,
-      committedBlocks: [],
-      toolStreamById: new Map(),
-      toolStreamOrder: [],
-      interactiveStreamById: new Map(),
-      interactiveStreamOrder: [],
     })),
-
-  upsertToolStream: (entry) => {
-    set((state) => {
-      const next = new Map(state.toolStreamById);
-      next.set(entry.id, entry);
-      const order = state.toolStreamOrder.includes(entry.id)
-        ? state.toolStreamOrder
-        : [...state.toolStreamOrder, entry.id];
-      return { toolStreamById: next, toolStreamOrder: order };
-    });
-  },
-
-  resetToolStream: () =>
-    set({ toolStreamById: new Map(), toolStreamOrder: [] }),
-
-  upsertInteractiveStream: (entry) => {
-    set((state) => {
-      const next = new Map(state.interactiveStreamById);
-      next.set(entry.interactiveId, entry);
-      const order = state.interactiveStreamOrder.includes(entry.interactiveId)
-        ? state.interactiveStreamOrder
-        : [...state.interactiveStreamOrder, entry.interactiveId];
-      return { interactiveStreamById: next, interactiveStreamOrder: order };
-    });
-  },
-
-  resetInteractiveStream: () =>
-    set({ interactiveStreamById: new Map(), interactiveStreamOrder: [] }),
-
-  setInteractiveSummary: (interactiveId, pairs) =>
-    set((state) => ({
-      interactiveSummaryById: {
-        ...state.interactiveSummaryById,
-        [interactiveId]: pairs,
-      },
-    })),
-
-  clearInteractiveSummary: (interactiveId) =>
-    set((state) => {
-      if (!(interactiveId in state.interactiveSummaryById)) {
-        return {};
-      }
-      const { [interactiveId]: _removed, ...rest } =
-        state.interactiveSummaryById;
-      return { interactiveSummaryById: rest };
-    }),
 
   setPendingHistoryReloadKey: (key) => set({ pendingHistoryReloadKey: key }),
   triggerSessionsReload: () =>
@@ -468,65 +231,23 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setLastError: (msg) => set({ lastError: msg }),
 
   truncateMessagesAfter: (parentId) => {
+    useRunProjectionStore.getState().reset();
+    useRunStatusStore.getState().reset();
     set((state) => {
       if (parentId === null) {
         return {
           messages: [],
-          stream: null,
-          committedBlocks: [],
-          toolStreamById: new Map(),
-          toolStreamOrder: [],
-          interactiveStreamById: new Map(),
-          interactiveStreamOrder: [],
-          interactiveSummaryById: {},
+          runId: null,
         };
       }
       const idx = state.messages.findIndex((m) => m.id === parentId);
       if (idx === -1) {
-        // parentId not found — keep all (safety fallback)
         return {};
       }
       return {
         messages: state.messages.slice(0, idx + 1),
-        stream: null,
-        committedBlocks: [],
-        toolStreamById: new Map(),
-        toolStreamOrder: [],
-        interactiveStreamById: new Map(),
-        interactiveStreamOrder: [],
+        runId: null,
       };
-    });
-  },
-
-  markSessionGenerating: (sessionKey, runId) => {
-    const k = sessionKey.trim();
-    if (!k) {
-      return;
-    }
-    set((state) => {
-      const prev = state.pendingGenerationBySession[k];
-      const nextRunId =
-        typeof runId === "string" && runId.trim() ? runId.trim() : prev?.runId;
-      return {
-        pendingGenerationBySession: {
-          ...state.pendingGenerationBySession,
-          [k]: { runId: nextRunId },
-        },
-      };
-    });
-  },
-
-  clearSessionGenerating: (sessionKey) => {
-    const k = sessionKey.trim();
-    if (!k) {
-      return;
-    }
-    set((state) => {
-      if (!(k in state.pendingGenerationBySession)) {
-        return {};
-      }
-      const { [k]: _removed, ...rest } = state.pendingGenerationBySession;
-      return { pendingGenerationBySession: rest };
     });
   },
 }));

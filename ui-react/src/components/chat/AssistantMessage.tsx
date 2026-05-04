@@ -14,6 +14,7 @@ import {
 import { InteractiveParts } from "./interactive";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
+import { useRunStatusStore } from "@/run-status/store";
 import { AgentAvatar } from "../assistant-ui/agent-avatar.tsx";
 
 type AssistantContentPart =
@@ -34,8 +35,8 @@ export const AssistantMessage: FC = () => {
   const sessionKey = useChatStore((s) => s.sessionKey);
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
   const activeSessionKey = (sessionKey ?? settingsSessionKey ?? "main") || "main";
-  const isSessionRunning = useChatStore(
-    (s) => activeSessionKey in s.pendingGenerationBySession,
+  const isSessionRunning = useRunStatusStore(
+    (s) => activeSessionKey in s.activeRunsBySession,
   );
 
   const isFirstInTurn = useMemo(() => {

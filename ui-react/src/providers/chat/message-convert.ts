@@ -91,14 +91,14 @@ export function convertGatewayChatMessage(msg: ChatMessage): ThreadMessageLike {
     parts.push({ type: "text", text: "" });
   }
 
-  if (import.meta.env.DEV && parts.filter((p) => p.type === "tool-call").length > 1) {
-    console.log(
-      `[convertMessage] msg ${msg.id} has ${parts.length} parts:`,
-      parts.map((p) =>
-        p.type === "tool-call" ? `tool:${p.toolName}` : `text:${p.text.slice(0, 20)}`,
-      ),
-    );
-  }
+  // if (import.meta.env.DEV && parts.filter((p) => p.type === "tool-call").length > 1) {
+  //   console.log(
+  //     `[convertMessage] msg ${msg.id} has ${parts.length} parts:`,
+  //     parts.map((p) =>
+  //       p.type === "tool-call" ? `tool:${p.toolName}` : `text:${p.text.slice(0, 20)}`,
+  //     ),
+  //   );
+  // }
 
   return {
     id: msg.id,

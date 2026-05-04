@@ -3,21 +3,20 @@ import {
   getActiveChatSessionKey,
   isChatEventForActiveSession,
 } from "@/hooks/chat-event-bridge";
+import { useRunProjectionStore } from "@/run-projection/store";
+import { useRunStatusStore } from "@/run-status/store";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
 
 describe("chat event session scoping", () => {
   beforeEach(() => {
+    useRunProjectionStore.getState().reset();
+    useRunStatusStore.getState().reset();
     useChatStore.setState({
       sessionKey: null,
       messages: [],
-      stream: null,
       runId: null,
-      committedBlocks: [],
-      toolStreamById: new Map(),
-      toolStreamOrder: [],
       sending: false,
-      pendingGenerationBySession: {},
     });
     useSettingsStore.getState().updateSettings({ sessionKey: "main" });
   });
@@ -43,17 +42,13 @@ describe("chat event session scoping", () => {
     expect(isChatEventForActiveSession("   ")).toBe(false);
   });
 
-  it("keeps pendingGeneration when clearing thread messages (session switch)", () => {
-    useChatStore.getState().markSessionGenerating("agent:u:side", "run-1");
-    useChatStore.getState().clearMessages();
-    expect(useChatStore.getState().pendingGenerationBySession["agent:u:side"]).toEqual({
+  it("clearing messages resets projection and run status", () => {
+    useRunStatusStore.getState().dispatch({
+      type: "RUN_PROGRESS_SEEN",
+      sessionKey: "agent:u:side",
       runId: "run-1",
     });
-  });
-
-  it("clearSessionGenerating removes pending state", () => {
-    useChatStore.getState().markSessionGenerating("main", "r2");
-    useChatStore.getState().clearSessionGenerating("main");
-    expect(useChatStore.getState().pendingGenerationBySession.main).toBeUndefined();
+    useChatStore.getState().clearMessages();
+    expect(useRunStatusStore.getState().activeRunsBySession["agent:u:side"]).toBeUndefined();
   });
 });

@@ -3,8 +3,7 @@ import {
   registerChatDispatch,
   unregisterChatDispatch,
 } from "@/store/gateway.store";
-import { handleAgentEvent } from "./handlers/agent-event";
-import { handleChatEvent } from "./handlers/chat-event";
+import { dispatchGatewayChatEvent } from "./dispatch-gateway-chat";
 import type { BridgeRuntimeContext } from "./handlers/shared";
 import {
   attachChatBridgeRunContext,
@@ -21,42 +20,7 @@ export function useChatEventBridge() {
     };
 
     const dispatch = (event: string, payload: unknown) => {
-      const payloadObject =
-        payload && typeof payload === "object" ? (payload as Record<string, unknown>) : undefined;
-      if (import.meta.env.DEV) {
-        console.log(
-          `[ChatEventBridge] ${event}`,
-          payloadObject?.stream ?? payloadObject?.sessionKey ?? payloadObject?.runId,
-        );
-      }
-
-      switch (event) {
-        case "chat":
-          handleChatEvent(
-            ctx,
-            payload as {
-              runId?: string;
-              sessionKey?: string;
-              state?: string;
-              message?: unknown;
-              errorMessage?: string;
-            },
-          );
-          break;
-        case "agent":
-          handleAgentEvent(
-            ctx,
-            payload as {
-              stream?: string;
-              sessionKey?: string;
-              runId?: string;
-              data?: unknown;
-            },
-          );
-          break;
-        default:
-          break;
-      }
+      dispatchGatewayChatEvent(ctx, event, payload);
     };
 
     attachChatBridgeRunContext(ctx);

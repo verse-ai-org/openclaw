@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useRunProjectionStore } from "@/run-projection/store";
+import { useRunStatusStore } from "@/run-status/store";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
 import {
@@ -9,24 +11,18 @@ import {
 import type { SessionEntry } from "./types";
 
 function resetChatState() {
+  useRunProjectionStore.getState().reset();
+  useRunStatusStore.getState().reset();
   useChatStore.setState({
     messages: [],
     messagesLoading: false,
-    stream: null,
     runId: null,
-    committedBlocks: [],
-    toolStreamById: new Map(),
-    toolStreamOrder: [],
-    interactiveStreamById: new Map(),
-    interactiveStreamOrder: [],
-    interactiveSummaryById: {},
     sending: false,
     sessionKey: "agent:travel:abc12345",
     pendingHistoryReloadKey: null,
     pendingSessionsReloadSeq: 0,
     lastError: null,
     pendingDraftMessage: null,
-    pendingGenerationBySession: {},
   });
 }
 

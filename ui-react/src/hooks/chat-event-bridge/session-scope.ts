@@ -1,5 +1,6 @@
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
+import { resolveActiveChatSessionKey } from "./active-session";
 
 // ---------------------------------------------------------------------------
 // Session scoping — Gateway broadcasts `chat` / `agent` to all WS clients; only
@@ -10,8 +11,7 @@ import { useSettingsStore } from "@/store/settings.store";
 export function getActiveChatSessionKey(): string {
   const chat = useChatStore.getState();
   const settings = useSettingsStore.getState().settings;
-  const raw = chat.sessionKey ?? settings.sessionKey ?? "main";
-  return typeof raw === "string" && raw.trim() ? raw.trim() : "main";
+  return resolveActiveChatSessionKey(chat.sessionKey, settings.sessionKey);
 }
 
 /**

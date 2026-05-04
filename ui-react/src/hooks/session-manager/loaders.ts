@@ -5,6 +5,7 @@ import type { RawMessage } from "@/hooks/chat-event-bridge";
 import { logChatDebug } from "@/lib/chat-debug";
 import { normalizeHistoryMessages } from "./history-normalize";
 import type { SessionEntry } from "./types";
+import { useRunStatusStore } from "@/run-status/store";
 
 export async function syncSessionRunStatusFromGateway(params: {
   client: IGatewayClient | null;
@@ -20,9 +21,12 @@ export async function syncSessionRunStatusFromGateway(params: {
       startedAtMs: number | null;
     }>("chat.status", { sessionKey });
     if (result?.activeRunId) {
-      useChatStore
-        .getState()
-        .markSessionGenerating(sessionKey, result.activeRunId);
+      useRunStatusStore.getState().dispatch({
+        type: "RUN_PROGRESS_SEEN",
+        sessionKey,
+        runId: result.activeRunId,
+        nowMs: Date.now(),
+      });
       logChatDebug("debug", "sync run status: active run restored", {
         activeRunId: result.activeRunId,
       }, {
@@ -31,7 +35,7 @@ export async function syncSessionRunStatusFromGateway(params: {
       });
       return;
     }
-    useChatStore.getState().clearSessionGenerating(sessionKey);
+    useRunStatusStore.getState().dispatch({ type: "CLEAR_SESSION", sessionKey });
     logChatDebug("debug", "sync run status: no active run", undefined, {
       channel: "session.history",
       sessionKey,
@@ -143,10 +147,10 @@ export async function loadHistoryFromGateway(params: {
     });
     const latestMsg = consolidated.at(-1);
     if (latestMsg?.role === "assistant") {
-      const pending = useChatStore.getState().pendingGenerationBySession[key];
+      const pending = useRunStatusStore.getState().activeRunsBySession[key];
       const hasActiveRun = pending?.runId != null;
       if (!hasActiveRun) {
-        useChatStore.getState().clearSessionGenerating(key);
+        useRunStatusStore.getState().dispatch({ type: "CLEAR_SESSION", sessionKey: key });
       }
     }
   } catch (err) {

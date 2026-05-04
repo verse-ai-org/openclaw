@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ChatMessage } from "@/store/chat.store";
-import {
-  buildRuntimeMessages,
-  mergeAssistantRunMessages,
-} from "./stream-assembly";
+import { mergeAssistantRunMessages, selectThreadMessages } from "./selectors";
 
-describe("stream-assembly", () => {
+describe("run-projection selectors", () => {
   it("merges consecutive assistant messages by runId", () => {
     const messages: ChatMessage[] = [
       { id: "u1", role: "user", content: "hi", ts: 1 },
@@ -41,10 +38,10 @@ describe("stream-assembly", () => {
     const seg1 = "好嘞！川西";
     const seg2 = "7日游";
     const cumulative = `${seg1}${seg2}继续写`;
-    const output = buildRuntimeMessages({
+    const output = selectThreadMessages({
       chatMessages: [{ id: "u1", role: "user", content: "hi", ts: 1 }],
       isRunning: true,
-      stream: cumulative,
+      liveCumulativeText: cumulative,
       committedBlocks: [
         { type: "text", text: seg1 },
         { type: "text", text: seg2 },
@@ -67,10 +64,10 @@ describe("stream-assembly", () => {
   it("does not duplicate text when stream is cumulative after commitCurrentText", () => {
     const frozen = "好嘞，锁定路线！";
     const cumulative = `${frozen}路线已锁定！现在进入交通与天气验证环节～`;
-    const output = buildRuntimeMessages({
+    const output = selectThreadMessages({
       chatMessages: [{ id: "u1", role: "user", content: "hi", ts: 1 }],
       isRunning: true,
-      stream: cumulative,
+      liveCumulativeText: cumulative,
       committedBlocks: [{ type: "text", text: frozen }],
       toolStreamById: new Map(),
       toolStreamOrder: [],
@@ -88,10 +85,10 @@ describe("stream-assembly", () => {
   });
 
   it("builds __stream__ placeholder while running", () => {
-    const output = buildRuntimeMessages({
+    const output = selectThreadMessages({
       chatMessages: [{ id: "u1", role: "user", content: "hi", ts: 1 }],
       isRunning: true,
-      stream: "draft",
+      liveCumulativeText: "draft",
       committedBlocks: [{ type: "text", text: "preface" }],
       toolStreamById: new Map([
         [
@@ -120,7 +117,7 @@ describe("stream-assembly", () => {
   });
 
   it("keeps tool calls grouped after completion when same run spans multiple assistant rows", () => {
-    const completed = buildRuntimeMessages({
+    const completed = selectThreadMessages({
       chatMessages: [
         { id: "u1", role: "user", content: "plan", ts: 1 },
         {
@@ -145,7 +142,7 @@ describe("stream-assembly", () => {
         },
       ],
       isRunning: false,
-      stream: null,
+      liveCumulativeText: null,
       committedBlocks: [],
       toolStreamById: new Map(),
       toolStreamOrder: [],

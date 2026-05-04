@@ -1,4 +1,4 @@
-import { useChatStore } from "@/store/chat.store";
+import { chatDeltaToAction, useRunProjectionStore } from "@/run-projection";
 import { extractMessageText } from "../message-normalize";
 import { isChatEventForActiveSession } from "../session-scope";
 import {
@@ -11,7 +11,7 @@ import {
   toRunEventKindFromChatState,
   type BridgeRuntimeContext,
 } from "./shared";
-import { logBridgeEvent } from "./bridge-debug";
+import type { BridgeEventOutcome } from "./event-outcome";
 
 export type ChatEventPayload = {
   runId?: string;
@@ -24,63 +24,42 @@ export type ChatEventPayload = {
 export function handleChatEvent(
   ctx: BridgeRuntimeContext,
   payload: ChatEventPayload | undefined,
-) {
+): BridgeEventOutcome {
   const state = payload?.state;
   const sk = normalizeSessionKey(payload?.sessionKey);
   const runId = normalizeRunId(payload?.runId);
   const eventKind = toRunEventKindFromChatState(state);
 
-  if (
-    sk &&
-    !shouldAcceptRunEvent({
-      activeRunBySession: ctx.activeRunBySession,
-      sessionKey: sk,
-      runId,
-      eventKind,
-    })
-  ) {
-    logBridgeEvent("warn", "drop stale chat event", {
-      state,
-      sessionKey: sk,
-      runId,
-      activeRunId: ctx.activeRunBySession.get(sk),
-    }, {
-      channel: "chat",
-      sessionKey: sk,
-      runId,
-      state,
-    });
-    return;
+  const isActiveSession = isChatEventForActiveSession(payload?.sessionKey);
+  const shouldAccept = shouldAcceptRunEvent({
+    activeRunBySession: ctx.activeRunBySession,
+    sessionKey: sk,
+    runId,
+    eventKind,
+  });
+
+  if (sk && !shouldAccept) {
+    return { kind: "ignored", reason: "stale", summary: `chat.${state ?? "unknown"}` };
   }
-  if (!isChatEventForActiveSession(payload?.sessionKey)) {
-    logBridgeEvent("debug", "skip chat event for inactive session", {
-      state,
-      sessionKey: payload?.sessionKey,
-      runId,
-    }, { channel: "chat", runId, state });
-    return;
+  if (!isActiveSession) {
+    return {
+      kind: "ignored",
+      reason: "inactive_session",
+      summary: `chat.${state ?? "unknown"}`,
+    };
   }
 
   if (state === "delta") {
-    if (sk) {
-      useChatStore.getState().markSessionGenerating(sk, runId);
-    }
     const text = extractMessageText(payload?.message);
     if (text) {
-      useChatStore.getState().setStream(text);
-      logBridgeEvent(
-        "debug",
-        "chat delta applied",
-        { sessionKey: sk, runId },
-        { channel: "chat", sessionKey: sk, runId, state },
-      );
+      useRunProjectionStore.getState().dispatch(chatDeltaToAction(text));
     }
-    return;
+    return { kind: "applied", summary: "chat.delta" };
   }
 
   if (state === "final") {
     if (!sk) {
-      return;
+      return { kind: "ignored", reason: "missing_session_key", summary: "chat.final" };
     }
     finalizeChatRun({
       sessionKey: sk,
@@ -89,16 +68,16 @@ export function handleChatEvent(
       messageText: extractMessageText(payload?.message),
       ctx,
     });
-    logBridgeEvent("debug", "chat final finalized run", {
-      sessionKey: sk,
-      runId,
-    }, { channel: "chat", sessionKey: sk, runId, state });
-    return;
+    return { kind: "finalized", summary: "chat.final" };
   }
 
   if (state === "aborted" || state === "error") {
     if (!sk) {
-      return;
+      return {
+        kind: "ignored",
+        reason: "missing_session_key",
+        summary: `chat.${state}`,
+      };
     }
     finalizeChatRun({
       sessionKey: sk,
@@ -107,11 +86,8 @@ export function handleChatEvent(
       errorMessage: payload?.errorMessage,
       ctx,
     });
-    logBridgeEvent(
-      state === "error" ? "warn" : "debug",
-      `chat ${state} finalized run`,
-      { sessionKey: sk, runId, errorMessage: payload?.errorMessage },
-      { channel: "chat", sessionKey: sk, runId, state },
-    );
+    return { kind: "finalized", summary: `chat.${state}` };
   }
+
+  return { kind: "ignored", reason: "unhandled_state", summary: `chat.${state ?? "unknown"}` };
 }

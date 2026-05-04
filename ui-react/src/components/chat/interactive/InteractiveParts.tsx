@@ -7,7 +7,7 @@ import {
   type InteractiveSummaryPair,
 } from "@/store/chat.store";
 import { useChatSend } from "../ChatSendContext";
-import { mergeAssistantRunMessages } from "@/providers/chat/stream-assembly";
+import { mergeAssistantRunMessages, useRunProjectionStore } from "@/run-projection";
 import { formatQaDisplayText, parseQaPairsFromMessage } from "./qa-format";
 import {
   extractAskFallbackQuestions,
@@ -185,9 +185,9 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
   const { sendMessage } = useChatSend();
 
   const messages = useChatStore((s) => s.messages);
-  const interactiveStreamById = useChatStore((s) => s.interactiveStreamById);
-  const interactiveStreamOrder = useChatStore((s) => s.interactiveStreamOrder);
-  const interactiveSummaryById = useChatStore((s) => s.interactiveSummaryById);
+  const interactiveStreamById = useRunProjectionStore((s) => s.interactiveStreamById);
+  const interactiveStreamOrder = useRunProjectionStore((s) => s.interactiveStreamOrder);
+  const interactiveSummaryById = useRunProjectionStore((s) => s.interactiveSummaryById);
 
   const { interactiveBlocks, nextUserMessage, askParseFailed, askParseErrorReasons, askFallbackQuestions } =
     useMemo(() => {
@@ -285,7 +285,11 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
           payload: block.payload,
           sendMessage,
           setInteractiveSummary: (pairs) =>
-            useChatStore.getState().setInteractiveSummary(interactiveId, pairs),
+            useRunProjectionStore.getState().dispatch({
+              type: "SET_INTERACTIVE_SUMMARY",
+              interactiveId,
+              pairs,
+            }),
         });
       })}
     </div>

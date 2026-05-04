@@ -4,6 +4,7 @@ import { type FC, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
+import { useRunStatusStore } from "@/run-status/store";
 import { AssistantMessage } from "./AssistantMessage";
 import { Composer } from "./Composer";
 import { UserMessage } from "./UserMessage";
@@ -135,7 +136,11 @@ const ErrorBanner: FC<ErrorBannerProps> = ({ message }) => {
       if (res?.activeRunId) {
         // Backend is still running — restore the in-progress state and clear the error.
         useChatStore.getState().setLastError(null);
-        useChatStore.getState().markSessionGenerating(sk, res.activeRunId);
+        useRunStatusStore.getState().dispatch({
+          type: "RUN_PROGRESS_SEEN",
+          sessionKey: sk,
+          runId: res.activeRunId,
+        });
       } else {
         // Confirmed finished — just clear the error banner.
         useChatStore.getState().setLastError(null);
