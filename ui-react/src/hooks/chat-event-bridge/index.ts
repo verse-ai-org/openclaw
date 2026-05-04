@@ -16,3 +16,4 @@ export {
 } from "./tool-blocks";
 export type { RawMessage } from "./types";
 export { useChatEventBridge } from "./useChatEventBridge";
+export { clearBridgeActiveRunForSession } from "./run-bridge-context";

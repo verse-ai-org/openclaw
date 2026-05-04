@@ -37,6 +37,56 @@ describe("stream-assembly", () => {
     expect(merged[2]?.id).toBe("a3");
   });
 
+  it("strips multi-segment committed prefix without synthetic newlines (cumulative gateway text)", () => {
+    const seg1 = "好嘞！川西";
+    const seg2 = "7日游";
+    const cumulative = `${seg1}${seg2}继续写`;
+    const output = buildRuntimeMessages({
+      chatMessages: [{ id: "u1", role: "user", content: "hi", ts: 1 }],
+      isRunning: true,
+      stream: cumulative,
+      committedBlocks: [
+        { type: "text", text: seg1 },
+        { type: "text", text: seg2 },
+      ],
+      toolStreamById: new Map(),
+      toolStreamOrder: [],
+      interactiveStreamById: new Map(),
+      interactiveStreamOrder: [],
+      effectiveRunId: "run-1",
+    });
+
+    const textBlocks = output[1]?.contentBlocks?.filter((b) => b.type === "text");
+    expect(textBlocks?.map((b) => (b as { type: "text"; text: string }).text)).toEqual([
+      seg1,
+      seg2,
+      "继续写",
+    ]);
+  });
+
+  it("does not duplicate text when stream is cumulative after commitCurrentText", () => {
+    const frozen = "好嘞，锁定路线！";
+    const cumulative = `${frozen}路线已锁定！现在进入交通与天气验证环节～`;
+    const output = buildRuntimeMessages({
+      chatMessages: [{ id: "u1", role: "user", content: "hi", ts: 1 }],
+      isRunning: true,
+      stream: cumulative,
+      committedBlocks: [{ type: "text", text: frozen }],
+      toolStreamById: new Map(),
+      toolStreamOrder: [],
+      interactiveStreamById: new Map(),
+      interactiveStreamOrder: [],
+      effectiveRunId: "run-1",
+    });
+
+    const streamMessage = output[1];
+    const textBlocks = streamMessage?.contentBlocks?.filter((b) => b.type === "text");
+    expect(textBlocks?.map((b) => (b as { type: "text"; text: string }).text)).toEqual([
+      frozen,
+      "路线已锁定！现在进入交通与天气验证环节～",
+    ]);
+  });
+
   it("builds __stream__ placeholder while running", () => {
     const output = buildRuntimeMessages({
       chatMessages: [{ id: "u1", role: "user", content: "hi", ts: 1 }],

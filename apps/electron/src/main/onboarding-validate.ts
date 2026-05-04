@@ -93,12 +93,16 @@ type ProbeConfig = {
   invalidStatuses?: number[];
 };
 
-function makeAnthropicProbe(baseUrl: string): ProbeConfig {
+function makeAnthropicProbe(
+  baseUrl: string,
+  options?: { /** Minimal /v1/messages probe; use a model the host actually serves. */ model?: string },
+): ProbeConfig {
   // baseUrl is the full Anthropic-compatible base (e.g. https://api.minimax.io/anthropic).
   // Use POST /v1/messages with a minimal body — many Anthropic-compatible providers
   // do not expose GET /v1/models, but always expose /v1/messages.
   // A real invalid key returns 401/403; an empty/missing model returns 400 (key accepted).
   const normalizedBase = baseUrl.replace(/\/$/, "");
+  const model = options?.model ?? "claude-3-haiku-20240307";
   return {
     url: `${normalizedBase}/v1/messages`,
     method: "POST",
@@ -109,7 +113,7 @@ function makeAnthropicProbe(baseUrl: string): ProbeConfig {
     }),
     body: () =>
       JSON.stringify({
-        model: "claude-3-haiku-20240307",
+        model,
         max_tokens: 1,
         messages: [{ role: "user", content: "hi" }],
       }),
@@ -182,8 +186,9 @@ const PROVIDER_PROBE_MAP: Record<string, ProbeConfig> = {
   openrouter: makeOpenAIProbe(
     PROVIDER_REGISTRY.openrouter?.baseUrl ?? "https://openrouter.ai/api/v1",
   ),
-  deepseek: makeOpenAIProbe(
-    PROVIDER_REGISTRY.deepseek?.baseUrl ?? "https://api.deepseek.com/v1",
+  deepseek: makeAnthropicProbe(
+    PROVIDER_REGISTRY.deepseek?.baseUrl ?? "https://api.deepseek.com/anthropic",
+    { model: "deepseek-v4-flash" },
   ),
   groq: makeOpenAIProbe(
     PROVIDER_REGISTRY.groq?.baseUrl ?? "https://api.groq.com/openai/v1",

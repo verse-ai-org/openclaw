@@ -43,6 +43,27 @@ describe("handleAgentEvent", () => {
     resetChatState();
   });
 
+  it("lifecycle end clears sending when pending exists but stream/tools are empty", () => {
+    const ctx = createCtx();
+    useChatStore.setState({
+      sending: true,
+      pendingGenerationBySession: {
+        "agent:travel:main": { runId: "run-1" },
+      },
+    });
+
+    handleAgentEvent(ctx, {
+      sessionKey: "agent:travel:main",
+      runId: "run-1",
+      stream: "lifecycle",
+      data: { phase: "end" },
+    });
+
+    const st = useChatStore.getState();
+    expect(st.sending).toBe(false);
+    expect(st.pendingGenerationBySession["agent:travel:main"]).toBeUndefined();
+  });
+
   it("finalizes a running turn when lifecycle end arrives without chat.final", () => {
     const ctx = createCtx();
     useChatStore.setState({

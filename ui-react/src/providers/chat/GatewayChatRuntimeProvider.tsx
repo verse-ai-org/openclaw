@@ -18,6 +18,7 @@ import {
 } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
+import { clearBridgeActiveRunForSession } from "@/hooks/chat-event-bridge";
 import { ChatSendContext } from "@/components/chat/ChatSendContext";
 import { convertGatewayChatMessage } from "@/providers/chat/message-convert";
 import { parseGatewaySendPayload } from "@/providers/chat/send-payload";
@@ -93,6 +94,11 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setLastError(null);
       useChatStore.getState().resetStream();
 
+      const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
+      if (typeof activeSession === "string" && activeSession.trim()) {
+        clearBridgeActiveRunForSession(activeSession.trim());
+      }
+
       const userMsg = {
         id: crypto.randomUUID(),
         role: "user" as const,
@@ -107,7 +113,6 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setMessages([...useChatStore.getState().messages, userMsg]);
       useChatStore.getState().setSending(true);
 
-      const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
       if (typeof activeSession === "string" && activeSession.trim()) {
         useChatStore.getState().markSessionGenerating(activeSession.trim());
       }
@@ -203,6 +208,11 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setLastError(null);
       useChatStore.getState().resetStream();
 
+      const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
+      if (typeof activeSession === "string" && activeSession.trim()) {
+        clearBridgeActiveRunForSession(activeSession.trim());
+      }
+
       const userMsg = {
         id: crypto.randomUUID(),
         role: "user" as const,
@@ -212,7 +222,6 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setMessages([...useChatStore.getState().messages, userMsg]);
       useChatStore.getState().setSending(true);
 
-      const activeSession = sessionKey ?? settings.sessionKey ?? undefined;
       if (typeof activeSession === "string" && activeSession.trim()) {
         useChatStore.getState().markSessionGenerating(activeSession.trim());
       }

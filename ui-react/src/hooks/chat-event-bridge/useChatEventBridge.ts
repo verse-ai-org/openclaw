@@ -6,16 +6,16 @@ import {
 import { handleAgentEvent } from "./handlers/agent-event";
 import { handleChatEvent } from "./handlers/chat-event";
 import type { BridgeRuntimeContext } from "./handlers/shared";
+import {
+  attachChatBridgeRunContext,
+  detachChatBridgeRunContext,
+} from "./run-bridge-context";
 
 export function useChatEventBridge() {
   useEffect(() => {
     const ctx: BridgeRuntimeContext = {
       pendingInteractiveHydrationRuns: new Set<string>(),
-      // Buffer for out-of-order tool events: result/error may arrive before start.
-      pendingToolResults: new Map<
-        string,
-        { phase: "result" | "error"; data: Record<string, unknown> }
-      >(),
+      pendingToolResults: new Map<string, { phase: "result" | "error"; data: Record<string, unknown> }>(),
       activeRunBySession: new Map<string, string>(),
       finalizedRunBySession: new Map<string, string>(),
     };
@@ -59,8 +59,10 @@ export function useChatEventBridge() {
       }
     };
 
+    attachChatBridgeRunContext(ctx);
     registerChatDispatch(dispatch);
     return () => {
+      detachChatBridgeRunContext();
       unregisterChatDispatch();
     };
   }, []);

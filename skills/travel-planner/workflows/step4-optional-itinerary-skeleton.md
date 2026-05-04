@@ -19,7 +19,7 @@ node {baseDir}/scripts/plan.mjs --cmd=save_overview --trip-id=<trip_id> --payloa
 ## 输出结构
 - 交通情况
   - 展示交通情况总结，`plan-overview.transport.summary`
-  - 使用table展示交通信息详情，`plan-overview.transport.booking_links`
+  - 使用table展示交通信息详情，`plan-overview.transport.booking_links`，**必须包括**详情链接`plan-overview.transport.booking_links.url`
 - 每一天建议:
   - 主目标（核心景区/区域）
   - 次目标（可选备选点）

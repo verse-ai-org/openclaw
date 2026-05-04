@@ -177,7 +177,8 @@ export function buildMistralModelDefinition(): ModelDefinitionConfig {
   };
 }
 
-export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+/** Anthropic Messages–compatible endpoint (not OpenAI /v1). */
+export const DEEPSEEK_BASE_URL = "https://api.deepseek.com/anthropic";
 export const DEEPSEEK_DEFAULT_MODEL_ID = "deepseek-v4-pro";
 export const DEEPSEEK_FLASH_MODEL_ID = "deepseek-v4-flash";
 export const DEEPSEEK_DEFAULT_MODEL_REF = `deepseek/${DEEPSEEK_DEFAULT_MODEL_ID}`;

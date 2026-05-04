@@ -489,7 +489,7 @@ export function applyDeepseekProviderConfig(
   return applyProviderConfigWithDefaultModels(cfg, {
     agentModels: models,
     providerId: "deepseek",
-    api: "openai-completions",
+    api: "anthropic-messages",
     baseUrl: DEEPSEEK_BASE_URL,
     defaultModels: [defaultModel, flashModel],
     defaultModelId: DEEPSEEK_DEFAULT_MODEL_ID,

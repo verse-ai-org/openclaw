@@ -5,6 +5,20 @@ import {
   type InteractiveContentBlock,
   type ToolStreamEntry,
 } from "@/store/chat.store";
+import { sliceStreamAfterCommittedAssistant } from "./committed-stream-prefix";
+
+/**
+ * Plain assistant text already moved into `committedBlocks` by
+ * `commitCurrentText()` (e.g. before a tool call). Gateway `chat` deltas still
+ * send the full cumulative assistant string, so we strip this prefix from the
+ * live `stream` buffer to avoid rendering the same text twice in `__stream__`.
+ */
+function liveStreamTextAfterCommits(
+  streamContent: string,
+  committedBlocks: ContentBlock[],
+): string {
+  return sliceStreamAfterCommittedAssistant(streamContent, committedBlocks);
+}
 
 type BuildRuntimeMessagesParams = {
   chatMessages: ChatMessage[];
@@ -72,12 +86,16 @@ export function buildRuntimeMessages(params: BuildRuntimeMessagesParams): ChatMe
   const contentBlocks: ContentBlock[] = [...committedBlocks];
   for (const id of interactiveStreamOrder) {
     const entry = interactiveStreamById.get(id);
-    if (!entry) continue;
+    if (!entry) {
+      continue;
+    }
     contentBlocks.push(entry);
   }
   for (const id of toolStreamOrder) {
     const entry = toolStreamById.get(id);
-    if (!entry) continue;
+    if (!entry) {
+      continue;
+    }
     contentBlocks.push({
       type: "tool-call",
       toolCallId: entry.id,
@@ -89,8 +107,9 @@ export function buildRuntimeMessages(params: BuildRuntimeMessagesParams): ChatMe
   }
 
   const streamContent = stream ?? "";
-  if (streamContent.trim()) {
-    contentBlocks.push({ type: "text", text: streamContent });
+  const streamTail = liveStreamTextAfterCommits(streamContent, committedBlocks);
+  if (streamTail.trim()) {
+    contentBlocks.push({ type: "text", text: streamTail });
   }
   if (contentBlocks.length === 0 && isRunning) {
     contentBlocks.push({ type: "text", text: "" });

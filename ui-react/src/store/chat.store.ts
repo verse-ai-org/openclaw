@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { sliceStreamAfterCommittedAssistant } from "@/providers/chat/committed-stream-prefix";
 import type { SerializableQuestionFlow } from "@/components/tool-ui/question-flow";
 import type { SerializableOptionList } from "@/components/tool-ui/option-list";
 import type { SerializableApprovalCard } from "@/components/tool-ui/approval-card/schema";
@@ -280,12 +281,20 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   commitCurrentText: () => {
     const { stream, committedBlocks } = get();
-    if (stream && stream.trim().length > 0) {
-      set({
-        committedBlocks: [...committedBlocks, { type: "text", text: stream }],
-        stream: "",
-      });
+    if (!stream || !stream.trim()) {
+      return;
     }
+    // Gateway sends cumulative assistant text; only append the suffix not already
+    // represented in committed blocks (see stream-assembly prefix strip).
+    const suffix = sliceStreamAfterCommittedAssistant(stream, committedBlocks);
+    if (!suffix.trim()) {
+      set({ stream: "" });
+      return;
+    }
+    set({
+      committedBlocks: [...committedBlocks, { type: "text", text: suffix }],
+      stream: "",
+    });
   },
 
   finalizeStream: () => {

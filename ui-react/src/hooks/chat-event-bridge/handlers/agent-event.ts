@@ -99,6 +99,9 @@ function handleLifecycleStream(
       }, { channel: "agent.lifecycle", sessionKey, runId, phase });
     } else {
       st.clearSessionGenerating(sessionKey);
+      // No buffered assistant output to merge — still end the Control UI "sending"
+      // state so the composer unlocks (chat.final may be dropped by run-guard).
+      st.setSending(false);
       logBridgeEvent("debug", "lifecycle end cleared generating", {
         sessionKey,
         runId,

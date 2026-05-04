@@ -336,28 +336,29 @@ export const PROVIDER_REGISTRY: Record<string, ProviderApiConfig> = {
     ],
   },
 
-  // ── DeepSeek ──────────────────────────────────────────────────────────────
+  // ── DeepSeek (Anthropic Messages API) ─────────────────────────────────────
+  // https://api-docs.deepseek.com/zh-cn/ — base_url (Anthropic): …/anthropic
   deepseek: {
-    baseUrl: "https://api.deepseek.com/v1",
-    api: "openai-completions",
+    baseUrl: "https://api.deepseek.com/anthropic",
+    api: "anthropic-messages",
     models: [
       {
-        id: "deepseek-chat",
-        name: "DeepSeek V3",
-        reasoning: false,
-        input: ["text"],
-        cost: FREE_COST,
-        contextWindow: 65536,
-        maxTokens: 8192,
-      },
-      {
-        id: "deepseek-reasoner",
-        name: "DeepSeek R1",
+        id: "deepseek-v4-pro",
+        name: "DeepSeek V4 Pro",
         reasoning: true,
         input: ["text"],
         cost: FREE_COST,
-        contextWindow: 65536,
-        maxTokens: 8192,
+        contextWindow: 1_000_000,
+        maxTokens: 384_000,
+      },
+      {
+        id: "deepseek-v4-flash",
+        name: "DeepSeek V4 Flash",
+        reasoning: true,
+        input: ["text"],
+        cost: FREE_COST,
+        contextWindow: 1_000_000,
+        maxTokens: 384_000,
       },
     ],
   },
