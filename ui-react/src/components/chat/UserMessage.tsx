@@ -6,7 +6,8 @@ import {
 import { PencilIcon, FileText, Image } from "lucide-react";
 import { type FC } from "react";
 import { cn } from "@/lib/utils";
-import { useChatStore, type MessageAttachment } from "@/store/chat.store";
+import type { MessageAttachment } from "@/components/chat/types";
+import { useChatStore } from "@/store/chat.store";
 
 // ---------------------------------------------------------------------------
 // UserMessage — read-only user bubble + edit affordance.

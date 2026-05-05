@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useRunProjectionStore } from "@/run-projection/store";
-import { useRunStatusStore } from "@/run-status/store";
 import { useChatStore } from "@/store/chat.store";
 import {
   loadHistoryFromGateway,
@@ -22,7 +21,6 @@ vi.mock("./history-normalize", () => ({
 
 function resetChatState() {
   useRunProjectionStore.getState().reset();
-  useRunStatusStore.getState().reset();
   useChatStore.setState({
     messages: [],
     messagesLoading: false,
@@ -33,6 +31,7 @@ function resetChatState() {
     pendingSessionsReloadSeq: 0,
     lastError: null,
     pendingDraftMessage: null,
+    pendingGenerationBySession: {},
   });
 }
 
@@ -143,15 +142,13 @@ describe("session-manager/loaders", () => {
       sessionKey: "agent:travel:main",
     });
 
-    expect(useRunStatusStore.getState().activeRunsBySession["agent:travel:main"]?.runId).toBe("run-1");
+    expect(useChatStore.getState().pendingGenerationBySession["agent:travel:main"]).toEqual({
+      runId: "run-1",
+    });
   });
 
   it("syncSessionRunStatusFromGateway clears stale run marker when no active run", async () => {
-    useRunStatusStore.getState().dispatch({
-      type: "RUN_PROGRESS_SEEN",
-      sessionKey: "agent:travel:main",
-      runId: "run-stale",
-    });
+    useChatStore.getState().markSessionGenerating("agent:travel:main", "run-stale");
     const client = {
       connected: true,
       request: vi.fn(async () => ({ activeRunId: null, startedAtMs: null })),
@@ -162,6 +159,6 @@ describe("session-manager/loaders", () => {
       sessionKey: "agent:travel:main",
     });
 
-    expect(useRunStatusStore.getState().activeRunsBySession["agent:travel:main"]).toBeUndefined();
+    expect(useChatStore.getState().pendingGenerationBySession["agent:travel:main"]).toBeUndefined();
   });
 });

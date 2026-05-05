@@ -1,4 +1,4 @@
-import type { ChatMessageMetadata } from "@/store/chat.store";
+import type { ChatMessageMetadata } from "@/components/chat/types";
 
 export function buildInteractionMetadata(args: {
   interactionId: string;

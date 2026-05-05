@@ -14,7 +14,6 @@ import {
 import { InteractiveParts } from "./interactive";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
-import { useRunStatusStore } from "@/run-status/store";
 import { AgentAvatar } from "../assistant-ui/agent-avatar.tsx";
 
 type AssistantContentPart =
@@ -35,8 +34,8 @@ export const AssistantMessage: FC = () => {
   const sessionKey = useChatStore((s) => s.sessionKey);
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
   const activeSessionKey = (sessionKey ?? settingsSessionKey ?? "main") || "main";
-  const isSessionRunning = useRunStatusStore(
-    (s) => activeSessionKey in s.activeRunsBySession,
+  const isSessionRunning = useChatStore(
+    (s) => activeSessionKey in s.pendingGenerationBySession,
   );
 
   const isFirstInTurn = useMemo(() => {
@@ -53,11 +52,6 @@ export const AssistantMessage: FC = () => {
     return !prev || prev.role === "user";
   }, [messages, messageId]);
 
-  // During generation, runtime always injects a synthetic "__stream__" assistant row.
-  // Only that live row should show the loading indicator; otherwise the previous
-  // finalized assistant message in history also appears as loading.
-  const showLoading = isSessionRunning && messageId === "__stream__";
-  // const shouldShowAvatar = isFirstInTurn || (messageId === "__stream__" && isSessionRunning);
 
   const content = ((message as unknown as { content?: AssistantContentPart[] }).content ?? []) as
     | AssistantContentPart[]
@@ -92,7 +86,7 @@ export const AssistantMessage: FC = () => {
       {/* Avatar row — loading state is handled inside AgentAvatar (spinning ring) */}
       <div className="flex gap-3 items-self-start">
         <div className="shrink-0">
-          {isFirstInTurn ? <AgentAvatar showLoading={showLoading} /> : <div className="w-8"/>}
+          {isFirstInTurn ? <AgentAvatar showLoading={isSessionRunning} /> : <div className="w-8"/>}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { sliceStreamAfterCommittedAssistant } from "@/providers/chat/committed-stream-prefix";
+import { sliceStreamAfterCommittedAssistant } from "@/components/chat/utils/committed-stream-prefix";
 import type { RunProjectionAction, RunProjectionState } from "./types";
 
 export function emptyRunProjectionState(): RunProjectionState {

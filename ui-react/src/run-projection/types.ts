@@ -3,7 +3,7 @@ import type {
   InteractiveContentBlock,
   InteractiveSummaryPair,
   ToolStreamEntry,
-} from "@/store/chat.store";
+} from "@/components/chat/types";
 
 /** Client-only live run assembly (Gateway `chat` delta + `agent` tool/lifecycle). */
 export type RunProjectionState = {

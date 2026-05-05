@@ -17,7 +17,7 @@ import {
   ALLOWED_MIME_TYPES,
   MAX_ATTACHMENT_COUNT,
   MAX_FILE_SIZE_BYTES_REFERENCE_MODE,
-} from "@/providers/chat/adapters/gateway-attachment-adapter";
+} from "./gateway/providers/adapters/gateway-attachment-adapter";
 import { useChatStore } from "@/store/chat.store";
 
 // ---------------------------------------------------------------------------

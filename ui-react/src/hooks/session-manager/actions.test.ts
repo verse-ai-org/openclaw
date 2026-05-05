@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useRunProjectionStore } from "@/run-projection/store";
-import { useRunStatusStore } from "@/run-status/store";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
 import {
@@ -12,7 +11,6 @@ import type { SessionEntry } from "./types";
 
 function resetChatState() {
   useRunProjectionStore.getState().reset();
-  useRunStatusStore.getState().reset();
   useChatStore.setState({
     messages: [],
     messagesLoading: false,
@@ -23,6 +21,7 @@ function resetChatState() {
     pendingSessionsReloadSeq: 0,
     lastError: null,
     pendingDraftMessage: null,
+    pendingGenerationBySession: {},
   });
 }
 

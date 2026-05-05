@@ -1,7 +1,7 @@
 import type {
   InteractiveContentBlock,
   ToolStreamEntry,
-} from "@/store/chat.store";
+} from "@/components/chat/types";
 import type { RunProjectionAction } from "./types";
 
 /** Map Gateway `chat` delta text into a projection action. */

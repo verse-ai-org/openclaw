@@ -1,4 +1,4 @@
-import type { InteractiveSummaryPair } from "@/store/chat.store";
+import type { InteractiveSummaryPair } from "@/components/chat/types";
 
 const QA_BLOCK_RE = /Q:\s*(.+?)\nA:\s*([\s\S]*?)(?=\n\nQ:\s*|$)/g;
 

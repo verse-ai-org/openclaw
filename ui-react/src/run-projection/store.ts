@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { emptyRunProjectionState, runProjectionReducer } from "./reducer";
 import type { RunProjectionAction, RunProjectionState } from "./types";
-import { logChatDebug } from "@/lib/chat-debug";
 
 type RunProjectionStore = RunProjectionState & {
   dispatch: (action: RunProjectionAction) => void;
@@ -24,12 +23,14 @@ export const useRunProjectionStore = create<RunProjectionStore>((set) => ({
   ...emptyRunProjectionState(),
   dispatch: (action) =>
     set((s) => {
-      logChatDebug(
-        "debug",
-        `projection action: ${action.type}`,
-        action,
-        { channel: "projection" },
-      );
+      if (import.meta.env.DEV) {
+        console.log(
+          "debug",
+          `projection action: ${action.type}`,
+          action,
+          { channel: "projection" },
+        );
+      }
       return {
         ...runProjectionReducer(sliceProjection(s), action),
         dispatch: s.dispatch,

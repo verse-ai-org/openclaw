@@ -15,7 +15,6 @@ export {
   buildFinalAssistantMessageFromProjection,
   finalizeProjectionToAssistantMessage,
   hasBufferedAssistantProjection,
-  mergeAssistantRunMessages,
   selectThreadMessages,
   type SelectThreadMessagesParams,
 } from "./selectors";

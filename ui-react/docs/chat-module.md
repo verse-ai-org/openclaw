@@ -30,7 +30,7 @@ ChatPage
 | `chat.store: messages` | Committed `ChatMessage[]` (user + assistant rows). |
 | `chat.store: sending` | Composer / runtime “running” (enables cancel UX). |
 | `chat.store: runId` | Current run id when provided by gateway (metadata for live row). |
-| `run-status: activeRunsBySession` | Cross-tab/session: sessions with an in-flight generation (for running badges, restoring status). |
+| `chat.store: pendingGenerationBySession` | Cross-tab/session: generation still running when UI is not on that session. |
 | `run-projection: liveCumulativeText` | Live assistant plain text buffer (from `chat` state=`delta`, cumulative). |
 | `run-projection: committedBlocks` | Text segments **frozen** before tool/interactive cards (commit current text). |
 | `run-projection: toolStreamById` / `toolStreamOrder` | In-flight tool entries keyed by id, ordered for display. |
@@ -43,7 +43,7 @@ Assistant messages use **`contentBlocks`** (ordered `text` + `tool-call`) when p
 1. `GatewayChatRuntimeProvider` **`sendMessage`** (from Composer `onNew` or `ChatSendContext` for HITL):
    - `setLastError(null)`, **reset run-projection** (clears last turn buffers).
    - Optimistic **`user` `ChatMessage`** appended to `messages`.
-   - `setSending(true)`, and mark the session as in-flight in `run-status` (optimistic).
+   - `setSending(true)`, **`markSessionGenerating(sessionKey)`**.
    - **`client.request("chat.send", { message, sessionKey, idempotencyKey, attachments? })`**.
 
 Ending `sending` is **not** done in `sendMessage`; it happens when the gateway signals completion (see below).

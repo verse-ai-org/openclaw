@@ -1,45 +1,7 @@
 import { create } from "zustand";
 import { useRunProjectionStore } from "@/run-projection/store";
-import { useRunStatusStore } from "@/run-status/store";
-import type { SerializableQuestionFlow } from "@/components/tool-ui/question-flow";
-import type { SerializableOptionList } from "@/components/tool-ui/option-list";
-import type { SerializableApprovalCard } from "@/components/tool-ui/approval-card/schema";
 
-// ---------------------------------------------------------------------------
-// History reload via Zustand state — set a pending key to trigger reload.
-// session-manager watches pendingHistoryReloadKey and calls loadHistory.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Chat message types
-// ---------------------------------------------------------------------------
-export type ChatMessageRole = "user" | "assistant";
-
-/** A tool call extracted from a message content block (assistant role). */
-export interface ToolCallPart {
-  toolCallId: string;
-  toolName: string;
-  /** Parsed or raw args object */
-  argsText?: string;
-  /** Result text, set when the corresponding toolResult block exists */
-  result?: string;
-  /** Error text, set when the tool failed */
-  error?: string;
-  /** Phase: call = invoked, result = completed, error = failed */
-  phase: "call" | "result" | "error";
-}
-
-export type ToolStreamPhase = "start" | "running" | "result" | "error";
-export type InteractiveKind = "question_flow" | "option_list" | "approval_card";
-
-export interface ToolStreamEntry {
-  id: string;
-  toolName?: string;
-  phase: ToolStreamPhase;
-  input?: unknown;
-  output?: unknown;
-  error?: string;
-}
+import type { ChatMessage, ToolStreamEntry } from "@/components/chat/types";
 
 /** Text shown on tool-call cards (streaming finalize + live row). */
 export function toolStreamEntryToResultText(
@@ -65,84 +27,10 @@ export function toolStreamEntryToResultText(
   return undefined;
 }
 
-/**
- * A typed content block within an assistant message.
- * Preserves the original ordering of text and tool-call segments so that the
- * UI can render them interleaved (text → tool → text → tool …) rather than
- * all text first then all tools.
- */
-export type ContentBlock =
-  | { type: "text"; text: string }
-  | {
-      type: "tool-call";
-      toolCallId: string;
-      toolName: string;
-      argsText?: string;
-      result?: string;
-      phase: "call" | "result" | "error";
-    }
-  | {
-      type: "interactive";
-      interactiveId: string;
-      kind: InteractiveKind;
-      payload: SerializableQuestionFlow | SerializableOptionList | SerializableApprovalCard;
-    };
-
-export type InteractiveContentBlock = Extract<
-  ContentBlock,
-  { type: "interactive" }
->;
-
-export interface InteractiveSummaryPair {
-  question: string;
-  answer: string;
-}
-
-/** A sent file attachment stored with the message for display. */
-export interface MessageAttachment {
-  /** Original file name */
-  fileName: string;
-  /** MIME type */
-  mimeType: string;
-  /** File size in bytes */
-  size: number;
-}
-
-export interface InteractionMessageMetadata {
-  id: string;
-  component: string;
-  schemaVersion: number;
-  status: "submitted";
-  payload: unknown;
-  submittedAt: number;
-}
-
-export interface ChatMessageMetadata {
-  interaction?: InteractionMessageMetadata;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: ChatMessageRole;
-  content: string;
-  ts: number;
-  runId?: string;
-  sessionKey?: string;
-  /** File attachments sent with this user message (for display only) */
-  attachments?: MessageAttachment[];
-  /** Optional structured metadata attached to this message. */
-  metadata?: ChatMessageMetadata;
-  /** Tool calls embedded in this message (assistant messages with tool use) */
-  toolCalls?: ToolCallPart[];
-  /**
-   * Ordered content blocks (text + tool-call) preserving the original
-   * interleaved structure from the Gateway. When present, used by
-   * GatewayChatRuntimeProvider instead of the flat content+toolCalls pair.
-   */
-  contentBlocks?: ContentBlock[];
-}
-
 interface ChatState {
+  // Active session key
+  sessionKey: string | null;
+
   // History (loaded from gateway)
   messages: ChatMessage[];
   messagesLoading: boolean;
@@ -152,9 +40,6 @@ interface ChatState {
 
   // Input state
   sending: boolean;
-
-  // Active session key
-  sessionKey: string | null;
 
   // Pending history reload: set to a session key to request a silent reload.
   // session-manager watches this and calls loadHistory when non-null.
@@ -173,6 +58,13 @@ interface ChatState {
    */
   pendingDraftMessage: string | null;
 
+  /**
+   * Sessions with an in-flight gateway generation (user switched away, or multi-tab).
+   * Updated from `chat` / `agent` events even when that session is not the active UI tab.
+   * Cleared on terminal `chat` (final/error/aborted) for that sessionKey.
+   */
+  pendingGenerationBySession: Record<string, { runId?: string | null }>;
+
   // Actions
   setSending: (v: boolean) => void;
   setMessages: (msgs: ChatMessage[]) => void;
@@ -187,6 +79,8 @@ interface ChatState {
   triggerSessionsReload: () => void;
   setLastError: (msg: string | null) => void;
   truncateMessagesAfter: (parentId: string | null) => void;
+  markSessionGenerating: (sessionKey: string, runId?: string | null) => void;
+  clearSessionGenerating: (sessionKey: string) => void;
 }
 
 export const useChatStore = create<ChatState>()((set) => ({
@@ -199,6 +93,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   pendingSessionsReloadSeq: 0,
   lastError: null,
   pendingDraftMessage: null,
+  pendingGenerationBySession: {},
 
   setSending: (v) => set({ sending: v }),
 
@@ -206,7 +101,6 @@ export const useChatStore = create<ChatState>()((set) => ({
   setMessagesLoading: (v) => set({ messagesLoading: v }),
   clearMessages: () => {
     useRunProjectionStore.getState().reset();
-    useRunStatusStore.getState().reset();
     set({
       messages: [],
       runId: null,
@@ -232,7 +126,6 @@ export const useChatStore = create<ChatState>()((set) => ({
 
   truncateMessagesAfter: (parentId) => {
     useRunProjectionStore.getState().reset();
-    useRunStatusStore.getState().reset();
     set((state) => {
       if (parentId === null) {
         return {
@@ -248,6 +141,38 @@ export const useChatStore = create<ChatState>()((set) => ({
         messages: state.messages.slice(0, idx + 1),
         runId: null,
       };
+    });
+  },
+
+  markSessionGenerating: (sessionKey, runId) => {
+    const k = sessionKey.trim();
+    if (!k) {
+      return;
+    }
+    set((state) => {
+      const prev = state.pendingGenerationBySession[k];
+      const nextRunId =
+        typeof runId === "string" && runId.trim() ? runId.trim() : prev?.runId;
+      return {
+        pendingGenerationBySession: {
+          ...state.pendingGenerationBySession,
+          [k]: { runId: nextRunId },
+        },
+      };
+    });
+  },
+
+  clearSessionGenerating: (sessionKey) => {
+    const k = sessionKey.trim();
+    if (!k) {
+      return;
+    }
+    set((state) => {
+      if (!(k in state.pendingGenerationBySession)) {
+        return {};
+      }
+      const { [k]: _removed, ...rest } = state.pendingGenerationBySession;
+      return { pendingGenerationBySession: rest };
     });
   },
 }));

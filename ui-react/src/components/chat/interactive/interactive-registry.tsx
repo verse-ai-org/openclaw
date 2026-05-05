@@ -16,7 +16,7 @@ import type {
   ChatMessageMetadata,
   InteractiveKind,
   InteractiveSummaryPair,
-} from "@/store/chat.store";
+} from "@/components/chat/types";
 import { formatQaDisplayText, parseQaPairsFromMessage } from "./qa-format";
 import { buildInteractionMetadata } from "./interactive-shared";
 

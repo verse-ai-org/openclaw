@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage, InteractiveContentBlock } from "@/store/chat.store";
+import type { ChatMessage, InteractiveContentBlock } from "@/components/chat/types";
 import { resolveInteractiveRenderContext } from "./InteractiveParts";
 
 function createInteractiveBlock(interactiveId: string): InteractiveContentBlock {

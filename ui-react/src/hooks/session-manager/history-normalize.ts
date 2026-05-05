@@ -1,15 +1,14 @@
-import { type ChatMessage, type MessageAttachment } from "@/store/chat.store";
+import type { ChatMessage, MessageAttachment } from "@/components/chat/types";
 import {
-  consolidateToolMessages,
   extractContentBlocks,
-  extractToolCallParts,
   mergeToolResults,
   normalizeContent,
   normalizeHistoryAttachmentHints,
   normalizeRole,
   stripAttachmentContent,
   type RawMessage,
-} from "@/hooks/chat-event-bridge";
+} from "@/components/chat/gateway";
+import { mergeAssistantRunSegments } from "@/components/chat/utils/merge-assistant-run-segments";
 
 type HistoryNormalizeHooks = {
   onRawMessages?: (messages: RawMessage[]) => void;
@@ -52,13 +51,12 @@ export function normalizeHistoryMessages(
         m.metadata && typeof m.metadata === "object"
           ? (m.metadata as ChatMessage["metadata"])
           : undefined,
-      toolCalls: extractToolCallParts(m.content),
       contentBlocks: extractContentBlocks(m.content),
     };
   });
   hooks?.onNormalizedMessages?.(normalized);
 
-  const consolidated = consolidateToolMessages(normalized);
-  hooks?.onConsolidatedMessages?.(consolidated);
-  return consolidated;
+  const mergedSegments = mergeAssistantRunSegments(normalized);
+  hooks?.onConsolidatedMessages?.(mergedSegments);
+  return mergedSegments;
 }

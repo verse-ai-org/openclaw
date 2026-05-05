@@ -1,11 +1,13 @@
-import { sliceStreamAfterCommittedAssistant } from "@/providers/chat/committed-stream-prefix";
-import {
-  toolStreamEntryToResultText,
-  type ChatMessage,
-  type ContentBlock,
-  type InteractiveContentBlock,
-  type ToolStreamEntry,
-} from "@/store/chat.store";
+import { sliceStreamAfterCommittedAssistant } from "@/components/chat/utils/committed-stream-prefix";
+import { mergeAssistantRunSegments } from "@/components/chat/utils/merge-assistant-run-segments";
+import { toolStreamEntryToResultText } from "@/store/chat.store";
+import type {
+  ChatMessage,
+  ContentBlock,
+  InteractiveContentBlock,
+  ToolStreamEntry,
+  ToolStreamPhase,
+} from "@/components/chat/types";
 import type { RunProjectionState } from "./types";
 
 function liveStreamTextAfterCommits(
@@ -13,40 +15,6 @@ function liveStreamTextAfterCommits(
   committedBlocks: ContentBlock[],
 ): string {
   return sliceStreamAfterCommittedAssistant(streamContent, committedBlocks);
-}
-
-export function mergeAssistantRunMessages(messages: ChatMessage[]): ChatMessage[] {
-  const merged: ChatMessage[] = [];
-  for (const message of messages) {
-    if (message.role !== "assistant" || !message.runId) {
-      merged.push(message);
-      continue;
-    }
-    const last = merged.at(-1);
-    const canMergeWithLast =
-      !!last &&
-      last.role === "assistant" &&
-      !!last.runId &&
-      last.runId === message.runId;
-    if (!canMergeWithLast) {
-      merged.push(message);
-      continue;
-    }
-    const mergedContentBlocks = [
-      ...(last.contentBlocks ?? []),
-      ...(message.contentBlocks ?? []),
-    ];
-    const mergedToolCalls = [...(last.toolCalls ?? []), ...(message.toolCalls ?? [])];
-    const mergedText = [last.content, message.content].filter(Boolean).join("\n").trim();
-    merged[merged.length - 1] = {
-      ...last,
-      content: mergedText,
-      ts: Math.max(last.ts, message.ts),
-      contentBlocks: mergedContentBlocks.length > 0 ? mergedContentBlocks : undefined,
-      toolCalls: mergedToolCalls.length > 0 ? mergedToolCalls : undefined,
-    };
-  }
-  return merged;
 }
 
 export type SelectThreadMessagesParams = {
@@ -65,8 +33,7 @@ export type SelectThreadMessagesParams = {
  * Builds assistant-ui runtime messages including synthetic `__stream__` while a
  * run is active — same output shape as the former `buildRuntimeMessages`.
  */
-export function selectThreadMessages(params: SelectThreadMessagesParams): ChatMessage[] {
-  const {
+export function selectThreadMessages({
     chatMessages,
     isRunning,
     liveCumulativeText,
@@ -76,8 +43,8 @@ export function selectThreadMessages(params: SelectThreadMessagesParams): ChatMe
     interactiveStreamById,
     interactiveStreamOrder,
     effectiveRunId,
-  } = params;
-  const mergedMessages = mergeAssistantRunMessages(chatMessages);
+}: SelectThreadMessagesParams): ChatMessage[] {
+  const mergedMessages = mergeAssistantRunSegments(chatMessages);
   if (!isRunning) {
     return mergedMessages;
   }
@@ -101,7 +68,7 @@ export function selectThreadMessages(params: SelectThreadMessagesParams): ChatMe
       toolName: entry.toolName ?? "tool",
       argsText: entry.input != null ? JSON.stringify(entry.input, null, 2) : undefined,
       result: toolStreamEntryToResultText(entry),
-      phase: entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
+      phase: toToolCallBlockPhase(entry.phase),
     });
   }
 
@@ -114,22 +81,6 @@ export function selectThreadMessages(params: SelectThreadMessagesParams): ChatMe
     contentBlocks.push({ type: "text", text: "" });
   }
 
-  const liveToolCalls = toolStreamOrder
-    .map((id) => toolStreamById.get(id))
-    .filter(Boolean)
-    .map((entry) => ({
-      toolCallId: entry!.id,
-      toolName: entry!.toolName ?? "tool",
-      argsText: entry!.input != null ? JSON.stringify(entry!.input, null, 2) : undefined,
-      result: toolStreamEntryToResultText(entry!),
-      error: entry!.error,
-      phase: (entry!.phase === "result"
-        ? "result"
-        : entry!.phase === "error"
-          ? "error"
-          : "call") as "call" | "result" | "error",
-    }));
-
   return [
     ...mergedMessages,
     {
@@ -138,14 +89,13 @@ export function selectThreadMessages(params: SelectThreadMessagesParams): ChatMe
       content: streamContent,
       ts: Date.now(),
       runId: effectiveRunId ?? undefined,
-      toolCalls: liveToolCalls.length > 0 ? liveToolCalls : undefined,
       contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
     },
   ];
 }
 
 function toToolCallBlockPhase(
-  phase: "start" | "running" | "result" | "error",
+  phase: ToolStreamPhase,
 ): "call" | "result" | "error" {
   if (phase === "result") {
     return "result";
@@ -272,12 +222,7 @@ export function finalizeProjectionToAssistantMessage(
       argsText:
         entry.input != null ? JSON.stringify(entry.input, null, 2) : undefined,
       result: toolStreamEntryToResultText(entry),
-      phase:
-        entry.phase === "result"
-          ? "result"
-          : entry.phase === "error"
-            ? "error"
-            : "call",
+      phase: toToolCallBlockPhase(entry.phase),
     });
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage } from "@/store/chat.store";
-import { mergeAssistantRunMessages, selectThreadMessages } from "./selectors";
+import type { ChatMessage } from "@/components/chat/types";
+import { selectThreadMessages } from "./selectors";
+import { mergeAssistantRunSegments } from "@/components/chat/utils/merge-assistant-run-segments";
 
 describe("run-projection selectors", () => {
   it("merges consecutive assistant messages by runId", () => {
@@ -25,7 +26,7 @@ describe("run-projection selectors", () => {
       { id: "a3", role: "assistant", content: "other run", ts: 4, runId: "run-2" },
     ];
 
-    const merged = mergeAssistantRunMessages(messages);
+    const merged = mergeAssistantRunSegments(messages);
 
     expect(merged).toHaveLength(3);
     expect(merged[1]?.id).toBe("a1");
@@ -159,7 +160,7 @@ describe("run-projection selectors", () => {
   });
 
   it("does not merge assistant rows across user boundary even with same runId", () => {
-    const merged = mergeAssistantRunMessages([
+    const merged = mergeAssistantRunSegments([
       {
         id: "a1",
         role: "assistant",

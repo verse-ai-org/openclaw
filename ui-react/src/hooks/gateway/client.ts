@@ -89,20 +89,20 @@ export class GatewayClient {
       console.log(`[gateway:${this.serial}] connect() skipped — already closed`);
       return;
     }
-    console.log(
-      `[gateway:${this.serial}] connect() opening WebSocket to ${this.opts.url}`,
-    );
+
+    console.log(`[gateway:${this.serial}] connect() opening WebSocket to ${this.opts.url}`);
     this.ws = new WebSocket(this.opts.url);
+    // WebSocket open event
     this.ws.addEventListener("open", () => {
       console.log(`[gateway:${this.serial}] ws open`);
       this.queueConnect();
     });
+    // WebSocket message event
     this.ws.addEventListener("message", (ev) => this.handleMessage(String(ev.data ?? "")));
+    // WebSocket close event
     this.ws.addEventListener("close", (ev) => {
       const reason = String(ev.reason ?? "");
-      console.log(
-        `[gateway:${this.serial}] ws close code=${ev.code} reason=${reason || "(none)"} wasClean=${ev.wasClean}`,
-      );
+      console.log(`[gateway:${this.serial}] ws close code=${ev.code} reason=${reason || "(none)"} wasClean=${ev.wasClean}`);
       const connectError = this.pendingConnectError;
       this.pendingConnectError = undefined;
       this.ws = null;
@@ -112,6 +112,7 @@ export class GatewayClient {
         this.scheduleReconnect();
       }
     });
+    // WebSocket error event
     this.ws.addEventListener("error", (ev) => {
       console.log(`[gateway:${this.serial}] ws error`, ev);
     });
@@ -173,7 +174,7 @@ export class GatewayClient {
         const signature = await signDevicePayload(privateKey, payload);
         device = { id: deviceId, publicKey, signature, signedAt: signedAtMs, nonce };
       } catch {
-        // Fallback to token-only auth
+        console.warn("[gateway] failed to load or sign device identity");
       }
     }
 
@@ -215,14 +216,15 @@ export class GatewayClient {
   }
 
   private handleMessage(raw: string) {
-    let parsed: unknown;
+    let parsed;
     try {
       parsed = JSON.parse(raw);
     } catch {
+      console.error(`[gateway:${this.serial}] invalid JSON: ${raw}`);
       return;
     }
 
-    const frame = parsed as { type?: unknown };
+    const frame = parsed;
 
     if (frame.type === "event") {
       const evt = parsed as GatewayEventFrame;

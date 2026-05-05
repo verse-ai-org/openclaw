@@ -1,13 +1,10 @@
 import { type FC, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import {
-  useChatStore,
-  type ChatMessage,
-  type InteractiveContentBlock,
-  type InteractiveSummaryPair,
-} from "@/store/chat.store";
+import { useChatStore } from "@/store/chat.store";
+import type { ChatMessage, InteractiveContentBlock, InteractiveSummaryPair } from "@/components/chat/types";
 import { useChatSend } from "../ChatSendContext";
-import { mergeAssistantRunMessages, useRunProjectionStore } from "@/run-projection";
+import { useRunProjectionStore } from "@/run-projection";
+import { mergeAssistantRunSegments } from "@/components/chat/utils/merge-assistant-run-segments";
 import { formatQaDisplayText, parseQaPairsFromMessage } from "./qa-format";
 import {
   extractAskFallbackQuestions,
@@ -107,7 +104,7 @@ export function resolveInteractiveRenderContext(params: {
 
   // Keep message traversal aligned with runtime rendering, where assistant rows
   // are merged by runId into a single visible turn.
-  const mergedMessages = mergeAssistantRunMessages(messages);
+  const mergedMessages = mergeAssistantRunSegments(messages);
   const idx = mergedMessages.findIndex((m) => m.id === mid);
   if (idx < 0) {
     return {

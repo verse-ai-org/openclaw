@@ -4,7 +4,6 @@ import { type FC, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
-import { useRunStatusStore } from "@/run-status/store";
 import { AssistantMessage } from "./AssistantMessage";
 import { Composer } from "./Composer";
 import { UserMessage } from "./UserMessage";
@@ -20,17 +19,7 @@ export const ThreadView: FC = () => {
   const messages = useChatStore((s) => s.messages);
   const messagesLoading = useChatStore((s) => s.messagesLoading);
   const lastError = useChatStore((s) => s.lastError);
-  // Used as a React key on ThreadPrimitive.Messages so that switching sessions
-  // fully unmounts old message components before mounting new ones.
-  // Without this, useMessage() subscriptions from the old session fire against
-  // an empty runtime during the transition, causing tapClientLookup crashes.
   const sessionKey = useChatStore((s) => s.sessionKey ?? "default");
-
-  // loadHistory clears the store then awaits the network. During that gap the
-  // runtime has 0 messages but ThreadPrimitive.Messages can still reconcile
-  // old children — useMessage() then throws tapClientLookup (index 0, length 0).
-  // Skip mounting the message list until we have rows again, OR we're not in a
-  // cleared-loading state. Silent reloads keep messages[], so the list stays mounted.
   const showMessageList = !messagesLoading || messages.length > 0;
 
   return (
@@ -49,8 +38,7 @@ export const ThreadView: FC = () => {
           </AuiIf>
         )}
 
-        {/* Message list — keyed by sessionKey; omitted while cleared+loading
-            (see showMessageList) to avoid useMessage / tapClientLookup races. */}
+        {/* Message list — keyed by sessionKey; omitted while cleared+loading (see showMessageList) to avoid useMessage / tapClientLookup races. */}
         {showMessageList && (
           <ThreadPrimitive.Messages
             key={sessionKey}
@@ -136,11 +124,7 @@ const ErrorBanner: FC<ErrorBannerProps> = ({ message }) => {
       if (res?.activeRunId) {
         // Backend is still running — restore the in-progress state and clear the error.
         useChatStore.getState().setLastError(null);
-        useRunStatusStore.getState().dispatch({
-          type: "RUN_PROGRESS_SEEN",
-          sessionKey: sk,
-          runId: res.activeRunId,
-        });
+        useChatStore.getState().markSessionGenerating(sk, res.activeRunId);
       } else {
         // Confirmed finished — just clear the error banner.
         useChatStore.getState().setLastError(null);

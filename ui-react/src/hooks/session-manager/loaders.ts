@@ -1,11 +1,9 @@
 import type { MutableRefObject } from "react";
 import { useChatStore } from "@/store/chat.store";
 import type { IGatewayClient } from "@/store/gateway.store";
-import type { RawMessage } from "@/hooks/chat-event-bridge";
-import { logChatDebug } from "@/lib/chat-debug";
+import type { RawMessage } from "@/components/chat/gateway";
 import { normalizeHistoryMessages } from "./history-normalize";
 import type { SessionEntry } from "./types";
-import { useRunStatusStore } from "@/run-status/store";
 
 export async function syncSessionRunStatusFromGateway(params: {
   client: IGatewayClient | null;
@@ -21,13 +19,10 @@ export async function syncSessionRunStatusFromGateway(params: {
       startedAtMs: number | null;
     }>("chat.status", { sessionKey });
     if (result?.activeRunId) {
-      useRunStatusStore.getState().dispatch({
-        type: "RUN_PROGRESS_SEEN",
-        sessionKey,
-        runId: result.activeRunId,
-        nowMs: Date.now(),
-      });
-      logChatDebug("debug", "sync run status: active run restored", {
+      useChatStore
+        .getState()
+        .markSessionGenerating(sessionKey, result.activeRunId);
+      console.log("debug", "sync run status: active run restored", {
         activeRunId: result.activeRunId,
       }, {
         channel: "session.history",
@@ -35,13 +30,16 @@ export async function syncSessionRunStatusFromGateway(params: {
       });
       return;
     }
-    useRunStatusStore.getState().dispatch({ type: "CLEAR_SESSION", sessionKey });
-    logChatDebug("debug", "sync run status: no active run", undefined, {
+    useChatStore.getState().clearSessionGenerating(sessionKey);
+    console.log("debug", "sync run status: no active run", undefined, {
       channel: "session.history",
       sessionKey,
     });
   } catch {
-    // Non-critical: older gateway versions may not support chat.status.
+    console.warn("warn", "sync run status failed", undefined, {
+      channel: "session.history",
+      sessionKey,
+    });
   }
 }
 
@@ -55,10 +53,6 @@ export async function loadSessionsFromGateway(params: {
   if (!client?.connected) {
     return;
   }
-  logChatDebug("debug", "load sessions start", undefined, {
-    channel: "session.list",
-    sessionKey,
-  });
   setLoading(true);
   try {
     const result = await client.request<{ sessions?: SessionEntry[] }>(
@@ -69,15 +63,13 @@ export async function loadSessionsFromGateway(params: {
       },
     );
     setSessions(result?.sessions ?? []);
-    logChatDebug("debug", "load sessions success", {
+    console.log("load sessions success", {
       count: result?.sessions?.length ?? 0,
-    }, {
-      channel: "session.list",
       sessionKey,
     });
   } catch {
     setSessions([{ key: sessionKey }]);
-    logChatDebug("warn", "load sessions failed; using fallback session", undefined, {
+    console.warn("load sessions failed; using fallback session", {
       channel: "session.list",
       sessionKey,
     });
@@ -99,11 +91,9 @@ export async function loadHistoryFromGateway(params: {
 
   const requestSeq = ++historyRequestSeqRef.current;
   const chatState = useChatStore.getState();
-  logChatDebug("debug", "load history start", {
+  console.log("load history start", {
     requestSeq,
     silent,
-  }, {
-    channel: "session.history",
     sessionKey: key,
   });
 
@@ -128,38 +118,39 @@ export async function loadHistoryFromGateway(params: {
     const activeSessionKey = useChatStore.getState().sessionKey;
     const isCurrentSession = !activeSessionKey || activeSessionKey === key;
     if (!isLatest || !isCurrentSession) {
-      logChatDebug(
-        "debug",
-        "skip stale history response",
-        { requestSeq, key, activeSessionKey },
-        { channel: "session.history", sessionKey: key },
+      console.log("skip stale history response",
+        {
+          requestSeq,
+          sessionKey: key,
+          activeSessionKey
+        }
       );
       return;
     }
 
     useChatStore.getState().setMessages(consolidated);
-    logChatDebug("debug", "load history applied", {
+    console.log("load history applied", {
       requestSeq,
       count: consolidated.length,
-    }, {
-      channel: "session.history",
       sessionKey: key,
     });
     const latestMsg = consolidated.at(-1);
     if (latestMsg?.role === "assistant") {
-      const pending = useRunStatusStore.getState().activeRunsBySession[key];
+      const pending = useChatStore.getState().pendingGenerationBySession[key];
       const hasActiveRun = pending?.runId != null;
       if (!hasActiveRun) {
-        useRunStatusStore.getState().dispatch({ type: "CLEAR_SESSION", sessionKey: key });
+        useChatStore.getState().clearSessionGenerating(key);
       }
     }
   } catch (err) {
     if (requestSeq === historyRequestSeqRef.current) {
-      logChatDebug("error", "load history failed", { requestSeq, err }, {
-        channel: "session.history",
-        sessionKey: key,
-      });
-      console.error("[session] load history failed:", err);
+      console.error("load history failed",
+        {
+          requestSeq,
+          sessionKey: key,
+          err
+        }
+      );
     }
   } finally {
     if (requestSeq === historyRequestSeqRef.current) {

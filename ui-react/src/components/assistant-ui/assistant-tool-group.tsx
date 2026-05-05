@@ -3,11 +3,11 @@ import {
   ToolFallback,
   type ToolFallbackPartProps,
   type ToolFallbackJsonObject,
-} from "@/components/chat/tool-fallback";
+} from "@/components/chat/tool";
 import {
   resolveRichToolPresentation,
   type RichToolPresentation,
-} from "@/components/chat/tool-fallback/rich-presentation";
+} from "@/components/chat/tool/rich-presentation";
 import { ToolCallGroup } from "@/components/chat/ToolCallGroup";
 
 export type AssistantToolPart = {
@@ -99,7 +99,7 @@ function detectPromotionMode(candidates: PromotionCandidate[]): PromotionMode {
 }
 
 function sortCandidatesByScore(candidates: PromotionCandidate[]): PromotionCandidate[] {
-  return [...candidates].sort((a, b) => b.score - a.score);
+  return candidates.toSorted((a, b) => b.score - a.score);
 }
 
 export function resolvePromotedToolParts(
@@ -154,9 +154,9 @@ export const PromotedToolResult: FC<{
   return (
     <div className="my-2 space-y-2 overflow-hidden">
       {promotedParts.map((part) => {
-        if (part.result === undefined) return null;
+        if (part.result === undefined) {return null;}
         const presentation = resolveRichToolPresentation(part.toolName, part.result, part.result);
-        if (!presentation) return null;
+        if (!presentation) {return null;}
         return <div key={part.toolCallId}>{presentation.content}</div>;
       })}
     </div>

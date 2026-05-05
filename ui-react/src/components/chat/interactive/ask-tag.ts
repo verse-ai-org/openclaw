@@ -1,5 +1,5 @@
-import { createInteractiveBlock } from "@/hooks/chat-event-bridge/interactive-blocks";
-import type { InteractiveContentBlock, InteractiveKind } from "@/store/chat.store";
+import { createInteractiveBlock } from "./blocks";
+import type { InteractiveContentBlock, InteractiveKind } from "@/components/chat/types";
 
 const ASK_TAG_RE =
   /<ask\s+([^>]*?)>([\s\S]*?)<\/ask>/gi;

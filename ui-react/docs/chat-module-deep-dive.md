@@ -62,28 +62,22 @@ committedBlocks                 ← 工具调用前已冻结的文本段
 ### 1.4 `isRunning` 判断
 
 ```ts
-isRunning = sending || liveCumulativeText !== null || activeRunsBySession[activeSessionKey] != null
+isRunning = sending || liveCumulativeText !== null || pendingForActiveSession != null
 ```
 
-`activeRunsBySession` 支持跨 session 切换场景：用户切走再切回时，若 Gateway 仍在生成，UI 仍显示 running 状态。
+`pendingForActiveSession` 支持跨 session 切换场景：用户切走再切回时，若 Gateway 仍在生成，UI 仍显示 running 状态。
 
 ---
 
 ## 二、useChatEventBridge
 
-注册全局 dispatch，将 Gateway 推送的 WebSocket 事件转换为：
-
-- `chat.store`（历史/发送状态）
-- `run-projection`（当前 turn 的 live text / 工具卡 / HITL 卡）
-- `run-status`（跨 session 的 in-flight run 标记）
-
-> 入口统一在 `dispatch-gateway-chat.ts`，用于集中 WS ingress 日志与 outcome（applied/finalized/ignored）统计。
+注册全局 dispatch，将 Gateway 推送的 WebSocket 事件转换为：\n+\n+- `chat.store`（历史/发送状态/跨 session pending）\n+- `run-projection`（当前 turn 的 live text / 工具卡 / HITL 卡）\n+\n> 入口统一在 `dispatch-gateway-chat.ts`，用于集中 WS ingress 日志与 outcome（applied/finalized/ignored）统计。
 
 ### 2.1 处理的事件矩阵
 
 | 事件 | 状态/条件 | Store 操作 |
 |------|---------|-----------|
-| `chat` | `delta` | `run-projection.CHAT_DELTA(text)`；run-status `RUN_PROGRESS_SEEN` |
+| `chat` | `delta` | `run-projection.CHAT_DELTA(text)`；`markSessionGenerating` |
 | `chat` | `final`（有文本） | `finalizeChatRun` → append assistant row（merge projection blocks + final text）→ reset projection |
 | `chat` | `final`（无文本，有投影缓冲） | `finalizeChatRun` → finalize projection → append assistant row → reset projection |
 | `chat` | `final`（无文本，无缓冲） | reset projection + `setPendingHistoryReloadKey` |
@@ -94,19 +88,11 @@ isRunning = sending || liveCumulativeText !== null || activeRunsBySession[active
 
 ### 2.2 Session 作用域
 
-所有事件先通过 `isChatEventForActiveSession(sessionKey)` 过滤，只处理当前活跃 session 的消息。
-
-跨 session 的运行态由独立的 `run-status`（`activeRunsBySession`）维护：
-
-- WS 入口根据 outcome（applied/finalized/ignored）更新 `run-status`
-- 进入某个 session 时会通过 `chat.status` 做一次 `syncSessionRunStatusFromGateway` 补偿
+所有事件先通过 `isChatEventForActiveSession(sessionKey)` 过滤，只处理当前活跃 session 的消息。跨 session 的生成状态（`markSessionGenerating`/`clearSessionGenerating`）不受此过滤，实现后台静默跟踪。
 
 ### 2.3 调试日志开关（DEV）
 
-桥接层日志集中在 `dispatch-gateway-chat.ts`（WS ingress + outcome）、`run-projection/store.ts`（projection actions）、`run-status/store.ts`（run status actions），通过 localStorage 控制：
-
-- `openclaw.chatBridge.debug=1` 开启 debug
-- `openclaw.chatBridge.group=1` 使用 console.group 折叠输出
+桥接层日志集中在 `dispatch-gateway-chat.ts`（WS ingress + outcome）和 `run-projection/store.ts`（projection actions），通过 localStorage 控制：\n+\n+- `openclaw.chatBridge.debug=1` 开启 debug\n+- `openclaw.chatBridge.group=1` 使用 console.group 折叠输出
 
 ---
 
