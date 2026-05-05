@@ -1,6 +1,6 @@
 import {
   MessagePrimitive,
-  useMessage,
+  useAuiState,
 } from "@assistant-ui/react";
 import { type FC, useMemo } from "react";
 import {
@@ -9,73 +9,36 @@ import {
 import {
   AssistantToolGroup,
   PromotedToolResult,
-  type AssistantToolPart,
 } from "../assistant-ui/assistant-tool-group.tsx";
 import { InteractiveParts } from "./interactive";
 import { useChatStore } from "@/store/chat.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { AgentAvatar } from "../assistant-ui/agent-avatar.tsx";
-
-type AssistantContentPart =
-  | { type: "text"; text: string }
-  | ({ type: "tool-call" } & AssistantToolPart);
+import { splitAssistantContentParts } from "@/components/chat/utils/assistant-content";
+import { isFirstAssistantInTurn } from "@/components/chat/utils/turn-boundaries";
 
 // ---------------------------------------------------------------------------
 // AssistantMessage
 // ---------------------------------------------------------------------------
 export const AssistantMessage: FC = () => {
-  const message = useMessage();
-  // Capture message id during render to avoid stale proxy access inside selectors.
-  const messageId = message.id;
-
-  // Determine if this assistant message is the first in its turn (preceded by a
-  // user message or at the start of the thread). Only show the avatar in this case.
-  const messages = useChatStore((s) => s.messages);
+  const messageId = useAuiState((s) => s.message.id);
+  const rawContent = useAuiState((s) => s.message.content as unknown);
   const sessionKey = useChatStore((s) => s.sessionKey);
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
   const activeSessionKey = (sessionKey ?? settingsSessionKey ?? "main") || "main";
   const isSessionRunning = useChatStore(
     (s) => activeSessionKey in s.pendingGenerationBySession,
   );
-
-  const isFirstInTurn = useMemo(() => {
-    const idx = messages.findIndex((m) => m.id === messageId);
-    if (idx < 0) {
-      // Streaming placeholder (__stream__) not in store yet — treat as first in turn
-      // if the last stored message is a user message.
-      const last = messages.at(-1);
-      return !last || last.role === "user";
-    }
-    // Walk backward: if the previous message is a user message (or there is none),
-    // this is the first assistant message of this turn.
-    const prev = messages[idx - 1];
-    return !prev || prev.role === "user";
-  }, [messages, messageId]);
-
-
-  const content = ((message as unknown as { content?: AssistantContentPart[] }).content ?? []) as
-    | AssistantContentPart[]
-    | undefined;
-  const textParts = useMemo(
-    () =>
-      (content ?? []).filter(
-        (part): part is Extract<AssistantContentPart, { type: "text" }> =>
-          part.type === "text",
-      ),
-    [content],
-  );
-  const toolParts = useMemo(
-    () =>
-      (content ?? []).filter(
-        (part): part is Extract<AssistantContentPart, { type: "tool-call" }> =>
-          part.type === "tool-call",
-      ),
-    [content],
+  const isFirstInTurn = useChatStore((s) =>
+    isFirstAssistantInTurn({
+      historyMessages: s.messages,
+      assistantMessageId: messageId,
+    }),
   );
 
-  const textContent = useMemo(
-    () => textParts.map((part) => part.text).join("\n\n").trim(),
-    [textParts],
+  const { textParts, toolParts, textContent } = useMemo(
+    () => splitAssistantContentParts(rawContent),
+    [rawContent],
   );
 
   return (

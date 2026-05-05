@@ -2,21 +2,13 @@ import { type FC } from "react";
 import {
   ToolFallback,
   type ToolFallbackPartProps,
-  type ToolFallbackJsonObject,
 } from "@/components/chat/tool";
 import {
   resolveRichToolPresentation,
   type RichToolPresentation,
 } from "@/components/chat/tool/rich-presentation";
 import { ToolCallGroup } from "@/components/chat/ToolCallGroup";
-
-export type AssistantToolPart = {
-  toolCallId: string;
-  toolName: string;
-  args: ToolFallbackJsonObject;
-  result?: string;
-  isError?: boolean;
-};
+import type { AssistantToolPart } from "@/components/chat/types";
 
 export type PromotedToolSelectionContext = {
   textContent: string;

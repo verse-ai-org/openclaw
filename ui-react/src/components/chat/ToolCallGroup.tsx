@@ -1,4 +1,4 @@
-import { useMessage } from "@assistant-ui/react";
+import { useAuiState } from "@assistant-ui/react";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -10,6 +10,7 @@ import {
 import { type FC, type PropsWithChildren, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { classifyTool, TOOL_CATEGORY_CONFIG } from "./tool";
+import { sliceToolCallParts } from "@/components/chat/utils/assistant-content";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,29 +18,23 @@ import { classifyTool, TOOL_CATEGORY_CONFIG } from "./tool";
 
 type GroupStatus = "running" | "done" | "failed";
 
-// Raw ToolCallMessagePart fields we need (no `status` field in the core type)
-type RawToolPart = {
-  type: "tool-call";
-  toolName: string;
-  result?: unknown;
-  isError?: boolean;
-};
+import type { AssistantToolPart } from "@/components/chat/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /** Derive an individual tool's completion state from its part fields. */
-function isPartComplete(part: RawToolPart): boolean {
+function isPartComplete(part: AssistantToolPart): boolean {
   return part.result !== undefined;
 }
-function isPartError(part: RawToolPart): boolean {
+function isPartError(part: AssistantToolPart): boolean {
   return part.isError === true;
 }
 
 /** Derive overall group status from the tool parts + message running state. */
 function deriveGroupStatus(
-  parts: RawToolPart[],
+  parts: AssistantToolPart[],
   messageIsRunning: boolean,
 ): { status: GroupStatus; failCount: number } {
   const explicitFailCount = parts.filter((p) => isPartError(p)).length;
@@ -163,26 +158,18 @@ export const ToolCallGroup: FC<ToolCallGroupProps> = ({ startIndex, endIndex, ch
 const ToolCallGroupInner: FC<
   PropsWithChildren<{ startIndex: number; endIndex: number; toolCount: number }>
 > = ({ startIndex, endIndex, toolCount, children }) => {
-  const message = useMessage();
-  const messageIsRunning = (message as { status?: { type: string } }).status?.type === "running";
-
+  const messageIsRunning = useAuiState((s) => s.message.status?.type === "running");
+  const rawContent = useAuiState((s) => s.message.content as unknown) as readonly unknown[] | undefined;
   // Extract raw tool parts from message content for header summary
-  const rawContent = (message as unknown as { content?: readonly unknown[] }).content ?? [];
-  const toolParts = rawContent
-    .slice(startIndex, endIndex + 1)
-    .filter(
-      (p): p is RawToolPart =>
-        typeof p === "object" && p !== null && (p as RawToolPart).type === "tool-call",
-    );
-
+  const toolParts = sliceToolCallParts(rawContent, startIndex, endIndex);
   const toolNames = toolParts.map((p) => p.toolName ?? "");
+
   const { status: groupStatus, failCount } = deriveGroupStatus(
     toolParts,
     messageIsRunning ?? false,
   );
   const { configs: iconConfigs, overflow } = buildIconStrip(toolNames);
 
-  // Default collapsed; auto-collapse when the assistant message finishes streaming (unless user toggled).
   const [isExpanded, setIsExpanded] = useState(false);
   const userToggledRef = useRef(false);
   const prevRunningRef = useRef(messageIsRunning);

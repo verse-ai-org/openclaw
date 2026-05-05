@@ -1,7 +1,7 @@
 import {
   MessagePrimitive,
   ActionBarPrimitive,
-  useMessage,
+  useAuiState,
 } from "@assistant-ui/react";
 import { PencilIcon, FileText, Image } from "lucide-react";
 import { type FC } from "react";
@@ -66,9 +66,9 @@ const EMPTY_ATTACHMENTS: MessageAttachment[] = [];
 // Reads attachments from the Zustand store by matching the current message id,
 // bypassing assistant-ui's attachment system (which has complex type requirements).
 const UserAttachments: FC = () => {
-  const message = useMessage();
+  const messageId = useAuiState((s) => s.message.id);
   const attachments = useChatStore((s) => {
-    const msg = s.messages.find((m) => m.id === message.id);
+    const msg = s.messages.find((m) => m.id === messageId);
     return msg?.attachments ?? EMPTY_ATTACHMENTS;
   });
 
