@@ -80,8 +80,7 @@ export function handleChatEvent(
     }
     // `GatewayChatEventState` intentionally allows unknown strings; compute a
     // narrow literal for terminal handling.
-    const terminalState: "aborted" | "error" =
-      state === "aborted" ? "aborted" : "error";
+    const terminalState: "aborted" | "error" = state === "aborted" ? "aborted" : "error";
     finalizeChatRun({
       sessionKey: sk,
       runId,

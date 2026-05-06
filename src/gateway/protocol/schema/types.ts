@@ -132,6 +132,7 @@ export type DevicePairRemoveParams = SchemaType<"DevicePairRemoveParams">;
 export type DeviceTokenRotateParams = SchemaType<"DeviceTokenRotateParams">;
 export type DeviceTokenRevokeParams = SchemaType<"DeviceTokenRevokeParams">;
 export type ChatAbortParams = SchemaType<"ChatAbortParams">;
+export type ChatToolsSubscribeParams = SchemaType<"ChatToolsSubscribeParams">;
 export type ChatInjectParams = SchemaType<"ChatInjectParams">;
 export type ChatEvent = SchemaType<"ChatEvent">;
 export type UpdateRunParams = SchemaType<"UpdateRunParams">;

@@ -240,7 +240,7 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-4">
+    <div className="mt-3 flex flex-col items-end gap-4">
       {interactiveBlocks.map((block) => {
         const interactiveId = block.interactiveId;
         const storedSummary = interactiveSummaryById[interactiveId];

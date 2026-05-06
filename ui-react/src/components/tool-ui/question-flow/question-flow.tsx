@@ -481,7 +481,7 @@ function StepContent({
   return (
     <div
       className={cn(
-        "@container/question-flow flex w-full min-w-80 flex-col gap-3",
+        "@container/question-flow flex w-full min-w-80 max-w-md flex-col gap-3",
         "text-foreground",
         className,
       )}

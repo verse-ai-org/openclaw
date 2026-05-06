@@ -108,6 +108,7 @@ const BASE_METHODS = [
   "chat.history",
   "chat.abort",
   "chat.status",
+  "chat.tools.subscribe",
   "chat.send",
   // Profile feature
   "profile.parse",

@@ -22,23 +22,33 @@ export async function syncSessionRunStatusFromGateway(params: {
       useChatStore
         .getState()
         .markSessionGenerating(sessionKey, result.activeRunId);
-      console.log("debug", "sync run status: active run restored", {
+
+      try {
+        await client.request("chat.tools.subscribe", {
+          sessionKey,
+          runId: result.activeRunId,
+        });
+      } catch {
+        console.warn("[session-manager] tool subscribe failed", {
+          activeRunId: result.activeRunId,
+          sessionKey,
+        });
+      }
+
+      console.log("[session-manager] sync run status: active run restored", {
         activeRunId: result.activeRunId,
-      }, {
-        channel: "session.history",
-        sessionKey,
+        sessionKey
       });
+
       return;
     }
     useChatStore.getState().clearSessionGenerating(sessionKey);
-    console.log("debug", "sync run status: no active run", undefined, {
-      channel: "session.history",
-      sessionKey,
+    console.log("[session-manager] sync run status: no active run", {
+      sessionKey
     });
   } catch {
-    console.warn("warn", "sync run status failed", undefined, {
-      channel: "session.history",
-      sessionKey,
+    console.warn("[session-manager] sync run status failed", {
+      sessionKey
     });
   }
 }
@@ -63,14 +73,13 @@ export async function loadSessionsFromGateway(params: {
       },
     );
     setSessions(result?.sessions ?? []);
-    console.log("load sessions success", {
+    console.log("[session-manager] load sessions success", {
       count: result?.sessions?.length ?? 0,
       sessionKey,
     });
   } catch {
     setSessions([{ key: sessionKey }]);
-    console.warn("load sessions failed; using fallback session", {
-      channel: "session.list",
+    console.warn("[session-manager] load sessions failed; using fallback session", {
       sessionKey,
     });
   } finally {
@@ -91,7 +100,7 @@ export async function loadHistoryFromGateway(params: {
 
   const requestSeq = ++historyRequestSeqRef.current;
   const chatState = useChatStore.getState();
-  console.log("load history start", {
+  console.log("[session-manager] load history start", {
     requestSeq,
     silent,
     sessionKey: key,
@@ -118,7 +127,7 @@ export async function loadHistoryFromGateway(params: {
     const activeSessionKey = useChatStore.getState().sessionKey;
     const isCurrentSession = !activeSessionKey || activeSessionKey === key;
     if (!isLatest || !isCurrentSession) {
-      console.log("skip stale history response",
+      console.log("[session-manager] skip stale history response",
         {
           requestSeq,
           sessionKey: key,
@@ -129,7 +138,7 @@ export async function loadHistoryFromGateway(params: {
     }
 
     useChatStore.getState().setMessages(consolidated);
-    console.log("load history applied", {
+    console.log("[session-manager] load history applied", {
       requestSeq,
       count: consolidated.length,
       sessionKey: key,
@@ -144,7 +153,7 @@ export async function loadHistoryFromGateway(params: {
     }
   } catch (err) {
     if (requestSeq === historyRequestSeqRef.current) {
-      console.error("load history failed",
+      console.error("[session-manager] load history failed",
         {
           requestSeq,
           sessionKey: key,

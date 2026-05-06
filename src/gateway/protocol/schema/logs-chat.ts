@@ -68,6 +68,14 @@ export const ChatAbortParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ChatToolsSubscribeParamsSchema = Type.Object(
+  {
+    sessionKey: NonEmptyString,
+    runId: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
 export const ChatInjectParamsSchema = Type.Object(
   {
     sessionKey: NonEmptyString,

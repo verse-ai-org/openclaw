@@ -357,8 +357,10 @@ describe("gateway server chat", () => {
         (o) => o.type === "res" && o.id === reqId,
         CHAT_RESPONSE_TIMEOUT_MS,
       );
-      expect(imgRes.ok).toBe(true);
-      expect(imgRes.payload?.runId).toBeDefined();
+      expect(imgRes.ok).toBe(false);
+      expect((imgRes.error as { message?: string } | undefined)?.message ?? "").toMatch(
+        /image uploads are currently disabled/i,
+      );
       const reqIdOnly = "chat-img-only";
       ws.send(
         JSON.stringify({
@@ -386,8 +388,10 @@ describe("gateway server chat", () => {
         (o) => o.type === "res" && o.id === reqIdOnly,
         CHAT_RESPONSE_TIMEOUT_MS,
       );
-      expect(imgOnlyRes.ok).toBe(true);
-      expect(imgOnlyRes.payload?.runId).toBeDefined();
+      expect(imgOnlyRes.ok).toBe(false);
+      expect((imgOnlyRes.error as { message?: string } | undefined)?.message ?? "").toMatch(
+        /image uploads are currently disabled/i,
+      );
 
       const historyDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gw-"));
       tempDirs.push(historyDir);
@@ -830,5 +834,116 @@ describe("gateway server chat", () => {
       await fs.rm(dir, { recursive: true, force: true });
       testState.sessionStorePath = undefined;
     }
+  });
+
+  test("chat.tools.subscribe registers tool recipients for an active run", async () => {
+    await withMainSessionStore(async () => {
+      const releaseBlockedReply = mockBlockedChatReply();
+      const runId = "idem-tools-subscribe-1";
+
+      // Start a chat run and keep it active.
+      const startRes = await rpcReq(ws, "chat.send", {
+        sessionKey: "main",
+        message: "hold chat run open",
+        idempotencyKey: runId,
+      });
+      expect(startRes.ok).toBe(true);
+      expect(startRes.payload?.status).toBe("started");
+
+      // Simulate a refreshed page opening a new WS connection and subscribing.
+      const webchatWs = new WebSocket(`ws://127.0.0.1:${port}`, {
+        headers: { origin: `http://127.0.0.1:${port}` },
+      });
+      trackConnectChallengeNonce(webchatWs);
+      await new Promise<void>((resolve) => webchatWs.once("open", resolve));
+      await connectOk(webchatWs, {
+        client: {
+          id: GATEWAY_CLIENT_NAMES.CONTROL_UI,
+          version: "dev",
+          platform: "test",
+          mode: GATEWAY_CLIENT_MODES.WEBCHAT,
+        },
+        caps: ["tool-events"],
+      });
+
+      try {
+        const subscribed = await rpcReq(webchatWs, "chat.tools.subscribe", {
+          sessionKey: "main",
+          runId,
+        });
+        expect(subscribed.ok).toBe(true);
+        expect(subscribed.payload?.ok).toBe(true);
+
+        // Emit a tool event and ensure the subscribed client receives it.
+        registerAgentRunContext(runId, { sessionKey: "main", verboseLevel: "off" });
+        const evtP = onceMessage(
+          webchatWs,
+          (o) =>
+            o.type === "event" &&
+            o.event === "agent" &&
+            o.payload?.runId === runId &&
+            o.payload?.stream === "tool",
+          8000,
+        );
+        emitAgentEvent({
+          runId,
+          stream: "tool",
+          data: { phase: "start", name: "read", toolCallId: "t1" },
+        });
+        const evt = await evtP;
+        expect(evt.payload?.sessionKey).toBe("main");
+      } finally {
+        webchatWs.close();
+        releaseBlockedReply();
+        // Ensure the active run doesn't leak to other tests.
+        await rpcReq(ws, "chat.abort", { sessionKey: "main", runId });
+      }
+    });
+  });
+
+  test("chat.tools.subscribe rejects inactive or mismatched runs", async () => {
+    await withMainSessionStore(async () => {
+      const webchatWs = new WebSocket(`ws://127.0.0.1:${port}`, {
+        headers: { origin: `http://127.0.0.1:${port}` },
+      });
+      trackConnectChallengeNonce(webchatWs);
+      await new Promise<void>((resolve) => webchatWs.once("open", resolve));
+      await connectOk(webchatWs, {
+        client: {
+          id: GATEWAY_CLIENT_NAMES.CONTROL_UI,
+          version: "dev",
+          platform: "test",
+          mode: GATEWAY_CLIENT_MODES.WEBCHAT,
+        },
+        caps: ["tool-events"],
+      });
+
+      try {
+        const inactive = await rpcReq(webchatWs, "chat.tools.subscribe", {
+          sessionKey: "main",
+          runId: "missing-run",
+        });
+        expect(inactive.ok).toBe(false);
+
+        const releaseBlockedReply = mockBlockedChatReply();
+        const runId = "idem-tools-subscribe-mismatch";
+        const startRes = await rpcReq(ws, "chat.send", {
+          sessionKey: "main",
+          message: "hold chat run open",
+          idempotencyKey: runId,
+        });
+        expect(startRes.ok).toBe(true);
+
+        const mismatched = await rpcReq(webchatWs, "chat.tools.subscribe", {
+          sessionKey: "not-main",
+          runId,
+        });
+        expect(mismatched.ok).toBe(false);
+        releaseBlockedReply();
+        await rpcReq(ws, "chat.abort", { sessionKey: "main", runId });
+      } finally {
+        webchatWs.close();
+      }
+    });
   });
 });

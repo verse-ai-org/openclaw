@@ -61,6 +61,7 @@ import {
   validateChatHistoryParams,
   validateChatInjectParams,
   validateChatSendParams,
+  validateChatToolsSubscribeParams,
 } from "../protocol/index.js";
 import { CHAT_SEND_SESSION_KEY_MAX_LENGTH } from "../protocol/schema/primitives.js";
 import { getMaxChatHistoryMessagesBytes } from "../server-constants.js";
@@ -1246,6 +1247,63 @@ export const chatHandlers: GatewayRequestHandlers = {
       aborted: res.aborted,
       runIds: res.aborted ? [runId] : [],
     });
+  },
+  "chat.tools.subscribe": ({ params, respond, context, client }) => {
+    if (!validateChatToolsSubscribeParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid chat.tools.subscribe params: ${formatValidationErrors(
+            validateChatToolsSubscribeParams.errors,
+          )}`,
+        ),
+      );
+      return;
+    }
+
+    const { sessionKey, runId } = params as { sessionKey: string; runId: string };
+
+    const connId = typeof client?.connId === "string" ? client.connId : "";
+    if (!connId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "chat.tools.subscribe requires a WebSocket client"),
+      );
+      return;
+    }
+
+    const wantsToolEvents = hasGatewayClientCap(
+      client?.connect?.caps,
+      GATEWAY_CLIENT_CAPS.TOOL_EVENTS,
+    );
+    if (!wantsToolEvents) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "client does not support tool-events capability"),
+      );
+      return;
+    }
+
+    const active = context.chatAbortControllers.get(runId);
+    if (!active) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "runId is not active"));
+      return;
+    }
+    if (active.sessionKey !== sessionKey) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "runId does not match sessionKey"),
+      );
+      return;
+    }
+
+    context.registerToolEventRecipient(runId, connId);
+    respond(true, { ok: true });
   },
   "chat.status": ({ params, respond, context }) => {
     const rawSessionKey =

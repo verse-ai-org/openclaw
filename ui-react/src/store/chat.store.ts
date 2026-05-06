@@ -38,7 +38,13 @@ interface ChatState {
   /** Gateway run id for the active send (live row metadata). */
   runId: string | null;
 
-  // Input state
+  /**
+   * Optimistic UI flag toggled by the frontend when the user submits a message.
+   *
+   * This is NOT the authoritative "is the gateway still running?" state.
+   * For backend-derived activity (including refresh restore / multi-tab), see
+   * `pendingGenerationBySession`.
+   */
   sending: boolean;
 
   // Pending history reload: set to a session key to request a silent reload.
@@ -59,9 +65,11 @@ interface ChatState {
   pendingDraftMessage: string | null;
 
   /**
-   * Sessions with an in-flight gateway generation (user switched away, or multi-tab).
-   * Updated from `chat` / `agent` events even when that session is not the active UI tab.
-   * Cleared on terminal `chat` (final/error/aborted) for that sessionKey.
+   * Backend-derived "active run" mirror keyed by `sessionKey`.
+   *
+   * - **Authoritative source**: WS `chat` / `agent` events and refresh restore via `chat.status`.
+   * - **Use-cases**: refresh-resume, multi-tab, switching sessions while a run continues.
+   * - **Cleared**: terminal `chat` events (`final` / `error` / `aborted`) or lifecycle end.
    */
   pendingGenerationBySession: Record<string, { runId?: string | null }>;
 
