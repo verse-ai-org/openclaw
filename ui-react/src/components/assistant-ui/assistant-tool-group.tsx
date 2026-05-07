@@ -2,11 +2,11 @@ import { type FC } from "react";
 import {
   ToolFallback,
   type ToolFallbackPartProps,
-} from "@/components/chat/tool";
+} from "@/components/chat/tools";
 import {
   resolveRichToolPresentation,
   type RichToolPresentation,
-} from "@/components/chat/tool/rich-presentation";
+} from "@/components/chat/tools/rich-presentation";
 import { ToolCallGroup } from "@/components/chat/ToolCallGroup";
 import type { AssistantToolPart } from "@/components/chat/types";
 

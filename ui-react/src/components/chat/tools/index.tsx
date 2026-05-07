@@ -7,4 +7,4 @@ export type {
   ToolFallbackJsonValue,
   ToolFallbackPartProps,
 } from "./build-model";
-export { ToolFallback } from "./ToolFallback";
+export { ToolFallback } from "./tool-fallback";

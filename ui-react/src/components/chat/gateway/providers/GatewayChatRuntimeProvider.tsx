@@ -18,8 +18,8 @@ import { useSettingsStore } from "@/store/settings.store";
 import { resolveActiveChatSessionKey } from "../../session/active-session";
 import { useGatewayThreadRuntime } from "./use-gateway-thread-runtime";
 import { ChatSendContext } from "@/components/chat/ChatSendContext";
-import { convertGatewayChatMessage } from "../../utils/assistant-ui/convert-gateway-chat-message";
-import { parseGatewaySendPayload } from "../../utils/outbound/parse-gateway-send-payload";
+import { convertGatewayChatMessage } from "../../messages/assistant-ui/convert-gateway-chat-message";
+import { parseGatewaySendPayload } from "../../messages/outbound/parse-gateway-send-payload";
 
 type SendMessageOptions = {
   attachments?: { content: string; mimeType: string; fileName: string }[];

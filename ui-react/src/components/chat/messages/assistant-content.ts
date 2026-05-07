@@ -68,4 +68,3 @@ export function sliceToolCallParts(
   }
   return out;
 }
-

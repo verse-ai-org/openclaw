@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { type FC, type PropsWithChildren, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { classifyTool, TOOL_CATEGORY_CONFIG } from "./tool";
-import { sliceToolCallParts } from "@/components/chat/utils/assistant-content";
+import { classifyTool, TOOL_CATEGORY_CONFIG } from "./tools";
+import { sliceToolCallParts } from "@/components/chat/messages/assistant-content";
 
 // ---------------------------------------------------------------------------
 // Types

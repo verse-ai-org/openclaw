@@ -1,5 +1,5 @@
 import type { ChatMessage, ContentBlock } from "@/components/chat/types";
-import { formatToolStreamOutput } from "@/components/chat/utils/tool-stream-format";
+import { formatToolStreamOutput } from "@/components/chat/tools/tool-stream-format";
 import { committedTextPrefix, type RunState } from "./run-state";
 
 // ---------------------------------------------------------------------------

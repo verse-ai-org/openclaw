@@ -5,8 +5,8 @@ import { stripAgentWrapperTags } from "./agent-message-tags";
 
 
 type ContentPart =
-| { type: "text"; text: string }
-| {
+  | { type: "text"; text: string }
+  | {
     type: "tool-call";
     toolCallId: string;
     toolName: string;

@@ -1,4 +1,4 @@
-import type { ToolFallbackJsonObject } from "@/components/chat/tool";
+import type { ToolFallbackJsonObject } from "@/components/chat/tools";
 
 // ---------------------------------------------------------------------------
 // assistant-ui runtime message parts (used by MessagePrimitive rendering)
@@ -15,4 +15,3 @@ export type AssistantToolPart = {
 export type AssistantContentPart =
   | { type: "text"; text: string }
   | ({ type: "tool-call" } & AssistantToolPart);
-
