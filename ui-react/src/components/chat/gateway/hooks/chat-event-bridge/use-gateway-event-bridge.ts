@@ -1,34 +1,36 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   registerChatDispatch,
   unregisterChatDispatch,
 } from "@/store/gateway.store";
 import { dispatchGatewayChatEvent } from "./dispatch-gateway-chat";
-import {
-  attachChatBridgeRunContext,
-  detachChatBridgeRunContext,
-} from "./run-bridge-context";
 import type { BridgeRuntimeContext } from "@/components/chat/types";
 
-export function useGatewayEventBridge() {
-  useEffect(() => {
-    const ctx: BridgeRuntimeContext = {
-      pendingInteractiveHydrationRuns: new Set<string>(),
-      pendingToolResults: new Map<string, { phase: "result" | "error"; data: Record<string, unknown> }>(),
-      activeRunBySession: new Map<string, string>(),
-      finalizedRunBySession: new Map<string, string>(),
-    };
+/**
+ * Creates and registers the chat event bridge. Returns the stable
+ * `BridgeRuntimeContext` ref so the caller can expose it via
+ * `BridgeChatContext.Provider`.
+ */
+export function useGatewayEventBridge(): BridgeRuntimeContext {
+  const ctxRef = useRef<BridgeRuntimeContext>({
+    pendingInteractiveHydrationRuns: new Set<string>(),
+    pendingToolResults: new Map<string, { phase: "result" | "error"; data: Record<string, unknown> }>(),
+    activeRunBySession: new Map<string, string>(),
+    finalizedRunBySession: new Map<string, string>(),
+  });
 
+  useEffect(() => {
+    const ctx = ctxRef.current;
     const dispatch = (event: string, payload: unknown) => {
       dispatchGatewayChatEvent(ctx, event, payload);
     };
 
-    attachChatBridgeRunContext(ctx);
     registerChatDispatch(dispatch);
 
     return () => {
-      detachChatBridgeRunContext();
       unregisterChatDispatch();
     };
   }, []);
+
+  return ctxRef.current;
 }

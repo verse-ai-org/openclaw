@@ -1,5 +1,5 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
-import { normalizeRole } from "../gateway/hooks/chat-event-bridge";
+import { normalizeRole } from "./message-normalize";
 import type { ChatMessage } from "@/components/chat/types";
 import { stripAllAskTags } from "@/components/chat/interactive";
 

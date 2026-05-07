@@ -64,11 +64,24 @@ export function useGatewayThreadRuntime(
     const hasLiveProjectionStream = projectionSlice.liveCumulativeText !== null;
     const isRunning = isOptimisticallySending || hasActiveRunForSession || hasLiveProjectionStream;
 
+    // Build a runId → last-assistant-index map once per chatMessages reference
+    // so hydrateProjectionFromHistoryRun can do an O(1) lookup instead of O(n).
+    const runIdIndex = new Map<string, number>();
+    if (isRunning && effectiveRunId) {
+      for (let i = 0; i < chatSlice.chatMessages.length; i++) {
+        const m = chatSlice.chatMessages[i];
+        if (m.role === "assistant" && typeof m.runId === "string" && m.runId) {
+          runIdIndex.set(m.runId, i);
+        }
+      }
+    }
+
     const hydration =
       isRunning && effectiveRunId
         ? hydrateProjectionFromHistoryRun({
             chatMessages: chatSlice.chatMessages,
             effectiveRunId,
+            runIdIndex,
           })
         : null;
 

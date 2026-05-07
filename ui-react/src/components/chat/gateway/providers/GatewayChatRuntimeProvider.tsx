@@ -16,10 +16,8 @@ import { useChatStore } from "@/store/chat.store";
 import { useRunProjectionStore } from "@/run-projection";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
-import {
-  clearBridgeActiveRunForSession,
-  resolveActiveChatSessionKey,
-} from "../hooks/chat-event-bridge";
+import { resolveActiveChatSessionKey } from "../hooks/chat-event-bridge";
+import { useBridgeChatContext } from "../hooks/chat-event-bridge/bridge-context-react";
 import { useGatewayThreadRuntime } from "./use-gateway-thread-runtime";
 import { ChatSendContext } from "@/components/chat/ChatSendContext";
 import { convertGatewayChatMessage } from "../../utils/convert-gateway-chat-message";
@@ -37,6 +35,7 @@ interface Props {
 }
 
 export function GatewayChatRuntimeProvider({ children }: Props) {
+  const bridgeCtx = useBridgeChatContext();
   const sessionKey = useChatStore((s) => s.sessionKey);
   const settings = useSettingsStore((s) => s.settings);
   const { messages, isRunning } = useGatewayThreadRuntime(
@@ -56,7 +55,8 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setRunId(null);
 
       const activeSession = resolveActiveChatSessionKey(sessionKey, settings.sessionKey);
-      clearBridgeActiveRunForSession(activeSession);
+      // Clear stale run id so deltas/finals for the next run are not blocked.
+      bridgeCtx?.activeRunBySession.delete(activeSession);
 
       const userMsg = {
         id: crypto.randomUUID(),
@@ -169,7 +169,8 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       useChatStore.getState().setRunId(null);
 
       const activeSession = resolveActiveChatSessionKey(sessionKey, settings.sessionKey);
-      clearBridgeActiveRunForSession(activeSession);
+      // Clear stale run id so deltas/finals for the next run are not blocked.
+      bridgeCtx?.activeRunBySession.delete(activeSession);
 
       const userMsg = {
         id: crypto.randomUUID(),

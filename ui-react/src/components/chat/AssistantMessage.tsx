@@ -36,6 +36,10 @@ export const AssistantMessage: FC = () => {
     }),
   );
 
+  // Only the synthetic live message (__stream__) should show the loading indicator.
+  // Historical messages are never "currently generating" even if the session is running.
+  const isStreamMessage = messageId === "__stream__";
+
   const { textParts, toolParts, textContent } = useMemo(
     () => splitAssistantContentParts(rawContent),
     [rawContent],
@@ -49,7 +53,7 @@ export const AssistantMessage: FC = () => {
       {/* Avatar row — loading state is handled inside AgentAvatar (spinning ring) */}
       <div className="flex gap-3 items-self-start">
         <div className="shrink-0">
-          {isFirstInTurn ? <AgentAvatar showLoading={isSessionRunning} /> : <div className="w-8"/>}
+          {isFirstInTurn ? <AgentAvatar showLoading={isSessionRunning && isStreamMessage} /> : <div className="w-8"/>}
         </div>
       </div>
 

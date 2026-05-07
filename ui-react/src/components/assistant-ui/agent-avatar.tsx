@@ -4,7 +4,6 @@ import { useAgentsStore } from "@/store/agents.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { AssistantLoadingIndicator } from "./assistant-loading-indicator.tsx";
-
 // ---------------------------------------------------------------------------
 // AgentAvatar
 //

@@ -1,6 +1,6 @@
 import { sliceStreamAfterCommittedAssistant } from "@/components/chat/utils/committed-stream-prefix";
 import { mergeAssistantRunSegments } from "@/components/chat/utils/merge-assistant-run-segments";
-import { toolStreamEntryToResultText } from "@/store/chat.store";
+import { toolStreamEntryToResultText } from "@/components/chat/utils/tool-stream-format";
 import type {
   ChatMessage,
   ContentBlock,

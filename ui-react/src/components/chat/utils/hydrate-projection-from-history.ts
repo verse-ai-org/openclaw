@@ -82,16 +82,24 @@ export type HydrateProjectionFromHistoryResult = {
  * caller merges these structures with live projection and passes the result to
  * `selectThreadMessages`, so a single combined stream row is shown.
  *
+ * Pass an optional `runIdIndex` (Map of runId → last message index) to avoid
+ * O(n) linear scan on every render during streaming. Build it once inside the
+ * caller's `useMemo` and reuse across calls.
+ *
  * @returns `null` if no matching historical assistant message exists.
  */
 export function hydrateProjectionFromHistoryRun(args: {
   chatMessages: ChatMessage[];
   effectiveRunId: string;
+  /** Pre-built index from runId to the last assistant message index with that runId. */
+  runIdIndex?: Map<string, number>;
 }): HydrateProjectionFromHistoryResult | null {
-  const { chatMessages, effectiveRunId } = args;
-  const idx = chatMessages.findLastIndex(
-    (m) => m.role === "assistant" && typeof m.runId === "string" && m.runId === effectiveRunId,
-  );
+  const { chatMessages, effectiveRunId, runIdIndex } = args;
+  const idx = runIdIndex
+    ? (runIdIndex.get(effectiveRunId) ?? -1)
+    : chatMessages.findLastIndex(
+        (m) => m.role === "assistant" && typeof m.runId === "string" && m.runId === effectiveRunId,
+      );
   if (idx < 0) {
     return null;
   }

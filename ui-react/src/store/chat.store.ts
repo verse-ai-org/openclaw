@@ -1,31 +1,6 @@
 import { create } from "zustand";
 import { useRunProjectionStore } from "@/run-projection/store";
-
-import type { ChatMessage, ToolStreamEntry } from "@/components/chat/types";
-
-/** Text shown on tool-call cards (streaming finalize + live row). */
-export function toolStreamEntryToResultText(
-  entry: ToolStreamEntry,
-): string | undefined {
-  if (typeof entry.output === "string") {
-    return entry.output;
-  }
-  if (entry.output != null) {
-    try {
-      return JSON.stringify(entry.output, null, 2);
-    } catch {
-      return String(entry.output);
-    }
-  }
-  if (
-    entry.phase === "error" &&
-    typeof entry.error === "string" &&
-    entry.error.trim()
-  ) {
-    return entry.error;
-  }
-  return undefined;
-}
+import type { ChatMessage } from "@/components/chat/types";
 
 interface ChatState {
   // Active session key

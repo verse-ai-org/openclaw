@@ -21,4 +21,7 @@ export { extractContentBlocks } from "./gateway-content-blocks";
 
 export type { RawMessage } from "@/components/chat/types";
 export { useGatewayEventBridge } from "./hooks/chat-event-bridge/use-gateway-event-bridge";
-export { clearBridgeActiveRunForSession } from "./hooks/chat-event-bridge/run-bridge-context";
+export {
+  BridgeChatContext,
+  useBridgeChatContext,
+} from "./hooks/chat-event-bridge/bridge-context-react";

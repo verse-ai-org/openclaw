@@ -1,7 +1,7 @@
 /**
  * Bridge **terminal** seam: live assistant assembly is `run-projection` +
  * handlers; this file owns run completion (append assistant rows, projection
- * reset, pending generation, errors) via `finalizeChatRun` / `buildFinalAssistantMessage`.
+ * reset, pending generation, errors) via `finalizeChatRun`.
  */
 import { useChatStore } from "@/store/chat.store";
 import {
@@ -43,20 +43,6 @@ export function toToolCallBlockPhase(
   return "call";
 }
 
-export function buildFinalAssistantMessage(params: {
-  text: string;
-  runId?: string;
-  nowMs?: number;
-}) {
-  const projection = useRunProjectionStore.getState();
-  return buildFinalAssistantMessageFromProjection({
-    projection,
-    text: params.text,
-    runId: params.runId,
-    nowMs: params.nowMs,
-  });
-}
-
 export function finalizeChatRun(params: {
   sessionKey: string;
   runId?: string;
@@ -74,6 +60,8 @@ export function finalizeChatRun(params: {
     ctx.finalizedRunBySession.set(sessionKey, runId);
   }
   const st = useChatStore.getState();
+  // Capture projection snapshot once; all branches below use this same snapshot
+  // so there is no second getState() race window.
   const projection = useRunProjectionStore.getState();
   st.clearSessionGenerating(sessionKey);
   if (runId && ctx.pendingInteractiveHydrationRuns.has(runId)) {
@@ -85,7 +73,7 @@ export function finalizeChatRun(params: {
   if (state === "final") {
     const text = messageText ?? "";
     if (text) {
-      const finalMsg = buildFinalAssistantMessage({ text, runId });
+      const finalMsg = buildFinalAssistantMessageFromProjection({ projection, text, runId });
       st.commitStreamAsMessage(finalMsg);
       useRunProjectionStore.getState().reset();
     } else if (hasBufferedAssistantProjection(projection)) {

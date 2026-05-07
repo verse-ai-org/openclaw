@@ -23,14 +23,14 @@ export const useRunProjectionStore = create<RunProjectionStore>((set) => ({
   ...emptyRunProjectionState(),
   dispatch: (action) =>
     set((s) => {
-      if (import.meta.env.DEV) {
-        console.log(
-          "debug",
-          `projection action: ${action.type}`,
-          action,
-          { channel: "projection" },
-        );
-      }
+      // if (import.meta.env.DEV) {
+      //   console.log(
+      //     "debug",
+      //     `projection action: ${action.type}`,
+      //     action,
+      //     { channel: "projection" },
+      //   );
+      // }
       return {
         ...runProjectionReducer(sliceProjection(s), action),
         dispatch: s.dispatch,

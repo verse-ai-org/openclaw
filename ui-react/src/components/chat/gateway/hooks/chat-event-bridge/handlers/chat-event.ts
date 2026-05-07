@@ -46,6 +46,14 @@ export function handleChatEvent(
   }
 
   if (state === "delta") {
+    // Drop deltas that arrive after this run was already finalized (e.g. when
+    // lifecycle end arrives before all chat deltas). Without this guard, late
+    // deltas re-add the session to pendingGenerationBySession, and the
+    // subsequent chat.final early-returns via finalizedRunBySession, leaving
+    // the Composer stuck in the "running" state.
+    if (runId && sk && ctx.finalizedRunBySession.get(sk) === runId) {
+      return { kind: "ignored", reason: "stale", summary: "chat.delta.post_finalized" };
+    }
     if (sk) {
       useChatStore.getState().markSessionGenerating(sk, runId);
     }
