@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useRunProjectionStore } from "@/run-projection/store";
 import { useChatStore } from "@/store/chat.store";
 import {
   loadHistoryFromGateway,
@@ -20,18 +19,19 @@ vi.mock("./history-normalize", () => ({
 }));
 
 function resetChatState() {
-  useRunProjectionStore.getState().reset();
   useChatStore.setState({
     messages: [],
     messagesLoading: false,
     runId: null,
     sending: false,
     sessionKey: "agent:travel:main",
+    activeRunState: null,
     pendingHistoryReloadKey: null,
     pendingSessionsReloadSeq: 0,
     lastError: null,
     pendingDraftMessage: null,
     pendingGenerationBySession: {},
+    interactiveSummaryById: {},
   });
 }
 

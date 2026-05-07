@@ -1,15 +1,10 @@
 import { useMemo } from "react";
 import { useShallow } from "zustand/shallow";
-import { resolveActiveChatSessionKey } from "../../session/active-session";
-import {
-  hydrateProjectionFromHistoryRun,
-  mergeHydratedInteractiveStreams,
-  mergeHydratedToolStreams,
-} from "../../utils/hydrate-projection-from-history";
-import { selectThreadMessages } from "@/run-projection/selectors";
-import { useRunProjectionStore } from "@/run-projection/store";
-import type { ChatMessage } from "@/components/chat/types";
 import { useChatStore } from "@/store/chat.store";
+import { resolveActiveChatSessionKey } from "../../session/active-session";
+import { mergeAssistantRunSegments } from "../../utils/merge-assistant-run-segments";
+import { toLiveMessage } from "@/run-stream/run-message";
+import type { ChatMessage } from "@/components/chat/types";
 
 export type GatewayThreadRuntime = {
   messages: ChatMessage[];
@@ -18,8 +13,8 @@ export type GatewayThreadRuntime = {
 };
 
 /**
- * Subscribes to chat history + run projection with shallow equality, then builds
- * assistant-ui runtime messages (including synthetic `__stream__`).
+ * Subscribes to chat history + active run state, builds the full message list
+ * including the synthetic `__stream__` row while a run is in progress.
  */
 export function useGatewayThreadRuntime(
   chatSessionKey: string | null,
@@ -30,96 +25,19 @@ export function useGatewayThreadRuntime(
     [chatSessionKey, settingsSessionKey],
   );
 
-  const chatSlice = useChatStore(
+  const { chatMessages, sending, activeRunState } = useChatStore(
     useShallow((s) => ({
       chatMessages: s.messages,
       sending: s.sending,
-      runId: s.runId,
-      pendingForActiveSession: s.pendingGenerationBySession[activeSessionKey],
-    })),
-  );
-
-  const projectionSlice = useRunProjectionStore(
-    useShallow((s) => ({
-      liveCumulativeText: s.liveCumulativeText,
-      committedBlocks: s.committedBlocks,
-      toolStreamById: s.toolStreamById,
-      toolStreamOrder: s.toolStreamOrder,
-      interactiveStreamById: s.interactiveStreamById,
-      interactiveStreamOrder: s.interactiveStreamOrder,
+      activeRunState: s.activeRunState,
     })),
   );
 
   return useMemo(() => {
-    const effectiveRunId = chatSlice.runId ?? chatSlice.pendingForActiveSession?.runId ?? null;
-    // Thread "running" is a UI/runtime concern: it controls whether we render a
-    // synthetic `__stream__` assistant message and show Cancel vs Send.
-    //
-    // It deliberately uses multiple signals:
-    // - `sending`: optimistic, immediate UX after the user submits (before any WS events arrive)
-    // - `pendingForActiveSession`: backend-derived run activity (restored via `chat.status` or WS events)
-    // - `liveCumulativeText`: projection has already started receiving stream deltas (defensive fallback)
-    const isOptimisticallySending = chatSlice.sending;
-    const hasActiveRunForSession = chatSlice.pendingForActiveSession != null;
-    const hasLiveProjectionStream = projectionSlice.liveCumulativeText !== null;
-    const isRunning = isOptimisticallySending || hasActiveRunForSession || hasLiveProjectionStream;
-
-    // Build a runId → last-assistant-index map once per chatMessages reference
-    // so hydrateProjectionFromHistoryRun can do an O(1) lookup instead of O(n).
-    const runIdIndex = new Map<string, number>();
-    if (isRunning && effectiveRunId) {
-      for (let i = 0; i < chatSlice.chatMessages.length; i++) {
-        const m = chatSlice.chatMessages[i];
-        if (m.role === "assistant" && typeof m.runId === "string" && m.runId) {
-          runIdIndex.set(m.runId, i);
-        }
-      }
-    }
-
-    const hydration =
-      isRunning && effectiveRunId
-        ? hydrateProjectionFromHistoryRun({
-            chatMessages: chatSlice.chatMessages,
-            effectiveRunId,
-            runIdIndex,
-          })
-        : null;
-
-    const committedBlocks = hydration
-      ? [...hydration.committedBlocks, ...projectionSlice.committedBlocks]
-      : projectionSlice.committedBlocks;
-    const mergedTools = hydration
-      ? mergeHydratedToolStreams({
-          hydratedById: hydration.toolStreamById,
-          hydratedOrder: hydration.toolStreamOrder,
-          liveById: projectionSlice.toolStreamById,
-          liveOrder: projectionSlice.toolStreamOrder,
-        })
-      : { byId: projectionSlice.toolStreamById, order: projectionSlice.toolStreamOrder };
-    const mergedInteractive = hydration
-      ? mergeHydratedInteractiveStreams({
-          hydratedById: hydration.interactiveStreamById,
-          hydratedOrder: hydration.interactiveStreamOrder,
-          liveById: projectionSlice.interactiveStreamById,
-          liveOrder: projectionSlice.interactiveStreamOrder,
-        })
-      : {
-          byId: projectionSlice.interactiveStreamById,
-          order: projectionSlice.interactiveStreamOrder,
-        };
-
-    const messages = selectThreadMessages({
-      chatMessages: hydration ? hydration.baseChatMessages : chatSlice.chatMessages,
-      isRunning,
-      liveCumulativeText: projectionSlice.liveCumulativeText,
-      committedBlocks,
-      toolStreamById: mergedTools.byId,
-      toolStreamOrder: mergedTools.order,
-      interactiveStreamById: mergedInteractive.byId,
-      interactiveStreamOrder: mergedInteractive.order,
-      effectiveRunId,
-    });
-
+    const isRunning = sending || activeRunState !== null;
+    const base = mergeAssistantRunSegments(chatMessages);
+    const messages =
+      activeRunState !== null ? [...base, toLiveMessage(activeRunState)] : base;
     return { messages, isRunning, activeSessionKey };
-  }, [activeSessionKey, chatSlice, projectionSlice]);
+  }, [chatMessages, sending, activeRunState, activeSessionKey]);
 }

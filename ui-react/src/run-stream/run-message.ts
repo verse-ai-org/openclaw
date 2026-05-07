@@ -1,0 +1,121 @@
+import type { ChatMessage, ContentBlock } from "@/components/chat/types";
+import { committedTextPrefix, type RunState } from "./run-state";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** The portion of liveText that comes after the committed prefix. */
+function liveTextTail(s: RunState): string {
+  const prefix = committedTextPrefix(s.committedBlocks);
+  return s.liveText.startsWith(prefix) ? s.liveText.slice(prefix.length) : s.liveText;
+}
+
+function toolResultText(
+  output: unknown,
+  error: string | undefined,
+  phase: string,
+): string | undefined {
+  if (typeof output === "string") return output;
+  if (output != null) {
+    try {
+      return JSON.stringify(output, null, 2);
+    } catch {
+      return String(output);
+    }
+  }
+  if (phase === "error" && error) return error;
+  return undefined;
+}
+
+/**
+ * Build the ordered ContentBlock array that represents the current run state.
+ *
+ * @param includeTail   When true, appends the live text tail (used for the
+ *                      __stream__ row while the run is in progress).
+ * @param extraText     Appended as a final text block (used for run.finished
+ *                      when gateway delivers the full text at the end).
+ */
+function buildBlocks(
+  s: RunState,
+  includeTail: boolean,
+  extraText?: string,
+): ContentBlock[] {
+  const blocks: ContentBlock[] = [...s.committedBlocks];
+
+  for (const id of s.interactiveOrder) {
+    const e = s.interactiveById.get(id);
+    if (e) blocks.push(e);
+  }
+
+  for (const id of s.toolOrder) {
+    const e = s.toolById.get(id);
+    if (!e) continue;
+    blocks.push({
+      type: "tool-call",
+      toolCallId: e.id,
+      toolName: e.toolName ?? "tool",
+      argsText: e.input != null ? JSON.stringify(e.input, null, 2) : undefined,
+      result: toolResultText(e.output, e.error, e.phase),
+      phase: e.phase === "result" ? "result" : e.phase === "error" ? "error" : "call",
+    });
+  }
+
+  if (includeTail) {
+    const tail = liveTextTail(s);
+    if (tail.trim()) blocks.push({ type: "text", text: tail });
+    // Always include at least one block while running so assistant-ui renders a row.
+    if (blocks.length === 0) blocks.push({ type: "text", text: "" });
+  }
+
+  if (extraText?.trim()) {
+    blocks.push({ type: "text", text: extraText });
+  }
+
+  return blocks;
+}
+
+// ---------------------------------------------------------------------------
+// Public view functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the synthetic live assistant message rendered while a run is in progress.
+ * Uses the stable id "__stream__" so assistant-ui treats it as a single updating row.
+ */
+export function toLiveMessage(s: RunState): ChatMessage {
+  return {
+    id: "__stream__",
+    role: "assistant",
+    content: s.liveText,
+    ts: Date.now(),
+    runId: s.runId,
+    contentBlocks: buildBlocks(s, true),
+  };
+}
+
+/**
+ * Build the final ChatMessage to persist in chat history after a run completes.
+ * Returns null when there is nothing to persist (e.g. run was aborted with no output).
+ */
+export function toFinalMessage(s: RunState): ChatMessage | null {
+  const text = s.finalText ?? "";
+  const hasContent =
+    text.trim() ||
+    s.committedBlocks.length > 0 ||
+    s.toolOrder.length > 0 ||
+    s.interactiveOrder.length > 0;
+
+  if (!hasContent) return null;
+
+  const blocks = buildBlocks(s, false, text || undefined);
+
+  return {
+    id: crypto.randomUUID(),
+    role: "assistant",
+    content: text,
+    ts: Date.now(),
+    runId: s.runId,
+    contentBlocks: blocks.length > 0 ? blocks : undefined,
+  };
+}

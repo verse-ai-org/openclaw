@@ -161,12 +161,15 @@ return interactionPendingResult("question_flow", parsed.data);
 
 `deterministicPromptSent` 标记在 message handler 中被检查（`pi-embedded-subscribe.handlers.messages.ts`），一旦为 `true`，所有后续 assistant 文本更新和结束事件都被静默丢弃。
 
-#### 5. 前端渲染交互卡片
+#### 5. 前端渲染交互卡片（ui-react / Control UI）
 
-前端在 `InteractiveCardArea.tsx` 中：
-- 从当前 assistant 消息的 `contentBlocks` 中查找 `question_flow` / `option_list` / `approval_card` 类型、`phase === "result"` 的 tool block
-- 解析 payload 后渲染对应的交互组件（`QuestionFlow`、`OptionList`、`ApprovalCard`）
-- 如果已存在后续用户消息（即用户已提交），则显示摘要视图（`QASummary`）
+**流式**：`AssistantMessage` 下的 **`InteractiveParts`** 在 **`messageId === "__stream__"`** 时，从 **`useChatStore.activeRunState`** 读取 **`interactiveById` / `interactiveOrder`**。块由 Gateway **`agent`、`stream=tool`、`phase=start`** 的完整 **`args`** 经 **`gateway-run-adapter.ts`** 中 **`createInteractiveBlock`** 解析，发出 **`interactive.start`**（**`RunEvent`**），**`run-stream/run-state.ts`** 在插入前对当前 live 文本做一次 **auto-commit**，与普通 **`tool.start`** 一致。
+
+**交互工具**在适配层**不**再映射为流式 **`tool-call`** 卡片；**`phase=result`**（常为 id/meta 字符串）**忽略**，避免残缺 UI。
+
+**历史**：会话中的助手消息须有 **`contentBlocks`** 条目 **`type: "interactive"`**（网关 / 载入历史由 **`extractContentBlocks`** 等产生）。不再从正文 **`<ask>`** 推断交互 UI（若模型仍吐出 XML，正文中的标签仅由 **`stripAllAskTags`** 在 Markdown 转换时去掉以避免脏展示）。
+
+**与强制 history reload 的关系**：正常一轮结束由 **`toFinalMessage`** 把 **`RunState`**（含 interactive）写入本地 **`messages`**，**不依赖**每轮结束后 **`pendingHistoryReloadKey`** 才能看到卡片。**刷新页面**后仍依赖服务端 transcript + **`extractContentBlocks`** 等恢复正常 **`contentBlocks`**。
 
 #### 6. 用户提交响应
 
@@ -193,11 +196,9 @@ sendMessage(formattedText, {
 
 ## 状态持久化与页面刷新
 
-交互状态天然持久化，无需额外恢复逻辑：
-
-1. **Tool call + result 已持久化**：tool 调用及其 `interaction-pending` 结果保存在会话记录（session transcript）中
-2. **前端重建**：页面刷新后，前端从历史消息中重新加载 `contentBlocks`，检测到 `question_flow` / `option_list` / `approval_card` 的 result 块后，重新渲染交互卡片
-3. **已提交判断**：如果会话中已存在后续用户消息，前端显示摘要视图而非可编辑表单
+1. **Tool call + gateway transcript**：交互工具调用及服务端 **`interaction-pending`** 等仍落在会话记录中；刷新后由 **`chat.history`** → **`extractContentBlocks`** 等恢复 **`contentBlocks`**（可能为 **`interactive`** 块或 tool 形态，依网关落库格式而定）。
+2. **同一会话内不刷新**：卡片在 **`tool.start.args`** 到达后即可显示（**`__stream__`**）；终局消息由 **`run-stream/run-message.ts`** 的 **`toFinalMessage`** 写入 **`chat.store.messages`**。
+3. **已提交判断**：若已存在后续用户消息或 store 中已有摘要，显示 **`QASummary`** 等只读态。
 
 ## 与 `exec` 审批模式的关系
 
@@ -249,7 +250,10 @@ sendMessage(formattedText, {
 | **状态类型** | `src/agents/pi-embedded-subscribe.handlers.types.ts` |
 | **消息抑制** | `src/agents/pi-embedded-subscribe.handlers.messages.ts` |
 | **测试** | `src/agents/pi-embedded-subscribe.handlers.tools.test.ts` |
-| **前端交互渲染** | `ui-react/src/components/chat/InteractiveCardArea.tsx` |
+| **前端交互渲染** | `ui-react/src/components/chat/interactive/InteractiveParts.tsx`、`interactive/blocks.ts` |
+| **Gateway → RunEvent（含 interactive.start）** | `ui-react/src/components/chat/gateway/gateway-run-adapter.ts` |
+| **Run 状态机** | `ui-react/src/run-stream/run-state.ts`、`run-message.ts` |
+| **Chat 数据流文档** | `ui-react/docs/chat-module.md`、`chat-module-deep-dive.md` |
 | **前端发送上下文** | `ui-react/src/components/chat/ChatSendContext.tsx` |
 | **交互 Schema 包** | `@openclaw/interactions`（canonical Zod schemas） |
 | **Tool UI 总览文档** | `ui-react/docs/tool-ui.md` |

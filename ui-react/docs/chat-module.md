@@ -1,145 +1,156 @@
 # Chat module (ui-react)
 
-This document describes how the web Control UI chat works end-to-end: **Gateway WebSocket events → chat-event bridge → client-only run projection → assistant-ui `ExternalStoreRuntime` → thread components**. It complements [tool-ui.md](./tool-ui.md), which focuses on rich tool surfaces and HITL flows.
+This document describes how the web Control UI chat works end-to-end: **Gateway WebSocket events → `gateway-run-adapter` (wire → `RunEvent`) → `run-dispatch` + `run-stream` reducer → assistant-ui `ExternalStoreRuntime` → thread components**. It complements [tool-ui.md](./tool-ui.md), which focuses on rich tool surfaces and HITL flows.
 
 ## Architecture
 
 ```
 ChatPage
-├── useGatewayEventBridge()           ← creates BridgeRuntimeContext, registers WS dispatch
-├── <BridgeChatContext.Provider>      ← passes ctx down the React tree
-└── GatewayChatRuntimeProvider        ← Zustand ↔ ExternalStoreRuntime (assistant-ui)
-    ├── ChatSidebar                   ← Agents + sessions
+├── useGatewayEventBridge()           ← register WS dispatch → gatewayToRunEvents + dispatchRunEvents
+└── GatewayChatRuntimeProvider       ← Zustand ↔ ExternalStoreRuntime (assistant-ui)
+    ├── ChatSidebar
     └── ThreadView
-        ├── ThreadPrimitive           ← Message list + viewport
+        ├── ThreadPrimitive
         │   ├── UserMessage
         │   └── AssistantMessage
-        │       ├── MessagePrimitive.Parts
-        │       │   ├── MarkdownText (text parts)
-        │       │   ├── ToolCallGroup (consecutive tool-call parts)
-        │       │   └── ToolFallback (per-tool card; see tool-ui.md)
-        │       └── InteractiveCardArea (HITL: question_flow / option_list)
-        └── Composer                  ← Input + attachments
+        │       ├── MarkdownText / tool-call parts
+        │       ├── AssistantToolGroup (ToolFallback …)
+        │       └── InteractiveParts (question_flow / option_list / approval_card)
+        └── Composer
 ```
 
-**Dependency direction**: `gateway.store` registers a single chat dispatch function from `useGatewayEventBridge`; `chat.store` holds committed history + session metadata; `run-projection` holds live in-turn buffers. `BridgeChatContext` (React Context) replaces the old module singleton to carry the bridge's mutable runtime state down the tree.
+**Dependency direction**: `gateway.store` holds a single `registerChatDispatch` callback installed by `useGatewayEventBridge`. `chat.store` holds committed history, session metadata, and **one active `RunState`** (`activeRunState`) while a turn is in flight. Gateway wire shapes never leak past `gateway-run-adapter.ts`.
+
+## Layered pipeline
+
+| Layer | Role |
+|-------|------|
+| **`gateway-ws-check.ts`** | Narrow unknown WS payloads to typed gateway structs. |
+| **`gateway-run-adapter.ts`** | Map `chat` / `agent` payloads → protocol-agnostic **`RunEvent[]`**. Only this file knows Gateway field names (`state`, `stream`, `phase`, …). |
+| **`run-stream/run-dispatch.ts`** | Session/run routing, feeds events into reducer, clears `activeRunState` on terminal events, appends **`toFinalMessage`**. |
+| **`run-stream/run-state.ts`** | Pure `applyRunEvent` reducer: text, tools, interactive cards, terminal status. |
+| **`run-stream/run-message.ts`** | `toLiveMessage` / `toFinalMessage` → `ChatMessage` with ordered `contentBlocks`. |
+| **`use-gateway-thread-runtime.ts`** | `mergeAssistantRunSegments(messages)` + optional synthetic row **`__stream__`** = `toLiveMessage(activeRunState)`. |
 
 ## State ownership (one turn)
 
 | Field | Role |
 |--------|------|
-| `chat.store: messages` | Committed `ChatMessage[]` (user + assistant rows). |
-| `chat.store: sending` | Composer / runtime "running" (enables cancel UX). |
-| `chat.store: runId` | Current run id provided by the gateway (metadata for the live row). |
-| `chat.store: pendingGenerationBySession` | Cross-tab/session: maps session key → `{ runId }` for runs still active when the UI navigates away. |
-| `run-projection: liveCumulativeText` | Live assistant plain-text buffer (cumulative from `chat` `delta` events). |
-| `run-projection: committedBlocks` | Text segments **frozen** before tool/interactive cards (committed on tool `start`). |
-| `run-projection: toolStreamById` / `toolStreamOrder` | In-flight tool entries keyed by id, ordered for display. |
-| `run-projection: interactiveStreamById` / `interactiveStreamOrder` | Live HITL cards (question_flow / option_list / approval_card). |
+| `chat.store.messages` | Committed `ChatMessage[]` (user rows + finalized assistant rows). |
+| `chat.store.sending` | Optimistic “user just hit send”; cleared when events advance the run / on terminal. |
+| `chat.store.runId` | Current gateway `runId` (used by cancel, metadata on live/final assistant row). |
+| `chat.store.activeRunState` | **Single `RunState`** while generating: live cumulative text, committed text segments, interactive + tool streams, pending out-of-order tool results. |
+| `chat.store.pendingGenerationBySession` | Cross-tab/session: `{ runId? }` for runs still active when navigating away. |
+| `chat.store.interactiveSummaryById` | Ephemeral Q/A summaries after the user submits an interactive card (`setInteractiveSummary`). |
 
-Assistant messages use **`contentBlocks`** (ordered `text` + `tool-call`) when present; otherwise fall back to flat `content`.
+`RunState` fields (conceptual):
+
+- `liveText` — full cumulative assistant plain text from `chat` deltas (gateway sends snapshots, not per-token diffs).
+- `committedBlocks` — `{ type: "text" }[]` frozen **before** each non-interactive tool start or **`interactive.start`** (auto-commit).
+- `interactiveById` / `interactiveOrder` — parsed **`InteractiveContentBlock`** from interactive tool **`start.args`** (`question_flow`, `option_list`, `approval_card`).
+- `toolById` / `toolOrder` — in-flight non-interactive tools.
+- `pendingResults` — buffer `tool.result` / `tool.error` if they arrive before `tool.start`.
+
+Assistant messages use **`contentBlocks`** when present; otherwise flat `content`.
 
 ## Sending a message
 
-1. `GatewayChatRuntimeProvider.sendMessage` (from Composer `onNew` or `ChatSendContext` for HITL):
-   - `setLastError(null)`, **reset run-projection**, clear stale `BridgeRuntimeContext.activeRunBySession` entry for this session.
-   - Optimistic **`user` `ChatMessage`** appended to `messages`.
-   - `setSending(true)`, **`markSessionGenerating(sessionKey)`**.
-   - **`client.request("chat.send", { message, sessionKey, idempotencyKey, attachments? })`**.
+1. `GatewayChatRuntimeProvider.sendMessage` (Composer `onNew` or `ChatSendContext` for HITL):
+   - `setLastError(null)`, `setRunId(null)`.
+   - Optimistic **user** `ChatMessage` appended.
+   - **`startOptimisticRun(activeSession)`** — creates `activeRunState` if missing so `isRunning` is true before the first WS frame.
+   - `setSending(true)`, `markSessionGenerating(sessionKey)`.
+   - `client.request("chat.send", { … })`; on response, `setRunId` / `markSessionGenerating(…, runId)` and patch `activeRunState.runId` if known.
 
-Ending `sending` is **not** done in `sendMessage`; it happens when the gateway signals completion (see [End of turn](#end-of-turn)).
+Ending `sending` and clearing **`activeRunState`** happen when a **terminal `RunEvent`** is applied (`run.finished` / `run.error` / `run.aborted`) in `dispatchRunEvents` → `_handleTerminal`.
+
+## `RunEvent` types (normalized)
+
+Declared in **`run-stream/run-event.ts`** (summarized):
+
+| Event | Typical source |
+|--------|----------------|
+| `run.started` | `agent` lifecycle `phase=start` |
+| `text.delta` | `chat` `state=delta` (full cumulative text) |
+| `tool.start` / `tool.update` / `tool.result` / `tool.error` | `agent` `stream=tool` (**non-interactive** tools) |
+| `interactive.start` | `agent` tool `phase=start`, `name` ∈ interactive tools → `createInteractiveBlock({ …, payload: args })` |
+| `run.finished` | `chat` `state=final`, or lifecycle `end` fallback |
+| `run.error` / `run.aborted` | `chat` / lifecycle |
+
+**Interactive tools** do **not** emit `tool.start`/`result` through the reducer: **`gateway-run-adapter`** maps **`start`** to **`interactive.start`** (parsed block). **`result`**/`update`** frames for interactive names are ignored at the adapter (result is often only an id/meta string).
 
 ## Streaming conventions
 
-### A) `chat` events (`state`: `delta` | `final` | `error` | `aborted`)
+### A) `chat` events
 
-- **`delta`**: `extractMessageText` → set `run-projection.liveCumulativeText`. Gateway sends **cumulative** assistant text per delta, not incremental chunks.
-- **`final`**: See [End of turn](#end-of-turn) below.
-- **`error` / `aborted`**: reset stream buffers, clear `sending`, set error banner on `error`.
+- **`delta`**: `text.delta` → `liveText = text`. Session filter: **`isChatEventForActiveSession(payload.sessionKey)`** (must match active UI session key).
+- **`final`**: `run.finished` with optional extracted message text → terminal handling: **`toFinalMessage`**, append to **`messages`**, clear **`activeRunState`**. **No mandatory history reload** on success; committed row already includes interactive/tool blocks assembled in **`RunState`**.
+- **`error` / `aborted`**: terminal; clear run, optional **`lastError`**.
 
-Session scoping: only events whose **`sessionKey`** matches the active UI session are applied (`isChatEventForActiveSession`). See [Session key vocabulary](#session-key-vocabulary).
+### B) `agent` tool events (non-interactive)
 
-The v1 projection treats **`chat` `state=delta`** as the single source of assistant plain text and ignores any `agent` assistant frames to avoid double-sourcing.
+Matches previous behavior: **`tool.start`** auto-commits the live-text tail into **`committedBlocks`**, then inserts/updates **`toolById`**. Out-of-order **`result`**/`error`** can be buffered in **`pendingResults`** until **`start`** arrives.
 
-### B) `agent` events (`stream: "tool"`)
+### C) Interactive tools (`interactive.start`)
 
-Tool lifecycle is separate from chat delta; the gateway pushes **`agent`** payloads with `stream === "tool"` and `data.phase`:
-
-| Phase | Store updates |
-|--------|----------------|
-| **`start`** | **Commit current text** — moves the current `liveCumulativeText` suffix into `committedBlocks` so it stays visible above the tool card — then **upsert tool stream** with `phase: "start"`. |
-| **`result`** | Merge into existing entry: updates `output`; `isError` maps to error-style entry. |
-| **`error`** | Updates `error` on the entry. |
-
-This yields an interleaved model: **text → tool(s) → more text**, matching the model's streaming order.
+On **`phase=start`** with full **`args`** (JSON-safe payload), **`createInteractiveBlock`** runs in the adapter; on success emits **`interactive.start`** with a typed **`InteractiveContentBlock`**. Reducer auto-commits text then appends the block to **`interactiveById`** / **`interactiveOrder`**.
 
 ## Live placeholder message (`__stream__`)
 
-While **`isRunning`** is true (`sending` **or** non-null `liveCumulativeText` **or** `pendingForActiveSession != null`), `selectThreadMessages` appends a synthetic assistant message with id **`__stream__`** whose **`contentBlocks`** are built from:
+While **`activeRunState !== null`**, **`useGatewayThreadRuntime`** appends a synthetic assistant message **`id: "__stream__"`** built by **`toLiveMessage(runState)`**. Its **`contentBlocks`** order:
 
-1. `committedBlocks`
-2. Interactive entries from `interactiveStreamOrder` / `interactiveStreamById`
-3. Tool entries from `toolStreamOrder` / `toolStreamById`
-4. Current **`liveCumulativeText` tail** (after all committed blocks + tool/interactive cards)
+1. **`committedBlocks`**
+2. Interactive blocks in **`interactiveOrder`**
+3. Tool-call blocks in **`toolOrder`**
+4. Trailing live text (cumulative **`liveText`** minus the prefix already represented by committed text blocks)
 
-`convertGatewayChatMessage` maps each `ChatMessage` to `ThreadMessageLike` parts: text parts and **`tool-call`** parts with `toolName`, `args`, `result`, `isError`.
+**`isRunning`** for the runtime is **`sending || activeRunState !== null`** (no separate merge with `pendingGenerationBySession` in this hook; background session tracking still uses **`pendingGenerationBySession`** elsewhere).
 
-## Refresh / multi-tab hydration
+**`convertGatewayChatMessage`** maps each committed/live **`ChatMessage`** to **`ThreadMessageLike`**; interactive blocks are not expanded into tool-call parts—they are consumed by **`InteractiveParts`** alongside assistant-ui parts.
 
-After a page reload with an active run, `chat.history` may already contain a partial assistant message for the ongoing `runId`. `hydrateProjectionFromHistoryRun` detects this, removes the duplicate history row, and seeds the projection maps from that row's `contentBlocks`. A pre-built `runIdIndex: Map<runId, index>` (constructed in `useGatewayThreadRuntime`'s `useMemo`) makes this lookup O(1) per render.
+## End of turn (terminal)
 
-## End of turn
+`_handleTerminal` in **`run-dispatch.ts`**:
 
-### Path: `chat` with `state === "final"` (or lifecycle fallback)
+1. Builds **`finalMsg = toFinalMessage(snapshot)`** (or null if truly empty).
+2. **`messages: [...messages, finalMsg]`** when non-null.
+3. **`activeRunState: null`**, **`sending: false`**, **`runId: null`**, **`lastError`** set on **`run.error`**.
+4. **`clearSessionGenerating(sessionKey)`**, **`triggerSessionsReload()`** (session list / titles).
+5. **Does not** set **`pendingHistoryReloadKey`** purely because a normal turn finished—history stays consistent from local assembly.
 
-`finalizeChatRun` in `handlers/shared.ts` captures a **single projection snapshot** (`useRunProjectionStore.getState()`) before any branch executes to avoid double-read races:
-
-1. If there is **inline message text** from the payload:
-   - Build final assistant message from projection snapshot + text → `commitStreamAsMessage` → reset projection.
-2. If there is **no inline text** and projection has buffered output:
-   - `finalizeProjectionToAssistantMessage(projection, runId)` → `commitStreamAsMessage` → reset projection.
-3. If there is **no inline text and no buffered output**:
-   - Reset projection + `setPendingHistoryReloadKey(sessionKey)` → `useSessionManager` reloads history from the gateway.
-
-Then `setSending(false)`, `setRunId(null)`, `triggerSessionsReload()`.
+Optional silent reload still exists for other callers via **`chat.store.pendingHistoryReloadKey`** (e.g. session switch, explicit flows).
 
 ## Session key vocabulary
 
-Two distinct concepts — keep them separate:
-
-| Concept | Source | Used for |
-|---------|--------|----------|
-| **Active session key** | `resolveActiveChatSessionKey(chat.sessionKey, settings.sessionKey)` → `"main"` fallback | Which session the UI is displaying |
-| **Event session key** | `normalizeSessionKey(payload.sessionKey)` (string trim) | The session a WS event belongs to |
-
-`isChatEventForActiveSession(eventSessionKey)` compares the two. `pendingGenerationBySession` is keyed by event session keys; in normal operation they converge to the same trimmed string.
+| Concept | Source |
+|---------|--------|
+| **Active session key** | `resolveActiveChatSessionKey(chat.store.sessionKey, settings.sessionKey)` → default **`"main"`**. |
+| **Event session key** | Trimmed `payload.sessionKey` on each WS payload; **`dispatchRunEvents`** drops events when it does not match **`getActiveChatSessionKey()`**. |
 
 ## History loading (`chat.history`)
 
-When the session list loads messages: **`mergeToolResults`**, **`normalizeRole`**, **`extractContentBlocks`**, then **`setMessages`**.
+**mergeToolResults** → **normalizeRole** → **extractContentBlocks** → **setMessages**. Persisted transcripts should include **`type: "interactive"`** **`contentBlocks`** when the gateway supplies them; **`InteractiveParts`** only reads **`contentBlocks`** (and live **`activeRunState`**) — see **[chat-module-deep-dive.md](./chat-module-deep-dive.md)**.
 
 ## Cancel
 
-Composer cancel → **`chat.abort`** with `sessionKey` and optional `runId` → local **reset projection**, **`setSending(false)`**, **`clearSessionGenerating`**.
+Composer **`chat.abort`** with **`sessionKey`** + optional **`runId`** → local **`activeRunState: null`**, **`setSending(false)`**, **`clearSessionGenerating`**.
 
 ## Related files
 
 | Area | Path |
 |------|------|
 | Page entry | `src/pages/ChatPage.tsx` |
-| Event bridge | `src/components/chat/gateway/hooks/chat-event-bridge/use-gateway-event-bridge.ts` |
-| Bridge context | `src/components/chat/gateway/hooks/chat-event-bridge/bridge-context-react.ts` |
-| WS event dispatch | `src/components/chat/gateway/hooks/chat-event-bridge/dispatch-gateway-chat.ts` |
-| Event handlers | `src/components/chat/gateway/hooks/chat-event-bridge/handlers/` |
-| Run guard | `src/components/chat/gateway/run-guard.ts` |
-| Session scoping | `src/components/chat/session/session-scope.ts`, `src/components/chat/session/active-session.ts` |
-| Stores | `src/store/chat.store.ts`, `src/run-projection/` |
-| Runtime adapter | `src/components/chat/gateway/providers/GatewayChatRuntimeProvider.tsx` |
-| Thread messages | `src/components/chat/gateway/providers/use-gateway-thread-runtime.ts` |
-| Projection selectors | `src/run-projection/selectors.ts` |
-| Hydration | `src/components/chat/utils/hydrate-projection-from-history.ts` |
-| Thread UI | `src/components/chat/ThreadView.tsx`, `AssistantMessage.tsx`, `ToolCallGroup.tsx` |
-| Tool UI | `src/components/chat/tool/` — see [tool-ui.md](./tool-ui.md) |
+| WS bridge hook | `src/components/chat/gateway/hooks/use-gateway-event-bridge.ts` |
+| Wire checks | `src/components/chat/gateway/gateway-ws-check.ts` |
+| Gateway → `RunEvent` | `src/components/chat/gateway/gateway-run-adapter.ts` |
+| Dispatch + terminal | `src/run-stream/run-dispatch.ts` |
+| Events / reducer / views | `src/run-stream/run-event.ts`, `run-state.ts`, `run-message.ts`, `index.ts` |
+| Session scoping | `src/components/chat/session/session-scope.ts`, `active-session.ts` |
+| Stores | `src/store/chat.store.ts` |
+| Runtime provider | `src/components/chat/gateway/providers/GatewayChatRuntimeProvider.tsx` |
+| Thread assembly | `src/components/chat/gateway/providers/use-gateway-thread-runtime.ts` |
+| History normalization | `src/components/chat/gateway/gateway-history-normalize.ts`, `gateway-content-blocks.ts` |
+| Thread UI | `src/components/chat/ThreadView.tsx`, `AssistantMessage.tsx` |
+| HITL | `src/components/chat/interactive/` — see **[interaction-tool-architecture.md](./interaction-tool-architecture.md)** |
+| Tool UI | **[tool-ui.md](./tool-ui.md)** |
 | Message convert | `src/components/chat/utils/convert-gateway-chat-message.ts` |
-| Message normalize | `src/components/chat/utils/message-normalize.ts` |
-| Tool stream format | `src/components/chat/utils/tool-stream-format.ts` |

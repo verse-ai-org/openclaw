@@ -1,7 +1,4 @@
-// Semantic facade for Control UI chat gateway utilities + bridge wiring.
-//
-// This consolidates the historically-scattered `hooks/chat-event-bridge/index.ts`
-// exports under `chat/gateway/*`, while keeping a stable single import path.
+// Semantic facade for Control UI chat gateway utilities.
 
 export {
   getActiveChatSessionKey,
@@ -20,8 +17,4 @@ export { mergeToolResults } from "./gateway-history-normalize";
 export { extractContentBlocks } from "./gateway-content-blocks";
 
 export type { RawMessage } from "@/components/chat/types";
-export { useGatewayEventBridge } from "./hooks/chat-event-bridge/use-gateway-event-bridge";
-export {
-  BridgeChatContext,
-  useBridgeChatContext,
-} from "./hooks/chat-event-bridge/bridge-context-react";
+export { useGatewayEventBridge } from "./hooks/use-gateway-event-bridge";

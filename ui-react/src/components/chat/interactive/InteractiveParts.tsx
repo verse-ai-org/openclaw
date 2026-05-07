@@ -1,17 +1,11 @@
 import { type FC, useMemo } from "react";
+import { useShallow } from "zustand/shallow";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat.store";
 import type { ChatMessage, InteractiveContentBlock, InteractiveSummaryPair } from "@/components/chat/types";
 import { useChatSend } from "../ChatSendContext";
-import { useRunProjectionStore } from "@/run-projection";
 import { mergeAssistantRunSegments } from "@/components/chat/utils/merge-assistant-run-segments";
-import { formatQaDisplayText, parseQaPairsFromMessage } from "./qa-format";
-import {
-  extractAskFallbackQuestions,
-  formatAskParseErrorReason,
-  parseAskTags,
-  type AskTagParseErrorReason,
-} from "./ask-tag";
+import { parseQaPairsFromMessage } from "./qa-format";
 import { INTERACTIVE_COMPONENT_REGISTRY } from "./interactive-registry";
 
 const QASummary: FC<{ pairs: InteractiveSummaryPair[] }> = ({ pairs }) => (
@@ -28,15 +22,13 @@ const QASummary: FC<{ pairs: InteractiveSummaryPair[] }> = ({ pairs }) => (
 const STREAM_MESSAGE_ID = "__stream__";
 
 function interactiveBlocksFromLiveState(
-  interactiveStreamById: Map<string, InteractiveContentBlock>,
-  interactiveStreamOrder: string[],
+  interactiveById: Map<string, InteractiveContentBlock>,
+  interactiveOrder: string[],
 ): InteractiveContentBlock[] {
   const out: InteractiveContentBlock[] = [];
-  for (const id of interactiveStreamOrder) {
-    const entry = interactiveStreamById.get(id);
-    if (entry) {
-      out.push(entry);
-    }
+  for (const id of interactiveOrder) {
+    const entry = interactiveById.get(id);
+    if (entry) out.push(entry);
   }
   return out;
 }
@@ -48,7 +40,6 @@ function filterInteractiveBlocks(msg: ChatMessage | undefined): InteractiveConte
     ) ?? []
   );
 }
-
 
 function isSubmittedInteractionResponse(args: {
   nextUserMessage: ChatMessage | null;
@@ -77,43 +68,31 @@ type InteractivePartsProps = {
   messageId: string;
 };
 
+/** Resolves interactive blocks for the synthetic live row (`__stream__`) or persisted history. */
 export function resolveInteractiveRenderContext(params: {
   messageId: string;
   messages: ChatMessage[];
-  interactiveStreamById: Map<string, InteractiveContentBlock>;
-  interactiveStreamOrder: string[];
+  liveInteractiveById?: Map<string, InteractiveContentBlock>;
+  liveInteractiveOrder?: string[];
 }): {
   interactiveBlocks: InteractiveContentBlock[];
   nextUserMessage: ChatMessage | null;
-  askParseFailed: boolean;
-  askParseErrorReasons: AskTagParseErrorReason[];
-  askFallbackQuestions: string[];
 } {
-  const { messageId, messages, interactiveStreamById, interactiveStreamOrder } = params;
-  const mid = messageId;
+  const { messageId, messages, liveInteractiveById, liveInteractiveOrder } = params;
 
-  if (mid === STREAM_MESSAGE_ID) {
+  if (messageId === STREAM_MESSAGE_ID) {
+    const byId = liveInteractiveById ?? new Map<string, InteractiveContentBlock>();
+    const order = liveInteractiveOrder ?? [];
     return {
-      interactiveBlocks: interactiveBlocksFromLiveState(interactiveStreamById, interactiveStreamOrder),
+      interactiveBlocks: interactiveBlocksFromLiveState(byId, order),
       nextUserMessage: null,
-      askParseFailed: false,
-      askParseErrorReasons: [],
-      askFallbackQuestions: [],
     };
   }
 
-  // Keep message traversal aligned with runtime rendering, where assistant rows
-  // are merged by runId into a single visible turn.
   const mergedMessages = mergeAssistantRunSegments(messages);
-  const idx = mergedMessages.findIndex((m) => m.id === mid);
+  const idx = mergedMessages.findIndex((m) => m.id === messageId);
   if (idx < 0) {
-    return {
-      interactiveBlocks: [],
-      nextUserMessage: null,
-      askParseFailed: false,
-      askParseErrorReasons: [],
-      askFallbackQuestions: [],
-    };
+    return { interactiveBlocks: [], nextUserMessage: null };
   }
 
   let left = idx;
@@ -128,30 +107,14 @@ export function resolveInteractiveRenderContext(params: {
   const isLastAssistantInRun = idx === right;
 
   let sourceBlocks: InteractiveContentBlock[] = [];
-  let assistantRunText = "";
-  let askParseFailed = false;
-  let askParseErrorReasons: AskTagParseErrorReason[] = [];
-  let askFallbackQuestions: string[] = [];
   for (let i = left; i <= right; i++) {
     const m = mergedMessages[i]!;
-    if (m.role !== "assistant") {
-      continue;
-    }
-    if (m.content) {
-      assistantRunText = [assistantRunText, m.content].filter(Boolean).join("\n");
-    }
+    if (m.role !== "assistant") continue;
     const ib = filterInteractiveBlocks(m);
     if (ib.length > 0) {
       sourceBlocks = ib;
       break;
     }
-  }
-  if (sourceBlocks.length === 0 && assistantRunText.trim()) {
-    const askParse = parseAskTags(assistantRunText);
-    sourceBlocks = askParse.blocks;
-    askParseFailed = askParse.errors.length > 0;
-    askParseErrorReasons = [...new Set(askParse.errors.map((e) => e.reason))];
-    askFallbackQuestions = extractAskFallbackQuestions(assistantRunText);
   }
 
   const nextUserMessage: ChatMessage | null =
@@ -163,80 +126,41 @@ export function resolveInteractiveRenderContext(params: {
     return {
       interactiveBlocks: [],
       nextUserMessage,
-      askParseFailed,
-      askParseErrorReasons,
-      askFallbackQuestions,
     };
   }
 
   return {
     interactiveBlocks: sourceBlocks,
     nextUserMessage,
-    askParseFailed,
-    askParseErrorReasons,
-    askFallbackQuestions,
   };
 }
 
 export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
   const { sendMessage } = useChatSend();
 
-  const messages = useChatStore((s) => s.messages);
-  const interactiveStreamById = useRunProjectionStore((s) => s.interactiveStreamById);
-  const interactiveStreamOrder = useRunProjectionStore((s) => s.interactiveStreamOrder);
-  const interactiveSummaryById = useRunProjectionStore((s) => s.interactiveSummaryById);
+  const { messages, interactiveSummaryById, activeRunState } = useChatStore(
+    useShallow((s) => ({
+      messages: s.messages,
+      interactiveSummaryById: s.interactiveSummaryById,
+      activeRunState: s.activeRunState,
+    })),
+  );
+  const liveInteractiveById = activeRunState?.interactiveById;
+  const liveInteractiveOrder = activeRunState?.interactiveOrder;
 
-  const { interactiveBlocks, nextUserMessage, askParseFailed, askParseErrorReasons, askFallbackQuestions } =
-    useMemo(() => {
-      return resolveInteractiveRenderContext({
+  const { interactiveBlocks, nextUserMessage } = useMemo(
+    () =>
+      resolveInteractiveRenderContext({
         messageId,
         messages,
-        interactiveStreamById,
-        interactiveStreamOrder,
-      });
-    }, [messages, messageId, interactiveStreamById, interactiveStreamOrder]);
+        liveInteractiveById,
+        liveInteractiveOrder,
+      }),
+    [messages, messageId, liveInteractiveById, liveInteractiveOrder],
+  );
 
-  if (interactiveBlocks.length === 0 && !askParseFailed) {
+  if (interactiveBlocks.length === 0) {
     return null;
-  }
-
-  if (interactiveBlocks.length === 0 && askParseFailed) {
-    return (
-      <div className="mt-3 rounded-xl border px-4 py-3 text-sm">
-        {askParseErrorReasons.length > 0 ? (
-          <div className="whitespace-pre-wrap text-xs text-muted-foreground">
-            {askParseErrorReasons
-              .map((reason) => `- ${formatAskParseErrorReason(reason)}`)
-              .join("\n")}
-          </div>
-        ) : null}
-        {askFallbackQuestions.length > 0 ? (
-          <div className="mt-2">
-            <div className="text-xs">请按下面问题直接文本回复：</div>
-            <div className="mt-1 whitespace-pre-wrap text-xs">
-              {formatQaDisplayText(
-                askFallbackQuestions.map((q) => ({
-                  question: q,
-                  answer: "（请填写）",
-                })),
-              )}
-            </div>
-          </div>
-        ) : null}
-        <div className="mt-2 text-xs">请直接用文本回复你的选择。</div>
-        <button
-          type="button"
-          className="mt-3 rounded-md border px-2 py-1 text-xs hover:bg-muted"
-          onClick={() => {
-            void sendMessage(
-              "请重新生成交互卡片，并确保 `<ask>` payload 是严格合法 JSON（不要包含格式错误）。",
-            );
-          }}
-        >
-          重新生成交互卡片
-        </button>
-      </div>
-    );
   }
 
   return (
@@ -282,11 +206,7 @@ export const InteractiveParts: FC<InteractivePartsProps> = ({ messageId }) => {
           payload: block.payload,
           sendMessage,
           setInteractiveSummary: (pairs) =>
-            useRunProjectionStore.getState().dispatch({
-              type: "SET_INTERACTIVE_SUMMARY",
-              interactiveId,
-              pairs,
-            }),
+            useChatStore.getState().setInteractiveSummary(interactiveId, pairs),
         });
       })}
     </div>
