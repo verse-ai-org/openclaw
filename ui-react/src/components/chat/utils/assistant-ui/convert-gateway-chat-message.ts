@@ -3,19 +3,20 @@ import type { ChatMessage } from "@/components/chat/types";
 import { normalizeRole } from "../inbound/message-normalize";
 import { stripAgentWrapperTags } from "./agent-message-tags";
 
+
+type ContentPart =
+| { type: "text"; text: string }
+| {
+    type: "tool-call";
+    toolCallId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    result?: string;
+    isError?: boolean;
+  };
+
 export function convertGatewayChatMessage(msg: ChatMessage): ThreadMessageLike {
   const role = normalizeRole(msg.role) as "user" | "assistant" | "system";
-
-  type ContentPart =
-    | { type: "text"; text: string }
-    | {
-        type: "tool-call";
-        toolCallId: string;
-        toolName: string;
-        args: Record<string, unknown>;
-        result?: string;
-        isError?: boolean;
-      };
   const parts: ContentPart[] = [];
   const hasInteractiveBlocks = msg.contentBlocks?.some((block) => block.type === "interactive") ?? false;
 
