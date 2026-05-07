@@ -186,14 +186,20 @@ export function applyRunEvent(s: RunState, event: RunEvent): RunState {
       return { ...c, interactiveById: byId, interactiveOrder: order };
     }
 
-    case "run.finished":
-      return { ...next, status: "finished", finalText: event.text };
+    case "run.finished": {
+      const flushed = autoCommit(next);
+      return { ...flushed, status: "finished", finalText: event.text };
+    }
 
-    case "run.error":
-      return { ...next, status: "error", errorMessage: event.message };
+    case "run.error": {
+      const flushed = autoCommit(next);
+      return { ...flushed, status: "error", errorMessage: event.message };
+    }
 
-    case "run.aborted":
-      return { ...next, status: "aborted" };
+    case "run.aborted": {
+      const flushed = autoCommit(next);
+      return { ...flushed, status: "aborted" };
+    }
 
     default:
       return next;

@@ -83,21 +83,33 @@ export function toLiveMessage(s: RunState): ChatMessage {
  * Returns null when there is nothing to persist (e.g. run was aborted with no output).
  */
 export function toFinalMessage(s: RunState): ChatMessage | null {
-  const text = s.finalText ?? "";
+  const stitchedPlain = committedTextPrefix(s.committedBlocks).trim();
+  const finalPlain = s.finalText?.trim() ?? "";
+  const liveRemainder = s.liveText.trim();
+
   const hasContent =
-    text.trim() ||
-    s.committedBlocks.length > 0 ||
+    !!finalPlain ||
+    !!stitchedPlain ||
+    !!liveRemainder ||
     s.toolOrder.length > 0 ||
     s.interactiveOrder.length > 0;
 
   if (!hasContent) return null;
 
-  const blocks = buildBlocks(s, false, text || undefined);
+  // Avoid duplicating the assistant body when chat.final repeats the streamed text already in committed blocks.
+  let extraText: string | undefined = finalPlain || undefined;
+  if (extraText && extraText === stitchedPlain) {
+    extraText = undefined;
+  }
+
+  const blocks = buildBlocks(s, false, extraText);
+
+  const contentField = finalPlain || stitchedPlain || liveRemainder;
 
   return {
     id: crypto.randomUUID(),
     role: "assistant",
-    content: text,
+    content: contentField,
     ts: Date.now(),
     runId: s.runId,
     contentBlocks: blocks.length > 0 ? blocks : undefined,
