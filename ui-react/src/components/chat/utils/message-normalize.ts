@@ -115,6 +115,37 @@ export function normalizeRole(raw: string | undefined): ChatMessageRole {
   }
 }
 
+/**
+ * Plain text from a `chat` WS payload `message` object (delta / final).
+ * Text parts in `content[]` are concatenated with **no** separator — matches
+ * streaming cumulative assistant strings from the gateway.
+ */
+export function extractGatewayChatMessageText(message: unknown): string {
+  if (!message || typeof message !== "object") {
+    return "";
+  }
+  const m = message as Record<string, unknown>;
+  if (typeof m.text === "string") {
+    return m.text;
+  }
+  if (Array.isArray(m.content)) {
+    return (m.content as unknown[])
+      .filter(
+        (b): b is { type: "text"; text: string } =>
+          !!b &&
+          typeof b === "object" &&
+          (b as Record<string, unknown>).type === "text" &&
+          typeof (b as Record<string, unknown>).text === "string",
+      )
+      .map((b) => b.text)
+      .join("");
+  }
+  if (typeof m.content === "string") {
+    return m.content;
+  }
+  return "";
+}
+
 /** Extract plain text from a Gateway message object (content string or content block array). */
 export function extractMessageText(message: unknown): string {
   if (!message || typeof message !== "object") {

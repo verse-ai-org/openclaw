@@ -12,6 +12,7 @@ import {
   checkGatewayAgentLifecycleData,
   checkGatewayAgentToolData,
 } from "./gateway-ws-check";
+import { extractGatewayChatMessageText } from "@/components/chat/utils/message-normalize";
 import type { RunEvent } from "@/run-stream";
 
 // ---------------------------------------------------------------------------
@@ -24,26 +25,6 @@ function normalizeSessionKey(raw: unknown): string {
 
 function normalizeRunId(raw: unknown): string | undefined {
   return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
-}
-
-function extractText(message: unknown): string {
-  if (!message || typeof message !== "object") return "";
-  const m = message as Record<string, unknown>;
-  if (typeof m.text === "string") return m.text;
-  if (Array.isArray(m.content)) {
-    return (m.content as unknown[])
-      .filter(
-        (b): b is { type: "text"; text: string } =>
-          !!b &&
-          typeof b === "object" &&
-          (b as Record<string, unknown>).type === "text" &&
-          typeof (b as Record<string, unknown>).text === "string",
-      )
-      .map((b) => b.text)
-      .join("");
-  }
-  if (typeof m.content === "string") return m.content;
-  return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -79,12 +60,12 @@ export function gatewayToRunEvents(
 
     switch (chat.state) {
       case "delta": {
-        const text = extractText(chat.message);
+        const text = extractGatewayChatMessageText(chat.message);
         if (!text) return { events: [], sessionKey, runId };
         return { events: [{ type: "text.delta", text }], sessionKey, runId };
       }
       case "final": {
-        const text = extractText(chat.message);
+        const text = extractGatewayChatMessageText(chat.message);
         return {
           events: [{ type: "run.finished", text: text || undefined }],
           sessionKey,
