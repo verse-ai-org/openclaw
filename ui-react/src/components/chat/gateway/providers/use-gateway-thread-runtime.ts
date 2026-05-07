@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { useChatStore } from "@/store/chat.store";
 import { resolveActiveChatSessionKey } from "../../session/active-session";
-import { mergeAssistantRunSegments } from "../../utils/merge-assistant-run-segments";
+import { mergeAssistantRunSegments } from "../../utils/inbound/merge-assistant-run-segments";
 import { toLiveMessage } from "@/run-stream/run-message";
 import type { ChatMessage } from "@/components/chat/types";
 

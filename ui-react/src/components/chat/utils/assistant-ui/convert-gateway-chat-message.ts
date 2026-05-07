@@ -1,7 +1,7 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
-import { stripAgentWrapperTags } from "./agent-message-tags";
-import { normalizeRole } from "./message-normalize";
 import type { ChatMessage } from "@/components/chat/types";
+import { normalizeRole } from "../inbound/message-normalize";
+import { stripAgentWrapperTags } from "./agent-message-tags";
 
 export function convertGatewayChatMessage(msg: ChatMessage): ThreadMessageLike {
   const role = normalizeRole(msg.role) as "user" | "assistant" | "system";

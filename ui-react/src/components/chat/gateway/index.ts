@@ -11,7 +11,7 @@ export {
   normalizeHistoryAttachmentHints,
   normalizeRole,
   stripAttachmentContent,
-} from "../utils/message-normalize";
+} from "../utils/inbound/message-normalize";
 
 export { mergeToolResults } from "./gateway-history-normalize";
 export { extractContentBlocks } from "./gateway-content-blocks";

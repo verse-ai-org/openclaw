@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat.store";
 import type { ChatMessage, InteractiveContentBlock, InteractiveSummaryPair } from "@/components/chat/types";
 import { useChatSend } from "../ChatSendContext";
-import { mergeAssistantRunSegments } from "@/components/chat/utils/merge-assistant-run-segments";
+import { mergeAssistantRunSegments } from "@/components/chat/utils/inbound/merge-assistant-run-segments";
 import { parseQaPairsFromMessage } from "./qa-format";
 import { INTERACTIVE_COMPONENT_REGISTRY } from "./interactive-registry";
 

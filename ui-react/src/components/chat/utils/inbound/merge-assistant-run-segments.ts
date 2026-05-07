@@ -49,4 +49,3 @@ export function mergeAssistantRunSegments(messages: ChatMessage[]): ChatMessage[
 
   return merged;
 }
-

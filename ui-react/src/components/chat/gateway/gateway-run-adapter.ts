@@ -12,7 +12,7 @@ import {
   checkGatewayAgentLifecycleData,
   checkGatewayAgentToolData,
 } from "./gateway-ws-check";
-import { extractGatewayChatMessageText } from "@/components/chat/utils/message-normalize";
+import { extractGatewayChatMessageText } from "@/components/chat/utils/inbound/message-normalize";
 import type { RunEvent } from "@/run-stream";
 
 // ---------------------------------------------------------------------------

@@ -153,4 +153,4 @@ Composer **`chat.abort`** with **`sessionKey`** + optional **`runId`** → local
 | Thread UI | `src/components/chat/ThreadView.tsx`, `AssistantMessage.tsx` |
 | HITL | `src/components/chat/interactive/` — see **[interaction-tool-architecture.md](./interaction-tool-architecture.md)** |
 | Tool UI | **[tool-ui.md](./tool-ui.md)** |
-| Message convert | `src/components/chat/utils/convert-gateway-chat-message.ts` |
+| Message convert | `src/components/chat/utils/assistant-ui/convert-gateway-chat-message.ts` |

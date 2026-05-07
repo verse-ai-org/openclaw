@@ -8,7 +8,7 @@ import {
   stripAttachmentContent,
   type RawMessage,
 } from "@/components/chat/gateway";
-import { mergeAssistantRunSegments } from "@/components/chat/utils/merge-assistant-run-segments";
+import { mergeAssistantRunSegments } from "@/components/chat/utils/inbound/merge-assistant-run-segments";
 
 type HistoryNormalizeHooks = {
   onRawMessages?: (messages: RawMessage[]) => void;

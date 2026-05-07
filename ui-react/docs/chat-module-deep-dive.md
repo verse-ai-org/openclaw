@@ -39,7 +39,7 @@ ChatPage
 
 ### 1.2 消息转换 `convertGatewayChatMessage`
 
-将 `ChatMessage` 转为 `ThreadMessageLike`（`utils/convert-gateway-chat-message.ts`）：
+将 `ChatMessage` 转为 `ThreadMessageLike`（`utils/assistant-ui/convert-gateway-chat-message.ts`）：
 
 - **`contentBlocks`** 中的 **`text`** / **`tool-call`** 转成 assistant-ui 的 parts；**`interactive`** 类型不会变成 tool-call part，由 **`InteractiveParts`** 单独渲染。
 - 无 blocks 时用扁平 **`content`**，并 **`stripAgentWrapperTags`**（`<final>` / `<plan>` 等）。
