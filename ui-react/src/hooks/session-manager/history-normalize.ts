@@ -16,7 +16,20 @@ type HistoryNormalizeHooks = {
   onConsolidatedMessages?: (messages: ChatMessage[]) => void;
 };
 
-export function normalizeHistoryMessages(
+/**
+ * Turn gateway `chat.history` rows into UI {@link ChatMessage} list (single entry point).
+ *
+ * Stages (order matters):
+ * 1. `onRawMessages` hook — observe the unmodified gateway array.
+ * 2. **mergeToolResults** — fold gateway tool-related rows into conversational shape.
+ * 3. **Per-row map** — {@link normalizeRole}; flatten body via {@link normalizeContent};
+ *    user rows: {@link stripAttachmentContent} + {@link normalizeHistoryAttachmentHints};
+ *    assistant rows: {@link extractContentBlocks} from raw `content`.
+ * 4. `onNormalizedMessages` hook — one ChatMessage per logical row before run folding.
+ * 5. **mergeAssistantRunSegments** — merge adjacent assistant rows with the same non-empty `runId`.
+ * 6. `onConsolidatedMessages` hook — final list passed to the store / thread runtime.
+ */
+export function consolidateHistoryMessages(
   messages: RawMessage[],
   sessionKey: string | undefined,
   hooks?: HistoryNormalizeHooks,
@@ -24,6 +37,7 @@ export function normalizeHistoryMessages(
   hooks?.onRawMessages?.(messages);
 
   const merged = mergeToolResults(messages) as RawMessage[];
+
   const normalized: ChatMessage[] = merged.map((m) => {
     const role = normalizeRole(m.role);
     const rawContent = normalizeContent(m.content ?? m.text ?? "");
@@ -60,3 +74,8 @@ export function normalizeHistoryMessages(
   hooks?.onConsolidatedMessages?.(mergedSegments);
   return mergedSegments;
 }
+
+/**
+ * Alias for {@link consolidateHistoryMessages} — kept so existing imports keep working.
+ */
+export const normalizeHistoryMessages = consolidateHistoryMessages;

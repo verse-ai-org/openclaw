@@ -6,8 +6,8 @@ import {
   syncSessionRunStatusFromGateway,
 } from "./loaders";
 
-vi.mock("./history-normalize", () => ({
-  normalizeHistoryMessages: vi.fn((_messages, sessionKey: string) => [
+vi.mock("./history-normalize", () => {
+  const fn = vi.fn((_messages: unknown, sessionKey: string) => [
     {
       id: "m1",
       role: "assistant",
@@ -15,8 +15,12 @@ vi.mock("./history-normalize", () => ({
       ts: 1,
       sessionKey,
     },
-  ]),
-}));
+  ]);
+  return {
+    consolidateHistoryMessages: fn,
+    normalizeHistoryMessages: fn,
+  };
+});
 
 function resetChatState() {
   useChatStore.setState({

@@ -2,7 +2,7 @@ import type { MutableRefObject } from "react";
 import { useChatStore } from "@/store/chat.store";
 import type { IGatewayClient } from "@/store/gateway.store";
 import type { RawMessage } from "@/components/chat/gateway";
-import { normalizeHistoryMessages } from "./history-normalize";
+import { consolidateHistoryMessages } from "./history-normalize";
 import type { SessionEntry } from "./types";
 
 export async function syncSessionRunStatusFromGateway(params: {
@@ -121,7 +121,7 @@ export async function loadHistoryFromGateway(params: {
     const rawMessages = (Array.isArray(result?.messages)
       ? result.messages
       : []) as RawMessage[];
-    const consolidated = normalizeHistoryMessages(rawMessages, key);
+    const consolidated = consolidateHistoryMessages(rawMessages, key);
 
     const isLatest = requestSeq === historyRequestSeqRef.current;
     const activeSessionKey = useChatStore.getState().sessionKey;
