@@ -84,7 +84,7 @@ Gateway 专有逻辑仅限 **`gateway-run-adapter.ts`** + **`gateway-ws-check.ts
 | `chat` `final` | `run.finished`（可选附带正文） |
 | `chat` `error` / `aborted` | `run.error` / `run.aborted` |
 | `agent` lifecycle `start` | `run.started` |
-| `agent` lifecycle `end` | `run.finished`（空正文，兜底） |
+| `agent` lifecycle `end` / `error` | 不产生 `RunEvent`（收尾以 `chat` `final` / `error` 为准） |
 | `agent` tool **`start`**，普通工具 | `tool.start`（触发 reducer 内 **auto-commit**） |
 | `agent` tool **`start`**，`question_flow` / `option_list` / `approval_card` | **`createInteractiveBlock(..., payload: args)`** → **`interactive.start`** |
 | `agent` tool **`update`/`result`/`error`**，交互工具名 | **忽略** |

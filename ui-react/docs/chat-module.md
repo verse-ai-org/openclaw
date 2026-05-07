@@ -74,7 +74,7 @@ Declared in **`run-stream/run-event.ts`** (summarized):
 | `text.delta` | `chat` `state=delta` (full cumulative text) |
 | `tool.start` / `tool.update` / `tool.result` / `tool.error` | `agent` `stream=tool` (**non-interactive** tools) |
 | `interactive.start` | `agent` tool `phase=start`, `name` ∈ interactive tools → `createInteractiveBlock({ …, payload: args })` |
-| `run.finished` | `chat` `state=final`, or lifecycle `end` fallback |
+| `run.finished` | `chat` `state=final` only (lifecycle `end` is ignored — gateway sends it before `chat` final) |
 | `run.error` / `run.aborted` | `chat` / lifecycle |
 
 **Interactive tools** do **not** emit `tool.start`/`result` through the reducer: **`gateway-run-adapter`** maps **`start`** to **`interactive.start`** (parsed block). **`result`**/`update`** frames for interactive names are ignored at the adapter (result is often only an id/meta string).

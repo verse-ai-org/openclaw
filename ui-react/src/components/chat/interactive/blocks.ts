@@ -44,7 +44,11 @@ export function parseInteractivePayload(
     return safeParseSerializableOptionList(parsed);
   }
 
-  return safeParseSerializableApprovalCard(parsed);
+  if(toolName === "approval_card") {
+    return safeParseSerializableApprovalCard(parsed);
+  }
+
+  return null;
 }
 
 export function createInteractiveBlock(args: {
@@ -64,4 +68,3 @@ export function createInteractiveBlock(args: {
     payload: parsed,
   };
 }
-

@@ -1,26 +1,7 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
+import { stripAgentWrapperTags } from "./agent-message-tags";
 import { normalizeRole } from "./message-normalize";
 import type { ChatMessage } from "@/components/chat/types";
-import { stripAllAskTags } from "@/components/chat/interactive";
-
-const AGENT_COMPLETE_TAG_RE = /^\s*<(final|plan)>([\s\S]*?)<\/\1>\s*$/i;
-const AGENT_OPEN_TAG_RE = /^\s*<(?:final|plan)>\n?/i;
-const AGENT_CLOSE_TAG_RE = /\n?<\/(?:final|plan)>\s*$/i;
-
-function stripAgentWrapperTags(text: string): string {
-  let result = text;
-  let match: RegExpMatchArray | null;
-  // eslint-disable-next-line no-cond-assign
-  while ((match = result.match(AGENT_COMPLETE_TAG_RE))) {
-    result = match[2] ?? "";
-  }
-  result = result.replace(AGENT_OPEN_TAG_RE, "");
-  result = result.replace(AGENT_CLOSE_TAG_RE, "");
-  if (!/<\/(?:final|plan)>\s*$/iu.test(result)) {
-    result = result.replace(/<\/(?:final|plan)?$/iu, "");
-  }
-  return stripAllAskTags(result);
-}
 
 export function convertGatewayChatMessage(msg: ChatMessage): ThreadMessageLike {
   const role = normalizeRole(msg.role) as "user" | "assistant" | "system";

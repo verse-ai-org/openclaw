@@ -1,4 +1,5 @@
 import type { ChatMessage, ContentBlock } from "@/components/chat/types";
+import { formatToolStreamOutput } from "@/components/chat/utils/tool-stream-format";
 import { committedTextPrefix, type RunState } from "./run-state";
 
 // ---------------------------------------------------------------------------
@@ -9,23 +10,6 @@ import { committedTextPrefix, type RunState } from "./run-state";
 function liveTextTail(s: RunState): string {
   const prefix = committedTextPrefix(s.committedBlocks);
   return s.liveText.startsWith(prefix) ? s.liveText.slice(prefix.length) : s.liveText;
-}
-
-function toolResultText(
-  output: unknown,
-  error: string | undefined,
-  phase: string,
-): string | undefined {
-  if (typeof output === "string") return output;
-  if (output != null) {
-    try {
-      return JSON.stringify(output, null, 2);
-    } catch {
-      return String(output);
-    }
-  }
-  if (phase === "error" && error) return error;
-  return undefined;
 }
 
 /**
@@ -56,7 +40,7 @@ function buildBlocks(
       toolCallId: e.id,
       toolName: e.toolName ?? "tool",
       argsText: e.input != null ? JSON.stringify(e.input, null, 2) : undefined,
-      result: toolResultText(e.output, e.error, e.phase),
+      result: formatToolStreamOutput(e.output, e.error, e.phase),
       phase: e.phase === "result" ? "result" : e.phase === "error" ? "error" : "call",
     });
   }

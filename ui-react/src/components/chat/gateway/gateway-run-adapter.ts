@@ -119,24 +119,12 @@ export function gatewayToRunEvents(
             runId,
           };
         case "end":
-          // lifecycle.end is a fallback signal — run-dispatch synthesizes run.finished
-          // only when there is buffered content and chat.final has not yet arrived.
-          return {
-            events: [{ type: "run.finished" }],
-            sessionKey,
-            runId,
-          };
         case "error":
-          return {
-            events: [
-              {
-                type: "run.error",
-                message: typeof data.error === "string" ? data.error : undefined,
-              },
-            ],
-            sessionKey,
-            runId,
-          };
+          // Terminal run state comes from the `chat` channel (`final` / `error` /
+          // `aborted`). Gateway broadcasts `agent` lifecycle end *before* `chat`
+          // final; mapping end/error here would clear the run too early and drop
+          // the following chat frames.
+          return { events: [], sessionKey, runId };
         default:
           return { events: [], sessionKey, runId };
       }

@@ -49,7 +49,7 @@ interface ChatState {
    * Backend-derived "active run" mirror keyed by `sessionKey`.
    * - Authoritative source: WS `chat` / `agent` events and refresh restore via `chat.status`.
    * - Use-cases: refresh-resume, multi-tab, switching sessions while a run continues.
-   * - Cleared: terminal events or lifecycle end.
+   * - Cleared: terminal `chat` events (`final` / `error` / `aborted`) handled in run-dispatch.
    */
   pendingGenerationBySession: Record<string, { runId?: string | null }>;
 

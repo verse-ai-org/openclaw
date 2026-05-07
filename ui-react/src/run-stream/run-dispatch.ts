@@ -90,5 +90,5 @@ function _handleTerminal(
 
   const st = useChatStore.getState();
   st.clearSessionGenerating(activeSessionKey);
-  st.triggerSessionsReload();
+  // st.triggerSessionsReload();
 }

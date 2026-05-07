@@ -1,25 +1,25 @@
-import type { ToolStreamEntry } from "@/components/chat/types";
+import type { ToolStreamPhase } from "@/components/chat/types";
 
-/** Text shown on tool-call cards (streaming finalize + live row). */
-export function toolStreamEntryToResultText(
-  entry: ToolStreamEntry,
+/**
+ * Serialize tool output / error for tool-call cards (streaming row + history).
+ */
+export function formatToolStreamOutput(
+  output: unknown,
+  error: string | undefined,
+  phase: ToolStreamPhase,
 ): string | undefined {
-  if (typeof entry.output === "string") {
-    return entry.output;
+  if (typeof output === "string") {
+    return output;
   }
-  if (entry.output != null) {
+  if (output != null) {
     try {
-      return JSON.stringify(entry.output, null, 2);
+      return JSON.stringify(output, null, 2);
     } catch {
-      return String(entry.output);
+      return String(output);
     }
   }
-  if (
-    entry.phase === "error" &&
-    typeof entry.error === "string" &&
-    entry.error.trim()
-  ) {
-    return entry.error;
+  if (phase === "error" && typeof error === "string" && error.trim()) {
+    return error;
   }
   return undefined;
 }
