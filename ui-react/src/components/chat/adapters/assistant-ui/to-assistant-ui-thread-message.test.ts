@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ChatMessage } from "@/components/chat/types";
-import { convertGatewayChatMessage } from "./convert-gateway-chat-message";
+import { toAssistantUiThreadMessage } from "./to-assistant-ui-thread-message";
 
-describe("message-convert", () => {
+describe("toAssistantUiThreadMessage", () => {
   it("strips wrapper tags from text blocks", () => {
     const msg: ChatMessage = {
       id: "a1",
@@ -12,7 +12,7 @@ describe("message-convert", () => {
       contentBlocks: [{ type: "text", text: "<final>Hello</final>" }],
     };
 
-    const converted = convertGatewayChatMessage(msg);
+    const converted = toAssistantUiThreadMessage(msg);
     expect(converted.role).toBe("assistant");
     expect(converted.content).toEqual([{ type: "text", text: "Hello" }]);
   });
@@ -35,7 +35,7 @@ describe("message-convert", () => {
       ],
     };
 
-    const converted = convertGatewayChatMessage(msg);
+    const converted = toAssistantUiThreadMessage(msg);
     expect(converted.content).toEqual([
       {
         type: "tool-call",
@@ -48,3 +48,4 @@ describe("message-convert", () => {
     ]);
   });
 });
+

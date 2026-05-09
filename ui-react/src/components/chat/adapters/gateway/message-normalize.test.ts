@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  extractGatewayChatMessageText,
-  extractMessageText,
-} from "./message-normalize";
+import { extractGatewayChatMessageText, extractMessageText } from "./message-normalize";
 
 describe("extractGatewayChatMessageText", () => {
   it("returns empty for non-objects", () => {
@@ -57,3 +54,4 @@ describe("extractMessageText", () => {
     ).toBe("a\nb");
   });
 });
+

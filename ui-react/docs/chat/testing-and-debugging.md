@@ -9,7 +9,7 @@ conversation reducer 是纯函数，推荐用“事件流 → state”黄金测�
 RunEvent/adapter 测试：
 
 - `ui-react/src/components/chat/gateway/gateway-run-adapter.test.ts`
-- `ui-react/src/components/chat/messages/*` 与 outbound parser tests
+- `ui-react/src/components/chat/adapters/*`（gateway normalize / assistant-ui adapter / outbound parser）
 
 运行：
 

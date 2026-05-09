@@ -26,9 +26,9 @@
     - `data.text` 作为 `fullText?` 携带（用于对齐/调试；真相仍以 `chat` 快照为准）
   - `agent.tool`：
     - 普通 tool：`tool.start/update/result/error`
-    - interactive tool：`tool.start` 时解析 args，并额外发出 `tool.ui`（交互卡的 UI presentation）
+    - tool-ui surface：`tool.start` 时解析 args，并额外发出 `tool.ui`（tool UI presentation）
 
-> interactive tool 的 `update/result` 事件多数不携带 UI payload，但它们仍会作为 tool lifecycle 事件进入 canonical（便于调试/日志一致性）。
+> tool-ui surface 的 `update/result` 事件多数不携带 UI payload，但它们仍会作为 tool lifecycle 事件进入 canonical（便于调试/日志一致性）。
 
 ## 3) conversation/gateway-adapter（RunEvent → CanonicalChatEvent）
 

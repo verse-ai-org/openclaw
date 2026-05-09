@@ -16,7 +16,7 @@ Gateway 的 `delta` 是 **累计文本**（full snapshot），为了避免每次
 
 - `liveTextByMessageId: Map<messageId, fullText>`
 
-在“边界事件”上触发 flush（例如 tool/interactive 开始、run 结束等）把 liveText 固化为一个 `ChatPart(type="text")`，并清空 buffer。
+在“边界事件”上触发 flush（例如 tool start、run 结束等）把 liveText 固化为一个 `ChatPart(type="text")`，并清空 buffer。
 
 ### 2) tool part 的按 id 原地更新
 

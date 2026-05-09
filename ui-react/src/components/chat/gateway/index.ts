@@ -10,11 +10,7 @@ export {
   normalizeContent,
   normalizeHistoryAttachmentHints,
   normalizeRole,
-  stripAttachmentContent,
-} from "../messages/inbound/message-normalize";
-
-export { mergeToolResults } from "./gateway-history-normalize";
-export { extractContentBlocks } from "./gateway-content-blocks";
+} from "../adapters/gateway/message-normalize";
 
 export type { RawMessage } from "@/components/chat/types";
 export { useGatewayEventBridge } from "./hooks/use-gateway-event-bridge";

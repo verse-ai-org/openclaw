@@ -18,7 +18,7 @@
 不做的事：
 
 - 不发网络请求
-- 不做 UI 组件的临时状态（draft、interactive summary）
+- 不做 UI 组件的临时状态（draft、ui-tool lifecycle/receipt）
 
 ## chat.store（控制面：尽量薄）
 
@@ -38,7 +38,7 @@
 - `activeRunState`（已迁移到 canonical pipeline）
 - `runId`（取消/状态恢复使用 conversationStore 的 `activeRunId`）
 - `pendingDraftMessage`（迁移到 composerStore）
-- `interactiveSummaryById`（迁移到 interactionStore）
+- `interactiveSummaryById`（已被 `interactionStore.uiStateById` 取代）
 
 ## composerStore（输入框草稿等）
 
@@ -48,11 +48,13 @@
 
 - 保存并消费“待写入输入框”的 draft（例如从 profile 页/任务页跳转预填）
 
-## interactionStore（交互卡提交摘要）
+## interactionStore（ui-tool lifecycle/回执）
 
 源码：`ui-react/src/store/interaction.store.ts`
 
 职责：
 
-- `interactiveSummaryById`：用户提交交互卡后的 Q/A summary（纯前端展示）
+- `uiStateById`：每个 `uiId` 的 client-only 生命周期状态（`pending/submitted/editing/...`）与回执数据
+- `setActiveThreadId`：按 thread scope 重置交互态，避免跨 thread 的 `uiId` 冲突
+- **hydrate**：UI 回执会从 history 的 `metadata.interaction` 反推（见 `useHydrateUiStateFromHistory`）
 

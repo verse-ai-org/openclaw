@@ -23,7 +23,7 @@
 入口：`ui-react/src/components/chat/conversation/gateway-adapter.ts`
 
 - `runEventsToCanonical(events, sessionKey, runId)` 输出 **CanonicalChatEvent[]**
-- 这一步把“流式文本、tool lifecycle、interactive start”等映射到 conversation reducer 认得的 canonical protocol
+- 这一步把“流式文本、tool lifecycle、tool UI（tool.ui）”等映射到 conversation reducer 认得的 canonical protocol
 
 ## 3) Canonical reducer：events → ConversationState
 
@@ -34,7 +34,8 @@ Reducer 做的事（高层）：
 - 保持 `ConversationState` 中的 `messagesById` / `messageOrder`
 - 维护 `runsById` / `activeRunId`（用于判断 `isRunning`）
 - 把 streaming 文本 `message.setLiveText` 在边界处“落盘”为 `ChatPart(type="text")`
-- tool/interactive 直接进入 `parts: ChatPart[]` 时间线，并能按 id 更新对应 part
+- tool 直接进入 `parts: ChatPart[]` 时间线，并能按 id 更新对应 part
+- tool UI 不作为独立 part：挂在 `ToolPart.ui` 上（投影层再转成 `ContentBlock(type="ui")`）
 
 ## 4) Zustand store：按 thread 保存 conversation state
 
@@ -51,7 +52,7 @@ Reducer 做的事（高层）：
 
 - 将 canonical messages 投影成 UI 需要的 `ChatMessage[]`
 - 将 `CanonicalMessage.status` 映射为 assistant-ui 运行态（例如 message 的 loading / running）
-- 将 `parts: ChatPart[]` 转为 `contentBlocks`（text/tool/interactive）
+- 将 `parts: ChatPart[]` 转为 `contentBlocks`（text/tool-call/ui）
 
 ## 6) Runtime glue：ExternalStoreRuntime
 

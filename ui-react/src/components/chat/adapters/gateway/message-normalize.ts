@@ -1,55 +1,5 @@
 import type { ChatMessageRole, MessageAttachment } from "@/components/chat/types";
 
-/**
- * For user messages from chat.history: strip the appended file-content blocks
- * that the gateway injects (starting with "以下是上传文件的内容："),
- * and extract file names from "[文件: filename]" markers.
- *
- * Returns the clean prompt text and a list of attachment display metadata.
- */
-export function stripAttachmentContent(raw: string): {
-  prompt: string;
-  attachments: MessageAttachment[];
-} {
-  const SEPARATOR = "\n\n以下是上传文件的内容：";
-  const idx = raw.indexOf(SEPARATOR);
-  if (idx === -1) {
-    return { prompt: raw, attachments: [] };
-  }
-
-  const prompt = raw.slice(0, idx);
-  const attachmentBlock = raw.slice(idx + SEPARATOR.length);
-
-  const fileNameRegex = /\[文件:\s*([^\]]+?)(?:\s*\([^)]*\))?\s*\]/g;
-  const attachments: MessageAttachment[] = [];
-  const seen = new Set<string>();
-  let match: RegExpExecArray | null;
-  while ((match = fileNameRegex.exec(attachmentBlock)) !== null) {
-    const fileName = match[1].trim();
-    if (fileName && !seen.has(fileName)) {
-      seen.add(fileName);
-      const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-      const mimeType =
-        ext === "pdf"
-          ? "application/pdf"
-          : ext === "docx" || ext === "doc"
-            ? "application/msword"
-            : ext === "xlsx" || ext === "xls"
-              ? "application/vnd.ms-excel"
-              : ext === "png" ||
-                  ext === "jpg" ||
-                  ext === "jpeg" ||
-                  ext === "gif" ||
-                  ext === "webp"
-                ? `image/${ext}`
-                : "text/plain";
-      attachments.push({ fileName, mimeType, size: 0 });
-    }
-  }
-
-  return { prompt, attachments };
-}
-
 /** Prefer gateway-provided attachment hints (after server-side content shortening). */
 export function normalizeHistoryAttachmentHints(raw: unknown): MessageAttachment[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) {
@@ -157,3 +107,4 @@ export function extractMessageText(message: unknown): string {
   }
   return normalizeContent(m.content);
 }
+

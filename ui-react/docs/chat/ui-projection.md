@@ -21,10 +21,12 @@
 
 ## 3) convertGatewayChatMessage
 
-源码：`ui-react/src/components/chat/messages/assistant-ui/convert-gateway-chat-message.ts`
+源码：`ui-react/src/components/chat/adapters/assistant-ui/to-assistant-ui-thread-message.ts`
 
 - `contentBlocks` 中：
   - `text` → text part
-  - `tool-call` → tool-call part（Tool UI 渲染走 tool pipeline）
-  - `interactive` 不会变成 tool-call part：交互卡由 `InteractiveParts` 组件渲染
+  - `tool-call` → tool-call part（工具日志 / ToolCallGroup）
+  - `ui` → 编码为特殊 `tool-call`（`toolName="__ui__"`，args 含 `uiId/component/payload`），由 `UiToolParts` 渲染
+
+> 注意：assistant-ui runtime 不支持未知的 message part type（例如 `type="ui"`）。因此 `ui` surface 需要通过 `tool-call` 进行承载与透传。
 

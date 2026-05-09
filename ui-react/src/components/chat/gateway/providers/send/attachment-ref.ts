@@ -38,9 +38,8 @@ export async function buildAttachmentRefsFromMessage(
   refs: ChatAttachmentRef[];
   missingPathFiles: string[];
 }> {
-  const threadAttachments = (
-    message as AppendMessage & { attachments?: readonly CompleteAttachment[] }
-  ).attachments;
+  const threadAttachments = (message as AppendMessage & { attachments?: readonly CompleteAttachment[] })
+    .attachments;
   if (!threadAttachments || threadAttachments.length === 0) {
     return { refs: [], missingPathFiles: [] };
   }

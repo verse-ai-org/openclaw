@@ -24,7 +24,7 @@
 - RPC：`chat.send`
 - 后续 WS event 进入 canonical pipeline
 
-## 3) 流式生成（WS delta / tools / interactive）
+## 3) 流式生成（WS delta / tools / tool-ui surface）
 
 入口：`useGatewayEventBridge`
 
@@ -33,11 +33,11 @@
   - `chat.delta` → `message.setLiveText`（累计全文快照，用于对齐/纠偏）
 - `agent.tool.start` → `tool.start`（在 parts 时间线 append tool part）
 - `agent.tool.update/result/error` → 对应更新 tool part
-- `tool.ui` → 更新对应 tool part 的 UI presentation（InteractiveParts 渲染）
+- `tool.ui` → 更新对应 tool part 的 UI presentation（UiToolParts 渲染）
 
 边界行为：
 
-- tool/interactive 开始/结束、run 结束时会 flush liveText 到 text part，避免丢尾部文本。
+- tool start、run 结束时会 flush liveText 到 text part，避免丢尾部文本。
 
 ## 4) 取消（onCancel）
 

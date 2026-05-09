@@ -9,9 +9,7 @@ export type ParsedGatewaySendPayload = {
   displayAttachments: MessageAttachment[];
 };
 
-export function parseGatewaySendPayload(
-  message: AppendMessage,
-): ParsedGatewaySendPayload {
+export function parseGatewaySendPayload(message: AppendMessage): ParsedGatewaySendPayload {
   const textChunks: string[] = [];
   const displayAttachments: MessageAttachment[] = [];
 
@@ -42,9 +40,8 @@ export function parseGatewaySendPayload(
     }
   }
 
-  const threadAttachments = (
-    message as AppendMessage & { attachments?: readonly CompleteAttachment[] }
-  ).attachments;
+  const threadAttachments = (message as AppendMessage & { attachments?: readonly CompleteAttachment[] })
+    .attachments;
   if (threadAttachments && threadAttachments.length > 0) {
     for (const att of threadAttachments) {
       if (att.status.type !== "complete") {

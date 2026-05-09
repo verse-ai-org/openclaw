@@ -1,11 +1,5 @@
-import type {
-  AttachmentAdapter,
-  CompleteAttachment,
-  PendingAttachment,
-} from "@assistant-ui/react";
-import {
-  CompositeAttachmentAdapter,
-} from "@assistant-ui/react";
+import type { AttachmentAdapter, CompleteAttachment, PendingAttachment } from "@assistant-ui/react";
+import { CompositeAttachmentAdapter } from "@assistant-ui/react";
 import { toast } from "sonner";
 
 export const ALLOWED_MIME_TYPES = new Set([
@@ -88,3 +82,4 @@ class GatewayBinaryAttachmentAdapter implements AttachmentAdapter {
 export function createGatewayCompositeAttachmentAdapter(): CompositeAttachmentAdapter {
   return new CompositeAttachmentAdapter([new GatewayBinaryAttachmentAdapter()]);
 }
+

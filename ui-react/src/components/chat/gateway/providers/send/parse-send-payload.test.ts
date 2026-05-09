@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AppendMessage } from "@assistant-ui/react";
-import { parseGatewaySendPayload } from "./parse-gateway-send-payload";
+import { parseGatewaySendPayload } from "./parse-send-payload";
 
-describe("send-payload", () => {
+describe("parseGatewaySendPayload", () => {
   it("ignores image blocks from message content", () => {
     const message = {
       content: [
@@ -47,8 +47,7 @@ describe("send-payload", () => {
 
     expect(parsed.text).toBe("with file");
     expect(parsed.gatewayAttachments).toEqual([]);
-    expect(parsed.displayAttachments).toEqual([
-      { fileName: "doc.txt", mimeType: "text/plain", size: 42 },
-    ]);
+    expect(parsed.displayAttachments).toEqual([{ fileName: "doc.txt", mimeType: "text/plain", size: 42 }]);
   });
 });
+

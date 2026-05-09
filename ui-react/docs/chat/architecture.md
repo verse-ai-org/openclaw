@@ -21,13 +21,13 @@ canonical conversation layer (前端协议/领域模型)
 state layer (Zustand)
   - conversation.store.ts (byThread + applyEvents/snapshot/truncate)
   - composer.store.ts (draft 等纯 UI 状态)
-  - interaction.store.ts (interactive summary 等纯 UI 状态)
+  - interaction.store.ts (ui-tool lifecycle/receipt 等纯 UI 状态)
   - chat.store.ts (少量控制面：sessionKey、messagesLoading、sending、lastError…)
    ↓
 projection + UI
   - conversation-selectors.ts (ConversationState → ChatMessage[])
   - GatewayChatRuntimeProvider (ExternalStoreRuntime glue)
-  - ThreadView / AssistantMessage / InteractiveParts / Tool UI
+  - ThreadView / AssistantMessage / UiToolParts / Tool UI
 ```
 
 **依赖约束**：
@@ -40,5 +40,6 @@ projection + UI
 
 - **CanonicalChatEvent**：前端内部的“协议层事件”，是单一事实来源。
 - **ConversationState**：线程级 state（messages + runs + indices + eventLog）。
-- **CanonicalMessage.parts: ChatPart[]**：统一时间线（text/tool/interactive）。
+- **CanonicalMessage.parts: ChatPart[]**：统一时间线（text/tool）。
+- **ToolPart.ui**：tool 的 UI 展示面（tool-ui surface）；投影后进入 `ChatMessage.contentBlocks` 的 `type="ui"`。
 - **Projection**：把 canonical message 变成 UI 需要的 `ChatMessage`（assistant-ui runtime）。

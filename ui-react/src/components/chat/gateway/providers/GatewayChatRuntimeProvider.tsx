@@ -6,12 +6,7 @@ import {
 import { type ReactNode, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import type { ChatMessage, ChatMessageMetadata, MessageAttachment } from "@/components/chat/types";
-import {
-  type ChatAttachmentRef,
-  buildAttachmentRefsFromMessage,
-} from "./attachment-ref";
-import { createGatewayCompositeAttachmentAdapter } from "./adapters/gateway-attachment-adapter";
-import { MAX_ATTACHMENT_COUNT } from "./adapters/gateway-attachment-adapter";
+import { buildAttachmentRefsFromMessage, createGatewayCompositeAttachmentAdapter, MAX_ATTACHMENT_COUNT, type ChatAttachmentRef, parseGatewaySendPayload } from "./send";
 import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
 import { useGatewayStore } from "@/store/gateway.store";
@@ -19,8 +14,7 @@ import { useSettingsStore } from "@/store/settings.store";
 import { resolveActiveChatSessionKey } from "../../session/active-session";
 import { useGatewayThreadRuntime } from "./use-gateway-thread-runtime";
 import { ChatSendContext } from "@/components/chat/ChatSendContext";
-import { convertGatewayChatMessage } from "../../messages/assistant-ui/convert-gateway-chat-message";
-import { parseGatewaySendPayload } from "../../messages/outbound/parse-gateway-send-payload";
+import { toAssistantUiThreadMessage } from "../../adapters/assistant-ui";
 import { selectActiveRunId } from "@/store/conversation-selectors";
 
 type SendMessageOptions = {
@@ -239,7 +233,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     () => ({
       isRunning,
       messages,
-      convertMessage: convertGatewayChatMessage,
+      convertMessage: toAssistantUiThreadMessage,
       onNew,
       onEdit,
       onCancel,

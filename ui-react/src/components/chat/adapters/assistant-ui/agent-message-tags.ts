@@ -16,5 +16,7 @@ export function stripAgentWrapperTags(text: string): string {
   if (!/<\/(?:final|plan)>\s*$/iu.test(result)) {
     result = result.replace(/<\/(?:final|plan)?$/iu, "");
   }
-  return result.trim();
+  // Important: do NOT trim here. During streaming, text may arrive split across parts,
+  // and trimming can eat boundary newlines that Markdown tables rely on.
+  return result;
 }

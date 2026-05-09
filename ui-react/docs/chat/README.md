@@ -17,7 +17,7 @@
 - **Zustand stores 拆分与职责**：`./stores.md`
 - **Gateway 适配与桥接**：`./gateway-integration.md`
 - **UI 投影与渲染适配（assistant-ui）**：`./ui-projection.md`
-- **Tool / Interactive（HITL）渲染与提交**：`./tools-and-interactive.md`
+- **Tool UI surfaces（含 HITL）渲染与提交**：`./tools-and-interactive.md`
 - **场景手册（send/stream/cancel/edit/history/status）**：`./scenarios.md`
 - **测试与调试**：`./testing-and-debugging.md`
 

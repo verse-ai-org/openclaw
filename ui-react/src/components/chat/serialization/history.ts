@@ -1,6 +1,7 @@
 import type { RawMessage } from "@/components/chat/types";
 import type { CanonicalMessage, ChatPart, MessageId, PartId, RunId, ThreadId } from "@/components/chat/conversation";
-import { normalizeContent, normalizeHistoryAttachmentHints, stripAttachmentContent } from "@/components/chat/gateway";
+import { normalizeContent, normalizeHistoryAttachmentHints } from "@/components/chat/gateway";
+import { stripAttachmentContent } from "./_internal/history-attachment-strip";
 import { resolveToolUiComponent, safeParseToolUiPayload } from "@/components/chat/ui-tool/ui-tool-registry";
 
 type HistoryToolRecord = {

@@ -3,6 +3,7 @@ import type {
   AssistantToolPart,
   AssistantUiToolPart,
 } from "@/components/chat/types";
+import { decodeUiSurfaceFromToolCallPart } from "./ui-surface-tool-call";
 
 function isTextPart(value: unknown): value is Extract<AssistantContentPart, { type: "text" }> {
   if (!value || typeof value !== "object") {
@@ -47,21 +48,20 @@ export function splitAssistantContentParts(rawContent: unknown): {
     }
   }
 
-  // UI surfaces are encoded as special tool-call parts (see convertGatewayChatMessage).
+  // UI surfaces are encoded as special tool-call parts (see toAssistantUiThreadMessage).
   const toolParts: Array<Extract<AssistantContentPart, { type: "tool-call" }>> = [];
   for (const p of toolPartsRaw) {
-    if (p.toolName !== "__ui__") {
-      toolParts.push(p);
-      continue;
-    }
-    const args = p.args as Record<string, unknown>;
-    const uiId = typeof args.uiId === "string" ? args.uiId : p.toolCallId;
-    const component = typeof args.component === "string" ? args.component : "unknown";
-    uiParts.push({
-      uiId,
-      component,
-      payload: args.payload,
+    const decoded = decodeUiSurfaceFromToolCallPart({
+      type: "tool-call",
+      toolCallId: p.toolCallId,
+      toolName: p.toolName,
+      args: p.args,
     });
+    if (decoded) {
+      uiParts.push(decoded);
+    } else {
+      toolParts.push(p);
+    }
   }
 
   const textContent = textParts.map((part) => part.text).join("\n\n").trim();
@@ -91,3 +91,4 @@ export function sliceToolCallParts(
   }
   return out;
 }
+

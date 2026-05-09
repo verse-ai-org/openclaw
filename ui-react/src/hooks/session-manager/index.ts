@@ -1,10 +1,6 @@
 export { useSessionManager } from "./use-session-manager";
 export { cleanSessionText, resolveSessionDisplayName } from "./display-name";
 export {
-  consolidateHistoryMessages,
-  normalizeHistoryMessages,
-} from "./history-normalize";
-export {
   loadHistoryFromGateway,
   loadSessionsFromGateway,
   syncSessionRunStatusFromGateway,

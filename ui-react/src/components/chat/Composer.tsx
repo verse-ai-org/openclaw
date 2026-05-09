@@ -17,7 +17,7 @@ import {
   ALLOWED_MIME_TYPES,
   MAX_ATTACHMENT_COUNT,
   MAX_FILE_SIZE_BYTES_REFERENCE_MODE,
-} from "./gateway/providers/adapters/gateway-attachment-adapter";
+} from "./gateway/providers/send";
 import { useComposerStore } from "@/store/composer.store";
 
 // ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ import { useComposerStore } from "@/store/composer.store";
 //
 // Attachments: assistant-ui primitives (`ComposerAttachments`, `ComposerAddAttachment`)
 // + `adapters.attachments` in `GatewayChatRuntimeProvider`
-//   (see `@/providers/chat/adapters/gateway-attachment-adapter.ts`).
+//   (see `components/chat/gateway/providers/send/attachment-adapter.ts`).
 // ---------------------------------------------------------------------------
 export const Composer: FC = () => {
   const composerRuntime = useComposerRuntime();

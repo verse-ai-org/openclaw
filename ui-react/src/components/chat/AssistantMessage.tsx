@@ -14,7 +14,7 @@ import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { AgentAvatar } from "../assistant-ui/agent-avatar.tsx";
-import { splitAssistantContentParts } from "@/components/chat/messages/assistant-content.ts";
+import { splitAssistantContentParts } from "@/components/chat/adapters/assistant-ui";
 import { isFirstAssistantInTurn } from "@/components/chat/utils/turn-boundaries";
 import { selectChatMessages } from "@/store/conversation-selectors";
 import { UiToolParts } from "./ui-tool/UiToolParts";

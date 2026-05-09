@@ -12,7 +12,7 @@
 
 - `text`：文本片段（被 reducer 在边界处落盘/合并）
 - `tool`：工具调用（start/update/result/error 形成状态机）
-- `interactive`：交互卡（HITL），作为一种 part 内联在消息时间线中
+- tool UI presentation 不作为独立 part：挂在 `ToolPart.ui?: { kind, payload }` 上（由 `tool.ui` 事件填充）
 
 额外字段：
 
@@ -36,7 +36,7 @@
 - **run lifecycle**：`run.started` / `run.finished` / `run.error` / `run.aborted`
 - **message lifecycle**：`message.start` / `message.appendText` / `message.setLiveText` / `message.end`
 - **tool lifecycle**：`tool.start` / `tool.update` / `tool.result` / `tool.error`
-- **tool UI presentation**：`tool.ui`（interactive cards 的 UI payload）
+- **tool UI presentation**：`tool.ui`（tool-ui surface 的 UI payload）
 - **snapshots**：
   - `messages.snapshot`：history 加载/重载使用
   - `run.activeSnapshot`：`chat.status` 这类 probe（只用来“恢复 activeRunId”，不是 terminal）
