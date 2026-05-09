@@ -21,7 +21,7 @@ export function useGatewayEventBridge(): void {
       if (events.length > 0) {
         // Feed canonical conversation reducer.
         const canonical = runEventsToCanonical(events, sessionKey, runId);
-        console.log("canonical", JSON.stringify(canonical, null, 2));
+        // console.log("canonical", JSON.stringify(canonical, null, 2));
         if (canonical.length > 0) {
           useConversationStore.getState().applyEvents(sessionKey, canonical);
 
