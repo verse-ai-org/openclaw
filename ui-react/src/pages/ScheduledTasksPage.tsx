@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useChatStore } from "@/store/chat.store";
+import { useComposerStore } from "@/store/composer.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { TaskCard } from "@/components/scheduled-tasks/TaskCard";
 import { NewTaskCard } from "@/components/scheduled-tasks/NewTaskCard";
@@ -151,7 +152,7 @@ export function ScheduledTasksPage() {
     const agentId = useAgentsStore.getState().agentsList?.defaultId ?? "main";
     const newKey = `agent:${agentId}:${crypto.randomUUID().slice(0, 8)}`;
     useChatStore.getState().setSessionKey(newKey);
-    useChatStore.getState().setPendingDraftMessage(
+    useComposerStore.getState().setPendingDraftMessage(
       "I'd like to create a scheduled task. Please help me set it up — describe what you'd like the agent to do and how often it should run.",
     );
     void navigate("/chat");

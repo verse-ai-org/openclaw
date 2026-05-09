@@ -1,8 +1,9 @@
 import type { MutableRefObject } from "react";
 import { useChatStore } from "@/store/chat.store";
+import { useConversationStore } from "@/store/conversation.store";
 import type { IGatewayClient } from "@/store/gateway.store";
 import type { RawMessage } from "@/components/chat/gateway";
-import { consolidateHistoryMessages } from "./history-normalize";
+import { serializeGatewayHistoryToCanonicalSnapshot } from "@/components/chat/serialization";
 import type { SessionEntry } from "./types";
 
 export async function syncSessionRunStatusFromGateway(params: {
@@ -19,9 +20,11 @@ export async function syncSessionRunStatusFromGateway(params: {
       startedAtMs: number | null;
     }>("chat.status", { sessionKey });
     if (result?.activeRunId) {
-      useChatStore
-        .getState()
-        .markSessionGenerating(sessionKey, result.activeRunId);
+      useConversationStore.getState().setActiveRunSnapshot(
+        sessionKey,
+        result.activeRunId,
+        result.startedAtMs,
+      );
 
       try {
         await client.request("chat.tools.subscribe", {
@@ -42,7 +45,7 @@ export async function syncSessionRunStatusFromGateway(params: {
 
       return;
     }
-    useChatStore.getState().clearSessionGenerating(sessionKey);
+    useConversationStore.getState().setActiveRunSnapshot(sessionKey, null, null);
     console.log("[session-manager] sync run status: no active run", {
       sessionKey
     });
@@ -107,7 +110,8 @@ export async function loadHistoryFromGateway(params: {
   });
 
   if (!silent) {
-    chatState.clearMessages();
+    // Reset conversation thread before loading new history.
+    useConversationStore.getState().resetThread(key);
     // Reset sending state when switching sessions to avoid stale running UI.
     chatState.setSending(false);
     chatState.setLastError(null);
@@ -118,11 +122,14 @@ export async function loadHistoryFromGateway(params: {
     const result = await client.request<{ messages?: unknown[] }>("chat.history", {
       sessionKey: key,
     });
+    console.log("result", result);
     const rawMessages = (Array.isArray(result?.messages)
       ? result.messages
       : []) as RawMessage[];
-    const consolidated = consolidateHistoryMessages(rawMessages, key);
-
+    const canonicalMessages = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: key,
+      messages: rawMessages,
+    });
     const isLatest = requestSeq === historyRequestSeqRef.current;
     const activeSessionKey = useChatStore.getState().sessionKey;
     const isCurrentSession = !activeSessionKey || activeSessionKey === key;
@@ -137,19 +144,16 @@ export async function loadHistoryFromGateway(params: {
       return;
     }
 
-    useChatStore.getState().setMessages(consolidated);
+    // Feed canonical conversation snapshot (thread-level reducer).
+    useConversationStore.getState().setHistoryCanonicalSnapshot(key, canonicalMessages);
     console.log("[session-manager] load history applied", {
       requestSeq,
-      count: consolidated.length,
+      count: canonicalMessages.length,
       sessionKey: key,
     });
-    const latestMsg = consolidated.at(-1);
+    const latestMsg = canonicalMessages.at(-1);
     if (latestMsg?.role === "assistant") {
-      const pending = useChatStore.getState().pendingGenerationBySession[key];
-      const hasActiveRun = pending?.runId != null;
-      if (!hasActiveRun) {
-        useChatStore.getState().clearSessionGenerating(key);
-      }
+      // No-op: run status is now derived from conversation state.
     }
   } catch (err) {
     if (requestSeq === historyRequestSeqRef.current) {

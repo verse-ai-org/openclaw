@@ -71,4 +71,41 @@ describe("gatewayToRunEvents", () => {
     expect(runId).toBe("r1");
     expect(events).toEqual([{ type: "run.started", sessionKey: "agent:default:main", runId: "r1" }]);
   });
+
+  it("maps agent assistant delta to text.append", () => {
+    const { events, sessionKey, runId } = gatewayToRunEvents("agent", {
+      runId: "r1",
+      sessionKey: "agent:default:main",
+      stream: "assistant",
+      data: { text: "hello", delta: "lo" },
+    });
+    expect(sessionKey).toBe("agent:default:main");
+    expect(runId).toBe("r1");
+    expect(events).toEqual([{ type: "text.append", text: "lo", fullText: "hello" }]);
+  });
+
+  it("emits tool.start + tool.ui for interactive tool calls", () => {
+    const { events } = gatewayToRunEvents("agent", {
+      runId: "r1",
+      sessionKey: "agent:default:main",
+      stream: "tool",
+      data: {
+        phase: "start",
+        toolCallId: "t1",
+        name: "question_flow",
+        args: {
+          id: "qf",
+          steps: [
+            {
+              id: "s1",
+              title: "Pick one",
+              options: [{ id: "o1", label: "A" }],
+            },
+          ],
+        },
+      },
+    });
+    expect(events[0]).toMatchObject({ type: "tool.start", id: "t1", name: "question_flow" });
+    expect(events[1]).toMatchObject({ type: "tool.ui", id: "t1", name: "question_flow" });
+  });
 });

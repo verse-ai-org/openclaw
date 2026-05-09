@@ -14,11 +14,10 @@ import type { SerializableApprovalCard } from "@/components/tool-ui/approval-car
 import type {
   ChatMessage,
   ChatMessageMetadata,
-  InteractiveKind,
   InteractiveSummaryPair,
 } from "@/components/chat/types";
-import { formatQaDisplayText, parseQaPairsFromMessage } from "./qa-format";
-import { buildInteractionMetadata } from "./interactive-shared";
+import { formatQaDisplayText, parseQaPairsFromMessage } from "./ui-qa-format";
+import { buildInteractionMetadata } from "./ui-interaction-metadata";
 
 export type SendMessageFn = (
   text: string,
@@ -29,11 +28,11 @@ type HandlerContext<TPayload> = {
   interactiveId: string;
   payload: TPayload;
   sendMessage: SendMessageFn;
-  setInteractiveSummary: (pairs: InteractiveSummaryPair[]) => void;
+  setInteractiveSummary: (pairs: InteractiveSummaryPair[], payload?: unknown) => void;
 };
 
-export interface InteractiveComponentHandler<TPayload = unknown> {
-  kind: InteractiveKind;
+export interface UiInteractionHandler<TPayload = unknown> {
+  kind: "question_flow" | "option_list" | "approval_card";
   buildStaticSummary?: (payload: TPayload) => InteractiveSummaryPair[] | null;
   buildSubmittedSummary: (
     payload: TPayload,
@@ -42,8 +41,8 @@ export interface InteractiveComponentHandler<TPayload = unknown> {
   renderPending: (args: HandlerContext<TPayload>) => ReactNode;
 }
 
-type ErasedInteractiveComponentHandler = {
-  kind: InteractiveKind;
+type ErasedUiInteractionHandler = {
+  kind: UiInteractionHandler["kind"];
   buildStaticSummary?: (payload: unknown) => InteractiveSummaryPair[] | null;
   buildSubmittedSummary: (
     payload: unknown,
@@ -52,10 +51,10 @@ type ErasedInteractiveComponentHandler = {
   renderPending: (args: HandlerContext<unknown>) => ReactNode;
 };
 
-function eraseInteractiveHandler<TPayload>(
-  handler: InteractiveComponentHandler<TPayload>,
-): ErasedInteractiveComponentHandler {
-  return handler as unknown as ErasedInteractiveComponentHandler;
+function eraseHandler<TPayload>(
+  handler: UiInteractionHandler<TPayload>,
+): ErasedUiInteractionHandler {
+  return handler as unknown as ErasedUiInteractionHandler;
 }
 
 function humanizeInteractionId(id: string): string {
@@ -97,7 +96,7 @@ function buildUpfrontSummary(
   });
 }
 
-const questionFlowHandler: InteractiveComponentHandler<SerializableQuestionFlow> = {
+const questionFlowHandler: UiInteractionHandler<SerializableQuestionFlow> = {
   kind: "question_flow",
   buildStaticSummary: (config) => {
     if ("choice" in config && config.choice && "summary" in config.choice) {
@@ -145,7 +144,7 @@ const questionFlowHandler: InteractiveComponentHandler<SerializableQuestionFlow>
           steps={upfrontConfig.steps}
           onComplete={async (answers) => {
             const pairs = buildUpfrontSummary(upfrontConfig, answers);
-            setInteractiveSummary(pairs);
+            setInteractiveSummary(pairs, { answers });
             await sendMessage(formatQaDisplayText(pairs), {
               metadata: buildInteractionMetadata({
                 interactionId: interactiveId,
@@ -174,7 +173,7 @@ const questionFlowHandler: InteractiveComponentHandler<SerializableQuestionFlow>
               .map((o: QuestionFlowOption) => o.label);
             const answer = labels.join("、") || "—";
             const pairs: InteractiveSummaryPair[] = [{ question: payload.title, answer }];
-            setInteractiveSummary(pairs);
+            setInteractiveSummary(pairs, { answers: { [payload.step]: optionIds } });
             await sendMessage(formatQaDisplayText(pairs), {
               metadata: buildInteractionMetadata({
                 interactionId: interactiveId,
@@ -191,7 +190,7 @@ const questionFlowHandler: InteractiveComponentHandler<SerializableQuestionFlow>
   },
 };
 
-const optionListHandler: InteractiveComponentHandler<SerializableOptionList> = {
+const optionListHandler: UiInteractionHandler<SerializableOptionList> = {
   kind: "option_list",
   buildSubmittedSummary: (config, nextUserMessage) => {
     const question = resolveOptionListQuestion(config);
@@ -225,7 +224,7 @@ const optionListHandler: InteractiveComponentHandler<SerializableOptionList> = {
         const pairs: InteractiveSummaryPair[] = [
           { question: resolveOptionListQuestion(payload), answer },
         ];
-        setInteractiveSummary(pairs);
+        setInteractiveSummary(pairs, { selected: ids });
         await sendMessage(formatQaDisplayText(pairs), {
           metadata: buildInteractionMetadata({
             interactionId: interactiveId,
@@ -238,7 +237,7 @@ const optionListHandler: InteractiveComponentHandler<SerializableOptionList> = {
   ),
 };
 
-const approvalCardHandler: InteractiveComponentHandler<SerializableApprovalCard> = {
+const approvalCardHandler: UiInteractionHandler<SerializableApprovalCard> = {
   kind: "approval_card",
   buildSubmittedSummary: (config, nextUserMessage) => {
     if (!nextUserMessage) {
@@ -256,7 +255,7 @@ const approvalCardHandler: InteractiveComponentHandler<SerializableApprovalCard>
       {...payload}
       onConfirm={async () => {
         const pairs: InteractiveSummaryPair[] = [{ question: payload.title, answer: "Approved" }];
-        setInteractiveSummary(pairs);
+        setInteractiveSummary(pairs, { decision: "approved" });
         await sendMessage(formatQaDisplayText(pairs), {
           metadata: buildInteractionMetadata({
             interactionId: interactiveId,
@@ -267,7 +266,7 @@ const approvalCardHandler: InteractiveComponentHandler<SerializableApprovalCard>
       }}
       onCancel={async () => {
         const pairs: InteractiveSummaryPair[] = [{ question: payload.title, answer: "Denied" }];
-        setInteractiveSummary(pairs);
+        setInteractiveSummary(pairs, { decision: "denied" });
         await sendMessage(formatQaDisplayText(pairs), {
           metadata: buildInteractionMetadata({
             interactionId: interactiveId,
@@ -280,11 +279,12 @@ const approvalCardHandler: InteractiveComponentHandler<SerializableApprovalCard>
   ),
 };
 
-export const INTERACTIVE_COMPONENT_REGISTRY: Record<
-  InteractiveKind,
-  ErasedInteractiveComponentHandler
+export const UI_INTERACTION_REGISTRY: Record<
+  UiInteractionHandler["kind"],
+  ErasedUiInteractionHandler
 > = {
-  question_flow: eraseInteractiveHandler(questionFlowHandler),
-  option_list: eraseInteractiveHandler(optionListHandler),
-  approval_card: eraseInteractiveHandler(approvalCardHandler),
+  question_flow: eraseHandler(questionFlowHandler),
+  option_list: eraseHandler(optionListHandler),
+  approval_card: eraseHandler(approvalCardHandler),
 };
+

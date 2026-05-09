@@ -1,6 +1,5 @@
 import type {
   ContentBlock,
-  InteractiveContentBlock,
   ToolStreamEntry,
 } from "@/components/chat/types";
 import type { RunEvent } from "./run-event";
@@ -13,12 +12,19 @@ export type RunState = {
   status: RunStatus;
   /** Full cumulative text from the latest text.delta (not a per-chunk diff). */
   liveText: string;
-  /** Text/interactive blocks frozen before each tool call, in order. */
-  committedBlocks: ContentBlock[];
+  /**
+   * Ordered timeline of committed content parts for this run.
+   * This is the canonical render model; tool and interactive items appear in-line
+   * at the moment they are observed.
+   */
+  parts: ContentBlock[];
+  /** toolCallId -> index into parts (for in-place updates). */
+  toolPartIndex: Map<string, number>;
+  /**
+   * Lightweight tool entry state for formatting output.
+   * Keeping this avoids parsing contentBlocks to derive state.
+   */
   toolById: Map<string, ToolStreamEntry>;
-  toolOrder: string[];
-  interactiveById: Map<string, InteractiveContentBlock>;
-  interactiveOrder: string[];
   /**
    * Out-of-order buffer: tool.result / tool.error events that arrived before
    * their corresponding tool.start. Applied immediately when tool.start arrives.
@@ -38,11 +44,9 @@ export function emptyRunState(sessionKey: string, runId?: string): RunState {
     runId,
     status: "running",
     liveText: "",
-    committedBlocks: [],
+    parts: [],
+    toolPartIndex: new Map(),
     toolById: new Map(),
-    toolOrder: [],
-    interactiveById: new Map(),
-    interactiveOrder: [],
     pendingResults: new Map(),
     eventLog: [],
     finalText: undefined,
@@ -62,8 +66,8 @@ export function isTerminal(s: RunState): boolean {
  * Compute the plain-text prefix already captured in committedBlocks so we can
  * slice it off the cumulative liveText when rendering the tail.
  */
-function committedTextPrefix(blocks: ContentBlock[]): string {
-  return blocks
+function committedTextPrefix(parts: ContentBlock[]): string {
+  return parts
     .filter((b): b is { type: "text"; text: string } => b.type === "text")
     .map((b) => b.text)
     .join(""); // no separator — gateway sends one continuous cumulative string
@@ -75,12 +79,12 @@ function committedTextPrefix(blocks: ContentBlock[]): string {
  */
 function autoCommit(s: RunState): RunState {
   if (!s.liveText) return s;
-  const prefix = committedTextPrefix(s.committedBlocks);
+  const prefix = committedTextPrefix(s.parts);
   const tail = s.liveText.startsWith(prefix) ? s.liveText.slice(prefix.length) : s.liveText;
   if (!tail.trim()) return { ...s, liveText: "" };
   return {
     ...s,
-    committedBlocks: [...s.committedBlocks, { type: "text", text: tail }],
+    parts: [...s.parts, { type: "text", text: tail }],
     liveText: "",
   };
 }
@@ -108,36 +112,75 @@ export function applyRunEvent(s: RunState, event: RunEvent): RunState {
         phase: "start",
         input: event.args,
       };
-      const byId = new Map(c.toolById).set(event.id, entry);
-      const order = c.toolOrder.includes(event.id)
-        ? c.toolOrder
-        : [...c.toolOrder, event.id];
+      const toolById = new Map(c.toolById).set(event.id, entry);
+
+      // Insert a tool part into the linear timeline.
+      const parts = c.parts.slice();
+      const toolIndex = parts.length;
+      parts.push({
+        type: "tool-call",
+        toolCallId: event.id,
+        toolName: event.name ?? "tool",
+        argsText: event.args != null ? JSON.stringify(event.args, null, 2) : undefined,
+        result: undefined,
+        phase: "call",
+      });
+      const toolPartIndex = new Map(c.toolPartIndex).set(event.id, toolIndex);
 
       // Apply buffered result / error that arrived before this start event.
       const buffered = c.pendingResults.get(event.id);
       if (buffered) {
         const pending = new Map(c.pendingResults);
         pending.delete(event.id);
-        byId.set(event.id, {
+        toolById.set(event.id, {
           ...entry,
           phase: buffered.isError ? "error" : "result",
           output: buffered.output,
           error: buffered.error,
         });
-        return { ...c, toolById: byId, toolOrder: order, pendingResults: pending };
+
+        // Update the tool part immediately.
+        const updatedParts = parts.slice();
+        const idx = toolIndex;
+        const cur = updatedParts[idx];
+        if (cur && cur.type === "tool-call") {
+          updatedParts[idx] = {
+            ...cur,
+            phase: buffered.isError ? "error" : "result",
+            result: buffered.isError ? buffered.error : (buffered.output as unknown as string),
+          };
+        }
+
+        return {
+          ...c,
+          parts: updatedParts,
+          toolPartIndex,
+          toolById,
+          pendingResults: pending,
+        };
       }
-      return { ...c, toolById: byId, toolOrder: order };
+      return { ...c, parts, toolPartIndex, toolById };
     }
 
     case "tool.update": {
       const existing = s.toolById.get(event.id);
-      if (!existing) return next; // start not yet seen — update will be applied when start arrives
-      const byId = new Map(s.toolById).set(event.id, {
+      if (!existing) return next; // start not yet seen
+      const toolById = new Map(s.toolById).set(event.id, {
         ...existing,
         phase: "running",
         output: event.partialOutput ?? existing.output,
       });
-      return { ...next, toolById: byId };
+
+      const idx = s.toolPartIndex.get(event.id);
+      if (idx === undefined) return { ...next, toolById };
+      const part = s.parts[idx];
+      if (!part || part.type !== "tool-call") return { ...next, toolById };
+      const parts = s.parts.slice();
+      parts[idx] = {
+        ...part,
+        phase: "call",
+      };
+      return { ...next, parts, toolById };
     }
 
     case "tool.result": {
@@ -150,12 +193,21 @@ export function applyRunEvent(s: RunState, event: RunEvent): RunState {
         });
         return { ...next, pendingResults: pending };
       }
-      const byId = new Map(s.toolById).set(event.id, {
+      const toolById = new Map(s.toolById).set(event.id, {
         ...existing,
         phase: "result",
         output: event.output,
       });
-      return { ...next, toolById: byId };
+      const idx = s.toolPartIndex.get(event.id);
+      if (idx === undefined) return { ...next, toolById };
+      const part = s.parts[idx];
+      if (!part || part.type !== "tool-call") return { ...next, toolById };
+      const parts = s.parts.slice();
+      parts[idx] = {
+        ...part,
+        phase: "result",
+      };
+      return { ...next, parts, toolById };
     }
 
     case "tool.error": {
@@ -168,22 +220,21 @@ export function applyRunEvent(s: RunState, event: RunEvent): RunState {
         });
         return { ...next, pendingResults: pending };
       }
-      const byId = new Map(s.toolById).set(event.id, {
+      const toolById = new Map(s.toolById).set(event.id, {
         ...existing,
         phase: "error",
         error: event.error,
       });
-      return { ...next, toolById: byId };
-    }
-
-    case "interactive.start": {
-      const c = autoCommit(next);
-      const bid = event.block.interactiveId;
-      const byId = new Map(c.interactiveById).set(bid, event.block);
-      const order = c.interactiveOrder.includes(bid)
-        ? c.interactiveOrder
-        : [...c.interactiveOrder, bid];
-      return { ...c, interactiveById: byId, interactiveOrder: order };
+      const idx = s.toolPartIndex.get(event.id);
+      if (idx === undefined) return { ...next, toolById };
+      const part = s.parts[idx];
+      if (!part || part.type !== "tool-call") return { ...next, toolById };
+      const parts = s.parts.slice();
+      parts[idx] = {
+        ...part,
+        phase: "error",
+      };
+      return { ...next, parts, toolById };
     }
 
     case "run.finished": {

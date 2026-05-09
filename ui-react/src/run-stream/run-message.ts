@@ -8,7 +8,7 @@ import { committedTextPrefix, type RunState } from "./run-state";
 
 /** The portion of liveText that comes after the committed prefix. */
 function liveTextTail(s: RunState): string {
-  const prefix = committedTextPrefix(s.committedBlocks);
+  const prefix = committedTextPrefix(s.parts);
   return s.liveText.startsWith(prefix) ? s.liveText.slice(prefix.length) : s.liveText;
 }
 
@@ -25,25 +25,16 @@ function buildBlocks(
   includeTail: boolean,
   extraText?: string,
 ): ContentBlock[] {
-  const blocks: ContentBlock[] = [...s.committedBlocks];
-
-  for (const id of s.interactiveOrder) {
-    const e = s.interactiveById.get(id);
-    if (e) blocks.push(e);
-  }
-
-  for (const id of s.toolOrder) {
-    const e = s.toolById.get(id);
-    if (!e) continue;
-    blocks.push({
-      type: "tool-call",
-      toolCallId: e.id,
-      toolName: e.toolName ?? "tool",
-      argsText: e.input != null ? JSON.stringify(e.input, null, 2) : undefined,
-      result: formatToolStreamOutput(e.output, e.error, e.phase),
-      phase: e.phase === "result" ? "result" : e.phase === "error" ? "error" : "call",
-    });
-  }
+  const blocks: ContentBlock[] = s.parts.map((b) => {
+    if (b.type !== "tool-call") return b;
+    const entry = s.toolById.get(b.toolCallId);
+    if (!entry) return b;
+    return {
+      ...b,
+      result: formatToolStreamOutput(entry.output, entry.error, entry.phase),
+      phase: entry.phase === "result" ? "result" : entry.phase === "error" ? "error" : "call",
+    };
+  });
 
   if (includeTail) {
     const tail = liveTextTail(s);
@@ -83,7 +74,7 @@ export function toLiveMessage(s: RunState): ChatMessage {
  * Returns null when there is nothing to persist (e.g. run was aborted with no output).
  */
 export function toFinalMessage(s: RunState): ChatMessage | null {
-  const stitchedPlain = committedTextPrefix(s.committedBlocks).trim();
+  const stitchedPlain = committedTextPrefix(s.parts).trim();
   const finalPlain = s.finalText?.trim() ?? "";
   const liveRemainder = s.liveText.trim();
 
@@ -91,8 +82,8 @@ export function toFinalMessage(s: RunState): ChatMessage | null {
     !!finalPlain ||
     !!stitchedPlain ||
     !!liveRemainder ||
-    s.toolOrder.length > 0 ||
-    s.interactiveOrder.length > 0;
+    s.parts.some((p) => p.type !== "text") ||
+    s.parts.some((p) => p.type === "text" && p.text.trim().length > 0);
 
   if (!hasContent) return null;
 

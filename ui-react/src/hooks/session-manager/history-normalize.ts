@@ -8,7 +8,6 @@ import {
   stripAttachmentContent,
   type RawMessage,
 } from "@/components/chat/gateway";
-import { mergeAssistantRunSegments } from "@/components/chat/messages/inbound/merge-assistant-run-segments";
 
 type HistoryNormalizeHooks = {
   onRawMessages?: (messages: RawMessage[]) => void;
@@ -26,8 +25,7 @@ type HistoryNormalizeHooks = {
  *    user rows: {@link stripAttachmentContent} + {@link normalizeHistoryAttachmentHints};
  *    assistant rows: {@link extractContentBlocks} from raw `content`.
  * 4. `onNormalizedMessages` hook — one ChatMessage per logical row before run folding.
- * 5. **mergeAssistantRunSegments** — merge adjacent assistant rows with the same non-empty `runId`.
- * 6. `onConsolidatedMessages` hook — final list passed to the store / thread runtime.
+ * 5. `onConsolidatedMessages` hook — final list passed to the store / thread runtime.
  */
 export function consolidateHistoryMessages(
   messages: RawMessage[],
@@ -70,9 +68,8 @@ export function consolidateHistoryMessages(
   });
   hooks?.onNormalizedMessages?.(normalized);
 
-  const mergedSegments = mergeAssistantRunSegments(normalized);
-  hooks?.onConsolidatedMessages?.(mergedSegments);
-  return mergedSegments;
+  hooks?.onConsolidatedMessages?.(normalized);
+  return normalized;
 }
 
 /**

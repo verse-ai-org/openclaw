@@ -15,3 +15,9 @@ export type AssistantToolPart = {
 export type AssistantContentPart =
   | { type: "text"; text: string }
   | ({ type: "tool-call" } & AssistantToolPart);
+
+export type AssistantUiToolPart = {
+  uiId: string;
+  component: string;
+  payload: unknown;
+};

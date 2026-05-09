@@ -11,7 +11,7 @@ describe("terminal run flush + toFinalMessage", () => {
 
     expect(s.status).toBe("finished");
     expect(s.liveText).toBe("");
-    expect(s.committedBlocks).toEqual([{ type: "text", text: "hello" }]);
+    expect(s.parts).toEqual([{ type: "text", text: "hello" }]);
 
     const msg = toFinalMessage(s);
     expect(msg).not.toBeNull();
@@ -40,7 +40,7 @@ describe("terminal run flush + toFinalMessage", () => {
       name: "noop",
       args: {},
     });
-    expect(s.committedBlocks.some((b) => b.type === "text" && b.text === "pre")).toBe(true);
+    expect(s.parts.some((b) => b.type === "text" && b.text === "pre")).toBe(true);
 
     s = applyRunEvent(s, { type: "text.delta", text: "prepost" });
     s = applyRunEvent(s, { type: "run.finished", text: undefined });

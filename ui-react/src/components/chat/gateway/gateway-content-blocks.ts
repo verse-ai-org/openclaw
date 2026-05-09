@@ -1,5 +1,5 @@
-import type { ContentBlock, InteractiveContentBlock } from "@/components/chat/types";
-import { isInteractiveToolName, createInteractiveBlock } from "../interactive/blocks";
+import type { ContentBlock, UiToolContentBlock } from "@/components/chat/types";
+import { resolveToolUiComponent, tryCreateUiToolBlock } from "../ui-tool/ui-tool-registry";
 import { extractTextFromToolResultBlock, resolveToolResultPhase } from "./gateway-tool-parts";
 
 /**
@@ -18,7 +18,7 @@ export function extractContentBlocks(
     string,
     { result?: string; phase: "result" | "error" }
   >();
-  const interactiveMap = new Map<string, InteractiveContentBlock>();
+  const uiToolMap = new Map<string, UiToolContentBlock>();
   for (const block of blocks) {
     if (!block || typeof block !== "object") {
       continue;
@@ -74,16 +74,16 @@ export function extractContentBlocks(
           ? matchingCall.name
           : undefined;
       })();
-    if (!isInteractiveToolName(toolName)) {
+    if (!resolveToolUiComponent(toolName)) {
       continue;
     }
-    const interactive = createInteractiveBlock({
-      interactiveId: id,
-      kind: toolName,
+    const uiTool = tryCreateUiToolBlock({
+      uiId: id,
+      toolName,
       payload: resultText,
     });
-    if (interactive) {
-      interactiveMap.set(id, interactive);
+    if (uiTool) {
+      uiToolMap.set(id, uiTool);
     }
   }
 
@@ -132,9 +132,9 @@ export function extractContentBlocks(
     }
 
     const resolved = resultMap.get(toolCallId);
-    const interactive = interactiveMap.get(toolCallId);
-    if (interactive) {
-      out.push(interactive);
+    const uiTool = uiToolMap.get(toolCallId);
+    if (uiTool) {
+      out.push(uiTool);
       continue;
     }
     out.push({
@@ -149,4 +149,3 @@ export function extractContentBlocks(
 
   return out.length > 0 ? out : undefined;
 }
-

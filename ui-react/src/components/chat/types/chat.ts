@@ -1,7 +1,3 @@
-import type { SerializableQuestionFlow } from "@/components/tool-ui/question-flow";
-import type { SerializableOptionList } from "@/components/tool-ui/option-list";
-import type { SerializableApprovalCard } from "@/components/tool-ui/approval-card/schema";
-
 // ---------------------------------------------------------------------------
 // UI domain message + rendering model types (normalized)
 // ---------------------------------------------------------------------------
@@ -9,7 +5,25 @@ import type { SerializableApprovalCard } from "@/components/tool-ui/approval-car
 export type ChatMessageRole = "user" | "assistant";
 
 export type ToolStreamPhase = "start" | "running" | "result" | "error";
-export type InteractiveKind = "question_flow" | "option_list" | "approval_card";
+
+/**
+ * Tool UI surface keys rendered inside the chat message body.
+ *
+ * This is intentionally open-ended: new tool-ui components can be added without
+ * needing to update a central union immediately.
+ */
+export type ToolUiComponent =
+  | "question_flow"
+  | "option_list"
+  | "approval_card"
+  | "chart"
+  | "stats_display"
+  | "link_preview"
+  | "terminal"
+  | "code_block"
+  | "item_carousel"
+  | "geo_map"
+  | (string & {});
 
 export interface ToolStreamEntry {
   id: string;
@@ -36,16 +50,25 @@ export type ContentBlock =
       phase: "call" | "result" | "error";
     }
   | {
-      type: "interactive";
-      interactiveId: string;
-      kind: InteractiveKind;
-      payload:
-        | SerializableQuestionFlow
-        | SerializableOptionList
-        | SerializableApprovalCard;
-    };
-
-export type InteractiveContentBlock = Extract<ContentBlock, { type: "interactive" }>;
+      /**
+       * Chat-embedded UI surface (tool UI).
+       *
+       * Product semantics: this is user-facing content (NOT logs), so it should
+       * render in the message body and should not be hidden inside the tool-call
+       * (log) group.
+       */
+      type: "ui";
+      /**
+       * Stable identifier for the UI surface instance.
+       *
+       * Prefer using the Tool UI payload `id` (see `components/tool-ui/shared/schema.ts`)
+       * over auto-generated runtime ids.
+       */
+      uiId: string;
+      component: ToolUiComponent;
+      payload: unknown;
+    }
+export type UiToolContentBlock = Extract<ContentBlock, { type: "ui" }>;
 
 export interface InteractiveSummaryPair {
   question: string;

@@ -167,7 +167,7 @@ function OptionListConfirmation({
   return (
     <div
       className={cn(
-        "@container/option-list flex w-full min-w-80 flex-col",
+        "@container/option-list flex w-full min-w-80 max-w-md flex-col",
         "text-foreground",
         "motion-safe:animate-in motion-safe:fade-in motion-safe:blur-in-sm motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)] motion-safe:fill-mode-both",
         className,
@@ -545,7 +545,7 @@ export function OptionList({
   const viewKey = isReceipt ? `receipt-${String(choice)}` : "interactive";
 
   return (
-    <div key={viewKey} className="contents">
+    <div key={viewKey} className="contents w-full flex justify-end items-end mb-4">
       {isReceipt ? (
         <OptionListConfirmation
           id={id}

@@ -16,9 +16,7 @@ import { resolveActiveChatSessionKey } from "./active-session";
 //     Comes from `payload.sessionKey`; always cleaned with `normalizeSessionKey`
 //     before use. Compared to the active session key via `isChatEventForActiveSession`.
 //
-// The `pendingGenerationBySession` map in chat.store is keyed by event session
-// keys written from both the WS handler (event key) and GatewayChatRuntimeProvider
-// (active session key). They converge to the same trimmed string in normal operation.
+// Run status is derived from the conversation store (thread-level reducer).
 // ---------------------------------------------------------------------------
 
 /**

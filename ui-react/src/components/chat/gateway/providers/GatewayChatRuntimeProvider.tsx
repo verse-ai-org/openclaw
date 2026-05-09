@@ -13,6 +13,7 @@ import {
 import { createGatewayCompositeAttachmentAdapter } from "./adapters/gateway-attachment-adapter";
 import { MAX_ATTACHMENT_COUNT } from "./adapters/gateway-attachment-adapter";
 import { useChatStore } from "@/store/chat.store";
+import { useConversationStore } from "@/store/conversation.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { resolveActiveChatSessionKey } from "../../session/active-session";
@@ -20,6 +21,7 @@ import { useGatewayThreadRuntime } from "./use-gateway-thread-runtime";
 import { ChatSendContext } from "@/components/chat/ChatSendContext";
 import { convertGatewayChatMessage } from "../../messages/assistant-ui/convert-gateway-chat-message";
 import { parseGatewaySendPayload } from "../../messages/outbound/parse-gateway-send-payload";
+import { selectActiveRunId } from "@/store/conversation-selectors";
 
 type SendMessageOptions = {
   attachments?: { content: string; mimeType: string; fileName: string }[];
@@ -48,7 +50,6 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       const activeSession = resolveActiveChatSessionKey(sessionKey, settings.sessionKey);
 
       st.setLastError(null);
-      st.setRunId(null);
 
       // Append user message optimistically.
       const userMsg: ChatMessage = {
@@ -62,11 +63,38 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
             ? opts.displayAttachments
             : undefined,
       };
-      st.setMessages([...st.messages, userMsg]);
+      // Phase 3: also emit canonical user message for conversation reducer.
+      useConversationStore.getState().applyEvents(activeSession, [
+        {
+          type: "message.start",
+          threadId: activeSession,
+          ts: userMsg.ts,
+          message: {
+            id: userMsg.id,
+            role: "user",
+            createdAt: userMsg.ts,
+            attachments: userMsg.attachments,
+            metadata: userMsg.metadata,
+          },
+        },
+        {
+          type: "message.appendText",
+          threadId: activeSession,
+          ts: userMsg.ts + 1,
+          messageId: userMsg.id,
+          partId: crypto.randomUUID(),
+          text: userMsg.content,
+        },
+        {
+          type: "message.end",
+          threadId: activeSession,
+          ts: userMsg.ts + 2,
+          messageId: userMsg.id,
+        },
+      ]);
 
       // Start an optimistic run so isRunning=true before the first WS delta.
-      st.startOptimisticRun(activeSession);
-      st.markSessionGenerating(activeSession);
+      st.setSending(true);
 
       try {
         const resp = await client?.request<{ runId?: string }>("chat.send", {
@@ -82,23 +110,10 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           ...(opts?.metadata ? { metadata: opts.metadata } : {}),
         });
 
-        const runId =
-          typeof resp?.runId === "string" && resp.runId.trim() ? resp.runId : null;
-        if (runId) {
-          st.setRunId(runId);
-          st.markSessionGenerating(activeSession, runId);
-          // Propagate runId into the active run state so the live message carries it.
-          const cur = useChatStore.getState().activeRunState;
-          if (cur && !cur.runId) {
-            useChatStore.setState((s) => ({
-              activeRunState: s.activeRunState ? { ...s.activeRunState, runId } : null,
-            }));
-          }
-        }
+        void resp;
       } catch (err) {
         console.error("[chat] send failed:", err);
-        useChatStore.setState({ activeRunState: null, sending: false });
-        st.clearSessionGenerating(activeSession);
+        useChatStore.setState({ sending: false });
       }
     },
     [client, sessionKey, settings.sessionKey],
@@ -140,8 +155,9 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
   const onCancel = useCallback(async () => {
     const st = useChatStore.getState();
     const ak = resolveActiveChatSessionKey(st.sessionKey, settings.sessionKey);
-    const pendingRid = st.pendingGenerationBySession[ak]?.runId;
-    const currentRunId = st.runId ?? (typeof pendingRid === "string" ? pendingRid : null);
+    const conversation = useConversationStore.getState().byThread[ak];
+    const derivedRunId = conversation ? selectActiveRunId(conversation) : undefined;
+    const currentRunId = derivedRunId ?? null;
     try {
       await client?.request("chat.abort", {
         sessionKey: ak,
@@ -150,8 +166,8 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
     } catch (err) {
       console.error("[chat] abort failed:", err);
     }
-    useChatStore.setState({ activeRunState: null, sending: false });
-    st.clearSessionGenerating(ak);
+    useChatStore.setState({ sending: false });
+    useConversationStore.getState().setActiveRunSnapshot(ak, null, null);
   }, [client, settings.sessionKey]);
 
   const onEdit = useCallback(
@@ -163,9 +179,8 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       const st = useChatStore.getState();
       const activeSession = resolveActiveChatSessionKey(sessionKey, settings.sessionKey);
 
-      st.truncateMessagesAfter(message.parentId ?? null);
+      useConversationStore.getState().truncateAfter(activeSession, message.parentId ?? null);
       st.setLastError(null);
-      st.setRunId(null);
 
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -173,9 +188,35 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         content: text,
         ts: Date.now(),
       };
-      st.setMessages([...useChatStore.getState().messages, userMsg]);
-      st.startOptimisticRun(activeSession);
-      st.markSessionGenerating(activeSession);
+      st.setSending(true);
+      // Phase 3: canonical user message emission for edited send.
+      useConversationStore.getState().applyEvents(activeSession, [
+        {
+          type: "message.start",
+          threadId: activeSession,
+          ts: userMsg.ts,
+          message: {
+            id: userMsg.id,
+            role: "user",
+            createdAt: userMsg.ts,
+            attachments: userMsg.attachments,
+          },
+        },
+        {
+          type: "message.appendText",
+          threadId: activeSession,
+          ts: userMsg.ts + 1,
+          messageId: userMsg.id,
+          partId: crypto.randomUUID(),
+          text: userMsg.content,
+        },
+        {
+          type: "message.end",
+          threadId: activeSession,
+          ts: userMsg.ts + 2,
+          messageId: userMsg.id,
+        },
+      ]);
 
       try {
         const resp = await client?.request<{ runId?: string }>("chat.send", {
@@ -183,22 +224,10 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           sessionKey: activeSession,
           idempotencyKey: crypto.randomUUID(),
         });
-        const runId =
-          typeof resp?.runId === "string" && resp.runId.trim() ? resp.runId : null;
-        if (runId) {
-          st.setRunId(runId);
-          st.markSessionGenerating(activeSession, runId);
-          const cur = useChatStore.getState().activeRunState;
-          if (cur && !cur.runId) {
-            useChatStore.setState((s) => ({
-              activeRunState: s.activeRunState ? { ...s.activeRunState, runId } : null,
-            }));
-          }
-        }
+        void resp;
       } catch (err) {
         console.error("[chat] edit send failed:", err);
-        useChatStore.setState({ activeRunState: null, sending: false });
-        st.clearSessionGenerating(activeSession);
+        useChatStore.setState({ sending: false });
       }
     },
     [client, sessionKey, settings.sessionKey],

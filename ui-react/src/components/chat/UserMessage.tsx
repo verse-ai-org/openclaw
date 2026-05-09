@@ -8,12 +8,39 @@ import { type FC } from "react";
 import { cn } from "@/lib/utils";
 import type { MessageAttachment } from "@/components/chat/types";
 import { useChatStore } from "@/store/chat.store";
+import { useConversationStore } from "@/store/conversation.store";
+import { useSettingsStore } from "@/store/settings.store";
+import { resolveActiveChatSessionKey } from "./session/active-session";
+import { selectChatMessages } from "@/store/conversation-selectors";
+import { parseQaPairsFromMessage } from "./ui-tool/ui-qa-format";
 
 // ---------------------------------------------------------------------------
 // UserMessage — read-only user bubble + edit affordance.
 // Edit UI lives in UserEditComposer (see ThreadPrimitive.Messages components).
 // ---------------------------------------------------------------------------
 export const UserMessage: FC = () => {
+  const messageId = useAuiState((s) => s.message.id);
+  const sessionKey = useChatStore((s) => s.sessionKey);
+  const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
+  const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
+  const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const message = (() => {
+    const messages = conversation ? selectChatMessages(conversation) : [];
+    return messages.find((m) => m.id === messageId);
+  })();
+
+  const interaction = message?.metadata?.interaction;
+  const isInteractionEcho =
+    interaction?.status === "submitted" &&
+    typeof interaction?.id === "string" &&
+    interaction.id.length > 0 &&
+    parseQaPairsFromMessage(message?.content ?? "").length > 0;
+
+  // Hide the Q/A echo message completely (it's for model-driving only).
+  if (isInteractionEcho) {
+    return null;
+  }
+
   return (
     <MessagePrimitive.Root className="group/msg mx-auto w-full max-w-3xl py-2" data-role="user">
       <div className="flex flex-col items-end gap-1.5">
@@ -46,9 +73,7 @@ export const UserMessage: FC = () => {
               "bg-secondary text-foreground",
             )}
           >
-            <MessagePrimitive.Parts
-              components={{ Text: UserText }}
-            />
+            <MessagePrimitive.Parts components={{ Text: UserText }} />
           </div>
         </div>
       </div>
@@ -67,10 +92,15 @@ const EMPTY_ATTACHMENTS: MessageAttachment[] = [];
 // bypassing assistant-ui's attachment system (which has complex type requirements).
 const UserAttachments: FC = () => {
   const messageId = useAuiState((s) => s.message.id);
-  const attachments = useChatStore((s) => {
-    const msg = s.messages.find((m) => m.id === messageId);
+  const sessionKey = useChatStore((s) => s.sessionKey);
+  const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
+  const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
+  const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const attachments = (() => {
+    const messages = conversation ? selectChatMessages(conversation) : [];
+    const msg = messages.find((m) => m.id === messageId);
     return msg?.attachments ?? EMPTY_ATTACHMENTS;
-  });
+  })();
 
   if (attachments.length === 0) {
     return null;

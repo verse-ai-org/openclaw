@@ -1,4 +1,8 @@
-import type { AssistantContentPart, AssistantToolPart } from "@/components/chat/types";
+import type {
+  AssistantContentPart,
+  AssistantToolPart,
+  AssistantUiToolPart,
+} from "@/components/chat/types";
 
 function isTextPart(value: unknown): value is Extract<AssistantContentPart, { type: "text" }> {
   if (!value || typeof value !== "object") {
@@ -22,12 +26,14 @@ export function splitAssistantContentParts(rawContent: unknown): {
   content: AssistantContentPart[];
   textParts: Array<Extract<AssistantContentPart, { type: "text" }>>;
   toolParts: Array<Extract<AssistantContentPart, { type: "tool-call" }>>;
+  uiParts: AssistantUiToolPart[];
   textContent: string;
 } {
   const raw = Array.isArray(rawContent) ? rawContent : [];
   const content: AssistantContentPart[] = [];
   const textParts: Array<Extract<AssistantContentPart, { type: "text" }>> = [];
-  const toolParts: Array<Extract<AssistantContentPart, { type: "tool-call" }>> = [];
+  const toolPartsRaw: Array<Extract<AssistantContentPart, { type: "tool-call" }>> = [];
+  const uiParts: AssistantUiToolPart[] = [];
 
   for (const part of raw) {
     if (isTextPart(part)) {
@@ -37,12 +43,29 @@ export function splitAssistantContentParts(rawContent: unknown): {
     }
     if (isToolCallPart(part)) {
       content.push(part as Extract<AssistantContentPart, { type: "tool-call" }>);
-      toolParts.push(part as Extract<AssistantContentPart, { type: "tool-call" }>);
+      toolPartsRaw.push(part as Extract<AssistantContentPart, { type: "tool-call" }>);
     }
   }
 
+  // UI surfaces are encoded as special tool-call parts (see convertGatewayChatMessage).
+  const toolParts: Array<Extract<AssistantContentPart, { type: "tool-call" }>> = [];
+  for (const p of toolPartsRaw) {
+    if (p.toolName !== "__ui__") {
+      toolParts.push(p);
+      continue;
+    }
+    const args = p.args as Record<string, unknown>;
+    const uiId = typeof args.uiId === "string" ? args.uiId : p.toolCallId;
+    const component = typeof args.component === "string" ? args.component : "unknown";
+    uiParts.push({
+      uiId,
+      component,
+      payload: args.payload,
+    });
+  }
+
   const textContent = textParts.map((part) => part.text).join("\n\n").trim();
-  return { content, textParts, toolParts, textContent };
+  return { content, textParts, toolParts, uiParts, textContent };
 }
 
 export function sliceToolCallParts(

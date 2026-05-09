@@ -174,7 +174,7 @@ function QuestionFlowReceipt({
   return (
     <div
       className={cn(
-        "@container/question-flow flex w-full min-w-80 flex-col",
+        "@container/question-flow flex w-full flex-col justify-end items-end mb-4",
         "text-foreground",
         "motion-safe:animate-in motion-safe:fade-in motion-safe:blur-in-sm motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out motion-safe:fill-mode-both",
         className,
@@ -187,7 +187,7 @@ function QuestionFlowReceipt({
     >
       <div
         className={cn(
-          "bg-card/60 flex w-full flex-col gap-3 rounded-lg border px-5 py-4 shadow-xs",
+          "bg-card/60 flex w-full min-w-80 max-w-md  flex-col gap-3 rounded-lg border px-5 py-4 shadow-xs",
         )}
       >
         <div className="flex items-center justify-between gap-3">

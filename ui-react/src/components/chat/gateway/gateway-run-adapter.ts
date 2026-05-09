@@ -5,15 +5,16 @@
  * WS event payloads). Everything downstream operates on the protocol-agnostic
  * RunEvent type from @/run-stream.
  */
-import { createInteractiveBlock, isInteractiveToolName } from "../interactive/blocks";
+import { resolveToolUiComponent, safeParseToolUiPayload } from "../ui-tool/ui-tool-registry";
 import {
   checkGatewayWsChatPayload,
   checkGatewayWsAgentPayload,
   checkGatewayAgentLifecycleData,
+  checkGatewayAgentAssistantData,
   checkGatewayAgentToolData,
 } from "./gateway-ws-check";
 import { extractGatewayChatMessageText } from "@/components/chat/messages/inbound/message-normalize";
-import type { RunEvent } from "@/run-stream";
+import type { RunEvent } from "@/run-stream/run-event";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -111,41 +112,44 @@ export function gatewayToRunEvents(
       }
     }
 
+    if (agent.stream === "assistant") {
+      const data = checkGatewayAgentAssistantData(agent.data);
+      if (!data) return { events: [], sessionKey, runId };
+      const delta = typeof data.delta === "string" ? data.delta : "";
+      if (!delta) return { events: [], sessionKey, runId };
+      const fullText = typeof data.text === "string" ? data.text : undefined;
+      return {
+        events: [{ type: "text.append", text: delta, fullText }],
+        sessionKey,
+        runId,
+      };
+    }
+
     if (agent.stream === "tool") {
       const data = checkGatewayAgentToolData(agent.data);
       if (!data) return { events: [], sessionKey, runId };
 
-      const id =
-        typeof data.toolCallId === "string" && data.toolCallId.trim()
-          ? data.toolCallId
-          : crypto.randomUUID();
-      const name = typeof data.name === "string" && data.name.trim() ? data.name : "tool";
+      const id = data?.toolCallId ? data.toolCallId.trim() : crypto.randomUUID();
+      const name = data?.name ? data.name.trim() : "tool";
+      const uiComponent = resolveToolUiComponent(name);
+      const uiPayload = safeParseToolUiPayload(uiComponent, data.args);
 
       switch (data.phase) {
         case "start":
           // Interactive UI: parse full payload from args (gateway sends structured
           // question_flow / option_list / approval_card at start — no history reload needed).
-          if (isInteractiveToolName(name)) {
-            const block = createInteractiveBlock({
-              interactiveId: id,
-              kind: name,
-              payload: data.args,
-            });
-            if (!block) return { events: [], sessionKey, runId };
-            return {
-              events: [{ type: "interactive.start", block }],
-              sessionKey,
-              runId,
-            };
-          }
           return {
-            events: [{ type: "tool.start", id, name, args: data.args }],
+            events: [
+              { type: "tool.start", id, name, args: data.args },
+              ...(uiComponent && uiPayload
+                ? [{ type: "tool.ui" as const, id, name, kind: uiComponent, payload: uiPayload }]
+                : []),
+            ],
             sessionKey,
             runId,
           };
 
         case "update":
-          if (isInteractiveToolName(name)) return { events: [], sessionKey, runId };
           return {
             events: [
               {
@@ -159,10 +163,6 @@ export function gatewayToRunEvents(
           };
 
         case "result": {
-          // Interactive tools render from `interactive.start`; result often only carries meta/id.
-          if (isInteractiveToolName(name)) {
-            return { events: [], sessionKey, runId };
-          }
           const isError = Boolean(data.isError);
           return {
             events: isError
@@ -180,7 +180,6 @@ export function gatewayToRunEvents(
         }
 
         case "error":
-          if (isInteractiveToolName(name)) return { events: [], sessionKey, runId };
           return {
             events: [
               {

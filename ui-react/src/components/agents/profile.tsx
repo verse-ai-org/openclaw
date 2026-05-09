@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useChatStore } from "@/store/chat.store";
+import { useComposerStore } from "@/store/composer.store";
 import { useSettingsStore } from "@/store/settings.store";
 import type { SessionEntry } from "@/hooks/session-manager";
 import { SectionLabel } from "./shared";
@@ -470,7 +471,7 @@ export function IntroSection({
   const handleTryClick = async () => {
     if (!tryText) { return; }
     // Prefill the chat input with the Try text
-    useChatStore.getState().setPendingDraftMessage(tryText);
+    useComposerStore.getState().setPendingDraftMessage(tryText);
 
     // Navigate to chat — same logic as ProfileHeroSection.handleGoToChat
     const agentPrefix = `agent:${agentId}:`;

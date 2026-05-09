@@ -7,8 +7,6 @@ export function isFirstAssistantInTurn(args: {
   const { historyMessages, assistantMessageId } = args;
   const idx = historyMessages.findIndex((m) => m.id === assistantMessageId);
   if (idx < 0) {
-    // Streaming placeholder (__stream__) not in store yet — treat as first in turn
-    // if the last stored message is a user message.
     const last = historyMessages.at(-1);
     return !last || last.role === "user";
   }

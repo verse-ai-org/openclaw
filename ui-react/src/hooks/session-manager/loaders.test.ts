@@ -1,42 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatStore } from "@/store/chat.store";
+import { useConversationStore } from "@/store/conversation.store";
 import {
   loadHistoryFromGateway,
   loadSessionsFromGateway,
   syncSessionRunStatusFromGateway,
 } from "./loaders";
 
-vi.mock("./history-normalize", () => {
-  const fn = vi.fn((_messages: unknown, sessionKey: string) => [
-    {
-      id: "m1",
-      role: "assistant",
-      content: "ok",
-      ts: 1,
-      sessionKey,
-    },
-  ]);
+vi.mock("@/components/chat/serialization", () => {
   return {
-    consolidateHistoryMessages: fn,
-    normalizeHistoryMessages: fn,
+    serializeGatewayHistoryToCanonicalSnapshot: vi.fn((_params: unknown) => [
+      {
+        id: "m1",
+        role: "assistant",
+        createdAt: 1,
+        status: "complete",
+        parts: [{ type: "text", id: "p1", text: "ok" }],
+      },
+    ]),
   };
 });
 
 function resetChatState() {
   useChatStore.setState({
-    messages: [],
     messagesLoading: false,
-    runId: null,
     sending: false,
     sessionKey: "agent:travel:main",
-    activeRunState: null,
     pendingHistoryReloadKey: null,
     pendingSessionsReloadSeq: 0,
     lastError: null,
-    pendingDraftMessage: null,
-    pendingGenerationBySession: {},
-    interactiveSummaryById: {},
   });
+  useConversationStore.getState().resetThread("agent:travel:main");
 }
 
 describe("session-manager/loaders", () => {
@@ -79,7 +73,7 @@ describe("session-manager/loaders", () => {
       historyRequestSeqRef,
     });
 
-    expect(useChatStore.getState().messages.length).toBe(1);
+    expect(useConversationStore.getState().byThread["agent:travel:main"]?.messageOrder.length).toBe(1);
     expect(useChatStore.getState().messagesLoading).toBe(false);
   });
 
@@ -97,7 +91,7 @@ describe("session-manager/loaders", () => {
       historyRequestSeqRef,
     });
 
-    expect(useChatStore.getState().messages.length).toBe(1);
+    expect(useConversationStore.getState().byThread["agent:travel:main"]?.messageOrder.length).toBe(1);
     expect(useChatStore.getState().messagesLoading).toBe(false);
   });
 
@@ -131,7 +125,7 @@ describe("session-manager/loaders", () => {
     deferred[0]();
     await p1;
 
-    expect(useChatStore.getState().messages[0]?.sessionKey).toBe("agent:travel:other");
+    expect(useConversationStore.getState().byThread["agent:travel:other"]?.messageOrder.length).toBe(1);
     expect(useChatStore.getState().messagesLoading).toBe(false);
   });
 
@@ -146,13 +140,11 @@ describe("session-manager/loaders", () => {
       sessionKey: "agent:travel:main",
     });
 
-    expect(useChatStore.getState().pendingGenerationBySession["agent:travel:main"]).toEqual({
-      runId: "run-1",
-    });
+    expect(useConversationStore.getState().byThread["agent:travel:main"]?.activeRunId).toBe("run-1");
   });
 
   it("syncSessionRunStatusFromGateway clears stale run marker when no active run", async () => {
-    useChatStore.getState().markSessionGenerating("agent:travel:main", "run-stale");
+    useConversationStore.getState().setActiveRunSnapshot("agent:travel:main", "run-stale", null);
     const client = {
       connected: true,
       request: vi.fn(async () => ({ activeRunId: null, startedAtMs: null })),
@@ -163,6 +155,6 @@ describe("session-manager/loaders", () => {
       sessionKey: "agent:travel:main",
     });
 
-    expect(useChatStore.getState().pendingGenerationBySession["agent:travel:main"]).toBeUndefined();
+    expect(useConversationStore.getState().byThread["agent:travel:main"]?.activeRunId).toBeUndefined();
   });
 });

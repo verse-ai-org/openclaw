@@ -4,6 +4,10 @@ import { type FC, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
+import { useConversationStore } from "@/store/conversation.store";
+import { useSettingsStore } from "@/store/settings.store";
+import { resolveActiveChatSessionKey } from "./session/active-session";
+import { selectChatMessages } from "@/store/conversation-selectors";
 import { AssistantMessage } from "./AssistantMessage";
 import { Composer } from "./Composer";
 import { UserMessage } from "./UserMessage";
@@ -16,11 +20,14 @@ import { UserEditComposer } from "./UserEditComposer";
 // Wrap this inside <@/providers/chat/GatewayChatRuntimeProvider> before rendering.
 // ---------------------------------------------------------------------------
 export const ThreadView: FC = () => {
-  const messages = useChatStore((s) => s.messages);
   const messagesLoading = useChatStore((s) => s.messagesLoading);
   const lastError = useChatStore((s) => s.lastError);
-  const sessionKey = useChatStore((s) => s.sessionKey ?? "default");
-  const showMessageList = !messagesLoading || messages.length > 0;
+  const sessionKey = useChatStore((s) => s.sessionKey);
+  const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
+  const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
+  const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const messageCount = conversation ? selectChatMessages(conversation).length : 0;
+  const showMessageList = !messagesLoading || messageCount > 0;
 
   return (
     <ThreadPrimitive.Root
@@ -41,7 +48,7 @@ export const ThreadView: FC = () => {
         {/* Message list — keyed by sessionKey; omitted while cleared+loading (see showMessageList) to avoid useMessage / tapClientLookup races. */}
         {showMessageList && (
           <ThreadPrimitive.Messages
-            key={sessionKey}
+            key={activeSessionKey}
             components={{
               UserMessage,
               UserEditComposer,
@@ -124,10 +131,11 @@ const ErrorBanner: FC<ErrorBannerProps> = ({ message }) => {
       if (res?.activeRunId) {
         // Backend is still running — restore the in-progress state and clear the error.
         useChatStore.getState().setLastError(null);
-        useChatStore.getState().markSessionGenerating(sk, res.activeRunId);
+        useConversationStore.getState().setActiveRunSnapshot(sk, res.activeRunId, null);
       } else {
         // Confirmed finished — just clear the error banner.
         useChatStore.getState().setLastError(null);
+        useConversationStore.getState().setActiveRunSnapshot(sk, null, null);
       }
     } catch {
       // Silently ignore — leave banner visible so user can dismiss manually.

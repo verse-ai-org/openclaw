@@ -18,7 +18,6 @@ type ContentPart =
 export function convertGatewayChatMessage(msg: ChatMessage): ThreadMessageLike {
   const role = normalizeRole(msg.role) as "user" | "assistant" | "system";
   const parts: ContentPart[] = [];
-  const hasInteractiveBlocks = msg.contentBlocks?.some((block) => block.type === "interactive") ?? false;
 
   if (msg.contentBlocks && msg.contentBlocks.length > 0) {
     for (const block of msg.contentBlocks) {
@@ -43,13 +42,26 @@ export function convertGatewayChatMessage(msg: ChatMessage): ThreadMessageLike {
           result: block.result,
           isError: block.phase === "error",
         });
+      } else if (block.type === "ui") {
+        // assistant-ui doesn't support unknown message part types. Encode UI surfaces
+        // as a special tool-call part, and render them ourselves in AssistantMessage.
+        parts.push({
+          type: "tool-call",
+          toolCallId: `ui:${block.uiId}`,
+          toolName: "__ui__",
+          args: {
+            uiId: block.uiId,
+            component: block.component,
+            payload: block.payload,
+          },
+        });
       }
     }
   } else if (msg.content.trim()) {
     parts.push({ type: "text", text: stripAgentWrapperTags(msg.content) });
   }
 
-  if (parts.length === 0 && !hasInteractiveBlocks) {
+  if (parts.length === 0) {
     parts.push({ type: "text", text: "" });
   }
 

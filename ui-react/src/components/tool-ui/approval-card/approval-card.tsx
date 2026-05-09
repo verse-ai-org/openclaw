@@ -41,7 +41,7 @@ function ApprovalCardReceipt({
   return (
     <div
       className={cn(
-        "flex w-full min-w-64 flex-col",
+        "flex w-full flex-col justify-end items-end mb-4",
         "text-foreground",
         "motion-safe:animate-in motion-safe:fade-in motion-safe:blur-in-sm motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)] motion-safe:fill-mode-both",
         className,
@@ -54,7 +54,7 @@ function ApprovalCardReceipt({
     >
       <div
         className={cn(
-          "bg-card/60 flex w-full items-center gap-3 rounded-2xl border px-4 py-3 shadow-xs",
+          "bg-card/60 flex w-full min-w-80 max-w-md items-center gap-3 rounded-2xl border px-4 py-3 shadow-xs",
         )}
       >
         <span
@@ -143,7 +143,7 @@ export function ApprovalCard({
       ) : (
         <article
           className={cn(
-            "flex w-full min-w-64 max-w-md flex-col gap-3",
+            "flex w-full min-w-64 max-w-md flex-col gap-3 mb-4",
             "text-foreground",
             className,
           )}

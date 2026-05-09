@@ -10,18 +10,12 @@ import type { SessionEntry } from "./types";
 
 function resetChatState() {
   useChatStore.setState({
-    messages: [],
     messagesLoading: false,
-    runId: null,
     sending: false,
     sessionKey: "agent:travel:abc12345",
-    activeRunState: null,
     pendingHistoryReloadKey: null,
     pendingSessionsReloadSeq: 0,
     lastError: null,
-    pendingDraftMessage: null,
-    pendingGenerationBySession: {},
-    interactiveSummaryById: {},
   });
 }
 

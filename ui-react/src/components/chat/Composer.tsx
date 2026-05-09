@@ -18,7 +18,7 @@ import {
   MAX_ATTACHMENT_COUNT,
   MAX_FILE_SIZE_BYTES_REFERENCE_MODE,
 } from "./gateway/providers/adapters/gateway-attachment-adapter";
-import { useChatStore } from "@/store/chat.store";
+import { useComposerStore } from "@/store/composer.store";
 
 // ---------------------------------------------------------------------------
 // Composer
@@ -70,10 +70,10 @@ export const Composer: FC = () => {
   // Consume pendingDraftMessage once on mount to pre-fill the input.
   // Clears the store entry immediately so it only fires once.
   useEffect(() => {
-    const draft = useChatStore.getState().pendingDraftMessage;
+    const draft = useComposerStore.getState().pendingDraftMessage;
     if (draft) {
       composerRuntime.setText(draft);
-      useChatStore.getState().setPendingDraftMessage(null);
+      useComposerStore.getState().clearPendingDraftMessage();
     }
   // composerRuntime identity is stable within a session; run only on mount
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,11 +82,11 @@ export const Composer: FC = () => {
   // Also handle the case where Composer is already mounted when pendingDraftMessage
   // is set (e.g. navigating to /chat from the agent profile page while chat is open).
   useEffect(() => {
-    return useChatStore.subscribe((s) => {
+    return useComposerStore.subscribe((s) => {
       const msg = s.pendingDraftMessage;
       if (msg) {
         composerRuntime.setText(msg);
-        useChatStore.getState().setPendingDraftMessage(null);
+        useComposerStore.getState().clearPendingDraftMessage();
       }
     });
   // composerRuntime is stable; subscribe once for the lifetime of the component

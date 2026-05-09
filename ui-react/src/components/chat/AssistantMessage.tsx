@@ -10,12 +10,14 @@ import {
   AssistantToolGroup,
   PromotedToolResult,
 } from "../assistant-ui/assistant-tool-group.tsx";
-import { InteractiveParts } from "./interactive";
 import { useChatStore } from "@/store/chat.store";
+import { useConversationStore } from "@/store/conversation.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { AgentAvatar } from "../assistant-ui/agent-avatar.tsx";
 import { splitAssistantContentParts } from "@/components/chat/messages/assistant-content.ts";
 import { isFirstAssistantInTurn } from "@/components/chat/utils/turn-boundaries";
+import { selectChatMessages } from "@/store/conversation-selectors";
+import { UiToolParts } from "./ui-tool/UiToolParts";
 
 // ---------------------------------------------------------------------------
 // AssistantMessage
@@ -23,24 +25,23 @@ import { isFirstAssistantInTurn } from "@/components/chat/utils/turn-boundaries"
 export const AssistantMessage: FC = () => {
   const messageId = useAuiState((s) => s.message.id);
   const rawContent = useAuiState((s) => s.message.content as unknown);
+  const messageIsRunning = useAuiState((s) => s.message.status?.type === "running");
   const sessionKey = useChatStore((s) => s.sessionKey);
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
   const activeSessionKey = (sessionKey ?? settingsSessionKey ?? "main") || "main";
-  const isSessionRunning = useChatStore(
-    (s) => activeSessionKey in s.pendingGenerationBySession,
-  );
-  const isFirstInTurn = useChatStore((s) =>
-    isFirstAssistantInTurn({
-      historyMessages: s.messages,
+  const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const isFirstInTurn = useMemo(() => {
+    const historyMessages = conversation ? selectChatMessages(conversation) : [];
+    return isFirstAssistantInTurn({
+      historyMessages,
       assistantMessageId: messageId,
-    }),
-  );
+    });
+  }, [conversation, messageId]);
 
-  // Only the synthetic live message (__stream__) should show the loading indicator.
-  // Historical messages are never "currently generating" even if the session is running.
-  const isStreamMessage = messageId === "__stream__";
+  // Loading indicator should only show on the currently-running assistant message.
+  const showLoading = Boolean(messageIsRunning);
 
-  const { textParts, toolParts, textContent } = useMemo(
+  const { textParts, toolParts, uiParts, textContent } = useMemo(
     () => splitAssistantContentParts(rawContent),
     [rawContent],
   );
@@ -53,7 +54,7 @@ export const AssistantMessage: FC = () => {
       {/* Avatar row — loading state is handled inside AgentAvatar (spinning ring) */}
       <div className="flex gap-3 items-self-start">
         <div className="shrink-0">
-          {isFirstInTurn ? <AgentAvatar showLoading={isSessionRunning && isStreamMessage} /> : <div className="w-8"/>}
+          {isFirstInTurn ? <AgentAvatar showLoading={showLoading} /> : <div className="w-8"/>}
         </div>
       </div>
 
@@ -68,7 +69,7 @@ export const AssistantMessage: FC = () => {
 
           <PromotedToolResult toolParts={toolParts} textContent={textContent} />
 
-          <InteractiveParts messageId={messageId} />
+          <UiToolParts parts={uiParts} />
         </div>
       </div>
     </MessagePrimitive.Root>
