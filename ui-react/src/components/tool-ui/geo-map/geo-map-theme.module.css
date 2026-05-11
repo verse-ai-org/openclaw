@@ -42,6 +42,12 @@
   background: var(--geo-map-canvas-bg);
 }
 
+/* Tailwind preflight sets img { max-width: 100% }, which breaks Leaflet tile positioning. */
+.root[data-slot="geo-map"] :global(.leaflet-tile),
+.root[data-slot="geo-map"] :global(.leaflet-marker-icon) {
+  max-width: none !important;
+}
+
 .root[data-slot="geo-map"] :global(.leaflet-control-zoom) {
   border: 1px solid var(--geo-map-zoom-border);
   box-shadow: var(--geo-map-zoom-shadow);

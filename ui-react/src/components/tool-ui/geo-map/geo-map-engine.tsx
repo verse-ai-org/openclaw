@@ -1,5 +1,7 @@
 "use client";
 
+import "leaflet/dist/leaflet.css";
+
 import type { Map as LeafletMap } from "leaflet";
 import type { Feature, Point } from "geojson";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
