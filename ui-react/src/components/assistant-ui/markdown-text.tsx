@@ -1,4 +1,4 @@
-import { FC, memo } from "react";
+import { FC, memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   type CodeHeaderProps,
@@ -45,28 +45,29 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
 // mdComponents — for MarkdownTextPrimitive (assistant-ui context required)
 // code component uses useIsMarkdownCodeBlock() hook.
 // ---------------------------------------------------------------------------
+/** shadcn Typography — inline code (https://ui.shadcn.com/docs/components/typography) */
+const inlineCodeClass =
+  "relative rounded-md border border-border/60 bg-muted px-[0.3rem] py-[0.15rem] font-mono text-[0.875em] font-semibold text-foreground";
+
 function CodeWithContext({ className, ...props }: React.ComponentPropsWithoutRef<"code">) {
   const isCodeBlock = useIsMarkdownCodeBlock();
   return (
     <code
-      className={cn(
-        !isCodeBlock &&
-          "relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold",
-        className,
-      )}
+      className={cn(!isCodeBlock && inlineCodeClass, className)}
       {...props}
     />
   );
 }
 
 // ---------------------------------------------------------------------------
-// Shared element styles (no hook usage)
+// Shared element styles (no hook usage) — aligned with shadcn Typography docs
 // ---------------------------------------------------------------------------
 const sharedElements: Components = {
   h1: ({ className, ...props }) => (
     <h1
       className={cn(
-        "scroll-m-20 text-4xl font-extrabold tracking-tight text-balance mt-6 mb-2 first:mt-0",
+        "scroll-m-20 text-balance text-4xl font-extrabold tracking-tight text-foreground",
+        "mt-8 mb-4 first:mt-0",
         className,
       )}
       {...props}
@@ -75,7 +76,8 @@ const sharedElements: Components = {
   h2: ({ className, ...props }) => (
     <h2
       className={cn(
-        "scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight mt-6 mb-2 first:mt-0",
+        "scroll-m-20 border-b border-border pb-2 text-3xl font-semibold tracking-tight text-foreground",
+        "mt-10 mb-4 transition-colors first:mt-0",
         className,
       )}
       {...props}
@@ -84,7 +86,8 @@ const sharedElements: Components = {
   h3: ({ className, ...props }) => (
     <h3
       className={cn(
-        "scroll-m-20 text-2xl font-semibold tracking-tight mt-5 mb-1.5 first:mt-0",
+        "scroll-m-20 text-2xl font-semibold tracking-tight text-foreground",
+        "mt-8 mb-3 first:mt-0",
         className,
       )}
       {...props}
@@ -93,7 +96,8 @@ const sharedElements: Components = {
   h4: ({ className, ...props }) => (
     <h4
       className={cn(
-        "scroll-m-20 text-xl font-semibold tracking-tight mt-4 mb-1 first:mt-0",
+        "scroll-m-20 text-xl font-semibold tracking-tight text-foreground",
+        "mt-6 mb-2 first:mt-0",
         className,
       )}
       {...props}
@@ -102,7 +106,8 @@ const sharedElements: Components = {
   h5: ({ className, ...props }) => (
     <h5
       className={cn(
-        "text-lg font-semibold tracking-tight mt-3 mb-1 first:mt-0",
+        "text-lg font-semibold tracking-tight text-foreground",
+        "mt-6 mb-2 first:mt-0",
         className,
       )}
       {...props}
@@ -111,19 +116,26 @@ const sharedElements: Components = {
   h6: ({ className, ...props }) => (
     <h6
       className={cn(
-        "text-base font-semibold tracking-tight mt-3 mb-1 first:mt-0",
+        "text-base font-semibold tracking-tight text-muted-foreground",
+        "mt-6 mb-2 first:mt-0",
         className,
       )}
       {...props}
     />
   ),
   p: ({ className, ...props }) => (
-    <p className={cn("leading-7 not-first:mt-4", className)} {...props} />
+    <p
+      className={cn(
+        "leading-7 text-foreground [&:not(:first-child)]:mt-6",
+        className,
+      )}
+      {...props}
+    />
   ),
   a: ({ className, ...props }) => (
     <a
       className={cn(
-        "text-primary underline underline-offset-4 hover:text-primary/80",
+        "font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/90",
         className,
       )}
       {...props}
@@ -131,37 +143,75 @@ const sharedElements: Components = {
   ),
   blockquote: ({ className, ...props }) => (
     <blockquote
-      className={cn("mt-6 border-l-2 pl-6 italic", className)}
+      className={cn(
+        "mt-6 border-l-2 border-border pl-6 italic text-muted-foreground",
+        "[&_p]:mt-0 [&_p]:leading-7 [&_p+p]:mt-4",
+        className,
+      )}
       {...props}
     />
   ),
   ul: ({ className, ...props }) => (
     <ul
-      className={cn("my-6 ml-6 list-disc [&>li]:mt-2", className)}
+      className={cn(
+        "my-6 ml-6 list-disc text-foreground marker:text-muted-foreground",
+        "[&>li]:mt-2 [&_ul]:my-2 [&_ol]:my-2 [&_ul]:ml-4 [&_ol]:ml-4",
+        className,
+      )}
       {...props}
     />
   ),
   ol: ({ className, ...props }) => (
     <ol
-      className={cn("my-6 ml-6 list-decimal [&>li]:mt-2", className)}
+      className={cn(
+        "my-6 ml-6 list-decimal text-foreground marker:text-muted-foreground",
+        "[&>li]:mt-2 [&_ul]:my-2 [&_ol]:my-2 [&_ul]:ml-4 [&_ol]:ml-4",
+        className,
+      )}
       {...props}
     />
   ),
   li: ({ className, ...props }) => (
-    <li className={cn("leading-7", className)} {...props} />
+    <li className={cn("leading-7 [&>p]:my-2 [&>p]:leading-7", className)} {...props} />
   ),
   hr: ({ className, ...props }) => (
-    <hr className={cn("my-4 border-border", className)} {...props} />
+    <hr className={cn("my-8 border-border", className)} {...props} />
   ),
+  strong: ({ className, ...props }) => (
+    <strong className={cn("font-semibold text-foreground", className)} {...props} />
+  ),
+  em: ({ className, ...props }) => (
+    <em className={cn("italic", className)} {...props} />
+  ),
+  del: ({ className, ...props }) => (
+    <del className={cn("line-through text-muted-foreground", className)} {...props} />
+  ),
+  img: ({ className, alt, ...props }) => (
+    <img
+      className={cn("my-6 max-h-[min(70vh,560px)] w-auto max-w-full rounded-md border border-border object-contain", className)}
+      alt={alt ?? ""}
+      {...props}
+    />
+  ),
+  // Match shadcn/ui Table: bordered shell, row dividers, muted header, body row hover.
   table: ({ className, ...props }) => (
-    <div className="my-6 w-full overflow-y-auto">
-      <table className={cn("w-full", className)} {...props} />
+    <div className="relative my-6 w-full overflow-x-auto rounded-md border border-border">
+      <table
+        className={cn("w-full caption-bottom border-collapse text-sm", className)}
+        {...props}
+      />
     </div>
+  ),
+  thead: ({ className, ...props }) => (
+    <thead className={cn("[&_tr]:border-b [&_tr]:border-border [&_tr]:bg-muted/50", className)} {...props} />
+  ),
+  tbody: ({ className, ...props }) => (
+    <tbody className={cn("[&_tr:last-child]:border-0 [&_tr:hover]:bg-muted/50", className)} {...props} />
   ),
   th: ({ className, ...props }) => (
     <th
       className={cn(
-        "border px-4 py-2 text-left font-bold [[align=center]]:text-center [[align=right]]:text-right",
+        "h-10 px-3 text-left align-middle font-medium text-muted-foreground [&[align=center]]:text-center [&[align=right]]:text-right",
         className,
       )}
       {...props}
@@ -170,17 +220,14 @@ const sharedElements: Components = {
   td: ({ className, ...props }) => (
     <td
       className={cn(
-        "border px-4 py-2 text-left [[align=center]]:text-center [[align=right]]:text-right",
+        "p-3 align-middle text-foreground [&[align=center]]:text-center [&[align=right]]:text-right",
         className,
       )}
       {...props}
     />
   ),
   tr: ({ className, ...props }) => (
-    <tr
-      className={cn("m-0 border-t p-0 even:bg-muted", className)}
-      {...props}
-    />
+    <tr className={cn("border-b border-border transition-colors", className)} {...props} />
   ),
   sup: ({ className, ...props }) => (
     <sup
@@ -191,25 +238,12 @@ const sharedElements: Components = {
   pre: ({ className, ...props }) => (
     <pre
       className={cn(
-        "aui-md-pre overflow-x-auto rounded-lg border border-border/50 bg-muted/30 p-3 text-xs leading-relaxed",
+        "aui-md-pre my-6 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-sm leading-relaxed",
         className,
       )}
       {...props}
     />
   ),
-  code: function Code({ className, ...props }) {
-    const isCodeBlock = useIsMarkdownCodeBlock();
-    return (
-      <code
-        className={cn(
-          !isCodeBlock &&
-            "aui-md-inline-code rounded-md border border-border/50 bg-muted/50 px-1 py-1 font-mono text-sm",
-          className,
-        )}
-        {...props}
-      />
-    );
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -231,35 +265,70 @@ export const plainMdComponents: Components = {
     const isBlock = Boolean(className?.startsWith("language-"));
     return (
       <>
-      {isBlock && <CodeHeader language={className?.replace("language-", "")} code={props.children as string} />}
-      <code
-        className={cn(
-          !isBlock &&
-            "relative rounded px-1 py-1 font-mono text-sm",
-          className,
+        {isBlock && (
+          <CodeHeader language={className?.replace("language-", "")} code={props.children as string} />
         )}
-        {...props}
-      />
+        <code className={cn(!isBlock && inlineCodeClass, className)} {...props} />
       </>
     );
-  }
+  },
 };
 
 export const AssistantMarkdown: FC<{ text: string }> = ({ text }) => {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={plainMdComponents}>
-      {text}
-    </ReactMarkdown>
+    <div className="aui-md max-w-none text-foreground">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={plainMdComponents}>
+        {text}
+      </ReactMarkdown>
+    </div>
   );
-}
+};
 
 export const AssistantMarkdownPart = memo(AssistantMarkdown);
+
+/** Renders all assistant text markdown parts, then a single copy control for the combined Markdown (same join as `splitAssistantContentParts` `textContent`). */
+export const AssistantMarkdownTextBlock: FC<{
+  textParts: ReadonlyArray<{ text: string }>;
+}> = ({ textParts }) => {
+  const fullMarkdown = useMemo(
+    () => textParts.map((p) => p.text).join("\n\n").trim(),
+    [textParts],
+  );
+  const { isCopied, copyToClipboard } = useCopyToClipboard();
+
+  if (textParts.length === 0) {
+    return null;
+  }
+
+  const onCopy = () => {
+    if (!fullMarkdown || isCopied) {
+      return;
+    }
+    copyToClipboard(fullMarkdown);
+  };
+
+  return (
+    <div className="min-w-0">
+      {textParts.map((part, index) => (
+        <AssistantMarkdownPart key={`text-${index}`} text={part.text} />
+      ))}
+      {fullMarkdown ? (
+        <div className="aui-md-actions mt-1 flex justify-start">
+          <TooltipIconButton tooltip="Copy message" onClick={onCopy}>
+            {!isCopied && <CopyIcon className="size-3.5" />}
+            {isCopied && <CheckIcon className="size-3.5" />}
+          </TooltipIconButton>
+        </div>
+      ) : null}
+    </div>
+  );
+};
 
 const MarkdownTextImpl = () => {
   return (
     <MarkdownTextPrimitive
       remarkPlugins={[remarkGfm]}
-      className="aui-md"
+      className="aui-md max-w-none text-foreground"
       components={mdComponents}
     />
   );

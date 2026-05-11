@@ -28,7 +28,8 @@ export const ThreadView: FC = () => {
   const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
   const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
   const paging = useConversationStore((s) => s.historyPagingByThread[activeSessionKey]);
-  const messageCount = conversation ? selectChatMessages(conversation).length : 0;
+  const messages = conversation ? selectChatMessages(conversation) : [];
+  const messageCount = messages.length;
   const showMessageList = !messagesLoading || messageCount > 0;
 
   return (

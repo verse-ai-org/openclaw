@@ -1,9 +1,10 @@
 import { useAuiState } from "@assistant-ui/react";
 import {
+  AlertCircleIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ZapIcon,
-  CheckIcon,
+  CheckCircle2Icon,
   LoaderIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -16,7 +17,7 @@ import { sliceToolCallParts } from "@/components/chat/adapters/assistant-ui";
 // Types
 // ---------------------------------------------------------------------------
 
-type GroupStatus = "running" | "done" | "failed";
+type GroupStatus = "running" | "done" | "done_partial" | "failed";
 
 import type { AssistantToolPart } from "@/components/chat/types";
 
@@ -32,7 +33,14 @@ function isPartError(part: AssistantToolPart): boolean {
   return part.isError === true;
 }
 
-/** Derive overall group status from the tool parts + message running state. */
+/**
+ * Derive overall group status from the tool parts + message running state.
+ *
+ * Product rule: some tools failing is a **reminder** on the group header (amber), not a red
+ * “whole group failed” state. Red `failed` is reserved for abnormal persisted state (stuck
+ * incomplete parts). After the assistant message ends, partial failures stay visible as
+ * `done_partial` (amber) so the reminder persists in history.
+ */
 function deriveGroupStatus(
   parts: AssistantToolPart[],
   messageIsRunning: boolean,
@@ -46,16 +54,17 @@ function deriveGroupStatus(
     return { status: "running", failCount: explicitFailCount };
   }
 
-  if (explicitFailCount > 0) {
-    return { status: "failed", failCount: explicitFailCount };
-  }
-
   if (anyIncomplete) {
     // Persisted / odd states: missing results without an active run
     return {
       status: "failed",
       failCount: parts.filter((p) => !isPartComplete(p) && !isPartError(p)).length,
     };
+  }
+
+  // All parts settled (result or error): group run is complete; surface tool errors as warning, not whole-group failure.
+  if (explicitFailCount > 0) {
+    return { status: "done_partial", failCount: explicitFailCount };
   }
 
   return { status: "done", failCount: 0 };
@@ -95,31 +104,59 @@ const GroupStatusBadge: FC<{ status: GroupStatus; failCount: number }> = ({
   failCount,
 }) => {
   if (status === "running") {
+    const runningReminder =
+      failCount === 1
+        ? "Running · 1 tool needs attention"
+        : `Running · ${failCount} tools need attention`;
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+      <span
+        className="inline-flex items-center gap-1 text-muted-foreground"
+        aria-label={failCount > 0 ? runningReminder : "Running"}
+        title={failCount > 0 ? runningReminder : "Running"}
+      >
         <LoaderIcon className="size-3 animate-spin" />
-        Running
         {failCount > 0 && (
-          <span className="text-destructive" aria-label={`${failCount} failed`}>
-            {" "}
-            · {failCount} failed
-          </span>
+          <AlertCircleIcon
+            className="size-3 shrink-0 text-amber-600 dark:text-amber-400"
+            aria-hidden
+          />
         )}
       </span>
     );
   }
   if (status === "failed") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
+      <span
+        className="inline-flex items-center text-destructive"
+        aria-label={`${failCount} failed`}
+        title={`${failCount} failed`}
+      >
         <XCircleIcon className="size-3" />
-        {failCount} failed
+      </span>
+    );
+  }
+  if (status === "done_partial") {
+    const label =
+      failCount === 1
+        ? "Finished · 1 tool needs attention"
+        : `Finished · ${failCount} tools need attention`;
+    return (
+      <span
+        className="inline-flex items-center text-amber-600 dark:text-amber-400"
+        aria-label={label}
+        title={label}
+      >
+        <CheckCircle2Icon className="size-3" />
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
-      <CheckIcon className="size-3" />
-      Done
+    <span
+      className="inline-flex items-center text-green-600 dark:text-green-400"
+      aria-label="Done"
+      title="Done"
+    >
+      <CheckCircle2Icon className="size-3" />
     </span>
   );
 };
@@ -142,16 +179,25 @@ export type ToolCallGroupProps = PropsWithChildren<{
 export const ToolCallGroup: FC<ToolCallGroupProps> = ({ startIndex, endIndex, children }) => {
   const toolCount = endIndex - startIndex + 1;
 
-  // if (import.meta.env.DEV) {
-  //   console.log(
-  //     `[ToolCallGroup] startIndex=${startIndex} endIndex=${endIndex} toolCount=${toolCount}`,
-  //   );
-  // }
-
   return (
     <ToolCallGroupInner startIndex={startIndex} endIndex={endIndex} toolCount={toolCount}>
       {children}
     </ToolCallGroupInner>
+  );
+};
+
+export const ToolCallGroupThinking: FC = () => {
+  return (
+    <div className="mb-2 bg-transparent text-sm">
+      <div className="flex w-full items-center gap-2 px-3 py-2 text-left text-muted-foreground">
+        <ZapIcon className="size-3.5 shrink-0 text-muted-foreground/80" />
+        <span className="text-[12px] font-medium">Thinking…</span>
+        {/* <span className="flex-1" /> */}
+        <span aria-label="Thinking" title="Thinking">
+          <LoaderIcon className="size-3 animate-spin" aria-hidden />
+        </span>
+      </div>
+    </div>
   );
 };
 
@@ -191,7 +237,10 @@ const ToolCallGroupInner: FC<
   return (
     <div
       className={cn(
-        "mb-2 rounded-3xl border bg-muted text-sm transition-colors"
+        // Claude-like: inline + low-contrast (no border / no "card" rounding)
+        "mb-2 bg-transparent text-sm",
+        "transition-colors",
+        isExpanded ? "bg-muted/10" : "hover:bg-muted/10",
       )}
     >
       {/* ── Header (always visible) ── */}
@@ -199,20 +248,25 @@ const ToolCallGroupInner: FC<
         type="button"
         onClick={handleToggle}
         className={cn(
-          "flex w-full items-center gap-2.5 px-3 py-2.5 text-left",
-          "transition-colors hover:bg-muted/50",
-          isExpanded ? "rounded-t-3xl" : "rounded-3xl",
+          "group flex w-full items-center gap-2 px-3 py-2 text-left",
+          "transition-colors hover:bg-muted/10",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+          // Keep header edges crisp; mimic inline row
+          isExpanded ? "rounded-none" : "rounded-none",
         )}
         aria-expanded={isExpanded}
       >
-        {/* Lightning bolt icon */}
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted">
-          <ZapIcon className="size-3.5 text-muted-foreground" />
-        </span>
+        {/* Lightning bolt icon (subtle) */}
+        <ZapIcon className="size-3.5 shrink-0 text-muted-foreground/80" />
 
         {/* Count label */}
-        <span className="text-[12px] font-semibold text-foreground">
+        <span className="text-[12px] font-medium text-foreground/90">
           Used {toolCount} tool{toolCount === 1 ? "" : "s"}
+        </span>
+
+        {/* Group status (left-side, minimal) */}
+        <span className="ml-1 inline-flex items-center">
+          <GroupStatusBadge status={groupStatus} failCount={failCount} />
         </span>
 
         {/* Category icon strip */}
@@ -223,10 +277,10 @@ const ToolCallGroupInner: FC<
               return (
                 <span
                   key={i}
-                  className={cn("flex size-5 items-center justify-center rounded", cfg.iconBg)}
+                  className={cn("flex size-4.5 items-center justify-center rounded-sm")}
                   title={cfg.actionLabel}
                 >
-                  <Icon className={cn("size-3", cfg.iconColor)} />
+                  <Icon className={cn("size-3 text-muted-foreground/80")} />
                 </span>
               );
             })}
@@ -239,11 +293,12 @@ const ToolCallGroupInner: FC<
         {/* Spacer */}
         <span className="flex-1" />
 
-        {/* Group status badge */}
-        <GroupStatusBadge status={groupStatus} failCount={failCount} />
-
-        {/* Expand/collapse chevron */}
-        <span className="ml-1 text-muted-foreground">
+        {/* Expand/collapse chevron (right-side affordance) */}
+        <span
+          className="text-muted-foreground/70 group-hover:text-muted-foreground group-hover:opacity-100 opacity-80"
+          aria-label={isExpanded ? "Collapse" : "Expand"}
+          title={isExpanded ? "Collapse" : "Expand"}
+        >
           {isExpanded ? (
             <ChevronUpIcon className="size-3.5" />
           ) : (
@@ -261,7 +316,15 @@ const ToolCallGroupInner: FC<
         )}
         aria-hidden={!isExpanded}
       >
-        <div className="border-t px-2 pb-2 pt-1 max-h-75 overflow-y-auto overscroll-contain pr-1">
+        <div
+          className={cn(
+            // "Internal drawer" feel: subtle inset shadow + a light top divider
+            "px-3 pb-2 pt-2 max-h-75 overflow-y-auto overscroll-contain pr-2",
+            "border-t border-border/30",
+            "shadow-[inset_0_10px_8px_-16px_rgba(0,0,0,0.45),inset_0_-10px_8px_-16px_rgba(0,0,0,0.35),inset_10px_0_8px_-16px_rgba(0,0,0,0.25),inset_-10px_0_8px_-16px_rgba(0,0,0,0.25)]",
+            "dark:shadow-[inset_0_10px_16px_-16px_rgba(0,0,0,0.7),inset_0_-10px_16px_-16px_rgba(0,0,0,0.55),inset_10px_0_16px_-16px_rgba(0,0,0,0.45),inset_-10px_0_16px_-16px_rgba(0,0,0,0.45)]",
+          )}
+        >
           {children}
         </div>
       </div>

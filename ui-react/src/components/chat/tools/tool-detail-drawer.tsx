@@ -1,5 +1,7 @@
 import {
   BracesIcon,
+  CheckIcon,
+  ChevronUp,
   CopyIcon,
   Maximize2Icon,
   Minimize2Icon,
@@ -15,6 +17,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { useCopyToClipboard } from "@/hooks/common/use-copy-to-clipboard.ts";
 import { ToolSection, type ToolDetailField } from "./sections";
 import { StatusBadge } from "./status-badge";
 import type { ToolCategoryConfig, ToolStatus } from "./types";
@@ -54,6 +57,8 @@ export function ToolDetailDrawer({
   const [showRawArgs, setShowRawArgs] = useState(false);
   const [isCommandExpanded, setIsCommandExpanded] = useState(false);
   const [isResultExpanded, setIsResultExpanded] = useState(false);
+  const commandCopy = useCopyToClipboard();
+  const resultCopy = useCopyToClipboard();
   const commandFieldIndex = argsFields.findIndex((field) => field.label === "Command");
   const commandField = commandFieldIndex >= 0 ? argsFields[commandFieldIndex] : undefined;
   const workingDirField = argsFields.find((field) => field.label === "Directory");
@@ -73,13 +78,6 @@ export function ToolDetailDrawer({
     : resultStr;
   const hasResult = typeof resultStr === "string" && resultStr.length > 0;
   const showResultPreview = hasResult && !isResultExpanded;
-
-  const copyText = async (text: string) => {
-    if (typeof navigator === "undefined") {
-      return;
-    }
-    await navigator.clipboard.writeText(text);
-  };
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
@@ -160,18 +158,26 @@ export function ToolDetailDrawer({
                       title={showRawArgs ? "Hide raw arguments" : "Show raw arguments"}
                       onClick={() => setShowRawArgs((prev) => !prev)}
                     >
-                      <BracesIcon className="size-3.5" />
+                      {showRawArgs ? (
+                        <ChevronUp className="size-3.5" />
+                      ) : (
+                        <BracesIcon className="size-3.5" />
+                      )}
                     </Button>
                   )}
                   <Button
                     variant="ghost"
                     size="icon"
                     className="size-6 text-muted-foreground"
-                    aria-label="Copy command"
-                    title="Copy command"
-                    onClick={() => void copyText(commandDisplayText)}
+                    aria-label={commandCopy.isCopied ? "Copied" : "Copy command"}
+                    title={commandCopy.isCopied ? "Copied" : "Copy command"}
+                    onClick={() => commandCopy.copyToClipboard(commandDisplayText)}
                   >
-                    <CopyIcon className="size-3.5" />
+                    {commandCopy.isCopied ? (
+                      <CheckIcon className="size-3.5" />
+                    ) : (
+                      <CopyIcon className="size-3.5" />
+                    )}
                   </Button>
                 </div>
               }
@@ -240,11 +246,15 @@ export function ToolDetailDrawer({
                       variant="ghost"
                       size="icon"
                       className="size-6 text-muted-foreground"
-                      aria-label="Copy result"
-                      title="Copy result"
-                      onClick={() => void copyText(resultStr!)}
+                      aria-label={resultCopy.isCopied ? "Copied" : "Copy result"}
+                      title={resultCopy.isCopied ? "Copied" : "Copy result"}
+                      onClick={() => resultCopy.copyToClipboard(resultStr!)}
                     >
-                      <CopyIcon className="size-3.5" />
+                      {resultCopy.isCopied ? (
+                        <CheckIcon className="size-3.5" />
+                      ) : (
+                        <CopyIcon className="size-3.5" />
+                      )}
                     </Button>
                   )}
                 </div>

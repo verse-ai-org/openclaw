@@ -222,9 +222,13 @@ export function configureSession(port: number): void {
             `default-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `script-src 'self' 'unsafe-inline' 'unsafe-eval' file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `style-src 'self' 'unsafe-inline' file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
-            // Allow common HTTPS image CDNs for chat/markdown and agent identity assets.
-            `img-src 'self' data: blob: file: http://127.0.0.1:${port} http://store.is.autonavi.com https://store.is.autonavi.com https://aos-comment.amap.com https://img.alicdn.com https://files.aiverser.com${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
-            `media-src 'self' data: blob: file: http://127.0.0.1:${port} http://store.is.autonavi.com https://store.is.autonavi.com https://aos-comment.amap.com https://files.aiverser.com${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            // Temporary: allow any image/media origin. Replace with a tighter allowlist once CDN/tool hosts are inventoried.
+            // Previous img-src (CDNs for chat/markdown + agent assets + Vite when set):
+            // `img-src 'self' data: blob: file: http://127.0.0.1:${port} http://store.is.autonavi.com https://store.is.autonavi.com https://aos-comment.amap.com https://img.alicdn.com https://files.aiverser.com${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            `img-src 'self' data: blob: file: http://127.0.0.1:${port} *`,
+            // Previous media-src:
+            // `media-src 'self' data: blob: file: http://127.0.0.1:${port} http://store.is.autonavi.com https://store.is.autonavi.com https://aos-comment.amap.com https://files.aiverser.com${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            `media-src 'self' data: blob: file: http://127.0.0.1:${port} *`,
             `font-src 'self' data: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `connect-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port} wss://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin} ws://localhost:5174` : ""}`,
           ].join("; "),

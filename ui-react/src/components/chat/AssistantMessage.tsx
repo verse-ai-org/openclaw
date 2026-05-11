@@ -3,9 +3,7 @@ import {
   useAuiState,
 } from "@assistant-ui/react";
 import { type FC, useMemo } from "react";
-import {
-  AssistantMarkdownPart
-} from "../assistant-ui/markdown-text.tsx";
+import { AssistantMarkdownTextBlock } from "../assistant-ui/markdown-text.tsx";
 import { AssistantToolGroup } from "../assistant-ui/assistant-tool-group.tsx";
 import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
@@ -36,34 +34,33 @@ export const AssistantMessage: FC = () => {
   }, [conversation, messageId]);
   // console.log("rawContent", rawContent);
 
-  // Loading indicator should only show on the currently-running assistant message.
-  const showLoading = Boolean(messageIsRunning);
-
   const { textParts, toolParts, uiParts } = useMemo(
     () => splitAssistantContentParts(rawContent),
     [rawContent],
   );
+  
+  // Only this message's assistant-ui status — do not OR in global `sending`, or every
+  // historical assistant row with no tools would flash "Thinking" on each new user send.
+  const showThinking = messageIsRunning ?? false;
 
   return (
     <MessagePrimitive.Root
       className="flex mx-auto w-full max-w-3xl data-[role=assistant]:animate-in data-[role=assistant]:fade-in data-[role=assistant]:slide-in-from-bottom-1"
       data-role="assistant"
     >
-      {/* Avatar row — loading state is handled inside AgentAvatar (spinning ring) */}
+      {/* Avatar row */}
       <div className="flex gap-3 items-self-start">
         <div className="shrink-0">
-          {isFirstInTurn ? <AgentAvatar showLoading={showLoading} /> : <div className="w-8"/>}
+          {isFirstInTurn ? <AgentAvatar /> : <div className="w-8" />}
         </div>
       </div>
 
       {/* Content column — indented to align with avatar */}
       <div className="pl-2 w-full min-w-0">
         <div className="wrap-break-word text-foreground leading-relaxed">
-          <AssistantToolGroup toolParts={toolParts} />
+          <AssistantToolGroup toolParts={toolParts} showThinking={showThinking} />
 
-          {textParts.map((part, index) => (
-            <AssistantMarkdownPart key={`text-${index}`} text={part.text} />
-          ))}
+          <AssistantMarkdownTextBlock textParts={textParts} />
 
           <UiToolParts parts={uiParts} />
         </div>

@@ -3,7 +3,7 @@ import {
   ToolFallback,
   type ToolFallbackPartProps,
 } from "@/components/chat/tools";
-import { ToolCallGroup } from "@/components/chat/ToolCallGroup";
+import { ToolCallGroup, ToolCallGroupThinking } from "@/components/chat/ToolCallGroup";
 import type { AssistantToolPart } from "@/components/chat/types";
 
 function getToolStatus(part: AssistantToolPart): ToolFallbackPartProps["status"] {
@@ -27,9 +27,12 @@ function buildToolFallbackProps(part: AssistantToolPart): ToolFallbackPartProps 
   };
 }
 
-export const AssistantToolGroup: FC<{ toolParts: AssistantToolPart[] }> = ({ toolParts }) => {
+export const AssistantToolGroup: FC<{ toolParts: AssistantToolPart[]; showThinking?: boolean }> = ({
+  toolParts,
+  showThinking,
+}) => {
   if (toolParts.length === 0) {
-    return null;
+    return showThinking ? <ToolCallGroupThinking /> : null;
   }
 
   return (

@@ -187,7 +187,7 @@ function QuestionFlowReceipt({
     >
       <div
         className={cn(
-          "bg-card/60 flex w-full min-w-80 max-w-md  flex-col gap-3 rounded-lg border px-5 py-4 shadow-xs",
+          "bg-card/60 flex w-full min-w-80 max-w-md  flex-col gap-3 rounded-2xl border px-5 py-4 shadow-xs",
         )}
       >
         <div className="flex items-center justify-between gap-3">

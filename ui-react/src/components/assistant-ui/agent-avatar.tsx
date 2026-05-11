@@ -3,7 +3,6 @@ import { useChatStore } from "@/store/chat.store";
 import { useAgentsStore } from "@/store/agents.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { useGatewayStore } from "@/store/gateway.store";
-import { AssistantLoadingIndicator } from "./assistant-loading-indicator.tsx";
 // ---------------------------------------------------------------------------
 // AgentAvatar
 //
@@ -22,9 +21,6 @@ export type AgentAvatarSize = "sm" | "md";
 
 interface AgentAvatarProps {
   size?: AgentAvatarSize;
-  /** When true, renders AssistantLoadingIndicator beside the avatar.
-   *  Should only be true for the last (active) message in the thread. */
-  showLoading?: boolean;
 }
 
 const SIZE_CLASS: Record<AgentAvatarSize, string> = {
@@ -32,7 +28,7 @@ const SIZE_CLASS: Record<AgentAvatarSize, string> = {
   md: "size-8 text-base",
 };
 
-export const AgentAvatar: FC<AgentAvatarProps> = ({ size = "md", showLoading = false }) => {
+export const AgentAvatar: FC<AgentAvatarProps> = ({ size = "md" }) => {
   // Mirror the same sessionKey resolution used by GatewayChatRuntimeProvider:
   // chat.store.sessionKey takes precedence; fall back to persisted settings.sessionKey.
   // This ensures we get the correct key even before session-manager writes to chat.store.
@@ -91,7 +87,6 @@ export const AgentAvatar: FC<AgentAvatarProps> = ({ size = "md", showLoading = f
   return (
     <div className="flex flex-col justify-center items-center gap-2">
       {inner}
-      {showLoading && <AssistantLoadingIndicator />}
     </div>
   );
 };

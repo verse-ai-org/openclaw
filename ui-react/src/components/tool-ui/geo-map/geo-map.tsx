@@ -130,7 +130,7 @@ export const GeoMap = memo(function GeoMap({
         {(title || description) && (
           <div
             className={cn(
-              "pointer-events-none absolute top-3 left-3 z-[900]",
+              "pointer-events-none absolute top-3 left-3 z-[0]",
               "max-w-[min(75%,22rem)] rounded-lg border border-border/70 bg-background/70 px-3 py-2",
               "shadow-sm backdrop-blur-md",
             )}
