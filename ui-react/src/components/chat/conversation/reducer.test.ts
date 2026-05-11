@@ -84,4 +84,40 @@ describe("conversation reducer", () => {
     expect(msg?.parts.map((p) => p.type)).toEqual(["text"]);
     expect(msg?.parts[0]).toMatchObject({ type: "text", text: "goodbye" });
   });
+
+  it("RunActiveSnapshot forces the active run assistant message to be running (even after history snapshot)", () => {
+    const threadId = "main";
+    const runId = "run_active_1";
+
+    const events: CanonicalChatEvent[] = [
+      {
+        type: "messages.snapshot",
+        threadId,
+        ts: 1,
+        messages: [
+          {
+            id: `run:${runId}`,
+            role: "assistant",
+            createdAt: 1,
+            runId,
+            status: "complete",
+            parts: [{ type: "text", id: "p1", text: "partial" }],
+          },
+        ],
+      },
+      {
+        type: "run.activeSnapshot",
+        threadId,
+        ts: 2,
+        runId,
+        startedAt: 1,
+      },
+    ];
+
+    const state = replayConversation(events, threadId);
+    expect(state.activeRunId).toBe(runId);
+    const msg = state.messagesById.get(`run:${runId}`);
+    expect(msg?.status).toBe("running");
+    expect(msg?.role).toBe("assistant");
+  });
 });

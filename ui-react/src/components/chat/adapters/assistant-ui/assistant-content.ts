@@ -5,22 +5,23 @@ import type {
 } from "@/components/chat/types";
 import { decodeUiSurfaceFromToolCallPart } from "./ui-surface-tool-call";
 
-function isTextPart(value: unknown): value is Extract<AssistantContentPart, { type: "text" }> {
+/**
+ * Normalize a single assistant-ui message content element to our wire protocol
+ * (`AssistantContentPart`: `text` | `tool-call`). Unknown or malformed entries
+ * are dropped (same as silently skipping non-matching parts in a for-loop).
+ */
+function tryNormalizeAssistantContentPart(value: unknown): AssistantContentPart | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
   const v = value as Record<string, unknown>;
-  return v.type === "text" && typeof v.text === "string";
-}
-
-function isToolCallPart(
-  value: unknown,
-): value is Extract<AssistantContentPart, { type: "tool-call" }> {
-  if (!value || typeof value !== "object") {
-    return false;
+  if (v.type === "text" && typeof v.text === "string") {
+    return { type: "text", text: v.text };
   }
-  const v = value as Record<string, unknown>;
-  return v.type === "tool-call";
+  if (v.type === "tool-call") {
+    return value as Extract<AssistantContentPart, { type: "tool-call" }>;
+  }
+  return null;
 }
 
 export function splitAssistantContentParts(rawContent: unknown): {
@@ -33,38 +34,28 @@ export function splitAssistantContentParts(rawContent: unknown): {
   const raw = Array.isArray(rawContent) ? rawContent : [];
   const content: AssistantContentPart[] = [];
   const textParts: Array<Extract<AssistantContentPart, { type: "text" }>> = [];
-  const toolPartsRaw: Array<Extract<AssistantContentPart, { type: "tool-call" }>> = [];
+  const toolParts: Array<Extract<AssistantContentPart, { type: "tool-call" }>> = [];
   const uiParts: AssistantUiToolPart[] = [];
 
-  for (const part of raw) {
-    if (isTextPart(part)) {
-      content.push(part);
+  for (const item of raw) {
+    const part = tryNormalizeAssistantContentPart(item);
+    if (!part) {
+      continue;
+    }
+    content.push(part);
+    if (part.type === "text") {
       textParts.push(part);
       continue;
     }
-    if (isToolCallPart(part)) {
-      content.push(part as Extract<AssistantContentPart, { type: "tool-call" }>);
-      toolPartsRaw.push(part as Extract<AssistantContentPart, { type: "tool-call" }>);
-    }
-  }
-
-  // UI surfaces are encoded as special tool-call parts (see toAssistantUiThreadMessage).
-  const toolParts: Array<Extract<AssistantContentPart, { type: "tool-call" }>> = [];
-  for (const p of toolPartsRaw) {
-    const decoded = decodeUiSurfaceFromToolCallPart({
-      type: "tool-call",
-      toolCallId: p.toolCallId,
-      toolName: p.toolName,
-      args: p.args,
-    });
+    const decoded = decodeUiSurfaceFromToolCallPart(part);
     if (decoded) {
       uiParts.push(decoded);
     } else {
-      toolParts.push(p);
+      toolParts.push(part);
     }
   }
 
-  const textContent = textParts.map((part) => part.text).join("\n\n").trim();
+  const textContent = textParts.map((p) => p.text).join("\n\n").trim();
   return { content, textParts, toolParts, uiParts, textContent };
 }
 
@@ -78,17 +69,11 @@ export function sliceToolCallParts(
   }
   const slice = rawContent.slice(startIndex, endIndex + 1);
   const out: AssistantToolPart[] = [];
-  for (const part of slice) {
-    if (!part || typeof part !== "object") {
-      continue;
+  for (const item of slice) {
+    const part = tryNormalizeAssistantContentPart(item);
+    if (part?.type === "tool-call") {
+      out.push(part);
     }
-    const p = part as Record<string, unknown>;
-    if (p.type !== "tool-call") {
-      continue;
-    }
-    // The runtime tool-call part shape is compatible with AssistantToolPart.
-    out.push(part as AssistantToolPart);
   }
   return out;
 }
-

@@ -112,3 +112,31 @@ export function logChatDebug(
   }
   emit(level, message, data, ctx);
 }
+
+/**
+ * History / snapshot diagnostics — **low volume**: only `[milestone]` lines in normal use.
+ * Enable in dev: `localStorage.setItem("openclaw.chatHistory.diagnose", "1")`, then refresh.
+ * In DevTools console filter: `[milestone]` or `chat-history:diagnose`.
+ */
+export function isChatHistoryDiagnoseEnabled(): boolean {
+  if (!import.meta.env.DEV) {
+    return false;
+  }
+  try {
+    return localStorage.getItem("openclaw.chatHistory.diagnose") === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function logChatHistoryDiagnose(message: string, data?: unknown): void {
+  if (!isChatHistoryDiagnoseEnabled()) {
+    return;
+  }
+  const prefix = "[chat-history:diagnose]";
+  if (data !== undefined) {
+    console.debug(prefix, message, data);
+  } else {
+    console.debug(prefix, message);
+  }
+}

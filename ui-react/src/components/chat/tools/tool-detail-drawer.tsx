@@ -4,7 +4,7 @@ import {
   Maximize2Icon,
   Minimize2Icon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -34,8 +34,6 @@ interface ToolDetailDrawerProps {
   isCancelled: boolean;
   errorMessage?: string;
   categoryConfig: ToolCategoryConfig;
-  richContent?: ReactNode;
-  canPromoteRichContent?: boolean;
 }
 
 export function ToolDetailDrawer({
@@ -51,8 +49,6 @@ export function ToolDetailDrawer({
   isCancelled,
   errorMessage,
   categoryConfig,
-  richContent,
-  canPromoteRichContent,
 }: ToolDetailDrawerProps) {
   const Icon = categoryConfig.Icon;
   const [showRawArgs, setShowRawArgs] = useState(false);
@@ -254,11 +250,6 @@ export function ToolDetailDrawer({
                 </div>
               }
             >
-              {richContent && statusType === "complete" && canPromoteRichContent && (
-                <div className="mb-3 overflow-hidden rounded-lg">
-                  {richContent}
-                </div>
-              )}
               {showResultPreview && resultPreviewText && (
                 <div className="relative">
                   <pre className="overflow-x-auto bg-background rounded-lg p-4 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
@@ -274,12 +265,12 @@ export function ToolDetailDrawer({
                   {resultStr}
                 </pre>
               )}
-              {!hasResult && statusType === "complete" && !richContent && (
+              {!hasResult && statusType === "complete" && (
                 <p className="rounded-lg border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
                   No output.
                 </p>
               )}
-              {statusType === "running" && !hasResult && !richContent && (
+              {statusType === "running" && !hasResult && (
                 <p className="rounded-lg border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
                   Waiting for output...
                 </p>
@@ -299,22 +290,11 @@ export function ToolDetailDrawer({
               )}
             </ToolSection>
 
-            {richContent && statusType === "complete" && !canPromoteRichContent && (
-              <ToolSection title="Structured preview">
-                <div className="overflow-hidden rounded-lg border bg-background">
-                  {richContent}
-                </div>
-              </ToolSection>
+            {!argsText && resultStr === undefined && statusType === "complete" && (
+              <p className="text-sm text-muted-foreground">
+                Tool completed with no output.
+              </p>
             )}
-
-            {!argsText &&
-              resultStr === undefined &&
-              statusType === "complete" &&
-              !richContent && (
-                <p className="text-sm text-muted-foreground">
-                  Tool completed with no output.
-                </p>
-              )}
           </div>
         </div>
         <DrawerFooter className="border-t sm:flex-row sm:justify-end">

@@ -28,8 +28,61 @@ type HistoryMessageRecord = {
   parts: ChatPart[];
 };
 
+/**
+ * Live streaming stores the whole assistant turn under `run:${runId}` (see reducer
+ * `ensureAssistantMessageForRun`). Gateway history replay preserves one canonical row per
+ * upstream assistant segment, which becomes multiple assistant-ui messages and multiple
+ * tool groups. Merge adjacent assistant rows that share the same `runId` so history matches
+ * the live layout.
+ */
+function mergeAdjacentAssistantMessagesSameRun(records: HistoryMessageRecord[]): HistoryMessageRecord[] {
+  const out: HistoryMessageRecord[] = [];
+  for (const m of records) {
+    if (m.role !== "assistant") {
+      out.push({ ...m, parts: [...m.parts] });
+      continue;
+    }
+    const runId = typeof m.runId === "string" ? m.runId.trim() : "";
+    if (!runId) {
+      out.push({ ...m, parts: [...m.parts] });
+      continue;
+    }
+    const stableId = `run:${runId}`;
+    const prev = out.at(-1);
+    if (prev?.role === "assistant" && prev.runId?.trim() === runId) {
+      prev.parts = [...prev.parts, ...m.parts];
+      prev.createdAt = Math.min(prev.createdAt, m.createdAt);
+      prev.id = stableId;
+      if (m.metadata && !prev.metadata) {
+        prev.metadata = m.metadata;
+      }
+      continue;
+    }
+    out.push({
+      ...m,
+      id: stableId,
+      runId,
+      parts: [...m.parts],
+    });
+  }
+  return out;
+}
+
 function toTs(m: RawMessage): number {
   return (typeof m.ts === "number" ? m.ts : undefined) ?? (typeof m.timestamp === "number" ? m.timestamp : undefined) ?? Date.now();
+}
+
+function normalizeHistoryRole(raw: unknown): "user" | "assistant" | "tool" | "toolresult" | "" {
+  const lower = (typeof raw === "string" ? raw : "")
+    .toLowerCase()
+    .replace(/_/g, "")
+    .trim();
+  // Gateway history has been observed to use "human" for user messages in some providers.
+  if (lower === "user" || lower === "human" || lower === "input") return "user";
+  if (lower === "assistant") return "assistant";
+  if (lower === "tool") return "tool";
+  if (lower === "toolresult") return "toolresult";
+  return "";
 }
 
 function isInternalTool(toolName: string | undefined): boolean {
@@ -143,7 +196,7 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
 
   for (const raw of messages) {
     const ts = toTs(raw);
-    const role = (raw.role ?? "").toLowerCase().replace(/_/g, "");
+    const role = normalizeHistoryRole(raw.role);
     const runId = typeof raw.runId === "string" && raw.runId.trim() ? raw.runId : undefined;
 
     // User rows: preserve as plain text + attachments metadata.
@@ -455,8 +508,9 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
   // Sort messages by createdAt (stable) and finalize canonical shape.
   const all: HistoryMessageRecord[] = [...userMessages, ...assistantByRun.values()];
   const sorted = all.toSorted((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+  const merged = mergeAdjacentAssistantMessagesSameRun(sorted);
 
-  return sorted.map((m) => {
+  return merged.map((m) => {
     const canonical: CanonicalMessage = {
       id: m.id as MessageId,
       role: m.role as CanonicalMessage["role"],

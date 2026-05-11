@@ -112,6 +112,17 @@ export function runEventsToCanonical(
         break;
 
       case "run.finished":
+        // `chat.final` frames can carry the full assistant text. If the page refreshes mid-run,
+        // the client may miss prior deltas and only receive the final snapshot; preserve it.
+        if (e.text) {
+          out.push({
+            type: EventType.MessageSetLiveText,
+            threadId,
+            ts,
+            messageId: `run:${rid}`,
+            fullText: e.text,
+          });
+        }
         out.push({ type: EventType.RunFinished, threadId, runId: rid as RunId, ts });
         break;
 

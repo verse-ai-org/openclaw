@@ -57,6 +57,23 @@ function maybeLinkRunAssistantMessage(
   return { ...state, runsById };
 }
 
+/** Rebuild tool lookup from committed messages (used after `MessagesSnapshot`). */
+function rebuildToolPartIndexFromMessages(
+  state: ConversationState,
+): Map<PartId, { messageId: MessageId; index: number }> {
+  const toolPartIndex = new Map<PartId, { messageId: MessageId; index: number }>();
+  for (const messageId of state.messageOrder) {
+    const msg = state.messagesById.get(messageId);
+    if (!msg) continue;
+    msg.parts.forEach((part, index) => {
+      if (part.type === "tool") {
+        toolPartIndex.set(part.id, { messageId, index });
+      }
+    });
+  }
+  return toolPartIndex;
+}
+
 function flushLiveTextToPart(
   state: ConversationState,
   messageId: MessageId,
@@ -143,11 +160,18 @@ export function applyCanonicalEvent(s: ConversationState, event: CanonicalChatEv
 
   switch (event.type) {
     case EventType.MessagesSnapshot: {
-      let out = { ...next, messagesById: new Map(), messageOrder: [] as string[] };
+      let out: ConversationState = {
+        ...next,
+        messagesById: new Map(),
+        messageOrder: [],
+        liveTextByMessageId: new Map(),
+      };
       for (const m of event.messages) {
         out = upsertMessage(out, m);
       }
-      return out;
+      const toolPartIndex = rebuildToolPartIndexFromMessages(out);
+      // Checkpoint: prior incremental events no longer describe this transcript.
+      return { ...out, toolPartIndex, eventLog: [event] };
     }
 
     case EventType.RunStarted: {
@@ -166,6 +190,7 @@ export function applyCanonicalEvent(s: ConversationState, event: CanonicalChatEv
         return { ...next, activeRunId: undefined };
       }
       const runsById = new Map(next.runsById);
+      const assistantMessageId = `run:${event.runId}` as MessageId;
       if (!runsById.has(event.runId)) {
         runsById.set(event.runId, {
           id: event.runId,
@@ -173,8 +198,37 @@ export function applyCanonicalEvent(s: ConversationState, event: CanonicalChatEv
           status: "running",
           startedAt: typeof event.startedAt === "number" ? event.startedAt : event.ts,
         });
+      } else {
+        // Status probes are authoritative for "is this run still active?".
+        // If we already have a run record, keep timestamps but ensure it is marked running.
+        const existing = runsById.get(event.runId);
+        if (existing) {
+          runsById.set(event.runId, { ...existing, status: "running" });
+        }
       }
-      return { ...next, runsById, activeRunId: event.runId };
+
+      // Ensure there's a visible assistant row for the in-flight run. History snapshots mark
+      // messages as complete, but an active run probe implies we should render it as running.
+      const existingMsg = next.messagesById.get(assistantMessageId);
+      const msg: CanonicalMessage =
+        existingMsg && existingMsg.role === "assistant"
+          ? { ...existingMsg, status: "running", runId: event.runId }
+          : {
+              id: assistantMessageId,
+              role: "assistant",
+              createdAt: typeof event.startedAt === "number" ? event.startedAt : event.ts,
+              runId: event.runId,
+              status: "running",
+              parts: [],
+            };
+
+      const afterMsg = upsertMessage(next, msg);
+      const linkedRun = runsById.get(event.runId);
+      if (linkedRun && !linkedRun.assistantMessageId) {
+        runsById.set(event.runId, { ...linkedRun, assistantMessageId });
+      }
+
+      return { ...afterMsg, runsById, activeRunId: event.runId };
     }
 
     case EventType.RunFinished:

@@ -105,15 +105,18 @@ export function useSessionManager() {
   }, [pendingSessionsReloadSeq]);
 
   useEffect(() => {
-    if (gatewayStatus === "connected") {
-      if (useChatStore.getState().sessionKey !== sessionKey) {
-        useChatStore.getState().setSessionKey(sessionKey);
-      }
-      setSessionKeyInHash(sessionKey);
-      void loadSessions();
-      void loadHistory(sessionKey);
-      void syncRunStatus(sessionKey);
+    if (gatewayStatus !== "connected") {
+      return;
     }
+    if (useChatStore.getState().sessionKey !== sessionKey) {
+      useChatStore.getState().setSessionKey(sessionKey);
+    }
+    setSessionKeyInHash(sessionKey);
+    void loadSessions();
+    void (async () => {
+      await loadHistory(sessionKey);
+      await syncRunStatus(sessionKey);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gatewayStatus]);
 

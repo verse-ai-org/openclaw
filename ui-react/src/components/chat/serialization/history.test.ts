@@ -153,7 +153,7 @@ describe("serialization/history", () => {
     expect(toolPart && toolPart.type === "tool" ? toolPart.ui?.kind : null).toBe("option_list");
   });
 
-  it("keeps assistant messages segmented by id within the same run", () => {
+  it("merges adjacent assistant segments for the same run into one canonical message (matches live reducer id)", () => {
     const runId = "run-5";
     const messages: RawMessage[] = [
       {
@@ -177,7 +177,11 @@ describe("serialization/history", () => {
       messages,
     });
     const assistants = snapshot.filter((m) => m.role === "assistant" && m.runId === runId);
-    expect(assistants.map((m) => m.id)).toEqual(["a1", "a2"]);
+    expect(assistants).toHaveLength(1);
+    expect(assistants[0]?.id).toBe(`run:${runId}`);
+    const texts = assistants[0]?.parts.filter((p) => p.type === "text").map((p) => (p.type === "text" ? p.text : ""));
+    expect(texts.join("\n")).toContain("first");
+    expect(texts.join("\n")).toContain("second");
   });
 
   it("does not duplicate interactive cards across assistant run folding", () => {
@@ -233,10 +237,12 @@ describe("serialization/history", () => {
       threadId: "agent:test",
       messages,
     });
-    const a1 = snapshot.find((m) => m.id === "m1");
-    const a2 = snapshot.find((m) => m.id === "m2");
-    expect(a1?.parts.some((p) => p.type === "tool")).toBe(false);
-    expect(a2?.parts.some((p) => p.type === "tool" && p.id === "call_i")).toBe(true);
+    const merged = snapshot.find((m) => m.role === "assistant" && m.runId === runId);
+    expect(merged?.id).toBe(`run:${runId}`);
+    const toolParts = merged?.parts.filter((p) => p.type === "tool" && p.id === "call_i") ?? [];
+    expect(toolParts).toHaveLength(1);
+    expect(merged?.parts.some((p) => p.type === "text" && p.text.includes("intro"))).toBe(true);
+    expect(merged?.parts.some((p) => p.type === "text" && p.text.includes("tail"))).toBe(true);
   });
 
   it("filters internal tools from history (session_status)", () => {
@@ -291,18 +297,41 @@ describe("serialization/history", () => {
       { role: "toolResult", runId, timestamp: 2 } as any,
     ];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (messages[1] as any).toolCallId = "call_exec";
+    (messages[2] as any).toolCallId = "call_exec";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (messages[1] as any).toolName = "exec";
+    (messages[2] as any).toolName = "exec";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (messages[1] as any).content = [{ type: "text", text: "ok" }];
+    (messages[2] as any).content = [{ type: "text", text: "ok" }];
 
     const snapshot = serializeGatewayHistoryToCanonicalSnapshot({ threadId: "agent:test", messages });
-    const m1 = snapshot.find((m) => m.id === "m1");
-    const m2 = snapshot.find((m) => m.id === "m2");
-    expect(m1).toBeTruthy();
-    expect(m2).toBeTruthy();
-    expect(m1?.parts.some((p) => p.type === "tool" && p.id === "call_exec")).toBe(true);
-    expect(m2?.parts.some((p) => p.type === "tool")).toBe(false);
+    const merged = snapshot.find((m) => m.role === "assistant" && m.runId === runId);
+    expect(merged?.id).toBe(`run:${runId}`);
+    expect(merged?.parts.some((p) => p.type === "tool" && p.id === "call_exec")).toBe(true);
+    expect(merged?.parts.some((p) => p.type === "text" && p.text.includes("tail"))).toBe(true);
+  });
+
+  it("keeps user messages when gateway uses role=human", () => {
+    const messages: RawMessage[] = [
+      {
+        role: "human",
+        timestamp: 1,
+        content: [{ type: "text", text: "计划一个川西5日游" }],
+      },
+      {
+        role: "assistant",
+        runId: "run-1",
+        timestamp: 2,
+        content: [{ type: "text", text: "ok" }],
+      },
+    ];
+
+    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:test",
+      messages,
+    });
+
+    const user = snapshot.find((m) => m.role === "user");
+    expect(user).toBeTruthy();
+    expect(user?.parts[0]?.type === "text" ? user.parts[0].text : "").toContain("川西5日游");
   });
 });

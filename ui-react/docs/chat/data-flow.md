@@ -63,4 +63,3 @@ Reducer 做的事（高层）：
 - 组合 `messages` 与 `isRunning`（来自 `useGatewayThreadRuntime`，内部已改为读 conversationStore）
 - 提供 `onNew` / `onEdit` / `onCancel` 给 assistant-ui runtime
 - `sendMessage` 负责：乐观写入 canonical user message（`message.start/appendText/end`），并发起 `chat.send`
-

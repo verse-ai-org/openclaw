@@ -6,10 +6,7 @@ import { type FC, useMemo } from "react";
 import {
   AssistantMarkdownPart
 } from "../assistant-ui/markdown-text.tsx";
-import {
-  AssistantToolGroup,
-  PromotedToolResult,
-} from "../assistant-ui/assistant-tool-group.tsx";
+import { AssistantToolGroup } from "../assistant-ui/assistant-tool-group.tsx";
 import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
 import { useSettingsStore } from "@/store/settings.store";
@@ -24,7 +21,7 @@ import { UiToolParts } from "./ui-tool/UiToolParts";
 // ---------------------------------------------------------------------------
 export const AssistantMessage: FC = () => {
   const messageId = useAuiState((s) => s.message.id);
-  const rawContent = useAuiState((s) => s.message.content as unknown);
+  const rawContent = useAuiState((s) => s.message.content);
   const messageIsRunning = useAuiState((s) => s.message.status?.type === "running");
   const sessionKey = useChatStore((s) => s.sessionKey);
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
@@ -37,11 +34,12 @@ export const AssistantMessage: FC = () => {
       assistantMessageId: messageId,
     });
   }, [conversation, messageId]);
+  // console.log("rawContent", rawContent);
 
   // Loading indicator should only show on the currently-running assistant message.
   const showLoading = Boolean(messageIsRunning);
 
-  const { textParts, toolParts, uiParts, textContent } = useMemo(
+  const { textParts, toolParts, uiParts } = useMemo(
     () => splitAssistantContentParts(rawContent),
     [rawContent],
   );
@@ -66,8 +64,6 @@ export const AssistantMessage: FC = () => {
           {textParts.map((part, index) => (
             <AssistantMarkdownPart key={`text-${index}`} text={part.text} />
           ))}
-
-          <PromotedToolResult toolParts={toolParts} textContent={textContent} />
 
           <UiToolParts parts={uiParts} />
         </div>

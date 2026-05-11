@@ -22,4 +22,3 @@ export type ConversationState = {
    */
   toolPartIndex: Map<PartId, { messageId: MessageId; index: number }>;
 };
-

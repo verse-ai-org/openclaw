@@ -57,4 +57,3 @@
 - `uiStateById`：每个 `uiId` 的 client-only 生命周期状态（`pending/submitted/editing/...`）与回执数据
 - `setActiveThreadId`：按 thread scope 重置交互态，避免跨 thread 的 `uiId` 冲突
 - **hydrate**：UI 回执会从 history 的 `metadata.interaction` 反推（见 `useHydrateUiStateFromHistory`）
-

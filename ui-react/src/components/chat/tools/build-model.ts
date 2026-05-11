@@ -1,11 +1,9 @@
-import type { ReactNode } from "react";
 import type { ToolDetailField } from "./sections";
 import type { ToolStatus } from "./types";
 import type { ToolCategory } from "./classify";
 import { classifyTool, formatToolLabel } from "./classify";
 import { buildArgsInfo } from "./build-args-info";
 import { buildResultInfo } from "./build-result-info";
-import { resolveRichToolPresentation } from "./rich-presentation";
 
 export interface ToolDetailModel {
   toolLabel: string;
@@ -17,8 +15,6 @@ export interface ToolDetailModel {
   errorMessage?: string;
   argsFields: ToolDetailField[];
   resultFields: ToolDetailField[];
-  richContent?: ReactNode;
-  canPromoteRichContent?: boolean;
 }
 
 export type ToolFallbackJsonValue =
@@ -94,12 +90,7 @@ export function buildToolDetailModel({
   const toolLabel = formatToolLabel(toolName);
   const argsInfo = buildArgsInfo(toolName, argsText);
   const resultInfo = buildResultInfo(category, resultStr);
-  const richPresentation =
-    statusType === "complete"
-      ? resolveRichToolPresentation(toolName, result, resultStr)
-      : null;
-  const summaryPreview =
-    richPresentation?.summary ?? resultInfo.summary ?? argsInfo.preview;
+  const summaryPreview = resultInfo.summary ?? argsInfo.preview;
   const errorMessage =
     status?.type === "incomplete" && status.error
       ? typeof status.error === "string"
@@ -126,7 +117,5 @@ export function buildToolDetailModel({
     errorMessage,
     argsFields: argsInfo.fields,
     resultFields: resultInfo.fields,
-    richContent: richPresentation?.content,
-    canPromoteRichContent: richPresentation?.canPromote,
   };
 }

@@ -24,8 +24,6 @@ const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({
     errorMessage,
     argsFields,
     resultFields,
-    richContent,
-    canPromoteRichContent,
   } = buildToolDetailModel({ toolName, argsText, result, status, isError });
 
   const cfg = TOOL_CATEGORY_CONFIG[category];
@@ -83,8 +81,6 @@ const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({
         isCancelled={isCancelled}
         errorMessage={errorMessage}
         categoryConfig={cfg}
-        richContent={richContent}
-        canPromoteRichContent={canPromoteRichContent}
       />
     </>
   );

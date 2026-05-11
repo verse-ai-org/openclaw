@@ -45,13 +45,16 @@ export async function syncSessionRunStatusFromGateway(params: {
 
       return;
     }
-    useConversationStore.getState().setActiveRunSnapshot(sessionKey, null, null);
+    useConversationStore.getState().setActiveRunSnapshot(sessionKey, result.activeRunId, null);
     console.log("[session-manager] sync run status: no active run", {
-      sessionKey
+      sessionKey,
+      activeRunId: result.activeRunId,
     });
-  } catch {
+  } catch (err) {
     console.warn("[session-manager] sync run status failed", {
-      sessionKey
+      sessionKey,
+      activeRunId: null,
+      err: err instanceof Error ? err.message : String(err),
     });
   }
 }
@@ -121,6 +124,9 @@ export async function loadHistoryFromGateway(params: {
   try {
     const result = await client.request<{ messages?: unknown[] }>("chat.history", {
       sessionKey: key,
+      // Gateway defaults to 200 messages; request more so initial user turns don't get dropped
+      // on tool-heavy sessions.
+      limit: 1000,
     });
     console.log("result", result);
     const rawMessages = (Array.isArray(result?.messages)
