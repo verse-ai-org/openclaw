@@ -78,6 +78,9 @@ importers:
       '@napi-rs/canvas':
         specifier: ^0.1.89
         version: 0.1.95
+      '@openclaw/interactions':
+        specifier: workspace:*
+        version: link:packages/interactions
       '@sinclair/typebox':
         specifier: 0.34.48
         version: 0.34.48
