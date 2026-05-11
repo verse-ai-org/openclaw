@@ -308,12 +308,19 @@ export const AssistantMarkdownTextBlock: FC<{
   };
 
   return (
-    <div className="min-w-0">
+    <div className="group/assist-md min-w-0">
       {textParts.map((part, index) => (
         <AssistantMarkdownPart key={`text-${index}`} text={part.text} />
       ))}
       {fullMarkdown ? (
-        <div className="aui-md-actions mt-1 flex justify-start">
+        <div
+          className={cn(
+            "aui-md-actions mt-1 flex justify-start",
+            "opacity-0 transition-opacity duration-150",
+            "group-hover/assist-md:opacity-100 group-focus-within/assist-md:opacity-100",
+            isCopied && "opacity-100",
+          )}
+        >
           <TooltipIconButton tooltip="Copy message" onClick={onCopy}>
             {!isCopied && <CopyIcon className="size-3.5" />}
             {isCopied && <CheckIcon className="size-3.5" />}

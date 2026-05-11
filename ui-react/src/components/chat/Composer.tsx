@@ -94,7 +94,7 @@ export const Composer: FC = () => {
   }, []);
 
   return (
-    <ComposerPrimitive.Root className="relative w-full">
+    <ComposerPrimitive.Root className="relative z-100 w-full">
       <ComposerPrimitive.AttachmentDropzone
         onChangeCapture={handleFileInputChangeCapture}
         onDropCapture={handleDropCapture}
