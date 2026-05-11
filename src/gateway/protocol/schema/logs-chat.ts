@@ -28,6 +28,11 @@ export const ChatHistoryParamsSchema = Type.Object(
   {
     sessionKey: NonEmptyString,
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })),
+    /**
+     * Cursor pagination: return only messages strictly older than this timestamp (ms).
+     * If omitted, returns the most recent page.
+     */
+    beforeTs: Type.Optional(Type.Integer({ minimum: 0 })),
   },
   { additionalProperties: false },
 );

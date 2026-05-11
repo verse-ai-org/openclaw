@@ -202,6 +202,55 @@ describe("gateway server chat", () => {
     expect(ctx?.BodyForCommands).toBe("Café\tline");
   });
 
+  test("chat.history supports beforeTs pagination", async () => {
+    const messages = Array.from({ length: 5 }, (_v, i) => ({
+      role: "user",
+      content: [{ type: "text", text: `m${i + 1}` }],
+      timestamp: i + 1,
+    }));
+
+    await withMainSessionStore(async (dir) => {
+      const lines = messages.map((message) => JSON.stringify({ message }));
+      await fs.writeFile(path.join(dir, "sess-main.jsonl"), lines.join("\n"), "utf-8");
+
+      const page1 = await rpcReq<{
+        messages?: unknown[];
+        hasMore?: boolean;
+        nextBeforeTs?: number | null;
+      }>(ws, "chat.history", { sessionKey: "main", limit: 2 });
+      expect(page1.ok).toBe(true);
+      expect(page1.payload?.messages?.length).toBe(2);
+      expect(page1.payload?.hasMore).toBe(true);
+      expect(typeof page1.payload?.nextBeforeTs).toBe("number");
+
+      const page2 = await rpcReq<{
+        messages?: unknown[];
+        hasMore?: boolean;
+        nextBeforeTs?: number | null;
+      }>(ws, "chat.history", {
+        sessionKey: "main",
+        limit: 2,
+        beforeTs: page1.payload?.nextBeforeTs ?? undefined,
+      });
+      expect(page2.ok).toBe(true);
+      expect(page2.payload?.messages?.length).toBe(2);
+      expect(page2.payload?.hasMore).toBe(true);
+
+      const page3 = await rpcReq<{
+        messages?: unknown[];
+        hasMore?: boolean;
+        nextBeforeTs?: number | null;
+      }>(ws, "chat.history", {
+        sessionKey: "main",
+        limit: 2,
+        beforeTs: page2.payload?.nextBeforeTs ?? undefined,
+      });
+      expect(page3.ok).toBe(true);
+      expect(page3.payload?.messages?.length).toBe(1);
+      expect(page3.payload?.hasMore).toBe(false);
+    });
+  });
+
   test("handles chat send and history flows", async () => {
     const tempDirs: string[] = [];
     let webchatWs: WebSocket | undefined;

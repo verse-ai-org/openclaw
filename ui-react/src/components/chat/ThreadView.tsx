@@ -12,6 +12,7 @@ import { AssistantMessage } from "./AssistantMessage";
 import { Composer } from "./Composer";
 import { UserMessage } from "./UserMessage";
 import { UserEditComposer } from "./UserEditComposer";
+import { loadOlderHistoryFromGateway } from "@/hooks/session-manager/loaders";
 
 // ---------------------------------------------------------------------------
 // ThreadView
@@ -26,6 +27,7 @@ export const ThreadView: FC = () => {
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
   const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
   const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const paging = useConversationStore((s) => s.historyPagingByThread[activeSessionKey]);
   const messageCount = conversation ? selectChatMessages(conversation).length : 0;
   const showMessageList = !messagesLoading || messageCount > 0;
 
@@ -37,6 +39,27 @@ export const ThreadView: FC = () => {
       <ThreadPrimitive.Viewport className="relative flex flex-1 flex-col overflow-x-hidden overflow-y-scroll scroll-smooth px-4 pt-4">
         {/* Loading skeleton — shown while fetching session history */}
         {messagesLoading && <MessageSkeleton />}
+
+        {/* Load older messages (history pagination) */}
+        {!messagesLoading && paging?.hasMore && (
+          <div className="mx-auto mb-4 flex w-full max-w-(--thread-max-width) justify-center">
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                "bg-background hover:bg-muted transition-colors",
+                paging.loadingOlder && "opacity-60 pointer-events-none",
+              )}
+              onClick={async () => {
+                const client = useGatewayStore.getState().client;
+                await loadOlderHistoryFromGateway({ client, key: activeSessionKey });
+              }}
+            >
+              <RefreshCwIcon className={cn("h-4 w-4", paging.loadingOlder && "animate-spin")} />
+              {paging.loadingOlder ? "loading older messages…" : "load older messages"}
+            </button>
+          </div>
+        )}
 
         {/* Empty state — only shown when not loading and thread is truly empty */}
         {!messagesLoading && (

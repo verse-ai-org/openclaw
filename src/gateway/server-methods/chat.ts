@@ -1102,9 +1102,10 @@ export const chatHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const { sessionKey, limit } = params as {
+    const { sessionKey, limit, beforeTs } = params as {
       sessionKey: string;
       limit?: number;
+      beforeTs?: number;
     };
     const perfStarted = Date.now();
     const { cfg, storePath, entry } = loadSessionEntry(sessionKey);
@@ -1117,8 +1118,26 @@ export const chatHandlers: GatewayRequestHandlers = {
     const defaultLimit = 200;
     const requested = typeof limit === "number" ? limit : defaultLimit;
     const max = Math.min(hardMax, requested);
-    const sliced =
-      rawMessages.length > max ? rawMessages.slice(-max) : rawMessages;
+
+    // Cursor pagination: filter down to messages strictly older than `beforeTs`, then take
+    // the most recent page within that window.
+    const tsCursor = typeof beforeTs === "number" && Number.isFinite(beforeTs) ? beforeTs : undefined;
+    const filtered =
+      tsCursor != null
+        ? rawMessages.filter((m) => {
+            const msgTs =
+              typeof (m as Record<string, unknown>)?.timestamp === "number"
+                ? ((m as Record<string, unknown>).timestamp as number)
+                : typeof (m as Record<string, unknown>)?.ts === "number"
+                  ? ((m as Record<string, unknown>).ts as number)
+                  : undefined;
+            return typeof msgTs === "number" ? msgTs < tsCursor : true;
+          })
+        : rawMessages;
+
+    const hasMoreUnbounded = filtered.length > max;
+    const sliced = filtered.length > max ? filtered.slice(-max) : filtered;
+
     const sanitized = stripEnvelopeFromMessages(sliced);
     const normalized = sanitizeChatHistoryMessages(sanitized);
     const maxHistoryBytes = getMaxChatHistoryMessagesBytes();
@@ -1163,12 +1182,29 @@ export const chatHandlers: GatewayRequestHandlers = {
     }
     const verboseLevel =
       entry?.verboseLevel ?? cfg.agents?.defaults?.verboseDefault;
+
+    const nextBeforeTs =
+      sliced.length > 0
+        ? Math.min(
+            ...sliced.map((m) => {
+              const msg = m as Record<string, unknown>;
+              return typeof msg.timestamp === "number"
+                ? msg.timestamp
+                : typeof msg.ts === "number"
+                  ? msg.ts
+                  : Date.now();
+            }),
+          )
+        : null;
+
     respond(true, {
       sessionKey,
       sessionId,
       messages: bounded.messages,
       thinkingLevel,
       verboseLevel,
+      hasMore: Boolean(hasMoreUnbounded),
+      nextBeforeTs,
     });
     context.logGateway.info(
       `control-ui perf: chat.history totalMs=${Date.now() - perfStarted} messages=${bounded.messages.length} sessionKey=${sessionKey.length > 64 ? `${sessionKey.slice(0, 32)}…` : sessionKey}`,

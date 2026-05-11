@@ -6,11 +6,19 @@ import { applyCanonicalEvent, emptyConversationState } from "@/components/chat/c
 import { chatMessagesToCanonicalSnapshot } from "@/components/chat/conversation/interop";
 import { logChatDebug } from "@/components/chat/utils/chat-debug";
 
+export type HistoryPagingState = {
+  oldestBeforeTs: number | null;
+  hasMore: boolean;
+  loadingOlder: boolean;
+};
+
 type ConversationStoreState = {
   byThread: Record<string, ConversationState>;
+  historyPagingByThread: Record<string, HistoryPagingState>;
   applyEvents: (threadId: ThreadId, events: CanonicalChatEvent[]) => void;
   setHistorySnapshot: (threadId: ThreadId, messages: ChatMessage[], ts?: number) => void;
   setHistoryCanonicalSnapshot: (threadId: ThreadId, messages: CanonicalMessage[], ts?: number) => void;
+  setHistoryPagingState: (threadId: ThreadId, next: Partial<HistoryPagingState>) => void;
   setActiveRunSnapshot: (threadId: ThreadId, runId: string | null, startedAt?: number | null) => void;
   truncateAfter: (threadId: ThreadId, parentId: string | null) => void;
   resetThread: (threadId: ThreadId) => void;
@@ -27,6 +35,7 @@ function committedTextPrefix(state: ConversationState, messageId: string): strin
 
 export const useConversationStore = create<ConversationStoreState>()((set) => ({
   byThread: {},
+  historyPagingByThread: {},
 
   applyEvents: (threadId, events) =>
     set((state) => {
@@ -75,6 +84,22 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
         messages,
       });
       return { byThread: { ...state.byThread, [threadId]: next } };
+    }),
+
+  setHistoryPagingState: (threadId, next) =>
+    set((state) => {
+      const prev: HistoryPagingState =
+        state.historyPagingByThread[threadId] ?? {
+          oldestBeforeTs: null,
+          hasMore: false,
+          loadingOlder: false,
+        };
+      return {
+        historyPagingByThread: {
+          ...state.historyPagingByThread,
+          [threadId]: { ...prev, ...next },
+        },
+      };
     }),
 
   setActiveRunSnapshot: (threadId, runId, startedAt) =>
@@ -137,6 +162,7 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
     set((state) => {
       if (!(threadId in state.byThread)) return {};
       const { [threadId]: _removed, ...rest } = state.byThread;
-      return { byThread: rest };
+      const { [threadId]: _pagingRemoved, ...pagingRest } = state.historyPagingByThread;
+      return { byThread: rest, historyPagingByThread: pagingRest };
     }),
 }));

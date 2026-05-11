@@ -6,6 +6,14 @@ import type { RawMessage } from "@/components/chat/gateway";
 import { serializeGatewayHistoryToCanonicalSnapshot } from "@/components/chat/serialization";
 import type { SessionEntry } from "./types";
 
+type ChatHistoryResponse = {
+  messages?: unknown[];
+  hasMore?: boolean;
+  nextBeforeTs?: number | null;
+};
+
+const DEFAULT_CHAT_HISTORY_LIMIT = 500;
+
 export async function syncSessionRunStatusFromGateway(params: {
   client: IGatewayClient | null;
   sessionKey: string;
@@ -122,13 +130,11 @@ export async function loadHistoryFromGateway(params: {
   chatState.setMessagesLoading(true);
 
   try {
-    const result = await client.request<{ messages?: unknown[] }>("chat.history", {
+    const result = await client.request<ChatHistoryResponse>("chat.history", {
       sessionKey: key,
-      // Gateway defaults to 200 messages; request more so initial user turns don't get dropped
-      // on tool-heavy sessions.
-      limit: 1000,
+      limit: DEFAULT_CHAT_HISTORY_LIMIT,
     });
-    console.log("result", result);
+    // console.log("result", result);
     const rawMessages = (Array.isArray(result?.messages)
       ? result.messages
       : []) as RawMessage[];
@@ -152,6 +158,11 @@ export async function loadHistoryFromGateway(params: {
 
     // Feed canonical conversation snapshot (thread-level reducer).
     useConversationStore.getState().setHistoryCanonicalSnapshot(key, canonicalMessages);
+    useConversationStore.getState().setHistoryPagingState(key, {
+      oldestBeforeTs: typeof result?.nextBeforeTs === "number" ? result.nextBeforeTs : null,
+      hasMore: Boolean(result?.hasMore),
+      loadingOlder: false,
+    });
     console.log("[session-manager] load history applied", {
       requestSeq,
       count: canonicalMessages.length,
@@ -175,5 +186,63 @@ export async function loadHistoryFromGateway(params: {
     if (requestSeq === historyRequestSeqRef.current) {
       useChatStore.getState().setMessagesLoading(false);
     }
+  }
+}
+
+export async function loadOlderHistoryFromGateway(params: {
+  client: IGatewayClient | null;
+  key: string;
+}) {
+  const { client, key } = params;
+  if (!client?.connected) return;
+
+  const store = useConversationStore.getState();
+  const paging = store.historyPagingByThread[key];
+  const beforeTs = paging?.oldestBeforeTs;
+  if (!beforeTs || paging?.loadingOlder) return;
+  if (paging && paging.hasMore === false) return;
+
+  store.setHistoryPagingState(key, { loadingOlder: true });
+  try {
+    const result = await client.request<ChatHistoryResponse>("chat.history", {
+      sessionKey: key,
+      limit: DEFAULT_CHAT_HISTORY_LIMIT,
+      beforeTs,
+    });
+    const rawMessages = (Array.isArray(result?.messages) ? result.messages : []) as RawMessage[];
+    const olderCanonical = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: key,
+      messages: rawMessages,
+    });
+
+    // Merge by id, sort by createdAt; then rebuild snapshot (simpler + robust).
+    const current = store.byThread[key];
+    const currentMessages: import("@/components/chat/conversation").CanonicalMessage[] = [];
+    if (current) {
+      for (const id of current.messageOrder) {
+        const msg = current.messagesById.get(id);
+        if (msg) currentMessages.push(msg);
+      }
+    }
+
+    const byId = new Map<string, import("@/components/chat/conversation").CanonicalMessage>();
+    for (const m of olderCanonical) byId.set(m.id, m);
+    for (const m of currentMessages) byId.set(m.id, m);
+    const merged = Array.from(byId.values()).toSorted((a, b) => {
+      return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+    });
+    store.setHistoryCanonicalSnapshot(key, merged);
+
+    store.setHistoryPagingState(key, {
+      oldestBeforeTs: typeof result?.nextBeforeTs === "number" ? result.nextBeforeTs : null,
+      hasMore: Boolean(result?.hasMore),
+      loadingOlder: false,
+    });
+  } catch (err) {
+    console.warn("[session-manager] load older history failed", {
+      sessionKey: key,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    store.setHistoryPagingState(key, { loadingOlder: false });
   }
 }
