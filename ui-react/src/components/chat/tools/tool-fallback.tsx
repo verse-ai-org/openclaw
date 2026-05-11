@@ -45,14 +45,13 @@ const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setDrawerOpen(true)}
         aria-label={`View details for ${toolLabel}`}
       >
-        <div className="flex w-full items-center gap-2 px-3 py-1">
+        <div className="flex w-full items-center gap-2 pr-3 py-1">
           <span
             className={cn(
-              "flex size-6 shrink-0 items-center justify-center rounded-md",
-              cfg.iconBg,
+              "flex size-6 shrink-0 items-center justify-center rounded-md"
             )}
           >
-            <Icon className={cn("size-3.5", cfg.iconColor)} />
+            <Icon className={cn("size-3.5")} />
           </span>
           <span className="flex flex-1 items-baseline gap-1.5 min-w-0">
             <span className="shrink-0 text-sm text-muted-foreground">

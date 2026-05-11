@@ -60,6 +60,42 @@ describe("conversation reducer", () => {
     expect(msg?.parts[1]).toMatchObject({ type: "text", text: " world" });
   });
 
+  it("trims tiny trailing text overshoot on setLiveText instead of wiping tools when snapshot is shorter", () => {
+    const threadId = "main";
+    const runId = "run_trim_overshoot";
+
+    const events: CanonicalChatEvent[] = [
+      { type: "run.started", threadId, runId, ts: 1 },
+      {
+        type: "message.appendText",
+        threadId,
+        ts: 2,
+        messageId: `run:${runId}`,
+        partId: "p1",
+        text: "hello",
+      },
+      { type: "tool.start", threadId, runId, ts: 3, toolCallId: "t1", toolName: "demo", args: {} },
+      {
+        type: "message.appendText",
+        threadId,
+        ts: 4,
+        messageId: `run:${runId}`,
+        partId: "p2",
+        text: " world",
+      },
+      // committed "hello world" (11); throttled chat snapshot drops one trailing char
+      { type: "message.setLiveText", threadId, ts: 5, messageId: `run:${runId}`, fullText: "hello worl" },
+      { type: "run.finished", threadId, runId, ts: 6 },
+    ];
+
+    const state = replayConversation(events, threadId);
+    const msg = state.messagesById.get(`run:${runId}`);
+    expect(msg?.parts.map((p) => p.type)).toEqual(["text", "tool", "text"]);
+    expect(msg?.parts[0]).toMatchObject({ type: "text", text: "hello" });
+    expect(msg?.parts[1]).toMatchObject({ type: "tool", id: "t1" });
+    expect(msg?.parts[2]).toMatchObject({ type: "text", text: " worl" });
+  });
+
   it("resets message text to chat snapshot when it does not match committed prefix", () => {
     const threadId = "main";
     const runId = "run_3";

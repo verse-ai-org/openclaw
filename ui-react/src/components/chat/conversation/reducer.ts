@@ -1,6 +1,7 @@
 import type {
   CanonicalChatEvent,
   CanonicalMessage,
+  ChatPart,
   ConversationState,
   MessageId,
   PartId,
@@ -8,6 +9,9 @@ import type {
   ThreadId,
 } from "./types";
 import { EventType } from "./types";
+
+/** Max trailing characters trimmed when chat `fullText` is shorter than committed text only. */
+const LIVE_TEXT_OVERSHOOT_TRIM_MAX = 32;
 
 function upsertMessage(state: ConversationState, msg: CanonicalMessage): ConversationState {
   const byId = new Map(state.messagesById);
@@ -106,6 +110,49 @@ function committedTextPrefix(parts: CanonicalMessage["parts"]): string {
     .filter((p): p is Extract<(typeof parts)[number], { type: "text" }> => p.type === "text")
     .map((p) => p.text)
     .join("");
+}
+
+/**
+ * True when cumulative `fullText` is a strict prefix of locally committed text, differing only
+ * by a small trailing suffix. Throttled chat snapshots can lag agent append deltas by a few chars;
+ * trimming preserves tool parts instead of `resetMessageToSnapshotText` wiping them.
+ */
+export function isLiveTextSnapOvershootOnly(committed: string, fullText: string): boolean {
+  if (fullText.startsWith(committed)) {
+    return false;
+  }
+  const overshoot = committed.length - fullText.length;
+  return (
+    fullText.length > 0 &&
+    overshoot > 0 &&
+    overshoot <= LIVE_TEXT_OVERSHOOT_TRIM_MAX &&
+    committed.startsWith(fullText)
+  );
+}
+
+/** Remove `removeCount` characters from the end of concatenated text parts (non-text parts untouched). */
+function trimTrailingTextCharsFromParts(parts: ChatPart[], removeCount: number): ChatPart[] | null {
+  if (removeCount <= 0) {
+    return parts.slice();
+  }
+  let remaining = removeCount;
+  const out = parts.slice();
+  for (let i = out.length - 1; i >= 0 && remaining > 0; i--) {
+    const p = out[i];
+    if (p.type !== "text") {
+      continue;
+    }
+    const len = p.text.length;
+    const take = Math.min(remaining, len);
+    remaining -= take;
+    const newLen = len - take;
+    if (newLen <= 0) {
+      out.splice(i, 1);
+    } else {
+      out[i] = { ...p, text: p.text.slice(0, newLen) };
+    }
+  }
+  return remaining > 0 ? null : out;
 }
 
 function resetMessageToSnapshotText(
@@ -332,6 +379,26 @@ export function applyCanonicalEvent(s: ConversationState, event: CanonicalChatEv
 
       const committed = committedTextPrefix(current.parts);
       if (!event.fullText.startsWith(committed)) {
+        const overshoot = committed.length - event.fullText.length;
+        if (
+          isLiveTextSnapOvershootOnly(committed, event.fullText) &&
+          overshoot > 0
+        ) {
+          const trimmedParts = trimTrailingTextCharsFromParts(current.parts, overshoot);
+          const reconciledCommitted = trimmedParts ? committedTextPrefix(trimmedParts) : "";
+          if (trimmedParts && reconciledCommitted === event.fullText) {
+            const reconciledMsg: CanonicalMessage = { ...current, parts: trimmedParts };
+            const afterUpsert = upsertMessage(
+              maybeLinkRunAssistantMessage(base, event.messageId),
+              reconciledMsg,
+            );
+            const liveTail = event.fullText.slice(reconciledCommitted.length);
+            const liveTextByMessageId = new Map(afterUpsert.liveTextByMessageId);
+            liveTextByMessageId.set(event.messageId, liveTail);
+            return { ...maybeLinkRunAssistantMessage(afterUpsert, event.messageId), liveTextByMessageId };
+          }
+        }
+
         // Snapshot mismatch: reset the message text to the authoritative snapshot.
         return resetMessageToSnapshotText(
           maybeLinkRunAssistantMessage(base, event.messageId),

@@ -1,5 +1,28 @@
 import type { ChatMessage, ContentBlock } from "@/components/chat/types";
-import type { CanonicalMessage, ChatPart } from "./types";
+import type { CanonicalMessage, ChatPart, ToolPart } from "./types";
+
+/**
+ * Serialize canonical tool `output` for `ContentBlock.tool-call.result`.
+ *
+ * When `status === "result"` but `output` is missing (e.g. gateway strips tool bodies when
+ * verbose≠full and tool summary `meta` was empty), assistant-ui still needs a defined `result`
+ * or it treats the tool as forever "running". Empty string means "finished, no display payload".
+ */
+function serializeToolCallResultForBlock(part: ToolPart): string | undefined {
+  const serialized =
+    typeof part.output === "string"
+      ? part.output
+      : part.output != null
+        ? JSON.stringify(part.output, null, 2)
+        : undefined;
+  if (serialized != null) {
+    return serialized;
+  }
+  if (part.status === "result") {
+    return "";
+  }
+  return undefined;
+}
 
 function contentBlocksFromParts(parts: ChatPart[]): ContentBlock[] | undefined {
   const out: ContentBlock[] = [];
@@ -26,7 +49,7 @@ function contentBlocksFromParts(parts: ChatPart[]): ContentBlock[] | undefined {
         toolCallId: p.id,
         toolName: p.toolName,
         argsText: p.args != null ? JSON.stringify(p.args, null, 2) : undefined,
-        result: typeof p.output === "string" ? p.output : p.output != null ? JSON.stringify(p.output, null, 2) : undefined,
+        result: serializeToolCallResultForBlock(p),
         phase: p.status === "error" ? "error" : p.status === "result" ? "result" : "call",
       });
       continue;

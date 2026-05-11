@@ -2,7 +2,11 @@ import { create } from "zustand";
 import type { ChatMessage } from "@/components/chat/types";
 import type { CanonicalChatEvent, CanonicalMessage, ConversationState, ThreadId } from "@/components/chat/conversation";
 import { EventType } from "@/components/chat/conversation";
-import { applyCanonicalEvent, emptyConversationState } from "@/components/chat/conversation";
+import {
+  applyCanonicalEvent,
+  emptyConversationState,
+  isLiveTextSnapOvershootOnly,
+} from "@/components/chat/conversation";
 import { chatMessagesToCanonicalSnapshot } from "@/components/chat/conversation/interop";
 import { logChatDebug } from "@/components/chat/utils/chat-debug";
 
@@ -44,9 +48,9 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
       for (const e of events) {
         if (e.type === EventType.MessageSetLiveText) {
           const committed = committedTextPrefix(next, e.messageId);
-          // console.log("committed", committed, e.fullText);
           const ok = e.fullText.startsWith(committed);
-          if (!ok) {
+          const willTrimOvershoot = !ok && isLiveTextSnapOvershootOnly(committed, e.fullText);
+          if (!ok && !willTrimOvershoot) {
             logChatDebug(
               "warn",
               "chat snapshot mismatch; reducer will reset message text",

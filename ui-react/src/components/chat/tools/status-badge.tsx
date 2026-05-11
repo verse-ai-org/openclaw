@@ -1,4 +1,4 @@
-import { CheckIcon, LoaderIcon, XCircleIcon } from "lucide-react";
+import { LoaderIcon, XCircleIcon, CircleCheck } from "lucide-react";
 import type { ToolStatus } from "./types";
 
 interface StatusBadgeProps {
@@ -18,15 +18,15 @@ export function StatusBadge({ status, isCancelled, withText = false }: StatusBad
   }
   if (status === "incomplete") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-destructive">
         <XCircleIcon className="size-3" />
         {withText && (isCancelled ? "Cancelled" : "Failed")}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
-      <CheckIcon className="size-3" />
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
+      <CircleCheck className="size-3" />
       {withText && "Done"}
     </span>
   );

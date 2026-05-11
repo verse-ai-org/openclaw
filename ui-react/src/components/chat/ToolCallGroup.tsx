@@ -5,8 +5,7 @@ import {
   ChevronUpIcon,
   ZapIcon,
   CheckCircle2Icon,
-  LoaderIcon,
-  XCircleIcon,
+  LoaderIcon
 } from "lucide-react";
 import { type FC, type PropsWithChildren, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -131,7 +130,11 @@ const GroupStatusBadge: FC<{ status: GroupStatus; failCount: number }> = ({
         aria-label={`${failCount} failed`}
         title={`${failCount} failed`}
       >
-        <XCircleIcon className="size-3" />
+        {/* <XCircleIcon className="size-3" /> */}
+        <AlertCircleIcon
+            className="size-3 shrink-0 text-amber-600 dark:text-amber-400"
+            aria-hidden
+          />
       </span>
     );
   }
