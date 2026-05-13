@@ -1,0 +1,18 @@
+{
+  "id": "ppt-presenter-notes-choice",
+  "title": "是否需要逐字稿？",
+  "description": "逐字稿（演讲者模式）会在每页幻灯片旁显示演讲备注，方便演讲时参考。按 S 键即可打开演讲者视图。",
+  "selectionMode": "single",
+  "options": [
+    {
+      "id": "yes",
+      "label": "需要逐字稿（演讲者模式）",
+      "description": "每页附带演讲备注，适合正式演讲、在线分享。使用 presenter-mode-reveal 模板。"
+    },
+    {
+      "id": "no",
+      "label": "不需要（普通幻灯片）",
+      "description": "纯幻灯片，适合快速分享、自读型内容。"
+    }
+  ]
+}

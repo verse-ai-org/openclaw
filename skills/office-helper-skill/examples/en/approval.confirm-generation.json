@@ -1,0 +1,8 @@
+{
+  "id": "ppt-confirm-generation",
+  "title": "Confirm & Generate",
+  "description": "Once you confirm the parameters above, I'll start generating your presentation.",
+  "variant": "default",
+  "confirmLabel": "Confirm, Start Generating",
+  "cancelLabel": "Adjust Parameters First"
+}

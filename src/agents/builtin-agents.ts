@@ -86,12 +86,14 @@ export const BUILTIN_AGENTS: ReadonlyArray<BuiltinAgentDef> = [
     workspace: "~/.openclaw/agents/my-office-helper",
     templateSubdir: "agents/my-office-helper",
     skills: [
+      "office-helper-skill",
       "minimax-docx",
       "minimax-xlsx",
       "minimax-pdf",
       "html-ppt",
       "pptx-generator",
-      "openclaw-tool-ui"
+      "openclaw-tool-ui",
+      "openclaw-interactions"
     ],
     tools: { profile: "full", deny: [] },
     identity: {

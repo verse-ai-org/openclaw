@@ -1,0 +1,8 @@
+{
+  "id": "ppt-confirm-generation",
+  "title": "确认开始生成",
+  "description": "以上参数确认无误后，我将开始生成演示文稿。",
+  "variant": "default",
+  "confirmLabel": "确认，开始生成",
+  "cancelLabel": "先调整参数"
+}

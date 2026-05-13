@@ -1,0 +1,48 @@
+{
+  "id": "ppt-scenario-choice",
+  "title": "Choose Presentation Scenario",
+  "description": "Select the scenario that best fits your presentation. I'll automatically match the recommended theme, style, and template:",
+  "selectionMode": "single",
+  "options": [
+    {
+      "id": "tech-sharing",
+      "label": "Tech Sharing / Developer Talk",
+      "description": "Code demos, architecture reviews, technical discussions. Dark themes + monospace fonts recommended."
+    },
+    {
+      "id": "vc-pitch",
+      "label": "Startup Pitch / VC Fundraising",
+      "description": "Business model, market analysis, team intro. Premium visual style recommended."
+    },
+    {
+      "id": "corporate-report",
+      "label": "Corporate Report / Annual Review",
+      "description": "Financial data, quarterly summary, strategic planning. Formal business style recommended."
+    },
+    {
+      "id": "academic",
+      "label": "Academic / Thesis Defense",
+      "description": "Research methods, data charts, references. Classic academic style recommended."
+    },
+    {
+      "id": "product-launch",
+      "label": "Product Launch / Keynote",
+      "description": "Product features, competitive analysis, go-to-market strategy. Bold visual style recommended."
+    },
+    {
+      "id": "training",
+      "label": "Training / Educational Courseware",
+      "description": "Knowledge delivery, case studies, lesson summaries. Clean and friendly style recommended."
+    },
+    {
+      "id": "social-media",
+      "label": "Social Media (Xiaohongshu etc.)",
+      "description": "Visual posts, lifestyle content, brand promotion. Social-media-optimized style recommended."
+    },
+    {
+      "id": "other",
+      "label": "Other (describe in your next message)",
+      "description": "Choose this if none of the above fits your scenario."
+    }
+  ]
+}

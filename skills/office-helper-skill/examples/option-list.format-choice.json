@@ -1,0 +1,18 @@
+{
+  "id": "ppt-format-choice",
+  "title": "选择演示文稿格式",
+  "description": "请选择生成方式：",
+  "selectionMode": "single",
+  "options": [
+    {
+      "id": "html-ppt",
+      "label": "HTML 演示文稿（推荐）",
+      "description": "网页幻灯片，浏览器打开即可演示。生成后可 T 键切换 36 种主题、A 键预览动画、F 键全屏。适合快速预览、社交媒体分享。"
+    },
+    {
+      "id": "pptx-generator",
+      "label": "PowerPoint 文件（.pptx）",
+      "description": "原生 .pptx 格式，可用 PowerPoint/Keynote 打开编辑。适合正式汇报、打印分发、企业场景。生成后所有参数锁定，如需修改需重新生成。"
+    }
+  ]
+}

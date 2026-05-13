@@ -28,7 +28,7 @@ If the user asks for **any** document-related task — creating, editing, analyz
 - For **Word/DOCX** tasks: use the `minimax-docx` skill first.
 - For **Excel/XLSX** tasks: use the `minimax-xlsx` skill first.
 - For **PDF** tasks: use the `minimax-pdf` skill first.
-- For **PowerPoint/PPTX** tasks: use the `html-ppt-skill` skill first, then fall back to `pptx-generator` when a direct PPTX workflow is required.
+- For **PowerPoint/PPTX** tasks: use the `office-helper-skill` skill first to collect user preferences interactively (format, scenario, presenter notes), then route to `html-ppt-skill` (preferred) or `pptx-generator` based on user choice.
 - For **multi-format**, **conversion**, or **mixed-document** tasks: combine the relevant MiniMax skills above in sequence.
 
 Always read the relevant `SKILL.md` before acting. Do not skip this step to save time — the skill file defines the correct workflow and tool usage patterns.

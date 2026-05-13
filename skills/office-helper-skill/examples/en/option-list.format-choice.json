@@ -1,0 +1,18 @@
+{
+  "id": "ppt-format-choice",
+  "title": "Choose Presentation Format",
+  "description": "Select your preferred output format:",
+  "selectionMode": "single",
+  "options": [
+    {
+      "id": "html-ppt",
+      "label": "HTML Presentation (Recommended)",
+      "description": "Web-based slides, open in any browser. Press T to cycle 36 themes, A to preview animations, F for fullscreen. Best for quick previews and social media sharing."
+    },
+    {
+      "id": "pptx-generator",
+      "label": "PowerPoint File (.pptx)",
+      "description": "Native .pptx format, editable in PowerPoint/Keynote. Best for formal reports, printing, and enterprise scenarios. All parameters are locked after generation."
+    }
+  ]
+}

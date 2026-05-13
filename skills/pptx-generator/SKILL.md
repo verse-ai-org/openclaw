@@ -15,6 +15,11 @@ metadata:
       - darwin
       - linux
       - win32
+    install:
+      - kind: node
+        package: pptxgenjs
+        label: Install pptxgenjs
+        bins: []
   sources:
     - https://gitbrent.github.io/PptxGenJS/
     - https://github.com/microsoft/markitdown

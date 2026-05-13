@@ -1,0 +1,48 @@
+{
+  "id": "ppt-scenario-choice",
+  "title": "选择演示场景",
+  "description": "请选择最符合的演示场景，我会自动匹配推荐的主题、风格和模板：",
+  "selectionMode": "single",
+  "options": [
+    {
+      "id": "tech-sharing",
+      "label": "技术分享 / 开发者 talk",
+      "description": "代码展示、架构讲解、技术评审。推荐暗色主题 + 等宽字体。"
+    },
+    {
+      "id": "vc-pitch",
+      "label": "创业路演 / 融资 Pitch",
+      "description": "商业模式、市场分析、团队介绍。推荐高端视觉风格。"
+    },
+    {
+      "id": "corporate-report",
+      "label": "企业汇报 / 年报",
+      "description": "财务数据、季度总结、战略规划。推荐正式商务风格。"
+    },
+    {
+      "id": "academic",
+      "label": "学术报告 / 论文答辩",
+      "description": "研究方法、数据图表、文献引用。推荐古典学术风格。"
+    },
+    {
+      "id": "product-launch",
+      "label": "产品发布 / 发布会",
+      "description": "产品特性、竞品对比、市场策略。推荐大胆视觉风格。"
+    },
+    {
+      "id": "training",
+      "label": "培训 / 教学课件",
+      "description": "知识讲解、案例演示、课后总结。推荐清晰友好风格。"
+    },
+    {
+      "id": "social-media",
+      "label": "社交媒体图文（小红书等）",
+      "description": "图文笔记、种草内容、品牌宣传。推荐小红书风格。"
+    },
+    {
+      "id": "other",
+      "label": "其他（请在下一条消息中描述）",
+      "description": "以上场景均不符合时选择此项。"
+    }
+  ]
+}

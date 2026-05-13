@@ -1,0 +1,18 @@
+{
+  "id": "ppt-presenter-notes-choice",
+  "title": "Include Speaker Notes?",
+  "description": "Speaker notes (Presenter Mode) adds speaking notes beside each slide for reference during presentations. Press S to open Presenter View.",
+  "selectionMode": "single",
+  "options": [
+    {
+      "id": "yes",
+      "label": "Yes — Include Speaker Notes (Presenter Mode)",
+      "description": "Each slide includes speaker notes. Ideal for formal talks and online presentations. Uses the presenter-mode-reveal template."
+    },
+    {
+      "id": "no",
+      "label": "No — Plain Slides Only",
+      "description": "Slides only, no speaker notes. Best for quick sharing and self-reading content."
+    }
+  ]
+}
