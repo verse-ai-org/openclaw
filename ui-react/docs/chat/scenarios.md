@@ -28,9 +28,10 @@
 
 入口：`useGatewayEventBridge`
 
-- **文本流（双源）**：
-  - `agent.assistant.data.delta` → `message.appendText`（真正增量 append）
-  - `chat.delta` → `message.setLiveText`（累计全文快照，用于对齐/纠偏）
+- **文本流**：
+  - `agent.assistant.data.delta` → `message.appendText`（流式正文）
+  - `chat.delta` → wire 上仍为 `text.delta`，**不**再进入 `message.setLiveText`（避免与 append 双源 mid-run 冲突）
+  - `chat.final`（`run.finished` + `text`）→ **一次** `message.setLiveText`（终态全文对齐）
 - `agent.tool.start` → `tool.start`（在 parts 时间线 append tool part）
 - `agent.tool.update/result/error` → 对应更新 tool part
 - `tool.ui` → 更新对应 tool part 的 UI presentation（UiToolParts 渲染）

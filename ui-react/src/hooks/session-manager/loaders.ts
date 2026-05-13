@@ -3,7 +3,11 @@ import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
 import type { IGatewayClient } from "@/store/gateway.store";
 import type { RawMessage } from "@/components/chat/gateway";
-import { serializeGatewayHistoryToCanonicalSnapshot } from "@/components/chat/serialization";
+import {
+  mergeHistoryRuns,
+  serializeGatewayHistoryToCanonicalSnapshot,
+} from "@/components/chat/serialization";
+import { enrichSessionsFromLocalConversation } from "./enrich-sessions-from-conversation";
 import type { SessionEntry } from "./types";
 
 type ChatHistoryResponse = {
@@ -46,18 +50,18 @@ export async function syncSessionRunStatusFromGateway(params: {
         });
       }
 
-      console.log("[session-manager] sync run status: active run restored", {
-        activeRunId: result.activeRunId,
-        sessionKey
-      });
+      // console.log("[session-manager] sync run status: active run restored", {
+      //   activeRunId: result.activeRunId,
+      //   sessionKey
+      // });
 
       return;
     }
     useConversationStore.getState().setActiveRunSnapshot(sessionKey, result.activeRunId, null);
-    console.log("[session-manager] sync run status: no active run", {
-      sessionKey,
-      activeRunId: result.activeRunId,
-    });
+    // console.log("[session-manager] sync run status: no active run", {
+    //   sessionKey,
+    //   activeRunId: result.activeRunId,
+    // });
   } catch (err) {
     console.warn("[session-manager] sync run status failed", {
       sessionKey,
@@ -86,11 +90,13 @@ export async function loadSessionsFromGateway(params: {
         includeLastMessage: true,
       },
     );
-    setSessions(result?.sessions ?? []);
-    console.log("[session-manager] load sessions success", {
-      count: result?.sessions?.length ?? 0,
-      sessionKey,
-    });
+    setSessions(
+      enrichSessionsFromLocalConversation(result?.sessions ?? []),
+    );
+    // console.log("[session-manager] load sessions success", {
+    //   count: result?.sessions?.length ?? 0,
+    //   sessionKey,
+    // });
   } catch {
     setSessions([{ key: sessionKey }]);
     console.warn("[session-manager] load sessions failed; using fallback session", {
@@ -114,11 +120,11 @@ export async function loadHistoryFromGateway(params: {
 
   const requestSeq = ++historyRequestSeqRef.current;
   const chatState = useChatStore.getState();
-  console.log("[session-manager] load history start", {
-    requestSeq,
-    silent,
-    sessionKey: key,
-  });
+  // console.log("[session-manager] load history start", {
+  //   requestSeq,
+  //   silent,
+  //   sessionKey: key,
+  // });
 
   if (!silent) {
     // Reset conversation thread before loading new history.
@@ -138,7 +144,7 @@ export async function loadHistoryFromGateway(params: {
     const rawMessages = (Array.isArray(result?.messages)
       ? result.messages
       : []) as RawMessage[];
-    const canonicalMessages = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: canonicalMessages, runs: historyRuns } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: key,
       messages: rawMessages,
     });
@@ -157,17 +163,17 @@ export async function loadHistoryFromGateway(params: {
     }
 
     // Feed canonical conversation snapshot (thread-level reducer).
-    useConversationStore.getState().setHistoryCanonicalSnapshot(key, canonicalMessages);
+    useConversationStore.getState().setHistoryCanonicalSnapshot(key, canonicalMessages, Date.now(), historyRuns);
     useConversationStore.getState().setHistoryPagingState(key, {
       oldestBeforeTs: typeof result?.nextBeforeTs === "number" ? result.nextBeforeTs : null,
       hasMore: Boolean(result?.hasMore),
       loadingOlder: false,
     });
-    console.log("[session-manager] load history applied", {
-      requestSeq,
-      count: canonicalMessages.length,
-      sessionKey: key,
-    });
+    // console.log("[session-manager] load history applied", {
+    //   requestSeq,
+    //   count: canonicalMessages.length,
+    //   sessionKey: key,
+    // });
     const latestMsg = canonicalMessages.at(-1);
     if (latestMsg?.role === "assistant") {
       // No-op: run status is now derived from conversation state.
@@ -210,7 +216,7 @@ export async function loadOlderHistoryFromGateway(params: {
       beforeTs,
     });
     const rawMessages = (Array.isArray(result?.messages) ? result.messages : []) as RawMessage[];
-    const olderCanonical = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: olderCanonical, runs: olderRuns } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: key,
       messages: rawMessages,
     });
@@ -218,6 +224,7 @@ export async function loadOlderHistoryFromGateway(params: {
     // Merge by id, sort by createdAt; then rebuild snapshot (simpler + robust).
     const current = store.byThread[key];
     const currentMessages: import("@/components/chat/conversation").CanonicalMessage[] = [];
+    const currentRuns = current ? [...current.runsById.values()] : [];
     if (current) {
       for (const id of current.messageOrder) {
         const msg = current.messagesById.get(id);
@@ -231,7 +238,8 @@ export async function loadOlderHistoryFromGateway(params: {
     const merged = Array.from(byId.values()).toSorted((a, b) => {
       return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
     });
-    store.setHistoryCanonicalSnapshot(key, merged);
+    const mergedRuns = mergeHistoryRuns(olderRuns, currentRuns);
+    store.setHistoryCanonicalSnapshot(key, merged, Date.now(), mergedRuns);
 
     store.setHistoryPagingState(key, {
       oldestBeforeTs: typeof result?.nextBeforeTs === "number" ? result.nextBeforeTs : null,

@@ -1,5 +1,13 @@
 import type { RawMessage } from "@/components/chat/types";
-import type { CanonicalMessage, ChatPart, MessageId, PartId, RunId, ThreadId } from "@/components/chat/conversation";
+import type {
+  CanonicalMessage,
+  CanonicalRun,
+  ChatPart,
+  MessageId,
+  PartId,
+  RunId,
+  ThreadId,
+} from "@/components/chat/conversation";
 import { normalizeContent, normalizeHistoryAttachmentHints } from "@/components/chat/gateway";
 import { stripAttachmentContent } from "./_internal/history-attachment-strip";
 import { resolveToolUiComponent, safeParseToolUiPayload } from "@/components/chat/ui-tool/ui-tool-registry";
@@ -17,6 +25,46 @@ type HistoryToolRecord = {
   resultOrder?: number;
   ownerMessageId?: string;
 };
+
+/**
+ * Gateway history sometimes persists `isError: false` while the tool body still signals failure
+ * (e.g. SSRF policy text from `src/infra/net/ssrf.ts`). Live WS uses `tool.error` for those.
+ * Treat like an error when hydrating so ToolCallGroup matches pre-refresh semantics.
+ */
+function toolHistoryOutputImpliesError(output: unknown): boolean {
+  if (typeof output === "string") {
+    const t = output.trim();
+    if (/^Blocked:/i.test(t)) return true;
+    if (/^Error:/i.test(t)) return true;
+    // Exec / CLI failures
+    if (/\(Command exited with code [1-9]\d*\)/.test(t)) return true;
+    return false;
+  }
+  return false;
+}
+
+function resolveHistoryToolStatus(tool: HistoryToolRecord | undefined): "error" | "result" | "running" {
+  if (!tool) return "running";
+  if (tool.isError === true) return "error";
+  if (toolHistoryOutputImpliesError(tool.output)) return "error";
+  if (tool.output != null) return "result";
+  return "running";
+}
+
+function historyToolErrorOrOutputPayload(
+  tool: HistoryToolRecord | undefined,
+  status: "error" | "result" | "running",
+): { error?: string; output?: unknown } {
+  if (!tool) {
+    return status === "error" ? { error: "Tool failed" } : {};
+  }
+  if (status !== "error") {
+    return tool.output != null ? { output: tool.output } : {};
+  }
+  if (typeof tool.output === "string") return { error: tool.output };
+  if (tool.output != null) return { error: JSON.stringify(tool.output) };
+  return { error: "Tool failed" };
+}
 
 type HistoryMessageRecord = {
   id: string;
@@ -70,6 +118,68 @@ function mergeAdjacentAssistantMessagesSameRun(records: HistoryMessageRecord[]):
 
 function toTs(m: RawMessage): number {
   return (typeof m.ts === "number" ? m.ts : undefined) ?? (typeof m.timestamp === "number" ? m.timestamp : undefined) ?? Date.now();
+}
+
+/**
+ * Merge run summaries when paging in older gateway history (union by run id; widen time bounds).
+ */
+export function mergeHistoryRuns(a: CanonicalRun[], b: CanonicalRun[]): CanonicalRun[] {
+  const byId = new Map<string, CanonicalRun>();
+  for (const r of a) {
+    byId.set(r.id, { ...r });
+  }
+  for (const r of b) {
+    const existing = byId.get(r.id);
+    if (!existing) {
+      byId.set(r.id, { ...r });
+      continue;
+    }
+    const endA = existing.finishedAt ?? existing.startedAt;
+    const endB = r.finishedAt ?? r.startedAt;
+    byId.set(r.id, {
+      ...existing,
+      startedAt: Math.min(existing.startedAt, r.startedAt),
+      finishedAt: Math.max(endA, endB),
+      assistantMessageId: existing.assistantMessageId ?? r.assistantMessageId,
+      status: "finished",
+    });
+  }
+  return Array.from(byId.values()).toSorted((x, y) => x.startedAt - y.startedAt);
+}
+
+/**
+ * Derive synthetic finished runs from gateway history rows (min/max wall time per `runId`).
+ * Matches live `runsById` shape so ToolCallGroup can show whole-run duration after history load.
+ */
+export function deriveCanonicalRunsFromGatewayHistoryRaw(params: {
+  threadId: ThreadId;
+  messages: RawMessage[];
+}): CanonicalRun[] {
+  const { threadId, messages } = params;
+  const bounds = new Map<string, { min: number; max: number }>();
+
+  for (const raw of messages) {
+    const runId = typeof raw.runId === "string" && raw.runId.trim() ? raw.runId.trim() : undefined;
+    if (!runId) continue;
+    const ts = toTs(raw);
+    const b = bounds.get(runId) ?? { min: ts, max: ts };
+    b.min = Math.min(b.min, ts);
+    b.max = Math.max(b.max, ts);
+    bounds.set(runId, b);
+  }
+
+  const out: CanonicalRun[] = [];
+  for (const [runId, { min, max }] of bounds) {
+    out.push({
+      id: runId as RunId,
+      threadId,
+      status: "finished",
+      startedAt: min,
+      finishedAt: max,
+      assistantMessageId: `run:${runId}` as MessageId,
+    });
+  }
+  return out.toSorted((a, b) => a.startedAt - b.startedAt);
 }
 
 function normalizeHistoryRole(raw: unknown): "user" | "assistant" | "tool" | "toolresult" | "" {
@@ -181,12 +291,17 @@ function parseAssistantTimelineFromContent(params: {
  * - Robust to out-of-order toolResult rows.
  * - Correlate tool call + result by toolCallId (not positional "previous message").
  * - Avoid emitting internal/debug tools (e.g. session_status) into the thread UI.
+ *
+ * Returns canonical messages plus synthetic `CanonicalRun` rows derived from the same
+ * raw rows (min/max timestamp per `runId`) so history hydration can populate `runsById` for UI
+ * such as whole-run duration. This does not read Pi session `.jsonl` files; those are a separate
+ * persistence format consumed by the agent, not the Control UI gateway history API.
  */
 export function serializeGatewayHistoryToCanonicalSnapshot(params: {
   threadId: ThreadId;
   messages: RawMessage[];
-}): CanonicalMessage[] {
-  const { messages } = params;
+}): { messages: CanonicalMessage[]; runs: CanonicalRun[] } {
+  const { threadId, messages } = params;
 
   const toolById = new Map<string, HistoryToolRecord>();
   const assistantById = new Map<string, AssistantMessageAssembly>();
@@ -238,7 +353,9 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
       const record = toolById.get(toolCallId) ?? { toolCallId, ts, runId };
       record.toolName ??= toolName;
       record.output = contentText || record.output;
-      if (typeof msg.isError === "boolean") record.isError = msg.isError;
+      if (typeof msg.isError === "boolean") {
+        record.isError = Boolean(record.isError) || msg.isError;
+      }
       // Prefer earliest timestamp for ordering.
       record.ts = Math.min(record.ts, ts);
       record.runId ??= runId;
@@ -380,7 +497,8 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
       // Tool boundary — flush text so the tool appears interleaved.
       flushText();
 
-      const status = tool?.isError ? "error" : tool?.output != null ? "result" : "running";
+      const status = resolveHistoryToolStatus(tool);
+      const errOut = historyToolErrorOrOutputPayload(tool, status);
       const part: ChatPart = {
         type: "tool",
         id: item.toolCallId as PartId,
@@ -390,9 +508,7 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
         ...(uiComponent && uiPayload
           ? { ui: { kind: uiComponent, payload: uiPayload } }
           : {}),
-        ...(status === "error"
-          ? { error: typeof tool?.output === "string" ? tool.output : undefined }
-          : { output: tool?.output }),
+        ...errOut,
       };
       parts.push(part);
     }
@@ -434,16 +550,18 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
       if (isInternalTool(toolName)) continue;
       const uiComponent = resolveToolUiComponent(toolName);
       const uiPayload = safeParseToolUiPayload(uiComponent, tool.output);
+      const st = resolveHistoryToolStatus(tool);
+      const errOut = historyToolErrorOrOutputPayload(tool, st);
       existing.parts.push({
         type: "tool",
         id: tool.toolCallId as PartId,
         toolName,
         args: tool.args,
-        status: tool.isError ? "error" : tool.output != null ? "result" : "running",
+        status: st,
         ...(uiComponent && uiPayload
           ? { ui: { kind: uiComponent, payload: uiPayload } }
           : {}),
-        ...(tool.isError ? { error: typeof tool.output === "string" ? tool.output : undefined } : { output: tool.output }),
+        ...errOut,
       });
       continue;
     }
@@ -452,6 +570,8 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
     if (isInternalTool(toolName)) continue;
     const uiComponent = resolveToolUiComponent(toolName);
     const uiPayload = safeParseToolUiPayload(uiComponent, tool.output);
+    const st = resolveHistoryToolStatus(tool);
+    const errOut = historyToolErrorOrOutputPayload(tool, st);
     assistantByRun.set(targetId, {
       id: targetId,
       role: "assistant",
@@ -463,11 +583,11 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
           id: tool.toolCallId as PartId,
           toolName,
           args: tool.args,
-          status: tool.isError ? "error" : tool.output != null ? "result" : "running",
+          status: st,
           ...(uiComponent && uiPayload
             ? { ui: { kind: uiComponent, payload: uiPayload } }
             : {}),
-          ...(tool.isError ? { error: typeof tool.output === "string" ? tool.output : undefined } : { output: tool.output }),
+          ...errOut,
         },
       ],
     });
@@ -492,16 +612,18 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
     if (isInternalTool(toolName)) continue;
     const uiComponent = resolveToolUiComponent(toolName);
     const uiPayload = safeParseToolUiPayload(uiComponent, tool.output);
+    const st = resolveHistoryToolStatus(tool);
+    const errOut = historyToolErrorOrOutputPayload(tool, st);
     msg.parts.push({
       type: "tool",
       id: tool.toolCallId as PartId,
       toolName,
       args: tool.args,
-      status: tool.isError ? "error" : tool.output != null ? "result" : "running",
+      status: st,
       ...(uiComponent && uiPayload
         ? { ui: { kind: uiComponent, payload: uiPayload } }
         : {}),
-      ...(tool.isError ? { error: typeof tool.output === "string" ? tool.output : undefined } : { output: tool.output }),
+      ...errOut,
     });
   }
 
@@ -510,7 +632,7 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
   const sorted = all.toSorted((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
   const merged = mergeAdjacentAssistantMessagesSameRun(sorted);
 
-  return merged.map((m) => {
+  const messagesOut = merged.map((m) => {
     const canonical: CanonicalMessage = {
       id: m.id as MessageId,
       role: m.role as CanonicalMessage["role"],
@@ -523,4 +645,6 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
     };
     return canonical;
   });
+  const runs = deriveCanonicalRunsFromGatewayHistoryRaw({ threadId, messages });
+  return { messages: messagesOut, runs };
 }

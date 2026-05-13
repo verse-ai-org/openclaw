@@ -34,11 +34,12 @@
 事件分两类：
 
 - **run lifecycle**：`run.started` / `run.finished` / `run.error` / `run.aborted`
-- **message lifecycle**：`message.start` / `message.appendText` / `message.setLiveText` / `message.end`
+- **message lifecycle**：`message.start` / `message.appendText` / `message.setLiveText` / `message.end`  
+  （Gateway 路径下：`message.setLiveText` 主要来自 **`chat.final` / `run.finished` 携带的全文**；`chat.delta` 不再映射为 mid-run `setLiveText`，流式正文依赖 `message.appendText`。）
 - **tool lifecycle**：`tool.start` / `tool.update` / `tool.result` / `tool.error`
 - **tool UI presentation**：`tool.ui`（tool-ui surface 的 UI payload）
 - **snapshots**：
-  - `messages.snapshot`：history 加载/重载使用
+  - `messages.snapshot`：history 加载/重载使用；可选携带 `runs`（由 `serialization/history.ts` 按网关行的 `runId` 与 `ts`/`timestamp` 聚合推导），用于历史里展示整 run 时长等与 `runsById` 相关的 UI
   - `run.activeSnapshot`：`chat.status` 这类 probe（只用来“恢复 activeRunId”，不是 terminal）
 
 设计约束（前端协议侧）：

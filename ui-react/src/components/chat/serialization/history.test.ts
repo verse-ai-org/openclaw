@@ -54,7 +54,7 @@ describe("serialization/history", () => {
       },
     ];
 
-    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: "agent:test",
       messages,
     });
@@ -103,7 +103,7 @@ describe("serialization/history", () => {
       },
     ];
 
-    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: "agent:test",
       messages,
     });
@@ -141,7 +141,7 @@ describe("serialization/history", () => {
       },
     ];
 
-    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: "agent:test",
       messages,
     });
@@ -172,7 +172,7 @@ describe("serialization/history", () => {
       },
     ];
 
-    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: "agent:test",
       messages,
     });
@@ -233,7 +233,7 @@ describe("serialization/history", () => {
       },
     ];
 
-    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: "agent:test",
       messages,
     });
@@ -267,7 +267,7 @@ describe("serialization/history", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (messages[1] as any).content = [{ type: "text", text: "NOISE" }];
 
-    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: "agent:test",
       messages,
     });
@@ -303,7 +303,7 @@ describe("serialization/history", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (messages[2] as any).content = [{ type: "text", text: "ok" }];
 
-    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({ threadId: "agent:test", messages });
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({ threadId: "agent:test", messages });
     const merged = snapshot.find((m) => m.role === "assistant" && m.runId === runId);
     expect(merged?.id).toBe(`run:${runId}`);
     expect(merged?.parts.some((p) => p.type === "tool" && p.id === "call_exec")).toBe(true);
@@ -325,7 +325,7 @@ describe("serialization/history", () => {
       },
     ];
 
-    const snapshot = serializeGatewayHistoryToCanonicalSnapshot({
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: "agent:test",
       messages,
     });
@@ -333,5 +333,74 @@ describe("serialization/history", () => {
     const user = snapshot.find((m) => m.role === "user");
     expect(user).toBeTruthy();
     expect(user?.parts[0]?.type === "text" ? user.parts[0].text : "").toContain("川西5日游");
+  });
+
+  it("emits synthetic finished runs from gateway runId timestamps (for UI run duration)", () => {
+    const runId = "run-duration-1";
+    const messages: RawMessage[] = [
+      { role: "assistant", runId, timestamp: 100, content: [{ type: "text", text: "a" }] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { role: "toolResult", runId, timestamp: 500 } as any,
+    ];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).toolCallId = "t1";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).toolName = "read";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).content = [{ type: "text", text: "done" }];
+
+    const { messages: canonical, runs } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:test",
+      messages,
+    });
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({
+      id: runId,
+      status: "finished",
+      startedAt: 100,
+      finishedAt: 500,
+      assistantMessageId: `run:${runId}`,
+    });
+    expect(canonical.some((m) => m.runId === runId)).toBe(true);
+  });
+
+  it("treats policy-blocked tool bodies as errors when history has isError false (SSRFetch-style)", () => {
+    const runId = "run-blocked-1";
+    const messages: RawMessage[] = [
+      {
+        role: "assistant",
+        runId,
+        timestamp: 1,
+        content: [
+          {
+            type: "toolCall",
+            id: "call_fetch",
+            name: "web_fetch",
+            arguments: { url: "https://example.com", maxChars: 8000 },
+          },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { role: "toolResult", runId, timestamp: 2, isError: false } as any,
+    ];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).toolCallId = "call_fetch";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).toolName = "web_fetch";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).content = [
+      {
+        type: "text",
+        text: "Blocked: resolves to private/internal/special-use IP address",
+      },
+    ];
+
+    const { messages: canonical } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:test",
+      messages,
+    });
+    const assistant = canonical.find((m) => m.role === "assistant" && m.runId === runId);
+    const toolPart = assistant?.parts.find((p) => p.type === "tool" && p.id === "call_fetch");
+    expect(toolPart && toolPart.type === "tool" ? toolPart.status : "").toBe("error");
   });
 });

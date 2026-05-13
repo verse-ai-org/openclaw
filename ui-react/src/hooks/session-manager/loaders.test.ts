@@ -7,17 +7,22 @@ import {
   syncSessionRunStatusFromGateway,
 } from "./loaders";
 
-vi.mock("@/components/chat/serialization", () => {
+vi.mock("@/components/chat/serialization", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/chat/serialization")>();
   return {
-    serializeGatewayHistoryToCanonicalSnapshot: vi.fn((_params: unknown) => [
-      {
-        id: "m1",
-        role: "assistant",
-        createdAt: 1,
-        status: "complete",
-        parts: [{ type: "text", id: "p1", text: "ok" }],
-      },
-    ]),
+    ...actual,
+    serializeGatewayHistoryToCanonicalSnapshot: vi.fn((_params: unknown) => ({
+      messages: [
+        {
+          id: "m1",
+          role: "assistant" as const,
+          createdAt: 1,
+          status: "complete" as const,
+          parts: [{ type: "text" as const, id: "p1", text: "ok" }],
+        },
+      ],
+      runs: [],
+    })),
   };
 });
 

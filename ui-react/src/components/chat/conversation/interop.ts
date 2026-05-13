@@ -9,6 +9,9 @@ import type { CanonicalMessage, ChatPart, ToolPart } from "./types";
  * or it treats the tool as forever "running". Empty string means "finished, no display payload".
  */
 function serializeToolCallResultForBlock(part: ToolPart): string | undefined {
+  if (part.status === "error" && typeof part.error === "string" && part.error.trim()) {
+    return part.error;
+  }
   const serialized =
     typeof part.output === "string"
       ? part.output

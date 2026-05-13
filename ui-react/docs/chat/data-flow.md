@@ -13,10 +13,9 @@
 文本流补充（双源）：
 
 - `agent.stream="assistant"` 通常提供 `data.delta`（真正增量）与 `data.text`（累计全文）。
-- `chat.state="delta"` 提供累计全文快照（cumulative snapshot）。
-- 前端采用 **agent delta 优先 + chat 快照纠偏**：
-  - agent delta → `message.appendText`
-  - chat 快照 → `message.setLiveText(fullText)`，用于对齐/纠偏
+- `chat.state="delta"` 在 wire 层仍会归一为 `text.delta`（RunEvent），但 **conversation/gateway-adapter 不再**把它映射为 `message.setLiveText`，避免与 append 交叉比较。
+- 流式阶段：**仅** `agent` delta → `message.appendText`。
+- **`chat.final`**（`run.finished` + `text`）→ **一次** `message.setLiveText(fullText)`，用于终态对齐与「只收到 final」的兜底。
 
 ## 2) Canonical adapter：RunEvent → CanonicalChatEvent
 
@@ -33,7 +32,7 @@ Reducer 做的事（高层）：
 
 - 保持 `ConversationState` 中的 `messagesById` / `messageOrder`
 - 维护 `runsById` / `activeRunId`（用于判断 `isRunning`）
-- 把 streaming 文本 `message.setLiveText` 在边界处“落盘”为 `ChatPart(type="text")`
+- 把 streaming 文本在边界处“落盘”为 `ChatPart(type="text")`（主要来自 `message.appendText`；`message.setLiveText` 在 `chat.final` 时用于终态对齐）
 - tool 直接进入 `parts: ChatPart[]` 时间线，并能按 id 更新对应 part
 - tool UI 不作为独立 part：挂在 `ToolPart.ui` 上（投影层再转成 `ContentBlock(type="ui")`）
 

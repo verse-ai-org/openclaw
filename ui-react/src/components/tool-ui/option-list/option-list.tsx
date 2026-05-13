@@ -216,7 +216,7 @@ function OptionListConfirmation({
 export function OptionList({
   id,
   options,
-  selectionMode = "multi",
+  selectionMode = "single",
   minSelections = 1,
   maxSelections,
   value,
@@ -545,7 +545,7 @@ export function OptionList({
   const viewKey = isReceipt ? `receipt-${String(choice)}` : "interactive";
 
   return (
-    <div key={viewKey} className="contents w-full flex justify-end items-end mb-4">
+    <div key={viewKey} className="contents w-full flex justify-end items-end">
       {isReceipt ? (
         <OptionListConfirmation
           id={id}

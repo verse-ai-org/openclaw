@@ -1,5 +1,5 @@
 import { type FC, useMemo } from "react";
-import type { AssistantUiToolPart } from "@/components/chat/types";
+import type { AssistantUiToolPart, InteractiveSummaryPair } from "@/components/chat/types";
 import { UI_INTERACTION_REGISTRY } from "@/components/chat/ui-tool/ui-interaction-registry";
 import { useAuiState } from "@assistant-ui/react";
 import { useChatSend } from "@/components/chat/ChatSendContext";
@@ -33,7 +33,10 @@ import {
   type SerializableQuestionFlow,
   type SerializableUpfrontMode,
 } from "@/components/tool-ui/question-flow";
-import { Pencil, X } from "lucide-react";
+import { CheckIcon, CopyIcon, PencilIcon, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useCopyToClipboard } from "@/hooks/common/use-copy-to-clipboard.ts";
+import { formatQaDisplayText } from "@/components/chat/ui-tool/ui-qa-format";
 
 type UiToolPartsProps = {
   parts: AssistantUiToolPart[];
@@ -43,18 +46,54 @@ type UiToolPartRowProps = {
   part: AssistantUiToolPart;
 };
 
-const ReceiptHeader: FC<{ onEdit?: () => void }> = ({ onEdit }) =>
-  onEdit ? (
-    <div className="mb-1 flex justify-end">
+/** Edit + copy below receipt card; matches `UserMessage` hover pattern. */
+const SubmittedReceiptActions: FC<{
+  summary: InteractiveSummaryPair[] | undefined;
+  onEdit: () => void;
+}> = ({ summary, onEdit }) => {
+  const { isCopied, copyToClipboard } = useCopyToClipboard();
+  const textToCopy = useMemo(() => formatQaDisplayText(summary ?? []), [summary]);
+  return (
+    <div
+      className={cn(
+        "flex justify-end gap-2",
+        "opacity-0 transition-all duration-150 group-hover/tool-receipt:opacity-100",
+      )}
+    >
       <button
         type="button"
-        className="text-xs text-muted-foreground underline hover:text-foreground"
+        title="Edit choice"
         onClick={onEdit}
+        className={cn(
+          "flex size-7 items-center justify-center rounded-lg",
+          "text-muted-foreground",
+          "hover:bg-muted hover:text-foreground",
+        )}
       >
-        <Pencil className="size-3.5" />
+        <PencilIcon className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        title={isCopied ? "Copied" : "Copy summary"}
+        disabled={!textToCopy.trim()}
+        onClick={() => {
+          if (!textToCopy.trim() || isCopied) {
+            return;
+          }
+          copyToClipboard(textToCopy);
+        }}
+        className={cn(
+          "flex size-7 items-center justify-center rounded-lg",
+          "text-muted-foreground",
+          "hover:bg-muted hover:text-foreground",
+          "disabled:pointer-events-none disabled:opacity-30",
+        )}
+      >
+        {isCopied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
       </button>
     </div>
-  ) : null;
+  );
+};
 
 function toOptionListChoice(payload: unknown): OptionListSelection | undefined {
   const selected = (payload as { selected?: unknown } | undefined)?.selected;
@@ -172,18 +211,18 @@ const UiToolPartRow: FC<UiToolPartRowProps> = ({ part }) => {
       if (component === "option_list") {
         const choice = toOptionListChoice(state.lastPayload);
         return (
-          <div className="w-full">
-            <ReceiptHeader onEdit={onEdit} />
+          <div className="group/tool-receipt flex w-full flex-col items-stretch gap-1">
             <OptionList {...(parsedPayload as SerializableOptionList)} choice={choice} />
+            <SubmittedReceiptActions summary={state.summary} onEdit={onEdit} />
           </div>
         );
       }
       if (component === "approval_card") {
         const choice = toApprovalChoice(state.lastPayload);
         return (
-          <div className="w-full">
-            <ReceiptHeader onEdit={onEdit} />
+          <div className="group/tool-receipt flex w-full flex-col items-stretch gap-1">
             <ApprovalCard {...(parsedPayload as SerializableApprovalCard)} choice={choice} />
+            <SubmittedReceiptActions summary={state.summary} onEdit={onEdit} />
           </div>
         );
       }
@@ -194,9 +233,9 @@ const UiToolPartRow: FC<UiToolPartRowProps> = ({ part }) => {
         });
         if (receipt) {
           return (
-            <div className="w-full">
-              <ReceiptHeader onEdit={onEdit} />
+            <div className="group/tool-receipt flex w-full flex-col items-stretch gap-1">
               <QuestionFlow {...receipt} />
+              <SubmittedReceiptActions summary={state.summary} onEdit={onEdit} />
             </div>
           );
         }

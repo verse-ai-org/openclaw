@@ -96,7 +96,7 @@ export function ChatSidebar() {
   }
 
   return (
-    <div className="flex w-60 shrink-0 flex-col border-r bg-white">
+    <div className="flex w-60 shrink-0 flex-col border-r">
       {/* Fixed search bar — sits above the sliding track, never moves */}
       <div className="shrink-0 px-3 py-2">
         <div className="relative flex items-center">
@@ -107,7 +107,7 @@ export function ChatSidebar() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={cn(
-              "w-full rounded-full bg-[rgb(239,239,239)] py-1.5 pl-8 pr-3",
+              "w-full rounded-full dark:bg-[#27272a] bg-[rgb(239,239,239)] py-1.5 pl-8 pr-3",
               "text-[13px] text-foreground placeholder:text-[rgb(142,142,147)]",
               "border-none outline-none focus:ring-0",
             )}

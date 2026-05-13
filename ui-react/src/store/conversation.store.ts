@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import type { ChatMessage } from "@/components/chat/types";
-import type { CanonicalChatEvent, CanonicalMessage, ConversationState, ThreadId } from "@/components/chat/conversation";
-import { EventType } from "@/components/chat/conversation";
-import {
-  applyCanonicalEvent,
-  emptyConversationState,
-  isLiveTextSnapOvershootOnly,
+import type {
+  CanonicalChatEvent,
+  CanonicalMessage,
+  CanonicalRun,
+  ConversationState,
+  ThreadId,
 } from "@/components/chat/conversation";
+import { EventType } from "@/components/chat/conversation";
+import { applyCanonicalEvent, emptyConversationState } from "@/components/chat/conversation";
 import { chatMessagesToCanonicalSnapshot } from "@/components/chat/conversation/interop";
-import { logChatDebug } from "@/components/chat/utils/chat-debug";
 
 export type HistoryPagingState = {
   oldestBeforeTs: number | null;
@@ -21,21 +22,17 @@ type ConversationStoreState = {
   historyPagingByThread: Record<string, HistoryPagingState>;
   applyEvents: (threadId: ThreadId, events: CanonicalChatEvent[]) => void;
   setHistorySnapshot: (threadId: ThreadId, messages: ChatMessage[], ts?: number) => void;
-  setHistoryCanonicalSnapshot: (threadId: ThreadId, messages: CanonicalMessage[], ts?: number) => void;
+  setHistoryCanonicalSnapshot: (
+    threadId: ThreadId,
+    messages: CanonicalMessage[],
+    ts?: number,
+    runs?: CanonicalRun[],
+  ) => void;
   setHistoryPagingState: (threadId: ThreadId, next: Partial<HistoryPagingState>) => void;
   setActiveRunSnapshot: (threadId: ThreadId, runId: string | null, startedAt?: number | null) => void;
   truncateAfter: (threadId: ThreadId, parentId: string | null) => void;
   resetThread: (threadId: ThreadId) => void;
 };
-
-function committedTextPrefix(state: ConversationState, messageId: string): string {
-  const msg = state.messagesById.get(messageId);
-  if (!msg) return "";
-  return msg.parts
-    .filter((p): p is Extract<(typeof msg.parts)[number], { type: "text" }> => p.type === "text")
-    .map((p) => p.text)
-    .join("");
-}
 
 export const useConversationStore = create<ConversationStoreState>()((set) => ({
   byThread: {},
@@ -46,21 +43,7 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
       const prev = state.byThread[threadId] ?? emptyConversationState(threadId);
       let next = prev;
       for (const e of events) {
-        if (e.type === EventType.MessageSetLiveText) {
-          const committed = committedTextPrefix(next, e.messageId);
-          const ok = e.fullText.startsWith(committed);
-          const willTrimOvershoot = !ok && isLiveTextSnapOvershootOnly(committed, e.fullText);
-          if (!ok && !willTrimOvershoot) {
-            logChatDebug(
-              "warn",
-              "chat snapshot mismatch; reducer will reset message text",
-              { committedPrefixLen: committed.length, fullTextLen: e.fullText.length },
-              { channel: "projection", sessionKey: threadId, runId: e.messageId.startsWith("run:") ? e.messageId.slice(4) : undefined },
-            );
-          }
-        }
         next = applyCanonicalEvent(next, e);
-        // console.log("next", next);
       }
       return { byThread: { ...state.byThread, [threadId]: next } };
     }),
@@ -78,7 +61,7 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
       return { byThread: { ...state.byThread, [threadId]: next } };
     }),
 
-  setHistoryCanonicalSnapshot: (threadId, messages, ts = Date.now()) =>
+  setHistoryCanonicalSnapshot: (threadId, messages, ts = Date.now(), runs) =>
     set((state) => {
       const prev = state.byThread[threadId] ?? emptyConversationState(threadId);
       const next = applyCanonicalEvent(prev, {
@@ -86,6 +69,7 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
         threadId,
         ts,
         messages,
+        ...(runs !== undefined ? { runs } : {}),
       });
       return { byThread: { ...state.byThread, [threadId]: next } };
     }),

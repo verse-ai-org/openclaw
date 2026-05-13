@@ -113,6 +113,37 @@ export function logChatDebug(
   emit(level, message, data, ctx);
 }
 
+const LIVE_TEXT_LOG_CLIP = 2000;
+
+function clipForDebugLog(s: string, maxChars: number): { text: string; truncated: boolean } {
+  if (s.length <= maxChars) {
+    return { text: s, truncated: false };
+  }
+  const half = Math.floor(maxChars / 2);
+  const omitted = s.length - maxChars;
+  return {
+    text: `${s.slice(0, half)}…<<${omitted} chars omitted>>…${s.slice(-half)}`,
+    truncated: true,
+  };
+}
+
+/**
+ * Shapes committed vs snapshot strings for console diagnostics (avoids flooding DevTools).
+ */
+export function formatLiveTextSnapshotForLog(committed: string, fullText: string) {
+  const max = LIVE_TEXT_LOG_CLIP;
+  const c = clipForDebugLog(committed, max);
+  const f = clipForDebugLog(fullText, max);
+  return {
+    committedLen: committed.length,
+    fullTextLen: fullText.length,
+    committed: c.text,
+    fullText: f.text,
+    committedTruncated: c.truncated,
+    fullTextTruncated: f.truncated,
+  };
+}
+
 /**
  * History / snapshot diagnostics — **low volume**: only `[milestone]` lines in normal use.
  * Enable in dev: `localStorage.setItem("openclaw.chatHistory.diagnose", "1")`, then refresh.

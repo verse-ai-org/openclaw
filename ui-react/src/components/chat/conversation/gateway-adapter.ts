@@ -31,13 +31,17 @@ export function runEventsToCanonical(
         break;
 
       case "text.delta":
-        out.push({
-          type: EventType.MessageSetLiveText,
-          threadId,
-          ts,
-          messageId: `run:${rid}`,
-          fullText: e.text,
-        });
+        // out.push({
+        //   type: EventType.MessageSetLiveText,
+        //   threadId,
+        //   ts,
+        //   messageId: `run:${rid}`,
+        //   fullText: e.text,
+        // });
+        // Intentionally **not** mapped to `MessageSetLiveText`. Mid-run `chat.delta` cumulative
+        // snapshots race `agent.assistant` `text.append` and cause hard mismatches + tool wipes.
+        // Streaming text comes from `MessageAppendText`; `run.finished` (chat.final) still emits
+        // `MessageSetLiveText` once for final reconcile / refresh-after-reconnect.
         break;
 
       case "text.append":
@@ -147,4 +151,3 @@ export function runEventsToCanonical(
 
   return out;
 }
-

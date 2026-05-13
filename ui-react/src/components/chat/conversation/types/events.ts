@@ -1,5 +1,6 @@
 import type { ChatRole, MessageId, PartId, RunId, ThreadId } from "./ids";
 import type { CanonicalMessage } from "./message";
+import type { CanonicalRun } from "./run";
 import type { EventType } from "./event-type";
 
 export type RunEvent =
@@ -20,7 +21,17 @@ export type RunEvent =
     };
 
 export type SnapshotEvent =
-  | { type: typeof EventType.MessagesSnapshot; threadId: ThreadId; ts: number; messages: CanonicalMessage[] };
+  | {
+      type: typeof EventType.MessagesSnapshot;
+      threadId: ThreadId;
+      ts: number;
+      messages: CanonicalMessage[];
+      /**
+       * When present (including `[]`), replaces `runsById` for this thread. Used when
+       * hydrating from gateway history so UI can show whole-run duration without live WS events.
+       */
+      runs?: CanonicalRun[];
+    };
 
 export type MessageEvent =
   | {

@@ -30,7 +30,10 @@ export type RunState = {
    * their corresponding tool.start. Applied immediately when tool.start arrives.
    */
   pendingResults: Map<string, { isError: boolean; output?: unknown; error?: string }>;
-  /** Full event log — used for refresh-restore replay. */
+  /**
+   * Reserved shape for a future persisted timeline / debugging.
+   * `applyRunEvent` does not append here — use `replayRunState(events)` with an external `RunEvent[]`.
+   */
   eventLog: RunEvent[];
   /** Set by run.finished */
   finalText: string | undefined;
@@ -94,7 +97,7 @@ function autoCommit(s: RunState): RunState {
 // ---------------------------------------------------------------------------
 
 export function applyRunEvent(s: RunState, event: RunEvent): RunState {
-  const next: RunState = { ...s, eventLog: [...s.eventLog, event] };
+  const next: RunState = { ...s };
 
   switch (event.type) {
     case "run.started":

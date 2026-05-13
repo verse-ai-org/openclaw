@@ -9,9 +9,24 @@ import type {
   ThreadId,
 } from "./types";
 import { EventType } from "./types";
+import { formatLiveTextSnapshotForLog, logChatDebug } from "../utils/chat-debug";
 
-/** Max trailing characters trimmed when chat `fullText` is shorter than committed text only. */
-const LIVE_TEXT_OVERSHOOT_TRIM_MAX = 32;
+/**
+ * Max trailing UTF-16 code units trimmed from committed text when `fullText` is a prefix (or
+ * normalizes to one). Larger values tolerate slower `chat.delta` snapshots vs `agent.assistant`
+ * appends; keep bounded to avoid wiping large accidental divergences.
+ */
+export const LIVE_TEXT_OVERSHOOT_TRIM_MAX = 128;
+
+/** Normalize for prefix / equality checks only (display still uses raw gateway strings). */
+export function normalizeLiveTextForPrefixCompare(s: string): string {
+  const crlf = s.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+  try {
+    return crlf.normalize("NFC");
+  } catch {
+    return crlf;
+  }
+}
 
 function upsertMessage(state: ConversationState, msg: CanonicalMessage): ConversationState {
   const byId = new Map(state.messagesById);
@@ -113,21 +128,48 @@ function committedTextPrefix(parts: CanonicalMessage["parts"]): string {
 }
 
 /**
- * True when cumulative `fullText` is a strict prefix of locally committed text, differing only
- * by a small trailing suffix. Throttled chat snapshots can lag agent append deltas by a few chars;
- * trimming preserves tool parts instead of `resetMessageToSnapshotText` wiping them.
+ * True when cumulative `fullText` is a strict prefix of locally committed text (raw or after
+ * {@link normalizeLiveTextForPrefixCompare}), differing only by a small trailing suffix on
+ * `committed`. Throttled chat snapshots can lag agent append deltas; trimming preserves tool parts
+ * instead of `resetMessageToSnapshotText` wiping them.
  */
 export function isLiveTextSnapOvershootOnly(committed: string, fullText: string): boolean {
   if (fullText.startsWith(committed)) {
     return false;
   }
   const overshoot = committed.length - fullText.length;
-  return (
-    fullText.length > 0 &&
-    overshoot > 0 &&
-    overshoot <= LIVE_TEXT_OVERSHOOT_TRIM_MAX &&
-    committed.startsWith(fullText)
-  );
+  if (!(fullText.length > 0 && overshoot > 0 && overshoot <= LIVE_TEXT_OVERSHOOT_TRIM_MAX)) {
+    return false;
+  }
+  const nc = normalizeLiveTextForPrefixCompare(committed);
+  const nf = normalizeLiveTextForPrefixCompare(fullText);
+  return committed.startsWith(fullText) || nc.startsWith(nf);
+}
+
+/**
+ * How gateway cumulative `fullText` relates to locally committed text parts (concat of `text` parts).
+ *
+ * - `snapshot-ahead`: `fullText` begins with `committed` (raw or after NFC/CRLF normalize) — normal
+ *   streaming (append + chat agree).
+ * - `local-ahead-trim`: `fullText` is a strict prefix of `committed` within a small tail window — chat
+ *   snapshot can lag `agent.assistant` appends; reducer trims trailing committed chars to reconcile.
+ * - `mismatch`: neither relationship — reducer replaces message text from the snapshot.
+ */
+export type LiveTextSnapshotClass = "snapshot-ahead" | "local-ahead-trim" | "mismatch";
+
+export function classifyLiveTextSnapshot(committed: string, fullText: string): LiveTextSnapshotClass {
+  if (fullText.startsWith(committed)) {
+    return "snapshot-ahead";
+  }
+  const nf = normalizeLiveTextForPrefixCompare(fullText);
+  const nc = normalizeLiveTextForPrefixCompare(committed);
+  if (nf.startsWith(nc)) {
+    return "snapshot-ahead";
+  }
+  if (isLiveTextSnapOvershootOnly(committed, fullText)) {
+    return "local-ahead-trim";
+  }
+  return "mismatch";
 }
 
 /** Remove `removeCount` characters from the end of concatenated text parts (non-text parts untouched). */
@@ -212,6 +254,10 @@ export function applyCanonicalEvent(s: ConversationState, event: CanonicalChatEv
         messagesById: new Map(),
         messageOrder: [],
         liveTextByMessageId: new Map(),
+        runsById:
+          event.runs !== undefined
+            ? new Map(event.runs.map((r) => [r.id, r]))
+            : new Map(next.runsById),
       };
       for (const m of event.messages) {
         out = upsertMessage(out, m);
@@ -378,28 +424,52 @@ export function applyCanonicalEvent(s: ConversationState, event: CanonicalChatEv
       if (!current) return base;
 
       const committed = committedTextPrefix(current.parts);
-      if (!event.fullText.startsWith(committed)) {
+      const relation = classifyLiveTextSnapshot(committed, event.fullText);
+
+      if (relation === "snapshot-ahead") {
+        const liveTail = event.fullText.slice(committed.length);
+        const liveTextByMessageId = new Map(base.liveTextByMessageId);
+        liveTextByMessageId.set(event.messageId, liveTail);
+        return { ...maybeLinkRunAssistantMessage(base, event.messageId), liveTextByMessageId };
+      }
+
+      if (relation === "local-ahead-trim") {
         const overshoot = committed.length - event.fullText.length;
-        if (
-          isLiveTextSnapOvershootOnly(committed, event.fullText) &&
-          overshoot > 0
-        ) {
-          const trimmedParts = trimTrailingTextCharsFromParts(current.parts, overshoot);
-          const reconciledCommitted = trimmedParts ? committedTextPrefix(trimmedParts) : "";
-          if (trimmedParts && reconciledCommitted === event.fullText) {
-            const reconciledMsg: CanonicalMessage = { ...current, parts: trimmedParts };
-            const afterUpsert = upsertMessage(
-              maybeLinkRunAssistantMessage(base, event.messageId),
-              reconciledMsg,
-            );
-            const liveTail = event.fullText.slice(reconciledCommitted.length);
-            const liveTextByMessageId = new Map(afterUpsert.liveTextByMessageId);
-            liveTextByMessageId.set(event.messageId, liveTail);
-            return { ...maybeLinkRunAssistantMessage(afterUpsert, event.messageId), liveTextByMessageId };
-          }
+        const trimmedParts = trimTrailingTextCharsFromParts(current.parts, overshoot);
+        const reconciledCommitted = trimmedParts ? committedTextPrefix(trimmedParts) : "";
+        const reconciledNorm = normalizeLiveTextForPrefixCompare(reconciledCommitted);
+        const snapshotNorm = normalizeLiveTextForPrefixCompare(event.fullText);
+        const reconciledOk =
+          trimmedParts &&
+          (reconciledCommitted === event.fullText || reconciledNorm === snapshotNorm);
+        if (reconciledOk) {
+          const reconciledMsg: CanonicalMessage = { ...current, parts: trimmedParts };
+          const afterUpsert = upsertMessage(
+            maybeLinkRunAssistantMessage(base, event.messageId),
+            reconciledMsg,
+          );
+          const liveTail =
+            reconciledCommitted === event.fullText
+              ? event.fullText.slice(reconciledCommitted.length)
+              : "";
+          const liveTextByMessageId = new Map(afterUpsert.liveTextByMessageId);
+          liveTextByMessageId.set(event.messageId, liveTail);
+          return { ...maybeLinkRunAssistantMessage(afterUpsert, event.messageId), liveTextByMessageId };
         }
 
-        // Snapshot mismatch: reset the message text to the authoritative snapshot.
+        logChatDebug(
+          "warn",
+          "live text snapshot: trim reconcile failed; resetting message text to snapshot",
+          {
+            reason: "trim-reconcile-failed",
+            ...formatLiveTextSnapshotForLog(committed, event.fullText),
+          },
+          {
+            channel: "projection",
+            sessionKey: event.threadId,
+            runId: event.messageId.startsWith("run:") ? event.messageId.slice(4) : undefined,
+          },
+        );
         return resetMessageToSnapshotText(
           maybeLinkRunAssistantMessage(base, event.messageId),
           event.messageId,
@@ -408,10 +478,25 @@ export function applyCanonicalEvent(s: ConversationState, event: CanonicalChatEv
         );
       }
 
-      const liveTail = event.fullText.slice(committed.length);
-      const liveTextByMessageId = new Map(base.liveTextByMessageId);
-      liveTextByMessageId.set(event.messageId, liveTail);
-      return { ...maybeLinkRunAssistantMessage(base, event.messageId), liveTextByMessageId };
+      logChatDebug(
+        "warn",
+        "live text snapshot: hard mismatch; resetting message text to snapshot",
+        {
+          reason: "hard-mismatch",
+          ...formatLiveTextSnapshotForLog(committed, event.fullText),
+        },
+        {
+          channel: "projection",
+          sessionKey: event.threadId,
+          runId: event.messageId.startsWith("run:") ? event.messageId.slice(4) : undefined,
+        },
+      );
+      return resetMessageToSnapshotText(
+        maybeLinkRunAssistantMessage(base, event.messageId),
+        event.messageId,
+        event.fullText,
+        event.ts,
+      );
     }
 
     case EventType.MessageEnd: {

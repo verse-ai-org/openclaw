@@ -3,15 +3,19 @@ import {
   ToolFallback,
   type ToolFallbackPartProps,
 } from "@/components/chat/tools";
-import { ToolCallGroup, ToolCallGroupThinking } from "@/components/chat/ToolCallGroup";
+import {
+  ToolCallGroup,
+  type ToolCallGroupRunDuration,
+  ToolCallGroupThinking,
+} from "@/components/chat/ToolCallGroup";
 import type { AssistantToolPart } from "@/components/chat/types";
 
 function getToolStatus(part: AssistantToolPart): ToolFallbackPartProps["status"] {
-  if (part.result === undefined) {
-    return { type: "running" };
-  }
   if (part.isError) {
     return { type: "incomplete", reason: "error" };
+  }
+  if (part.result === undefined) {
+    return { type: "running" };
   }
   return { type: "complete" };
 }
@@ -27,16 +31,21 @@ function buildToolFallbackProps(part: AssistantToolPart): ToolFallbackPartProps 
   };
 }
 
-export const AssistantToolGroup: FC<{ toolParts: AssistantToolPart[]; showThinking?: boolean }> = ({
-  toolParts,
-  showThinking,
-}) => {
+export const AssistantToolGroup: FC<{
+  toolParts: AssistantToolPart[];
+  showThinking?: boolean;
+  runDuration?: ToolCallGroupRunDuration;
+}> = ({ toolParts, showThinking, runDuration }) => {
   if (toolParts.length === 0) {
     return showThinking ? <ToolCallGroupThinking /> : null;
   }
 
   return (
-    <ToolCallGroup startIndex={0} endIndex={toolParts.length - 1}>
+    <ToolCallGroup
+      startIndex={0}
+      endIndex={toolParts.length - 1}
+      runDuration={runDuration}
+    >
       {toolParts.map((part) => (
         <ToolFallback key={part.toolCallId} {...buildToolFallbackProps(part)} />
       ))}

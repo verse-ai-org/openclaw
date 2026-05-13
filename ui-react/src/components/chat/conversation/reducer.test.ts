@@ -1,7 +1,29 @@
-import { describe, expect, it } from "vitest";
-import { replayConversation, type CanonicalChatEvent } from "./index";
+import { describe, expect, it, vi } from "vitest";
+import {
+  classifyLiveTextSnapshot,
+  normalizeLiveTextForPrefixCompare,
+  replayConversation,
+  type CanonicalChatEvent,
+} from "./index";
 
 describe("conversation reducer", () => {
+  it("classifyLiveTextSnapshot: snapshot-ahead vs local-ahead-trim vs mismatch", () => {
+    expect(classifyLiveTextSnapshot("hi", "hi there")).toBe("snapshot-ahead");
+    expect(classifyLiveTextSnapshot("hello", "hello")).toBe("snapshot-ahead");
+    expect(classifyLiveTextSnapshot("hellox", "hello")).toBe("local-ahead-trim");
+    expect(classifyLiveTextSnapshot("hello", "goodbye")).toBe("mismatch");
+    expect(classifyLiveTextSnapshot("hello", "hall")).toBe("mismatch");
+  });
+
+  it("classifyLiveTextSnapshot: CRLF vs LF still snapshot-ahead", () => {
+    expect(classifyLiveTextSnapshot("hello", "hello\r\nworld")).toBe("snapshot-ahead");
+  });
+
+  it("normalizeLiveTextForPrefixCompare collapses CRLF and applies NFC", () => {
+    expect(normalizeLiveTextForPrefixCompare("a\r\nb")).toBe("a\nb");
+    expect(normalizeLiveTextForPrefixCompare("a\rb")).toBe("a\nb");
+  });
+
   it("replays a run with live text + tool lifecycle into ordered parts", () => {
     const threadId = "main";
     const runId = "run_1";
@@ -97,28 +119,33 @@ describe("conversation reducer", () => {
   });
 
   it("resets message text to chat snapshot when it does not match committed prefix", () => {
-    const threadId = "main";
-    const runId = "run_3";
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const threadId = "main";
+      const runId = "run_3";
 
-    const events: CanonicalChatEvent[] = [
-      { type: "run.started", threadId, runId, ts: 1 },
-      {
-        type: "message.appendText",
-        threadId,
-        ts: 2,
-        messageId: `run:${runId}`,
-        partId: "p1",
-        text: "hello",
-      },
-      // mismatch: snapshot does not startWith committed prefix
-      { type: "message.setLiveText", threadId, ts: 3, messageId: `run:${runId}`, fullText: "goodbye" },
-      { type: "run.finished", threadId, runId, ts: 4 },
-    ];
+      const events: CanonicalChatEvent[] = [
+        { type: "run.started", threadId, runId, ts: 1 },
+        {
+          type: "message.appendText",
+          threadId,
+          ts: 2,
+          messageId: `run:${runId}`,
+          partId: "p1",
+          text: "hello",
+        },
+        // mismatch: snapshot does not startWith committed prefix
+        { type: "message.setLiveText", threadId, ts: 3, messageId: `run:${runId}`, fullText: "goodbye" },
+        { type: "run.finished", threadId, runId, ts: 4 },
+      ];
 
-    const state = replayConversation(events, threadId);
-    const msg = state.messagesById.get(`run:${runId}`);
-    expect(msg?.parts.map((p) => p.type)).toEqual(["text"]);
-    expect(msg?.parts[0]).toMatchObject({ type: "text", text: "goodbye" });
+      const state = replayConversation(events, threadId);
+      const msg = state.messagesById.get(`run:${runId}`);
+      expect(msg?.parts.map((p) => p.type)).toEqual(["text"]);
+      expect(msg?.parts[0]).toMatchObject({ type: "text", text: "goodbye" });
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("RunActiveSnapshot forces the active run assistant message to be running (even after history snapshot)", () => {

@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { EventType } from "./types";
 import { replayConversation } from "./reducer";
 import { runEventsToCanonical } from "./gateway-adapter";
 
 describe("conversation/gateway-adapter", () => {
+  it("does not map text.delta (chat.delta) to message.setLiveText — only final reconciles", () => {
+    const threadId = "main";
+    const runId = "r1";
+    const canonical = runEventsToCanonical(
+      [{ type: "text.delta", text: "hello from chat" }],
+      threadId,
+      runId,
+      1,
+    );
+    expect(canonical.some((e) => e.type === EventType.MessageSetLiveText)).toBe(false);
+  });
+
   it("preserves assistant text carried by run.finished (chat.final) frames", () => {
     const threadId = "main";
     const runId = "r1";

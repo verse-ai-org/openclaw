@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { type FC, type PropsWithChildren, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { classifyTool, TOOL_CATEGORY_CONFIG } from "./tools";
+// import { classifyTool, TOOL_CATEGORY_CONFIG } from "./tools";
 import { sliceToolCallParts } from "@/components/chat/adapters/assistant-ui";
 
 // ---------------------------------------------------------------------------
@@ -69,30 +69,44 @@ function deriveGroupStatus(
   return { status: "done", failCount: 0 };
 }
 
-/** Collect up to maxIcons unique category configs from tool names. */
-function buildIconStrip(
-  toolNames: string[],
-  maxIcons = 4,
-): {
-  configs: (typeof TOOL_CATEGORY_CONFIG)[keyof typeof TOOL_CATEGORY_CONFIG][];
-  overflow: number;
-} {
-  const seen = new Set<string>();
-  const configs: (typeof TOOL_CATEGORY_CONFIG)[keyof typeof TOOL_CATEGORY_CONFIG][] = [];
-
-  for (const name of toolNames) {
-    const cat = classifyTool(name);
-    if (!seen.has(cat)) {
-      seen.add(cat);
-      configs.push(TOOL_CATEGORY_CONFIG[cat]);
-    }
+/** Wall-clock run length for display (whole run, not per-tool). */
+export function formatRunDuration(ms: number, opts?: { live?: boolean }): string {
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  if (opts?.live && ms < 60_000) {
+    const sec = Math.max(0, Math.ceil(ms / 1000));
+    return `${sec}s`;
   }
-
-  if (configs.length <= maxIcons) {
-    return { configs, overflow: 0 };
-  }
-  return { configs: configs.slice(0, maxIcons), overflow: configs.length - maxIcons };
+  if (ms < 1000) return "<1s";
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+  const m = Math.floor(ms / 60_000);
+  const s = Math.round((ms % 60_000) / 1000);
+  return `${m}m ${s}s`;
 }
+
+/** Collect up to maxIcons unique category configs from tool names. */
+// function buildIconStrip(
+//   toolNames: string[],
+//   maxIcons = 4,
+// ): {
+//   configs: (typeof TOOL_CATEGORY_CONFIG)[keyof typeof TOOL_CATEGORY_CONFIG][];
+//   overflow: number;
+// } {
+//   const seen = new Set<string>();
+//   const configs: (typeof TOOL_CATEGORY_CONFIG)[keyof typeof TOOL_CATEGORY_CONFIG][] = [];
+
+//   for (const name of toolNames) {
+//     const cat = classifyTool(name);
+//     if (!seen.has(cat)) {
+//       seen.add(cat);
+//       configs.push(TOOL_CATEGORY_CONFIG[cat]);
+//     }
+//   }
+
+//   if (configs.length <= maxIcons) {
+//     return { configs, overflow: 0 };
+//   }
+//   return { configs: configs.slice(0, maxIcons), overflow: configs.length - maxIcons };
+// }
 
 // ---------------------------------------------------------------------------
 // Group status badge
@@ -174,16 +188,32 @@ const GroupStatusBadge: FC<{ status: GroupStatus; failCount: number }> = ({
 // One or more tool calls: collapsible container with summary header + children.
 // ---------------------------------------------------------------------------
 
+export type ToolCallGroupRunDuration =
+  | { kind: "live"; startedAt: number }
+  | { kind: "done"; ms: number };
+
 export type ToolCallGroupProps = PropsWithChildren<{
   startIndex: number;
   endIndex: number;
+  /** Whole-run wall time: live elapsed while run is in progress, or fixed when completed. */
+  runDuration?: ToolCallGroupRunDuration;
 }>;
 
-export const ToolCallGroup: FC<ToolCallGroupProps> = ({ startIndex, endIndex, children }) => {
+export const ToolCallGroup: FC<ToolCallGroupProps> = ({
+  startIndex,
+  endIndex,
+  runDuration,
+  children,
+}) => {
   const toolCount = endIndex - startIndex + 1;
 
   return (
-    <ToolCallGroupInner startIndex={startIndex} endIndex={endIndex} toolCount={toolCount}>
+    <ToolCallGroupInner
+      startIndex={startIndex}
+      endIndex={endIndex}
+      toolCount={toolCount}
+      runDuration={runDuration}
+    >
       {children}
     </ToolCallGroupInner>
   );
@@ -205,21 +235,27 @@ export const ToolCallGroupThinking: FC = () => {
 };
 
 const ToolCallGroupInner: FC<
-  PropsWithChildren<{ startIndex: number; endIndex: number; toolCount: number }>
-> = ({ startIndex, endIndex, toolCount, children }) => {
+  PropsWithChildren<{
+    startIndex: number;
+    endIndex: number;
+    toolCount: number;
+    runDuration?: ToolCallGroupRunDuration;
+  }>
+> = ({ startIndex, endIndex, toolCount, runDuration, children }) => {
   const messageIsRunning = useAuiState((s) => s.message.status?.type === "running");
   const rawContent = useAuiState((s) => s.message.content as unknown) as readonly unknown[] | undefined;
   // Extract raw tool parts from message content for header summary
   const toolParts = sliceToolCallParts(rawContent, startIndex, endIndex);
-  const toolNames = toolParts.map((p) => p.toolName ?? "");
+  // const toolNames = toolParts.map((p) => p.toolName ?? "");
 
   const { status: groupStatus, failCount } = deriveGroupStatus(
     toolParts,
     messageIsRunning ?? false,
   );
-  const { configs: iconConfigs, overflow } = buildIconStrip(toolNames);
+  // const { configs: iconConfigs, overflow } = buildIconStrip(toolNames);
 
   const [isExpanded, setIsExpanded] = useState(false);
+  const [, setLiveDurationTick] = useState(0);
   const userToggledRef = useRef(false);
   const prevRunningRef = useRef(messageIsRunning);
 
@@ -232,10 +268,26 @@ const ToolCallGroupInner: FC<
     }
   }, [messageIsRunning]);
 
+  const liveStartedAt = runDuration?.kind === "live" ? runDuration.startedAt : undefined;
+
+  useEffect(() => {
+    if (liveStartedAt === undefined) return;
+    const id = window.setInterval(() => setLiveDurationTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [liveStartedAt]);
+
   function handleToggle() {
     userToggledRef.current = true;
     setIsExpanded((prev) => !prev);
   }
+
+  const wallMs =
+    runDuration?.kind === "live"
+      ? Math.max(0, Date.now() - runDuration.startedAt)
+      : runDuration?.kind === "done"
+        ? runDuration.ms
+        : undefined;
+  const isLiveRunDuration = runDuration?.kind === "live";
 
   return (
     <div
@@ -266,6 +318,19 @@ const ToolCallGroupInner: FC<
         <span className="text-[12px] font-medium text-foreground/90">
           Used {toolCount} tool{toolCount === 1 ? "" : "s"}
         </span>
+        {wallMs != null && wallMs >= 0 && (
+          <span
+            className="text-[11px] tabular-nums text-muted-foreground"
+            aria-live={isLiveRunDuration ? "polite" : undefined}
+            title={
+              isLiveRunDuration
+                ? `Elapsed this run: ${formatRunDuration(wallMs, { live: true })}`
+                : `Run completed in ${formatRunDuration(wallMs)}`
+            }
+          >
+            · {formatRunDuration(wallMs, isLiveRunDuration ? { live: true } : undefined)}
+          </span>
+        )}
 
         {/* Group status (left-side, minimal) */}
         <span className="ml-1 inline-flex items-center">
@@ -273,7 +338,7 @@ const ToolCallGroupInner: FC<
         </span>
 
         {/* Category icon strip */}
-        {iconConfigs.length > 0 && (
+        {/* {iconConfigs.length > 0 && (
           <span className="flex items-center gap-1">
             {iconConfigs.map((cfg, i) => {
               const Icon = cfg.Icon;
@@ -291,7 +356,7 @@ const ToolCallGroupInner: FC<
               <span className="text-[10px] font-medium text-muted-foreground">+{overflow}</span>
             )}
           </span>
-        )}
+        )} */}
 
         {/* Spacer */}
         <span className="flex-1" />

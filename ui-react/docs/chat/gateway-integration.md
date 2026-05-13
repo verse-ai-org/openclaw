@@ -22,8 +22,8 @@
   - `chat.error` / `chat.aborted` → `run.error` / `run.aborted`
   - `agent.lifecycle start` → `run.started`（end/error 不映射，避免早终止）
   - `agent.assistant`：
-    - `data.delta` → `text.append`（真正的增量 append）
-    - `data.text` 作为 `fullText?` 携带（用于对齐/调试；真相仍以 `chat` 快照为准）
+  - `data.delta` → `text.append`（真正的增量 append）
+  - `data.text` 作为 `fullText?` 携带（调试/旁路；**流式正文以 append 为准**，终态全文以 `chat.final` 为准）
   - `agent.tool`：
     - 普通 tool：`tool.start/update/result/error`
     - tool-ui surface：`tool.start` 时解析 args，并额外发出 `tool.ui`（tool UI presentation）
@@ -39,11 +39,12 @@
 - 把 RunEvent 变成 conversation reducer 的 canonical events
 - 统一携带 threadId/runId/ts 等字段，确保 reducer 可 replay
 
-文本流策略（双源）：
+文本流策略（避免 mid-run 双源冲突）：
 
-- **主路径**：`text.append` → `message.appendText`（append-only）
-- **兜底纠偏**：`text.delta`（来自 `chat.delta`）→ `message.setLiveText(fullText)`（cumulative snapshot）
-- Reducer 会把 `fullText` 视为权威快照：若与已提交前缀不一致，会重置该 message 的文本到快照
+- **主路径**：`text.append` → `message.appendText`（append-only；流式正文以 agent 为准）
+- **终态对齐**：`run.finished`（`chat.final` 携带 `text`）→ `message.setLiveText(fullText)` 一次，用于最终与刷新后只收到 final 的兜底
+- **不再**把 `text.delta`（`chat.delta`）映射为 `message.setLiveText`，避免与 append 交叉触发 reducer 的 hard mismatch / reset（含 tool 段落被清空）
+- Reducer 仍会在收到 `message.setLiveText` 时做前缀/尾部修剪判断；不一致时仍以该快照重置该条消息的文本
 
 ## 4) useGatewayEventBridge（注册 + 喂 reducer）
 

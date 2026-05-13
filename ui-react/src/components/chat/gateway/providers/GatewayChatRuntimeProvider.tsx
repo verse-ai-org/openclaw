@@ -105,6 +105,8 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         });
 
         void resp;
+        // Re-fetch sessions.list so the sidebar shows the session (and titles) right after send ack.
+        useChatStore.getState().triggerSessionsReload();
       } catch (err) {
         console.error("[chat] send failed:", err);
         useChatStore.setState({ sending: false });
@@ -219,6 +221,7 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           idempotencyKey: crypto.randomUUID(),
         });
         void resp;
+        useChatStore.getState().triggerSessionsReload();
       } catch (err) {
         console.error("[chat] edit send failed:", err);
         useChatStore.setState({ sending: false });

@@ -8,7 +8,7 @@ export function ChatPage() {
 
   return (
     <GatewayChatRuntimeProvider>
-      <div className="flex h-full overflow-hidden bg-white">
+      <div className="flex h-full overflow-hidden">
         {/* Sessions pane (Pane 2) */}
         <ChatSidebar />
 

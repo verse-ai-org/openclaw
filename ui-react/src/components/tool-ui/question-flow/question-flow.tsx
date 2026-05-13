@@ -174,7 +174,7 @@ function QuestionFlowReceipt({
   return (
     <div
       className={cn(
-        "@container/question-flow flex w-full flex-col justify-end items-end mb-4",
+        "@container/question-flow flex w-full flex-col justify-end items-end",
         "text-foreground",
         "motion-safe:animate-in motion-safe:fade-in motion-safe:blur-in-sm motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out motion-safe:fill-mode-both",
         className,
