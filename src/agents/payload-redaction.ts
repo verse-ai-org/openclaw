@@ -2,6 +2,15 @@ import crypto from "node:crypto";
 import { estimateBase64DecodedBytes } from "../media/base64.js";
 
 export const REDACTED_IMAGE_DATA = "<redacted>";
+const REDACTED_SENSITIVE = "<redacted>";
+
+// Field names known to contain sensitive values (API keys, tokens, etc.)
+const SENSITIVE_FIELD_NAMES = new Set([
+  "apiKey",
+  "api_key",
+  "authToken",
+  "authorization",
+]);
 
 function toLowerTrimmed(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -49,7 +58,11 @@ export function redactImageDataForDiagnostics(value: unknown): unknown {
     const record = input as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(record)) {
-      out[key] = visit(val);
+      if (SENSITIVE_FIELD_NAMES.has(key)) {
+        out[key] = REDACTED_SENSITIVE;
+      } else {
+        out[key] = visit(val);
+      }
     }
 
     if (shouldRedactImageData(record)) {
