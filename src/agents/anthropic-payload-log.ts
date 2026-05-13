@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import type { AgentMessage, StreamFn } from "@mariozechner/pi-agent-core";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model, AssistantMessageEventStream } from "@mariozechner/pi-ai";
 import { resolveStateDir } from "../config/paths.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { resolveUserPath } from "../utils.js";
@@ -10,7 +10,7 @@ import { safeJsonStringify } from "../utils/safe-json.js";
 import { redactImageDataForDiagnostics } from "./payload-redaction.js";
 import { getQueuedFileWriter, type QueuedFileWriter } from "./queued-file-writer.js";
 
-type PayloadLogStage = "request" | "usage";
+type PayloadLogStage = "request" | "response" | "usage";
 
 type PayloadLogEvent = {
   ts: string;
@@ -147,10 +147,41 @@ export function createAnthropicPayloadLogger(params: {
         });
         return options?.onPayload?.(payload, model);
       };
-      return streamFn(model, context, {
+
+      // Helper: attach response capture to a resolved stream
+      const attachResponseCapture = (
+        s: AssistantMessageEventStream,
+      ): AssistantMessageEventStream => {
+        s.result()
+          .then((assistantMessage) => {
+            const redacted = redactImageDataForDiagnostics(assistantMessage);
+            record({
+              ...base,
+              ts: new Date().toISOString(),
+              stage: "response",
+              payload: redacted,
+              payloadDigest: digest(redacted),
+            });
+          })
+          .catch((error: unknown) => {
+            record({
+              ...base,
+              ts: new Date().toISOString(),
+              stage: "response",
+              error: formatError(error),
+            });
+          });
+        return s;
+      };
+
+      // streamFn can return sync or Promise; handle both
+      const result = streamFn(model, context, {
         ...options,
         onPayload: nextOnPayload,
       });
+      return result instanceof Promise
+        ? result.then(attachResponseCapture)
+        : attachResponseCapture(result);
     };
     return wrapped;
   };
