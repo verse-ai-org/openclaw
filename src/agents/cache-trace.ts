@@ -3,6 +3,7 @@ import path from "node:path";
 import type { AgentMessage, StreamFn } from "@mariozechner/pi-agent-core";
 import type { OpenClawConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
+import { createSubsystemLogger } from "../logging/subsystem.js";
 import { resolveUserPath } from "../utils.js";
 import { parseBooleanValue } from "../utils/boolean.js";
 import { safeJsonStringify } from "../utils/safe-json.js";
@@ -74,6 +75,7 @@ type CacheTraceConfig = {
 
 type CacheTraceWriter = QueuedFileWriter;
 
+const log = createSubsystemLogger("agent/cache-trace");
 const writers = new Map<string, CacheTraceWriter>();
 
 function resolveCacheTraceConfig(params: CacheTraceInit): CacheTraceConfig {
@@ -186,6 +188,15 @@ export function createCacheTrace(params: CacheTraceInit): CacheTrace | null {
 
   const base: Omit<CacheTraceEvent, "ts" | "seq" | "stage"> = buildAgentTraceBase(params);
 
+  const consoleLogStage = (stage: CacheTraceStage, summary: Record<string, unknown>) => {
+    const parts = [`[cache-trace] stage=${stage}`];
+    if (params.sessionKey) parts.push(`session=${params.sessionKey}`);
+    for (const [k, v] of Object.entries(summary)) {
+      if (v !== undefined && v !== null) parts.push(`${k}=${v}`);
+    }
+    log.info(parts.join(" "));
+  };
+
   const recordStage: CacheTrace["recordStage"] = (stage, payload = {}) => {
     const event: CacheTraceEvent = {
       ...base,
@@ -194,18 +205,25 @@ export function createCacheTrace(params: CacheTraceInit): CacheTrace | null {
       stage,
     };
 
+    const consoleSummary: Record<string, unknown> = {};
+
     if (payload.prompt !== undefined && cfg.includePrompt) {
       event.prompt = payload.prompt;
+      consoleSummary.promptChars = String(payload.prompt).length;
     }
     if (payload.system !== undefined && cfg.includeSystem) {
       event.system = payload.system;
       event.systemDigest = digest(payload.system);
+      consoleSummary.systemChars =
+        typeof payload.system === "string" ? payload.system.length : "object";
     }
     if (payload.options) {
       event.options = redactImageDataForDiagnostics(payload.options) as Record<string, unknown>;
     }
     if (payload.model) {
       event.model = payload.model;
+      const m = payload.model as Record<string, unknown>;
+      if (m.provider || m.id) consoleSummary.model = `${m.provider ?? "?"}/${m.id ?? "?"}`;
     }
 
     const messages = payload.messages;
@@ -215,6 +233,8 @@ export function createCacheTrace(params: CacheTraceInit): CacheTrace | null {
       event.messageRoles = summary.messageRoles;
       event.messageFingerprints = summary.messageFingerprints;
       event.messagesDigest = summary.messagesDigest;
+      consoleSummary.msgCount = summary.messageCount;
+      consoleSummary.msgRoles = summary.messageRoles.join(",");
       if (cfg.includeMessages) {
         event.messages = redactImageDataForDiagnostics(messages) as AgentMessage[];
       }
@@ -222,10 +242,14 @@ export function createCacheTrace(params: CacheTraceInit): CacheTrace | null {
 
     if (payload.note) {
       event.note = payload.note;
+      consoleSummary.note = payload.note;
     }
     if (payload.error) {
       event.error = payload.error;
+      consoleSummary.error = payload.error;
     }
+
+    consoleLogStage(stage, consoleSummary);
 
     const line = safeJsonStringify(event);
     if (!line) {
@@ -250,6 +274,15 @@ export function createCacheTrace(params: CacheTraceInit): CacheTrace | null {
     };
     return wrapped;
   };
+
+  log.info(
+    `[cache-trace] enabled file=${cfg.filePath} includeMessages=${cfg.includeMessages} includePrompt=${cfg.includePrompt} includeSystem=${cfg.includeSystem}`,
+  );
+
+  // Also write directly to stderr so it's visible even if logger console is suppressed
+  process.stderr.write(
+    `[gateway:cache-trace] enabled file=${cfg.filePath}\n`,
+  );
 
   return {
     enabled: true,
