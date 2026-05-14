@@ -73,11 +73,11 @@ export const AssistantMessage: FC = () => {
 
   return (
     <MessagePrimitive.Root
-      className="flex mx-auto w-full max-w-3xl data-[role=assistant]:animate-in data-[role=assistant]:fade-in data-[role=assistant]:slide-in-from-bottom-1"
+      className="flex mx-auto w-full max-w-(--thread-max-width) data-[role=assistant]:animate-in data-[role=assistant]:fade-in data-[role=assistant]:slide-in-from-bottom-1"
       data-role="assistant"
     >
       {/* Avatar row */}
-      <div className="flex gap-3 items-self-start">
+      <div className="flex gap-3 items-self-start ml-[-40px]">
         <div className="shrink-0">
           {isFirstInTurn ? <AgentAvatar /> : <div className="w-8" />}
         </div>

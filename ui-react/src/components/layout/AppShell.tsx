@@ -6,8 +6,14 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { UpdateBanner } from "@/components/layout/UpdateBanner";
 import { AppSidebar } from "@/components/layout/Sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import { useGateway } from "@/hooks/gateway";
+import { cn } from "@/lib/utils";
 import { TAB_PATHS } from "@/types/gateway";
 
 /** Map path → readable breadcrumb label */
@@ -20,6 +26,9 @@ const PATH_LABELS: Record<string, string> = Object.fromEntries(
 
 function TopNav() {
   const location = useLocation();
+  const { state, isMobile, openMobile } = useSidebar();
+  // When the inset sidebar is off-screen, mirror its top-left drag strip (Sidebar.tsx) so titlebar controls do not cover the trigger (Electron).
+  const reserveTitleBarControlsInset = isMobile ? !openMobile : state === "collapsed";
   const currentLabel =
     Object.entries(PATH_LABELS).find(
       ([path]) => location.pathname === path || location.pathname.startsWith(path + "/"),
@@ -32,10 +41,13 @@ function TopNav() {
     >
       {/* Left: sidebar toggle + breadcrumb */}
       <div
-        className="flex items-center gap-3"
+        className={cn(
+          "flex items-center gap-3 transition-transform duration-300 ease-in-out",
+          reserveTitleBarControlsInset && "translate-x-16"
+        )}
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <SidebarTrigger className="ml-1 z-50" />
+        <SidebarTrigger className="z-50" />
         <div className="flex items-center gap-1.5 text-sm">
           <span className="text-foreground">{currentLabel}</span>
         </div>
@@ -85,10 +97,10 @@ export function AppShell() {
     <div className="h-screen w-screen overflow-hidden flex">
       <SidebarProvider className="h-full w-full overflow-hidden">
         <AppSidebar />
-        <SidebarInset className="flex h-full min-h-0 flex-col overflow-hidden">
+        <SidebarInset className="flex h-full m-0! min-h-0 flex-col overflow-hidden dark:bg-background/60 rounded-r-none!">
           <UpdateBanner />
           <TopNav />
-          <main className="flex-1 min-h-0 overflow-auto bg-background">
+          <main className="flex-1 m-0! min-h-0 overflow-auto">
             <Outlet />
           </main>
         </SidebarInset>

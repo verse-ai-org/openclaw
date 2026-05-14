@@ -37,18 +37,18 @@ function AgentItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full rounded-2xl px-3 py-2 text-left transition-colors",
+        "w-full rounded-3xl p-2 text-left transition-colors",
         "flex items-center gap-2",
         "hover:bg-accent",
       )}
     >
       {/* Avatar: image if available, else emoji */}
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-md overflow-hidden dark:ring-1 dark:ring-border">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-md overflow-hidden dark:ring-1 dark:ring-border">
         {avatarUrl ? (
           <img
             src={avatarUrl}
             alt={name}
-            className="size-full object-contain rounded-lg"
+            className="size-full object-cover rounded-full"
           />
         ) : (
           emoji

@@ -74,7 +74,7 @@ export const AgentAvatar: FC<AgentAvatarProps> = ({ size = "md" }) => {
     <img
       src={avatarUrl}
       alt={name}
-      className={`${sizeClass} rounded-full object-contain shrink-0`}
+      className={`${sizeClass} rounded-full object-cover shrink-0`}
     />
   ) : (
     <div

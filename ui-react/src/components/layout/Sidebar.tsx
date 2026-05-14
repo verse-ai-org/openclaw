@@ -9,6 +9,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -17,46 +18,44 @@ import { tabIcon, tabLabel } from "@/lib/tabs";
 import { cn } from "@/lib/utils";
 // import { useGatewayStore } from "@/store/gateway.store";
 import { TAB_GROUPS, TAB_PATHS, type Tab } from "@/types/gateway";
+import { Separator } from "../ui/separator.tsx";
+import { CONFIG } from "@/data/config.ts";
 
 export function AppSidebar() {
   // const status = useGatewayStore((s) => s.status);
   // const serverVersion = useGatewayStore((s) => s.serverVersion);
   // const isConnected = status === "connected";
 
+  const goWebsite = () => {
+    window.open(CONFIG.websiteUrl, "_blank");
+  };
+
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar variant="inset">
       {/* Traffic Lights region — 48px reserved for macOS window controls (drag area) */}
       <div
-        className="h-12 shrink-0 select-none"
+        className="h-10 shrink-0 select-none"
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
       />
 
       {/* Header: brand logo + name */}
-      {/* <SidebarHeader className="p-0">
+      <SidebarHeader className="p-0">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+            <SidebarMenuButton size="lg" asChild onClick={goWebsite}>
               <div className="cursor-default select-none">
-                <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <BotIcon className="size-4" />
+                <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg text-sidebar-primary-foreground">
+                  <img src="/logo.png" alt="Bossim" className="rounded-lg size-8" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight overflow-hidden">
                   <span className="truncate font-semibold">Bossim</span>
-                  <span
-                    className={cn(
-                      "truncate text-xs",
-                      isConnected ? "text-emerald-500" : "text-muted-foreground",
-                    )}
-                  >
-                    {isConnected ? (serverVersion ? `v${serverVersion}` : "Connected") : status}
-                  </span>
                 </div>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <Separator className="bg-sidebar-border" />
-      </SidebarHeader> */}
+        <Separator className="bg-sidebar-border/20" />
+      </SidebarHeader>
 
       {/* Nav groups */}
       <SidebarContent>

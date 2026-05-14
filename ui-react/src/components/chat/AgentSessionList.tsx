@@ -55,10 +55,10 @@ function SessionItem({
     <>
       <div
         className={cn(
-          "group/session relative w-full rounded-xl transition-colors",
+          "group/session relative w-full rounded-3xl transition-colors",
           isActive
-            ? "bg-primary/10 ring-1 ring-primary/20 dark:bg-primary/15 dark:ring-primary/25"
-            : "hover:bg-accent",
+            ? "bg-accent/60 ring-1 ring-accent/80 dark:bg-accent/15 dark:ring-accent/25"
+            : "hover:bg-accent/50",
         )}
       >
         <button
@@ -195,7 +195,7 @@ export function AgentSessionList({
             title={onViewProfile ? `View ${name} profile` : undefined}
           >
             {avatarUrl ? (
-              <img src={avatarUrl} alt={name} className="size-full object-contain rounded-xl" />
+              <img src={avatarUrl} alt={name} className="size-full object-cover rounded-full" />
             ) : (
               emoji
             )}

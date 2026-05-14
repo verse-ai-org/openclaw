@@ -292,7 +292,7 @@ export function ProfileHeroSection({
           <div className="flex size-42.5 items-center justify-center rounded-full bg-muted p-1 shadow-sm">
             <div className="flex size-40 items-center justify-center overflow-hidden rounded-full bg-card shadow-inner">
               {avatar ? (
-                <img src={avatar ?? emoji} alt={name} className="size-full object-contain rounded-full" />
+                <img src={avatar ?? emoji} alt={name} className="size-full object-cover rounded-full" />
               ) : (
                 <div className="flex size-full flex-col items-center justify-center gap-2 rounded-full bg-muted">
                   <span className="select-none text-5xl font-extrabold text-muted-foreground">{initials}</span>

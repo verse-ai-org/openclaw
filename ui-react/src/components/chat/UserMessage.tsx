@@ -74,7 +74,7 @@ export const UserMessage: FC = () => {
   }
 
   return (
-    <MessagePrimitive.Root className="group/msg mx-auto w-full max-w-3xl py-2" data-role="user">
+    <MessagePrimitive.Root className="group/msg mx-auto w-full max-w-(--thread-max-width) py-2" data-role="user">
       <div className="flex flex-col items-end gap-1.5">
         {/* File attachment tags — above the bubble, right-aligned */}
         <UserAttachments />
