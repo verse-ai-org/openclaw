@@ -9,11 +9,12 @@ cd apps/electron
 make dev          # 本地开发
 make package-fast # 本地打包测试（无签名）
 make package      # 正式打包（签名 + 公证）
-make release      # 一键完整发布 macOS：双架构打包 + 上传 R2 + 验证
+make clear        # 删除上次构建产物（release/、dist/）
+make release      # 一键完整发布：会先 clear，再打包 + 上传 R2 + 验证
 
 # Windows
 make package-win      # 打包 Windows
-make release-win      # 一键完整发布 Windows：打包 + 上传 R2 + 验证
+make release-win      # 一键完整发布：会先 clear，再打包 + 上传 R2 + 验证
 
 # 版本管理
 make bump-version VERSION=2026.3.31
@@ -49,14 +50,15 @@ make release-win-with-version VERSION=2026.3.31
   upload-r2-verify 验证 macOS latest-mac.yml 是否可公开访问
   upload-r2-win    上传 Windows 产物到 R2（exe + zip + yml）
   upload-r2-verify-win 验证 Windows latest.yml 是否可公开访问
-  release          一键完整发布 macOS：双架构打包 + 上传 R2 + 验证
-  release-win      一键完整发布 Windows：打包 + 上传 R2 + 验证
+  release          一键完整发布 macOS：构建前 clear → 打包 + 上传 R2 + 验证
+  release-win      一键完整发布 Windows：构建前 clear → 打包 + 上传 R2 + 验证
   release-with-version 先更新 version 再执行完整发布（需传 VERSION=...）
   release-win-with-version 先更新 version 再执行 Windows 发布（需传 VERSION=...）
 
 工具
   setup            初次设置：复制 .env 模板
-  clean            清理 release/ 和 dist/
+  clear            删除上次构建产物（release/、dist/）；release / release-win 会在打包前自动执行
+  clean            与 clear 相同（清理 release/ 和 dist/，供 clean-all 链式调用）
   clean-all        深度清理（含 Node 二进制和运行时依赖）
   verify           验证已打包 .app 的签名和公证状态
 ```
@@ -187,10 +189,10 @@ make release-win-with-version VERSION=2026.3.31
 | `2026.4.1-beta.1` | `make bump-version TYPE=beta` | `2026.4.1-beta.2` | Beta 版本递增 |
 | `2026.4.1-beta.2` | `make bump-version TYPE=major` | `2026.4.1` | Beta 转正 |
 
-> **注意：** 
-> - `make release` 本身不会自动改版本，需要先用 `bump-version` 更新
-> - 默认行为会自动检测当天版本并递增（优先 patch → beta → major）
-> `make release` / `make release-win` 本身不会自动改版本；如果不走 `*-with-version`，请先手动改 version。
+> **注意：**
+> - `make release` / `make release-win` **不会**自动改版本；不走 `*-with-version` 时请先 `make bump-version` 或手动改 `apps/electron/package.json` 的 `version`。
+> - `make bump-version` 默认会按当天版本自动递增（patch / beta / major 等规则见上表）。
+> - `make release` / `make release-win` 会在打包前执行 `make clear`，删除 `release/` 与 `dist/`，避免混入旧产物。
 
 ---
 
@@ -257,7 +259,8 @@ make upload-r2-verify
 
 ```bash
 make release
-# 等价于：package-arm64 → package-x64 → upload-r2 → upload-r2-verify
+# 等价于：clear → package-arm64 → upload-r2 → upload-r2-verify
+# （当前 Makefile 中 package-x64 已注释；若需 Intel 包请单独 make package-x64）
 ```
 
 ### Windows 发布
@@ -276,7 +279,7 @@ make upload-r2-verify-win
 
 # 或一键完成
 make release-win
-# 等价于：package-win → upload-r2-win → upload-r2-verify-win
+# 等价于：clear → package-win → upload-r2-win → upload-r2-verify-win
 ```
 
 > 注意：Windows 发布使用 `release-win` 而不是 `release`，后者是 macOS 专用的。
@@ -298,6 +301,7 @@ make release-win
 
 **清理重来**  
 ```bash
-make clean-all  # 删除所有构建产物和下载的二进制
+make clear      # 仅删除 release/ 与 dist/（与 make clean 相同）
+make clean-all  # 在 clear 基础上再删 prod-node_modules、下载的 Node 二进制等
 make package    # 重新打包
 ```

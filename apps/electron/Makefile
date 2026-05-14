@@ -5,6 +5,7 @@
 #   make dev          本地开发（热重载）
 #   make package      签名打包当前平台 macOS（需配置 .env）
 #   make package-fast 本地测试打包（无签名，速度快）
+#   make clear        删除上次构建产物（release/、dist/）；make release 会在打包前自动执行
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
@@ -274,8 +275,9 @@ upload-r2-verify-win: ## 验证 Windows latest.yml 是否可公开访问
 	@echo "✅ latest.yml 可正常访问"
 
 .PHONY: release
-release: ## 一键完整发布：macOS 双架构打包 + 上传 R2 + 验证
+release: ## 一键完整发布：macOS 双架构打包 + 上传 R2 + 验证（构建前会 clear）
 	@echo "🚀 开始完整发布流程..."
+	$(MAKE) clear
 	$(MAKE) package-arm64
 	# $(MAKE) package-x64
 	$(MAKE) upload-r2
@@ -283,8 +285,9 @@ release: ## 一键完整发布：macOS 双架构打包 + 上传 R2 + 验证
 	@echo "🎉 发布完成！"
 
 .PHONY: release-win
-release-win: ## 一键完整发布 Windows：打包 + 上传 R2 + 验证
+release-win: ## 一键完整发布 Windows：打包 + 上传 R2 + 验证（构建前会 clear）
 	@echo "🚀 开始 Windows 发布流程..."
+	$(MAKE) clear
 	$(MAKE) package-win
 	$(MAKE) upload-r2-win
 	$(MAKE) upload-r2-verify-win
@@ -304,10 +307,14 @@ setup: ## 初次设置：复制 .env 模板（如果 .env 不存在）
 		echo "ℹ️  .env 已存在，跳过"; \
 	fi
 
-.PHONY: clean
-clean: ## 清理构建产物（release/ 和 dist/）
+.PHONY: clear
+clear: ## 删除上次构建产物（release/、dist/）
+	@echo "🧹 清除上次构建产物..."
 	rm -rf $(ELECTRON_DIR)/release $(ELECTRON_DIR)/dist
-	@echo "✅ 清理完成"
+	@echo "✅ 已清除 release/ 与 dist/"
+
+.PHONY: clean
+clean: clear ## 清理构建产物（同 clear，供 clean-all 链式使用）
 
 .PHONY: clean-all
 clean-all: clean ## 深度清理（包括运行时依赖和下载的 Node 二进制）
