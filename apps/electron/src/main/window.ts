@@ -1,7 +1,7 @@
 import path from "node:path";
 import http from "node:http";
 import fs from "node:fs";
-import { app, BrowserWindow, shell, session } from "electron";
+import { app, BrowserWindow, shell, session, screen } from "electron";
 import { mainLogSync } from "./onboarding.js";
 
 // ---------------------------------------------------------------------------
@@ -89,6 +89,63 @@ function wlogError(msg: string, detail?: unknown): void {
 }
 
 const DEFAULT_GATEWAY_PORT = 18789;
+
+/** Preferred baseline when the work area is large enough (matches prior fixed defaults). */
+const PREFERRED_WIDTH = 1280;
+const PREFERRED_HEIGHT = 800;
+const ABS_MIN_WIDTH = 800;
+const ABS_MIN_HEIGHT = 600;
+/** Cap initial width so ultrawide work areas do not produce an overly wide window. */
+const MAX_INITIAL_WIDTH = 1480;
+/** Cap initial height on very tall work areas. */
+const MAX_INITIAL_HEIGHT = 900;
+
+/**
+ * Initial window bounds: size from work area (larger on big monitors), centered on the
+ * display under the cursor. Clamped so the window stays inside
+ * `workArea` (dock / taskbar excluded).
+ */
+function getInitialWindowBounds(): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  minWidth: number;
+  minHeight: number;
+} {
+  const cursor = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursor);
+  const { x: wx, y: wy, width: waW, height: waH } = display.workArea;
+
+  const inset = 32;
+  const maxW = Math.max(1, waW - inset);
+  const maxH = Math.max(1, waH - inset);
+  const minWidth = Math.min(ABS_MIN_WIDTH, maxW);
+  const minHeight = Math.min(ABS_MIN_HEIGHT, maxH);
+
+  let width = Math.round(waW * 0.84);
+  let height = Math.round(waH * 0.88);
+
+  if (waW >= PREFERRED_WIDTH + inset && waH >= PREFERRED_HEIGHT + inset) {
+    width = Math.max(width, PREFERRED_WIDTH);
+    height = Math.max(height, PREFERRED_HEIGHT);
+  }
+
+  width = Math.min(Math.max(width, minWidth), maxW, MAX_INITIAL_WIDTH);
+  height = Math.min(Math.max(height, minHeight), maxH, MAX_INITIAL_HEIGHT);
+
+  const winX = Math.round(wx + (waW - width) / 2);
+  const winY = Math.round(wy + (waH - height) / 2);
+
+  return {
+    x: winX,
+    y: winY,
+    width,
+    height,
+    minWidth,
+    minHeight,
+  };
+}
 
 /**
  * Top-level navigations that leave the renderer origin (e.g. plain <a href="https://…">)
@@ -243,11 +300,14 @@ export function configureSession(port: number): void {
  * 由 index.ts 根据首次启动状态决定加载内容。
  */
 export function createWindow(): BrowserWindow {
+  const bounds = getInitialWindowBounds();
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    minWidth: bounds.minWidth,
+    minHeight: bounds.minHeight,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 16 },
     backgroundColor: "#1a1a1a",
