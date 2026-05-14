@@ -137,7 +137,7 @@ function OptionItem({
           <span className="flex h-6 items-center">{option.icon}</span>
         )}
         <div className="flex flex-col text-left">
-          <span className="leading-6 text-black text-pretty">{option.label}</span>
+          <span className="leading-6 text-foreground text-pretty">{option.label}</span>
           {option.description && (
             <span className="text-muted-foreground text-sm font-normal text-pretty">
               {option.description}

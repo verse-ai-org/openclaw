@@ -190,24 +190,24 @@ export function ToolDetailDrawer({
                 </div>
                 {!isCommandExpanded && (
                   <div className="relative">
-                    <pre className="overflow-x-auto bg-white px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
+                    <pre className="overflow-x-auto px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
                       <span className="text-emerald-600">$ </span>
                       {commandPreviewText}
                     </pre>
                     {isLongCommand && (
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-white to-transparent" />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-background to-transparent" />
                     )}
                   </div>
                 )}
                 {isCommandExpanded && (
-                  <pre className="overflow-x-auto bg-white px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
+                  <pre className="overflow-x-auto px-3 py-3 font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap break-all">
                     <span className="text-emerald-600">$ </span>
                     {commandDisplayText}
                   </pre>
                 )}
               </div>
               {showRawArgs && hasRawArgs && (
-                <pre className="mt-3 rounded-lg border bg-white p-3 text-xs leading-relaxed whitespace-pre-wrap break-all">
+                <pre className="mt-3 rounded-lg border p-3 text-xs leading-relaxed whitespace-pre-wrap break-all">
                   {argsText}
                 </pre>
               )}
