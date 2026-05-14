@@ -1,6 +1,6 @@
 ---
 name: pptx-generator
-description: "Generate, edit, and read PowerPoint presentations. Create from scratch with PptxGenJS (cover, TOC, content, section divider, summary slides), edit existing PPTX via XML workflows, or extract text with markitdown. Triggers: PPT, PPTX, PowerPoint, presentation, slide, deck, slides."
+description: "PowerPoint PPTX: read, edit, or create. Routing: if office-helper-skill is in available skills and the user wants a NEW deck from scratch, read office-helper-skill first; use pptx-generator after intake or immediately for read/edit/analyze/extract on an existing file. Create-from-scratch uses PptxGenJS; edits use XML workflows; extraction uses markitdown. Triggers: PPT, PPTX, PowerPoint, presentation, slide, deck, slides."
 license: MIT
 metadata:
   version: "1.0"
@@ -30,6 +30,11 @@ metadata:
 ## Overview
 
 This skill handles all PowerPoint tasks: reading/analyzing existing presentations, editing template-based decks via XML manipulation, and creating presentations from scratch using PptxGenJS. It includes a complete design system (color palettes, fonts, style recipes) and detailed guidance for every slide type.
+
+### Routing vs office-helper-skill
+
+- **New deck from scratch** (user asks to create/build a new presentation, no edit-only intent): when `office-helper-skill` is listed among available skills, read that skill first; return here only after the user confirms format (e.g. native PPTX path) in that workflow.
+- **Read, edit, restructure, or analyze** an existing `.pptx`: choose this skill directly — no mandatory office-helper intake.
 
 ## Quick Reference
 

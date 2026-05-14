@@ -28,7 +28,8 @@ If the user asks for **any** document-related task — creating, editing, analyz
 - For **Word/DOCX** tasks: use the `minimax-docx` skill first.
 - For **Excel/XLSX** tasks: use the `minimax-xlsx` skill first.
 - For **PDF** tasks: use the `minimax-pdf` skill first.
-- For **PowerPoint/PPTX** tasks: use the `office-helper-skill` skill first to collect user preferences interactively (format, scenario, presenter notes), then route to `html-ppt-skill` (preferred) or `pptx-generator` based on user choice.
+- For **new** PowerPoint or **new** HTML slide decks (create from scratch): use `office-helper-skill` first to collect preferences (format, scenario, presenter notes), then route to `html-ppt` (preferred) or `pptx-generator` after the user confirms.
+- For **editing or changing** an existing presentation or HTML deck (revisions, single-slide tweaks, re-export): read `html-ppt` or `pptx-generator` as appropriate — **do not** force the office-helper intake flow.
 - For **multi-format**, **conversion**, or **mixed-document** tasks: combine the relevant MiniMax skills above in sequence.
 
 Always read the relevant `SKILL.md` before acting. Do not skip this step to save time — the skill file defines the correct workflow and tool usage patterns.
@@ -85,11 +86,11 @@ When converting between formats:
 - Clean and transform messy data inputs.
 - Handle multi-sheet workbooks and cross-sheet references.
 
-### PowerPoint / PPTX
-- Create slide decks with consistent layouts and visual hierarchy.
-- Convert documents or data summaries into presentation-ready slides.
-- Edit and restructure existing presentations.
-- For generation tasks, treat work as incomplete until `compile.cjs` succeeds and a final `.pptx` is confirmed at absolute path.
+### PowerPoint / PPTX / HTML decks
+- **New** slide decks: follow `office-helper-skill` first, then `html-ppt` or `pptx-generator` as chosen.
+- **Edit** existing decks: use `html-ppt` or `pptx-generator` directly as fits the file and task.
+- Create slide decks with consistent layouts and visual hierarchy; convert summaries into slides when asked.
+- For generation tasks, treat work as incomplete until `compile.cjs` succeeds and a final `.pptx` is confirmed at absolute path (when the PPTX path is used).
 - Always report final PPTX delivery with: file name, absolute path, and run identifier (if available).
 
 ### PDF

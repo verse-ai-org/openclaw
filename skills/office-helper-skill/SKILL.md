@@ -1,6 +1,6 @@
 ---
 name: office-helper-skill
-description: "PPT/演示文稿需求引导技能。在生成 PPT 前通过交互式卡片收集用户偏好（格式、场景、逐字稿需求），按场景自动映射推荐参数，最终确认后路由到 html-ppt-skill 或 pptx-generator 执行生成。用户提到做 PPT、演示文稿、幻灯片、deck 时触发。"
+description: "PPT/HTML 幻灯片新建 — 优先技能。凡用户要从零创建演示文稿（PPT、幻灯片、deck、HTML 幻灯片、html-ppt 输出）且 office-helper-skill 在可用列表中：必须先读本 skill 并完成引导（卡片收集偏好 → 确认）再路由到 html-ppt 或 pptx-generator。不用于仅编辑/修改已有稿。与 html-ppt / pptx-generator 同时出现时优先选本 skill 处理新建请求。"
 license: MIT
 metadata:
   openclaw:
@@ -12,22 +12,25 @@ metadata:
 
 # Office Helper Skill — PPT 需求引导
 
-在用户要求生成 PPT/演示文稿时，通过结构化交互（`option_list` / `approval_card`）收集必要偏好，按场景自动映射推荐参数，减少逐项提问，提升引导效率。
+在用户要求**新建** PPT 或 HTML 幻灯片时，通过结构化交互（`option_list` / `approval_card`）收集必要偏好，按场景自动映射推荐参数，减少逐项提问，提升引导效率。
 
 ## 适用范围
 
-- 用户提到「做 PPT」「生成演示文稿」「做一个 deck」「帮我做 slides」
+- 用户要从零**创建**演示内容：「做 PPT」「生成演示文稿」「做一个 deck」「帮我做 slides」「做一份 HTML 幻灯片 / html-ppt」等
 - 用户描述了一个演示场景但未指定具体参数
 - 需要区分 html-ppt（网页幻灯片）和 pptx-generator（原生 PowerPoint）
+- 用户已在消息里写清部分偏好时仍走本流程：用**跳过守卫**少问已明确项；**最终确认**仍用 `approval_card`。
 
 ## 不适用范围
 
-- 纯文档编辑、表格分析、PDF 处理（由其他 office-helper skill 处理）
+- **仅编辑、修改、增量调整**已有 PPT/HTML deck（由 `html-ppt` 或 `pptx-generator` 等直接处理，不强制本 skill）
+- **只读**分析、提取、总结已有演示稿（优先 `pptx-generator` / markitdown 等）
+- 纯文档编辑、表格分析、PDF 处理（由 minimax-docx / minimax-xlsx / minimax-pdf 等处理）
 - 非演示类内容创作
-- 用户已明确指定所有参数并直接要求生成（此时直接路由到对应 skill）
 
 ## Guardrails（必须遵守）
 
+- **新建 vs 编辑**：若用户意图是**改已有稿**（改某一页、换主题、删页、修文案、调动画等），不要强行拉本流程；提示可选用 `html-ppt` 或 `pptx-generator`。若意图是**新建整套**，必须走本 skill（再路由执行层）。
 - **交互守卫**：调用 `option_list` / `approval_card` 后必须 STOP，等待用户提交后再继续
 - **跳过守卫**：用户已在消息中明确提供的信息（如"用 html-ppt 做技术分享"），不得重复提问
 - **场景驱动**：场景选择后，推荐参数由 `references/scenario-mapping.md` 映射表自动填充，不逐项询问

@@ -1,6 +1,6 @@
 ---
 name: html-ppt
-description: HTML PPT Studio — author professional static HTML presentations in many styles, layouts, and animations, all driven by templates. Use when the user asks for a presentation, PPT, slides, keynote, deck, slideshow, "幻灯片", "演讲稿", "做一份 PPT", "做一份 slides", a reveal-style HTML deck, a 小红书 图文, or any kind of multi-slide pitch/report/sharing document that should look tasteful and be usable with keyboard navigation. Triggers include keywords like "presentation", "ppt", "slides", "deck", "keynote", "reveal", "slideshow", "幻灯片", "演讲稿", "分享稿", "小红书图文", "talk slides", "pitch deck", "tech sharing", "technical presentation".
+description: "HTML PPT Studio — static HTML decks (themes, layouts, animations, templates). Routing: if office-helper-skill appears in available skills and the user is starting a NEW presentation from scratch (including any new HTML slide deck), read office-helper-skill first and only read html-ppt after that intake completes. If the user is editing, revising, or incrementally changing an existing deck, or no office-helper-skill is available, read html-ppt directly. Triggers include presentation, PPT, slides, deck, keynote, reveal, slideshow, 幻灯片, 演讲稿, 小红书图文, pitch deck, tech sharing."
 metadata:
   openclaw:
     emoji: "🎬"
@@ -42,8 +42,14 @@ One command, no build. Pure static HTML/CSS/JS with only CDN webfonts.
 
 ## When to use
 
-Use when the user asks for any kind of slide-based output or wants to turn
-text/notes into a presentable deck. Prefer this over building from scratch.
+Use when the user asks for slide-based HTML output or wants to turn text/notes
+into a presentable deck — **after** `office-helper-skill` has finished when that
+skill is in the available list and the request is **net-new creation**. For
+**edits** to an existing deck (copy, layout, theme swap, add/remove slides), use
+this skill directly without running office-helper again.
+
+If both this skill and `office-helper-skill` match and the task is **create**:
+choose `office-helper-skill` first (it is more specific for gated intake).
 
 ### 🎤 Presenter Mode (演讲者模式 + 逐字稿)
 
@@ -72,6 +78,10 @@ Keyboard in presenter window: `← →` navigate (syncs audience) · `R` reset t
 Keyboard in audience window: `S` open presenter · `T` cycle theme · `← →` navigate (syncs presenter) · `F` fullscreen · `O` overview.
 
 ## Before you author anything — ALWAYS ask or recommend
+
+When **net-new creation** went through `office-helper-skill` first, reuse the
+confirmed topic, template, theme, and language from that intake — only ask below
+for gaps. For **edit-only** tasks, ask only if something essential is missing.
 
 **Do not start writing slides until you understand three things.** Either ask
 the user directly, or — if they already handed you rich content — propose a
