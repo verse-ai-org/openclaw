@@ -103,7 +103,8 @@
   --popover: oklch(0.21 0.006 285.885);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.4999 0.2003 18.21);
-  --primary-foreground: oklch(0.21 0.006 285.885);
+  /* Must stay light on brand primary — dark gray here made default buttons unreadable in dark mode */
+  --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.274 0.006 286.033);

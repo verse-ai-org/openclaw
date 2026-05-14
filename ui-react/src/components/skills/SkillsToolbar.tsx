@@ -21,7 +21,7 @@ export function SkillsToolbar({ filter, loading, shownCount, onFilterChange, onR
           placeholder="Filter skills..."
           value={filter}
           onChange={(e) => onFilterChange(e.target.value)}
-          className="h-10 w-[320px] rounded-full bg-[#F6F6F6] pl-10 pr-5 text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
+          className="h-10 w-[320px] rounded-full border border-transparent bg-muted pl-10 pr-5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-primary/30"
         />
       </div>
 
@@ -38,18 +38,15 @@ export function SkillsToolbar({ filter, loading, shownCount, onFilterChange, onR
       {/* Add New Skill button */}
       <AddSkillDialog
         trigger={
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[11px] font-bold text-white hover:bg-primary/90 transition-colors"
-          >
+          <Button type="button" className="h-auto rounded-full px-4 py-2 text-[11px] font-bold">
             <span className="text-base leading-none">+</span>
             Add New Skill
-          </button>
+          </Button>
         }
       />
 
       {/* Skills count pill */}
-      <span className="hidden items-center rounded-full bg-black/5 px-4 py-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+      <span className="hidden items-center rounded-full bg-muted px-4 py-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
         {shownCount} Skills
       </span>
     </div>

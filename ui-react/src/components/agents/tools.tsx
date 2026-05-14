@@ -239,7 +239,7 @@ function ToolsDialog({
         <DialogContent className="w-[60vw] max-w-[60vw] sm:max-w-[60vw] h-[75vh] flex flex-col gap-0 p-0 overflow-hidden rounded-3xl">
           <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <DialogTitle className="text-[15px] font-bold">Tools & Capabilities</DialogTitle>
-            <p className="text-[12px] text-[#8E8E93] mt-0.5">{shown.length} of {allTools.length} tools</p>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">{shown.length} of {allTools.length} tools</p>
           </DialogHeader>
 
           {/* Toolbar: search + profile tabs */}
@@ -247,7 +247,7 @@ function ToolsDialog({
             <DialogSearchInput value={q} onChange={setQ} placeholder="Search tools…" />
 
             {/* Profile selector — primary filter */}
-            <div className="flex items-center bg-[#F3F4F6] rounded-full p-0.5 gap-0.5 self-start">
+            <div className="flex items-center gap-0.5 self-start rounded-full bg-muted p-0.5">
               {TOOL_PROFILES.map((p) => (
                 <button
                   key={p}
@@ -255,16 +255,16 @@ function ToolsDialog({
                   disabled={!editable}
                   onClick={() => handleProfileChange(p)}
                   className={cn(
-                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-colors duration-150",
-                    draftProfile === p ? "bg-white text-black shadow-sm" : "text-[#8E8E93] hover:text-black",
-                    !editable && "opacity-50 cursor-not-allowed",
+                    "rounded-full px-3 py-1 text-[11px] font-semibold transition-colors duration-150",
+                    draftProfile === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    !editable && "cursor-not-allowed opacity-50",
                   )}
                 >
                   {PROFILE_LABELS[p]}
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-[#8E8E93] -mt-1">{PROFILE_DESCRIPTIONS[draftProfile]}</p>
+            <p className="-mt-1 text-[11px] text-muted-foreground">{PROFILE_DESCRIPTIONS[draftProfile]}</p>
           </div>
 
           {/* Tool grid */}
@@ -276,17 +276,17 @@ function ToolsDialog({
                   <div
                     key={tool.id}
                     title={tool.description}
-                    className="flex items-center justify-between bg-white rounded-[20px] px-4 h-13.5 shadow-sm"
+                    className="flex h-13.5 items-center justify-between rounded-[20px] bg-card px-4 shadow-sm"
                   >
-                    <div className="flex flex-col flex-1 min-w-0 mr-2">
+                    <div className="mr-2 flex min-w-0 flex-1 flex-col">
                       {/* Only dim text, not the toggle — toggle must always look clickable */}
                       <span className={cn(
-                        "text-[13px] font-semibold truncate font-mono",
-                        allowed ? "text-black" : "text-[#C0C4CC]",
+                        "truncate font-mono text-[13px] font-semibold",
+                        allowed ? "text-foreground" : "text-muted-foreground",
                       )}>
                         {tool.id}
                       </span>
-                      <span className="text-[11px] text-[#8E8E93] truncate">{tool.groupLabel}</span>
+                      <span className="truncate text-[11px] text-muted-foreground">{tool.groupLabel}</span>
                     </div>
                     <AppleToggle
                       checked={allowed}
@@ -297,7 +297,7 @@ function ToolsDialog({
                 );
               })}
               {shown.length === 0 && (
-                <p className="col-span-3 text-sm text-[#8E8E93] py-4 text-center">No tools found.</p>
+                <p className="col-span-3 py-4 text-center text-sm text-muted-foreground">No tools found.</p>
               )}
             </div>
           </ScrollArea>
@@ -307,11 +307,7 @@ function ToolsDialog({
             <Button variant="outline" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
-            <Button
-              className="gap-1.5 bg-[#BA0034] text-white hover:bg-[#9b0029]"
-              disabled={!isDirty || !editable || saving}
-              onClick={() => void handleSave()}
-            >
+            <Button disabled={!isDirty || !editable || saving} onClick={() => void handleSave()}>
               {saving && <Loader2Icon className="size-4 animate-spin" />}
               Save
             </Button>
@@ -332,7 +328,7 @@ function ToolsDialog({
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setConfirmOpen(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-[#BA0034] text-white hover:bg-[#9b0029]"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => { setConfirmOpen(false); void doSave(); }}
             >
               Confirm & Save
@@ -447,11 +443,11 @@ export function ToolsSection({ agentId }: { agentId: string }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <SectionLabel>Tools & Capabilities</SectionLabel>
-        <span className="text-[11px] text-[#8E8E93] font-semibold">{activeCount} / {allCatalogTools.length} active</span>
+        <span className="text-[11px] font-semibold text-muted-foreground">{activeCount} / {allCatalogTools.length} active</span>
       </div>
 
       {toolsCatalogLoading && !toolsCatalogResult && (
-        <div className="flex items-center gap-2 text-[#8E8E93] text-sm mb-4">
+        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2Icon className="size-4 animate-spin" /> Loading tools…
         </div>
       )}
@@ -459,7 +455,7 @@ export function ToolsSection({ agentId }: { agentId: string }) {
 
       {/* hasAllow warning */}
       {agentToolsConfig.hasAllow && (
-        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4">
+        <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/60 dark:text-amber-100">
           This agent uses a full tool allowlist (<code className="font-mono">tools.allow</code>). UI editing is disabled — edit the config file directly to make changes.
         </p>
       )}
@@ -475,18 +471,18 @@ export function ToolsSection({ agentId }: { agentId: string }) {
                 disabled={!editable}
                 onClick={() => handleCardProfileChange(p)}
                 className={cn(
-                  "px-3 py-1 rounded-full text-[12px] font-semibold border transition-colors duration-150",
+                  "rounded-full border px-3 py-1 text-[12px] font-semibold transition-colors duration-150",
                   currentProfile === p
-                    ? "bg-[#111827] text-white border-[#111827]"
-                    : "bg-white text-[#6B7280] border-[#E5E7EB] hover:border-[#111827] hover:text-[#111827]",
-                  !editable && "opacity-40 cursor-not-allowed",
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-primary hover:text-foreground",
+                  !editable && "cursor-not-allowed opacity-40",
                 )}
               >
                 {PROFILE_LABELS[p]}
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-[#8E8E93]">{PROFILE_DESCRIPTIONS[currentProfile]}</p>
+          <p className="text-[11px] text-muted-foreground">{PROFILE_DESCRIPTIONS[currentProfile]}</p>
         </div>
       )}
 
@@ -500,17 +496,17 @@ export function ToolsSection({ agentId }: { agentId: string }) {
                 key={tool.id}
                 title={tool.description}
                 className={cn(
-                  "flex items-center gap-2 bg-white rounded-xl px-3 h-10 shadow-sm",
+                  "flex h-10 border items-center gap-2 rounded-xl bg-card px-3",
                   !allowed && "opacity-45",
                 )}
               >
                 <span className={cn(
                   "size-1.5 rounded-full shrink-0",
-                  allowed ? "bg-green-500" : "bg-[#D1D5DB]",
+                  allowed ? "bg-green-500" : "bg-muted",
                 )} />
                 <span className={cn(
                   "text-[12px] font-mono font-semibold truncate",
-                  allowed ? "text-black" : "text-[#9CA3AF]",
+                  allowed ? "text-foreground" : "text-muted-foreground",
                 )}>
                   {tool.id}
                 </span>
@@ -521,7 +517,7 @@ export function ToolsSection({ agentId }: { agentId: string }) {
       )}
 
       {previewTools.length === 0 && !toolsCatalogLoading && (
-        <p className="text-sm text-[#8E8E93] mt-4">No tools registered.</p>
+        <p className="mt-4 text-sm text-muted-foreground">No tools registered.</p>
       )}
 
       {/* Advanced config button */}
@@ -530,7 +526,7 @@ export function ToolsSection({ agentId }: { agentId: string }) {
           type="button"
           onClick={() => setDialogOpen(true)}
           disabled={toolsCatalogLoading}
-          className="text-[12px] font-semibold text-[#BA0034] hover:underline disabled:opacity-40"
+          className="text-[12px] font-semibold text-primary hover:underline disabled:opacity-40"
         >
           Advanced →
         </button>

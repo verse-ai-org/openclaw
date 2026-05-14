@@ -42,7 +42,7 @@ export function CatalogSection({
     <div className="flex flex-col gap-6">
       {pluginDisabledEntries.length > 0 && (
         <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
             Installed — needs enabling
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -59,7 +59,7 @@ export function CatalogSection({
       )}
       {notInstalledEntries.length > 0 && (
         <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
             Not installed
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PROVIDER_EMOJI, PROVIDER_LOGO } from "@/data/auth-choice-groups";
+import { cn } from "@/lib/utils";
 
 interface ProviderModelSummaryCardProps {
   providerId: string;
@@ -38,7 +39,7 @@ export function ProviderModelSummaryCard({
         <div className="space-y-1">
           <p className="text-muted-foreground">Current configuration</p>
         </div>
-        <Button type="button" size="sm" onClick={onEdit}>
+        <Button type="button" size="sm" onClick={onEdit} className="rounded-full">
           Edit Provider & Auth
         </Button>
       </div>
@@ -69,14 +70,14 @@ export function ProviderModelSummaryCard({
           </p>
           <p className="mb-1 text-sm font-medium text-foreground">{methodLabel}</p>
           <Badge
-            className={[
+            className={cn(
               "inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium",
-              methodStatusTone === "success"
-                ? "bg-emerald-100 text-emerald-700"
-                : methodStatusTone === "warning"
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-muted text-muted-foreground",
-            ].join(" ")}
+              methodStatusTone === "success" &&
+                "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+              methodStatusTone === "warning" &&
+                "bg-amber-500/15 text-amber-800 dark:text-amber-200",
+              methodStatusTone === "neutral" && "bg-muted text-muted-foreground",
+            )}
           >
             {methodStatusLabel}
           </Badge>

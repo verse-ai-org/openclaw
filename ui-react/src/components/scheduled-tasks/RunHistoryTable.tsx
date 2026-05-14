@@ -131,7 +131,7 @@ export function RunHistoryTable({
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Day / Week / Month toggle group — matches TabsList style */}
-        <div className="inline-flex h-auto gap-1 rounded-2xl bg-[#F6F6F6] p-1">
+        <div className="inline-flex h-auto gap-1 rounded-2xl bg-muted p-1">
           {TIME_FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -140,7 +140,7 @@ export function RunHistoryTable({
               className={
                 "rounded-[14px] px-5 py-1 text-[13px] font-semibold transition-all" +
                 (timeFilter === opt.value
-                  ? " bg-white text-foreground shadow-sm"
+                  ? " bg-background text-foreground shadow-sm"
                   : " text-muted-foreground hover:text-foreground")
               }
             >
@@ -150,7 +150,7 @@ export function RunHistoryTable({
         </div>
 
         {/* Status filter — same pill style */}
-        <div className="inline-flex h-auto gap-1 rounded-2xl bg-[#F6F6F6] p-1">
+        <div className="inline-flex h-auto gap-1 rounded-2xl bg-muted p-1">
           {(["all", "success", "failed", "running"] as const).map((val) => (
             <button
               key={val}
@@ -159,7 +159,7 @@ export function RunHistoryTable({
               className={
                 "rounded-[14px] px-5 py-1 text-[13px] font-semibold transition-all" +
                 (statusFilter === val
-                  ? " bg-white text-foreground shadow-sm"
+                  ? " bg-background text-foreground shadow-sm"
                   : " text-muted-foreground hover:text-foreground")
               }
             >
@@ -170,7 +170,7 @@ export function RunHistoryTable({
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border">
+      <div className="overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/40">

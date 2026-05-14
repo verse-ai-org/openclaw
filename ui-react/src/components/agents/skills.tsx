@@ -110,7 +110,7 @@ function AddSkillsDialog({
       <DialogContent className="w-[60vw] max-w-[60vw] sm:max-w-[60vw] h-[70vh] flex flex-col gap-0 p-0 overflow-hidden rounded-3xl">
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle className="text-[15px] font-bold">Add Skills</DialogTitle>
-          <p className="text-[12px] text-[#8E8E93] mt-0.5">
+          <p className="mt-0.5 text-[12px] text-muted-foreground">
             {shown.length} available · {selected.length} selected
           </p>
         </DialogHeader>
@@ -135,32 +135,28 @@ function AddSkillsDialog({
                   type="button"
                   onClick={() => toggleSelect(id)}
                   className={cn(
-                    "text-left rounded-2xl border px-3 py-2 transition-colors",
+                    "rounded-2xl border px-3 py-2 text-left transition-colors",
                     checked
-                      ? "border-[#BA0034] bg-[#FFF3F7]"
-                      : "border-[#E5E7EB] bg-white hover:border-[#BA0034]/40",
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card hover:border-primary/40",
                   )}
                 >
-                  <p className="text-[13px] font-semibold text-black truncate">{skill.name}</p>
+                  <p className="truncate text-[13px] font-semibold text-foreground">{skill.name}</p>
                   {skill.description && (
-                    <p className="text-[11px] text-[#8E8E93] line-clamp-2 mt-1">{skill.description}</p>
+                    <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{skill.description}</p>
                   )}
                 </button>
               );
             })}
             {shown.length === 0 && (
-              <p className="col-span-3 text-sm text-[#8E8E93] py-4 text-center">No skills found.</p>
+              <p className="col-span-3 py-4 text-center text-sm text-muted-foreground">No skills found.</p>
             )}
           </div>
         </ScrollArea>
 
         <div className="border-t px-6 py-4 shrink-0 flex items-center justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button
-            className="gap-1.5 bg-[#BA0034] text-white hover:bg-[#9b0029]"
-            disabled={selected.length === 0 || saving}
-            onClick={() => void handleAdd()}
-          >
+          <Button disabled={selected.length === 0 || saving} onClick={() => void handleAdd()}>
             {saving && <Loader2Icon className="size-4 animate-spin" />}
             Add {selected.length > 0 ? selected.length : ""}
           </Button>
@@ -264,11 +260,11 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
     <SectionCard>
       <div className="flex items-center justify-between mb-3">
         <SectionLabel>Skills</SectionLabel>
-        <span className="text-[11px] text-[#8E8E93] font-semibold">{boundSkills.length} bound</span>
+        <span className="text-[11px] font-semibold text-muted-foreground">{boundSkills.length} bound</span>
       </div>
 
       {agentSkillsLoading && !agentSkillsReport && (
-        <div className="flex items-center gap-2 text-[#8E8E93] text-sm py-4">
+        <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
           <Loader2Icon className="size-4 animate-spin" />
           Loading skills…
         </div>
@@ -278,7 +274,7 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
       )}
 
       {!hasExplicitSkillsList && !agentSkillsLoading && boundSkills.length > 0 && (
-        <p className="text-[11px] text-[#8E8E93] mb-3">
+        <p className="mb-3 text-[11px] text-muted-foreground">
           No restrictions — all active skills are available.
         </p>
       )}
@@ -287,21 +283,21 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
         <div className="max-h-[260px] overflow-y-auto">
           <div className="grid grid-cols-3 gap-3 pr-1">
             {boundSkills.map((skill) => (
-              <div key={skill.id} className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2">
+              <div key={skill.id} className="rounded-2xl border border-border bg-card px-3 py-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-black truncate">{skill.label}</p>
+                    <p className="truncate text-[13px] font-semibold text-foreground">{skill.label}</p>
                     {skill.description && (
-                      <p className="text-[11px] text-[#8E8E93] line-clamp-2 mt-1">{skill.description}</p>
+                      <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{skill.description}</p>
                     )}
                     {skill.missingFromCatalog && (
-                      <p className="text-[11px] text-amber-600 mt-1">Missing from current skills catalog</p>
+                      <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-500">Missing from current skills catalog</p>
                     )}
                   </div>
                   {!LOCKED_SKILL_AGENT_IDS.has(agentId) && (
                     <button
                       type="button"
-                      className="shrink-0 rounded-full p-1 text-[#8E8E93] hover:text-[#BA0034] hover:bg-[#FFF3F7]"
+                      className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => void handleRemove(skill.id)}
                       disabled={updating}
                       aria-label={`Remove ${skill.label}`}
@@ -317,8 +313,8 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
         </div>
       ) : (
         !agentSkillsLoading && (
-          <div className="rounded-2xl border border-dashed border-[#E5E7EB] p-6 text-center">
-            <p className="text-sm text-[#8E8E93]">No bound skills yet.</p>
+          <div className="rounded-2xl border border-dashed border-border p-6 text-center">
+            <p className="text-sm text-muted-foreground">No bound skills yet.</p>
           </div>
         )
       )}
@@ -329,7 +325,7 @@ export function CoreSkillsSection({ agentId }: { agentId: string }) {
           type="button"
           onClick={() => setDialogOpen(true)}
           disabled={agentSkillsLoading || updating}
-          className="text-[12px] font-semibold text-[#BA0034] hover:underline disabled:opacity-40"
+          className="text-[12px] font-semibold text-primary hover:underline disabled:opacity-40"
         >
           Advanced →
         </button>

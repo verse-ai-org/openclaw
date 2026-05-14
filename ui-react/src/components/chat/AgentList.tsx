@@ -39,11 +39,11 @@ function AgentItem({
       className={cn(
         "w-full rounded-2xl px-3 py-2 text-left transition-colors",
         "flex items-center gap-2",
-        "hover:bg-muted",
+        "hover:bg-accent",
       )}
     >
       {/* Avatar: image if available, else emoji */}
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-md overflow-hidden">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-md overflow-hidden dark:ring-1 dark:ring-border">
         {avatarUrl ? (
           <img
             src={avatarUrl}
@@ -105,10 +105,10 @@ export function AgentList({ onSelectAgent, search = "" }: AgentListProps) {
       {/* List */}
       <div className="flex flex-col gap-0.5">
         {loading && agents.length === 0 && (
-          <p className="px-3 py-2 text-[13px] text-[rgb(142,142,147)]">Loading…</p>
+          <p className="px-3 py-2 text-[13px] text-muted-foreground">Loading…</p>
         )}
         {!loading && agents.length === 0 && (
-          <p className="px-3 py-2 text-[13px] text-[rgb(142,142,147)]">
+          <p className="px-3 py-2 text-[13px] text-muted-foreground">
             {search ? "No results" : "No employees found"}
           </p>
         )}

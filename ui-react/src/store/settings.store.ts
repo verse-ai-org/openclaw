@@ -180,7 +180,7 @@ export function loadSettings(): UiSettings {
     token: urlToken || loadSessionToken(resolvedGatewayUrl) || devToken,
     sessionKey: "main",
     lastActiveSessionKey: "main",
-    theme: "system",
+    theme: "light",
     chatFocusMode: false,
     chatShowThinking: true,
     splitRatio: 0.6,
@@ -220,12 +220,7 @@ export function loadSettings(): UiSettings {
         parsed.lastActiveSessionKey.trim()
           ? parsed.lastActiveSessionKey.trim()
           : "main",
-      theme:
-        parsed.theme === "light" ||
-        parsed.theme === "dark" ||
-        parsed.theme === "system"
-          ? parsed.theme
-          : "system",
+      theme: parsed.theme === "dark" ? "dark" : "light",
       chatFocusMode:
         typeof parsed.chatFocusMode === "boolean"
           ? parsed.chatFocusMode
@@ -263,15 +258,13 @@ function persistSettings(settings: UiSettings) {
 // ---------------------------------------------------------------------------
 // Theme helpers
 // ---------------------------------------------------------------------------
-function resolveSystemTheme(): "light" | "dark" {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+function applyThemeToDom(theme: ThemeMode) {
+  document.documentElement.classList.toggle("dark", theme === "dark");
 }
 
-function applyThemeToDom(theme: ThemeMode) {
-  const resolved = theme === "system" ? resolveSystemTheme() : theme;
-  document.documentElement.classList.toggle("dark", resolved === "dark");
+/** Appearance saved in UI settings — used as ThemeProvider defaultTheme. */
+export function getPersistedAppearance(): ThemeMode {
+  return loadSettings().theme;
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +296,5 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   applyTheme: (theme) => {
     get().updateSettings({ theme });
-    applyThemeToDom(theme);
   },
 }));

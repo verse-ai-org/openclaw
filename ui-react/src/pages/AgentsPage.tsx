@@ -171,10 +171,7 @@ export function AgentsPage() {
               </p>
             </div>
           <div className="flex items-center gap-2">
-            <Button
-              className="gap-2 rounded-3xl bg-primary text-white hover:bg-primary/90"
-              onClick={() => setCreateOpen(true)}
-            >
+            <Button className="rounded-3xl" onClick={() => setCreateOpen(true)}>
               <PlusIcon className="size-4" />
               New Employee
             </Button>
@@ -198,17 +195,14 @@ export function AgentsPage() {
               </div>
             ) : agents.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-                <FileTextIcon className="size-16 text-[#E5E7EB]" />
+                <FileTextIcon className="size-16 text-muted-foreground" />
                 <div>
-                  <p className="text-base font-semibold text-[#111827]">No agents yet</p>
-                  <p className="text-sm text-[#8E8E93] mt-1">
+                  <p className="text-base font-semibold text-foreground">No agents yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Create your first agent to get started
                   </p>
                 </div>
-                <Button
-                  className="gap-2 bg-[#BA0034] text-white hover:bg-[#9b0029]"
-                  onClick={() => setCreateOpen(true)}
-                >
+                <Button onClick={() => setCreateOpen(true)}>
                   <PlusIcon className="size-4" />
                   Create Agent
                 </Button>

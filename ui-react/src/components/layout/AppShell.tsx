@@ -1,4 +1,4 @@
-import { BellIcon, RefreshCwIcon } from "lucide-react";
+import { BellIcon, RefreshCwIcon, UserIcon } from "lucide-react";
 import { Outlet, useLocation } from "react-router";
 import { GatewayStatusIndicator } from "@/components/gateway/GatewayStatusIndicator";
 import { GatewayRestartingOverlay } from "@/components/gateway/GatewayRestartingOverlay";
@@ -54,10 +54,7 @@ function TopNav() {
         >
           <RefreshCwIcon className="size-4" />
         </button>
-        {/* Theme toggle kept in tree; remove `hidden` on the wrapper to show again. */}
-        <div className="hidden" aria-hidden>
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
         <button
           type="button"
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -67,8 +64,8 @@ function TopNav() {
         </button>
         <GatewayStatusIndicator />
         <Avatar className="size-8 ml-1 cursor-pointer">
-          <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-            U
+          <AvatarFallback className="text-xs">
+            <UserIcon className="size-4" />
           </AvatarFallback>
         </Avatar>
       </div>

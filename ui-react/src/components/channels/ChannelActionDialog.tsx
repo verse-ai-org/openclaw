@@ -78,9 +78,15 @@ export function ChannelActionDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={confirming} onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel
+            disabled={confirming}
+            onClick={onCancel}
+            className="rounded-full"
+          >
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
-            className={cn(confirmClass)}
+            className={cn("rounded-full", confirmClass)}
             disabled={confirming}
             onClick={() => { void handleConfirm(); }}
           >

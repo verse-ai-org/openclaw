@@ -19,7 +19,7 @@ export function CatalogCard({
   const isEnabling = isPluginDisabled && enablingPluginId === entry.pluginId;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border bg-white p-5">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-card-foreground">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           {/* Channel Logo */}
@@ -37,14 +37,12 @@ export function CatalogCard({
                 );
               }
               // Fallback to default icon if no logo
-              return <MessageSquareIcon className="size-12 text-zinc-400" />;
+              return <MessageSquareIcon className="size-12 text-muted-foreground" />;
             })()}
           </div>
           <div className="flex flex-col h-full">
-            <p className="text-sm font-semibold text-[#111827] leading-tight">
-              {entry.label}
-            </p>
-            <p className="text-[12px] text-[#6B7280] leading-relaxed">
+            <p className="text-sm font-semibold leading-tight">{entry.label}</p>
+            <p className="text-[12px] text-muted-foreground leading-relaxed">
               {entry.blurb ?? entry.label}
             </p>
           </div>
@@ -55,7 +53,7 @@ export function CatalogCard({
               href={docsUrl}
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 inline-flex items-center gap-1 text-[11px] text-zinc-500 font-semibold hover:underline"
+              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
               Docs <ExternalLinkIcon className="size-3" />
@@ -71,7 +69,7 @@ export function CatalogCard({
                   onEnablePlugin?.(entry.pluginId);
                 }
               }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-[12px] font-bold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-[12px] font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               {isEnabling ? (
                 <Loader2Icon className="size-3 animate-spin" />

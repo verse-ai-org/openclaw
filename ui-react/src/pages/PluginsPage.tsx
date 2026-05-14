@@ -83,8 +83,10 @@ export function PluginsPage() {
               <div
                 key={i}
                 className={cn(
-                  "text-[12px] px-4 py-2.5 rounded-2xl",
-                  d.level === "error" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700",
+                  "text-[12px] px-4 py-2.5 rounded-2xl border",
+                  d.level === "error"
+                    ? "border-destructive/30 bg-destructive/10 text-destructive"
+                    : "border-amber-500/25 bg-amber-500/10 text-amber-900 dark:text-amber-200",
                 )}
               >
                 {d.pluginId && <span className="font-semibold">{d.pluginId}: </span>}
@@ -113,19 +115,19 @@ export function PluginsPage() {
 
         {plugins.length === 0 && !loading && (
           <div className="text-center py-16">
-            <div className="inline-flex size-16 items-center justify-center rounded-3xl bg-[#F6F6F6] mb-4">
-              <PackageIcon className="size-7 text-[#D1D5DB]" />
+            <div className="inline-flex size-16 items-center justify-center rounded-3xl bg-muted mb-4">
+              <PackageIcon className="size-7 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-[#8E8E93]">No plugins loaded.</p>
+            <p className="text-sm font-medium text-muted-foreground">No plugins loaded.</p>
           </div>
         )}
 
         {plugins.length > 0 && filteredPlugins.length === 0 && (
           <div className="text-center py-16">
-            <div className="inline-flex size-16 items-center justify-center rounded-3xl bg-[#F6F6F6] mb-4">
-              <PackageIcon className="size-7 text-[#D1D5DB]" />
+            <div className="inline-flex size-16 items-center justify-center rounded-3xl bg-muted mb-4">
+              <PackageIcon className="size-7 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-[#8E8E93]">
+            <p className="text-sm font-medium text-muted-foreground">
               {filter === "loaded"
                 ? "No loaded plugins."
                 : "No not-loaded plugins."}

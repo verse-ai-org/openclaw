@@ -14,37 +14,37 @@ import { PluginToggleConfirmDialog } from "./PluginToggleConfirmDialog";
 function StatusBadge({ status }: { status: PluginRecord["status"] }) {
   if (status === "loaded") {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/12 dark:bg-emerald-500/20 px-2 py-0.5 rounded-full">
         <CheckCircle2Icon className="size-3" /> loaded
       </span>
     );
   }
   if (status === "disabled") {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#8E8E93] bg-[#F2F2F7] px-2 py-0.5 rounded-full">
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
         disabled
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
       <XCircleIcon className="size-3" /> error
     </span>
   );
 }
 
 function OriginPill({ origin }: { origin: string }) {
-  const colors: Record<string, string> = {
-    bundled: "bg-[#EEF2FF] text-[#4F46E5]",
-    global: "bg-[#FFF7ED] text-[#C2410C]",
-    workspace: "bg-[#F0FDF4] text-[#166534]",
-    config: "bg-[#FFF1F2] text-[#BE123C]",
+  const styles: Record<string, string> = {
+    bundled: "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300",
+    global: "bg-orange-500/15 text-orange-800 dark:text-orange-300",
+    workspace: "bg-green-500/15 text-green-800 dark:text-green-300",
+    config: "bg-rose-500/15 text-rose-800 dark:text-rose-300",
   };
   return (
     <span
       className={cn(
         "inline-block text-[9px] font-bold px-2 py-[2px] rounded-md uppercase tracking-wide",
-        colors[origin] ?? "bg-[#F2F2F7] text-[#8E8E93]",
+        styles[origin] ?? "bg-muted text-muted-foreground",
       )}
     >
       {origin}
@@ -99,8 +99,8 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
     <>
       <div
         className={cn(
-          "flex flex-col rounded-xl border p-8 transition-colors",
-          isDisabled ? "bg-white/80 opacity-60" : "bg-white",
+          "flex flex-col rounded-xl border border-border bg-card p-8 transition-colors text-card-foreground",
+          isDisabled && "opacity-60",
         )}
       >
         {/* Main row */}
@@ -111,13 +111,13 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
               <span
                 className={cn(
                   "truncate text-[15px] font-bold leading-snug",
-                  isDisabled ? "text-muted-foreground" : "text-[#1A1C1D]",
+                  isDisabled ? "text-muted-foreground" : "text-foreground",
                 )}
               >
                 {plugin.name}
               </span>
               {plugin.version && (
-                <span className="text-[11px] text-[#8E8E93] font-mono shrink-0">
+                <span className="text-[11px] text-muted-foreground font-mono shrink-0">
                   v{plugin.version}
                 </span>
               )}
@@ -139,7 +139,7 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
                 {pills.map((p) => (
                   <span
                     key={p}
-                    className="text-[10px] font-medium bg-black/5 text-muted-foreground px-2 py-0.5 rounded-full"
+                    className="text-[10px] font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
                   >
                     {p}
                   </span>
@@ -168,10 +168,10 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
                   type="button"
                   disabled={isToggling}
                   onClick={() => handleToggleClick(true)}
-                  className="rounded-full bg-primary px-5 py-[6px] text-[12px] font-bold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  className="rounded-full bg-primary px-5 py-[6px] text-[12px] font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   {isToggling ? (
-                    <Loader2Icon className="size-3.5 animate-spin" />
+                    <Loader2Icon className="size-3.5 animate-spin text-primary-foreground" />
                   ) : (
                     "Enable"
                   )}
@@ -187,9 +187,9 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
                   title="Disable"
                 >
                   {isToggling ? (
-                    <Loader2Icon className="size-3.5 animate-spin absolute left-1/2 -translate-x-1/2 text-white" />
+                    <Loader2Icon className="size-3.5 animate-spin absolute left-1/2 -translate-x-1/2 text-primary-foreground" />
                   ) : (
-                    <span className="inline-block size-[22px] translate-x-[20px] rounded-full bg-white shadow-sm transition-transform" />
+                    <span className="inline-block size-[22px] translate-x-[20px] rounded-full bg-primary-foreground shadow-sm transition-transform" />
                   )}
                 </button>
               )
@@ -201,10 +201,10 @@ export function PluginCard({ plugin }: { plugin: PluginRecord }) {
         {(toggleErrMsg || hasRealError) && (
           <div className="mt-3 flex flex-col gap-1">
             {toggleErrMsg && (
-              <p className="text-[11px] text-red-500">{toggleErrMsg}</p>
+              <p className="text-[11px] text-destructive">{toggleErrMsg}</p>
             )}
             {hasRealError && plugin.error && (
-              <p className="text-[11px] text-red-400 font-mono line-clamp-1">{plugin.error}</p>
+              <p className="text-[11px] text-destructive font-mono line-clamp-1">{plugin.error}</p>
             )}
           </div>
         )}

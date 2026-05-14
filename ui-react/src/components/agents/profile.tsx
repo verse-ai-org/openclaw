@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { MessageSquare, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useChatStore } from "@/store/chat.store";
@@ -288,25 +289,25 @@ export function ProfileHeroSection({
         video ? "w-[340px] shrink-0" : ""
       }`}>
         <div className="relative mb-6">
-          <div className="size-42.5 rounded-full bg-[#F9FAFB] p-1 flex items-center justify-center shadow-sm">
-            <div className="size-40 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-inner">
+          <div className="flex size-42.5 items-center justify-center rounded-full bg-muted p-1 shadow-sm">
+            <div className="flex size-40 items-center justify-center overflow-hidden rounded-full bg-card shadow-inner">
               {avatar ? (
                 <img src={avatar ?? emoji} alt={name} className="size-full object-contain rounded-full" />
               ) : (
-                <div className="size-full rounded-full flex flex-col items-center justify-center gap-2 bg-[#F9FAFB]">
-                  <span className="text-5xl font-extrabold text-gray-300 select-none">{initials}</span>
+                <div className="flex size-full flex-col items-center justify-center gap-2 rounded-full bg-muted">
+                  <span className="select-none text-5xl font-extrabold text-muted-foreground">{initials}</span>
                 </div>
               )}
             </div>
           </div>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-[#10B981] rounded-full px-2 py-0.5">
-            <span className="size-1.5 rounded-full bg-white shrink-0" />
-            <span className="text-[10px] font-bold text-white tracking-wide">ONLINE</span>
+          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5">
+            <span className="size-1.5 shrink-0 rounded-full bg-white" />
+            <span className="text-[10px] font-bold tracking-wide text-white">ONLINE</span>
           </div>
         </div>
 
         <div className="flex flex-col items-center gap-2">
-          <h1 className="text-[36px] font-extrabold text-black leading-none flex items-center gap-2 whitespace-nowrap">
+          <h1 className="flex items-center gap-2 whitespace-nowrap text-[36px] font-extrabold leading-none text-foreground">
             <span>{emoji}</span>
             <span>{name}</span>
             <Button
@@ -316,19 +317,19 @@ export function ProfileHeroSection({
               className="h-7 w-7 shrink-0 rounded-full"
               onClick={startEdit}
             >
-              <Pencil className="size-4 text-black" />
+              <Pencil className="size-4 text-foreground" />
             </Button>
           </h1>
-          <button
+          <Button
             type="button"
             title="Start chatting"
+            className="h-auto select-none rounded-full px-5 py-2 text-[13px] font-bold shadow-md"
             onClick={() => void handleGoToChat()}
-            className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#BA0034] text-white text-[13px] font-bold shadow-[0_2px_8px_rgba(186,0,52,0.25)] hover:bg-[#9b0029] hover:shadow-[0_4px_14px_rgba(186,0,52,0.35)] active:scale-95 transition-all duration-150 select-none"
           >
             <MessageSquare className="size-4 shrink-0" />
-            <span>Chat</span>
-          </button>
-          <span className="px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#8E8E93] text-[10px] font-bold uppercase">
+            Chat
+          </Button>
+          <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
             {creature}
           </span>
         </div>
@@ -360,8 +361,8 @@ export function ProfileHeroSection({
                 { label: "Video", value: video ?? "" },
               ] as Array<{ label: string; value: string }>).map(({ label, value }) => value ? (
                 <div key={label} className="contents">
-                  <p className="text-[#8E8E93] font-semibold">{label}</p>
-                  <p className="text-[13px] text-[#1A1A1A] break-all">{value}</p>
+                  <p className="font-semibold text-muted-foreground">{label}</p>
+                  <p className="break-all text-[13px] text-foreground">{value}</p>
                 </div>
               ) : null)}
             </div>
@@ -369,12 +370,12 @@ export function ProfileHeroSection({
             <div className="grid grid-cols-[120px_1fr] gap-y-3 gap-x-4 items-center text-[14px] py-2">
               {IDENTITY_KEYS.map((k) => (
                 <div key={k} className="contents">
-                  <p className="text-[#8E8E93] font-semibold capitalize">{k}</p>
-                  <input
+                  <p className="font-semibold capitalize text-muted-foreground">{k}</p>
+                  <Input
                     type="text"
                     value={draft[k] ?? ""}
                     onChange={(e) => setDraft((prev) => ({ ...prev, [k]: e.target.value }))}
-                    className="h-9 rounded-xl bg-white border border-[#E5E7EB] px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#BA0034]/20"
+                    className="rounded-xl text-[13px]"
                     placeholder={placeholderByKey[k]}
                   />
                 </div>
@@ -432,10 +433,10 @@ export function ProfessionalSummarySection({ agentId }: { agentId: string }) {
   if (!summary) { return null; }
 
   return (
-    <div className="bg-[#FBFBFB] rounded-3xl p-8">
+    <div className="rounded-3xl bg-muted p-8">
       <div className="flex flex-col gap-4">
         <SectionLabel>Professional Summary</SectionLabel>
-        <p className="text-[15px] font-medium text-black leading-relaxed">{summary}</p>
+        <p className="text-[15px] font-medium leading-relaxed text-foreground">{summary}</p>
       </div>
     </div>
   );
@@ -503,39 +504,39 @@ export function IntroSection({
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-[#F0F0F0] px-6 py-5">
-      <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">What I Do</p>
+    <div className="rounded-3xl border border-border bg-card px-6 py-5">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">What I Do</p>
 
       {points.length > 1 ? (
-        <ol className="flex flex-col gap-2.5 mb-0">
+        <ol className="mb-0 flex flex-col gap-2.5">
           {points.map((point, i) => (
             <li key={i} className="flex items-start gap-3">
               {/* Numbered badge */}
-              <span className="shrink-0 mt-[1px] size-[18px] rounded-full bg-[#EBEBEB] text-[#6B7280] text-[10px] font-bold flex items-center justify-center">
+              <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
                 {i + 1}
               </span>
-              <span className="text-[13px] text-[#1A1A1A] leading-snug">{point}</span>
+              <span className="text-[13px] leading-snug text-foreground">{point}</span>
             </li>
           ))}
         </ol>
       ) : (
-        <p className="text-[13px] text-[#1A1A1A] leading-relaxed mb-0">{points[0] ?? bio}</p>
+        <p className="mb-0 text-[13px] leading-relaxed text-foreground">{points[0] ?? bio}</p>
       )}
 
       {tryLine && tryText && (
         <button
           type="button"
           onClick={() => { void handleTryClick(); }}
-          className="mt-4 w-full text-left flex items-start gap-2 rounded-xl bg-[#F0F4FF] border border-[#D8E4FF] px-4 py-3 hover:bg-[#E4ECFF] hover:border-[#B8CCFF] active:scale-[0.98] transition-all duration-150 cursor-pointer group"
+          className="group mt-4 flex w-full cursor-pointer items-start gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-left transition-all duration-150 hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
           title="Click to try this in chat"
         >
-          <span className="text-[15px] leading-none mt-[1px] group-hover:scale-110 transition-transform duration-150">💬</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-[12px] text-[#3B5BDB] leading-snug font-medium">
+          <span className="mt-[1px] text-[15px] leading-none transition-transform duration-150 group-hover:scale-110">💬</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-medium leading-snug text-primary">
               {tryLine.replace(/^💬\s*/, "")}
             </p>
             {/* Subtle "click to try" hint */}
-            <p className="text-[10px] text-[#7C9FE0] mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <p className="mt-0.5 text-[10px] text-primary/80 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
               Click to start chatting with this prompt →
             </p>
           </div>

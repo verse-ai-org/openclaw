@@ -366,16 +366,16 @@ export function ScheduledTasksPage() {
           {/* ── Tabs ─────────────────────────────────────────────────── */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PageTab)}>
             <div className="flex items-center justify-between gap-3">
-              <TabsList className="inline-flex h-auto gap-1 rounded-2xl bg-[#F6F6F6] p-1">
+              <TabsList className="inline-flex h-auto gap-1 rounded-2xl bg-muted p-1">
                 <TabsTrigger
                   value="my-tasks"
-                  className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                  className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                 >
                   My Scheduled Task
                 </TabsTrigger>
                 <TabsTrigger
                   value="run-history"
-                  className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                  className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                 >
                   Run History
                 </TabsTrigger>
@@ -386,7 +386,7 @@ export function ScheduledTasksPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Sort by</span>
                   <select
-                    className="h-7 rounded-md border bg-background px-2 text-xs text-foreground"
+                    className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as SortBy)}
                   >

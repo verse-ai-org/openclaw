@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export function SectionCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("bg-white rounded-2xl border border-[#F0F0F0] px-6 py-5", className)}>
+    <div className={cn("rounded-2xl border border-border bg-card px-6 py-5", className)}>
       {children}
     </div>
   );
@@ -11,7 +11,7 @@ export function SectionCard({ children, className }: { children: React.ReactNode
 
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">{children}</p>
+    <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{children}</p>
   );
 }
 
@@ -33,13 +33,13 @@ export function AppleToggle({
       onClick={onChange}
       className={cn(
         "relative inline-flex shrink-0 h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none",
-        checked ? "bg-[#BA0034]" : "bg-[#E9E9EA]",
+        checked ? "bg-primary" : "bg-muted",
         disabled && "opacity-40 cursor-not-allowed",
       )}
     >
       <span
         className={cn(
-          "inline-block size-4 rounded-full bg-white shadow-md transform transition-transform duration-200 mt-0.5",
+          "inline-block size-4 rounded-full bg-background shadow-md transform transition-transform duration-200 mt-0.5",
           checked ? "translate-x-4.5" : "translate-x-0.5",
         )}
       />
@@ -54,19 +54,19 @@ export function DialogSearchInput({ value, onChange, placeholder = "Search…" }
 }) {
   return (
     <div className="relative">
-      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#8E8E93]" />
+      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
       <input
         type="text"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 rounded-full bg-[#F3F4F6] border-0 pl-9 pr-9 text-[13px] text-black placeholder:text-[#8E8E93] focus:outline-none focus:ring-2 focus:ring-[#BA0034]/20 w-full"
+        className="h-9 w-full rounded-full border-0 bg-muted pl-9 pr-9 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange("")}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8E8E93] hover:text-black"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
         >
           <XIcon className="size-3" />
         </button>
@@ -88,10 +88,10 @@ export function CategoryPills({ categories, active, onChange }: {
           type="button"
           onClick={() => onChange(c.id)}
           className={cn(
-            "px-3 py-1 rounded-full text-[12px] font-semibold transition-colors duration-150 border",
+            "rounded-full border px-3 py-1 text-[12px] font-semibold transition-colors duration-150",
             active === c.id
-              ? "bg-black text-white border-black"
-              : "bg-white text-[#8E8E93] border-[#E5E7EB] hover:border-black hover:text-black",
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-foreground",
           )}
         >
           {c.label}

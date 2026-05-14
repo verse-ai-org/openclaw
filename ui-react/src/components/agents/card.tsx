@@ -45,13 +45,14 @@ export function AgentCard({
       onMouseLeave={handleMouseLeave}
       className={cn(
         "group relative aspect-3/4 overflow-hidden flex flex-col items-center gap-4 rounded-2xl border p-0 transition-all duration-200",
+        isSelected ? "border-2 border-primary" : "border-border",
       )}
     >
       {/* Emoji/Avatar */}
       <div
         className={cn(
           "relative flex w-full h-full items-center justify-center rounded-2xl text-5xl overflow-hidden",
-          isSelected ? "bg-white shadow-sm" : "bg-[#F9FAFB]",
+          isSelected ? "bg-card shadow-sm" : "bg-muted",
         )}
       >
         {avatar ? (

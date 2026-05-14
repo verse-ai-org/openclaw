@@ -52,10 +52,10 @@ export function SoulSection({ agentId }: { agentId: string }) {
     <>
       <SectionCard className="py-3">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">Soul</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Soul</p>
           <div className="flex items-center gap-3">
             {agentFilesLoading && !agentFilesList && (
-              <Loader2Icon className="size-3.5 animate-spin text-[#8E8E93]" />
+              <Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
             )}
             {agentFilesError && (
               <span className="text-[11px] text-red-500">{agentFilesError}</span>
@@ -64,7 +64,7 @@ export function SoulSection({ agentId }: { agentId: string }) {
             <button
               type="button"
               onClick={() => { setIsEditMode(false); setDialogOpen(true); }}
-              className="text-[12px] font-semibold text-[#BA0034] hover:underline"
+              className="text-[12px] font-semibold text-primary hover:underline"
             >
               View →
             </button>
@@ -72,7 +72,7 @@ export function SoulSection({ agentId }: { agentId: string }) {
         </div>
         {/* Brief preview: first line of content */}
         {!agentFilesLoading && (hasFile || content) && (
-          <p className="text-[11px] text-[#8E8E93] mt-1.5 truncate">
+          <p className="mt-1.5 truncate text-[11px] text-muted-foreground">
             {content.split("\n").find((l) => l.trim())?.replace(/^#+\s*/, "") ?? "SOUL.md"}
           </p>
         )}
@@ -89,18 +89,18 @@ export function SoulSection({ agentId }: { agentId: string }) {
                 {!isEditMode ? (
                   <button
                     type="button"
-                    className="p-1 rounded-full hover:bg-[#F3F4F6] transition-colors"
+                    className="rounded-full p-1 transition-colors hover:bg-muted"
                     onClick={() => setIsEditMode(true)}
                     title="Edit SOUL.md"
                   >
-                    <Pencil className="size-3.5 text-[#8E8E93]" />
+                    <Pencil className="size-3.5 text-muted-foreground" />
                   </button>
                 ) : (
                   <>
                     {isDirty && (
                       <button
                         type="button"
-                        className="text-[12px] text-[#8E8E93] hover:text-black px-2 py-0.5"
+                        className="px-2 py-0.5 text-[12px] text-muted-foreground hover:text-foreground"
                         onClick={() => { resetFileDraft("SOUL.md"); setIsEditMode(false); }}
                         disabled={agentFileSaving}
                       >
@@ -109,7 +109,7 @@ export function SoulSection({ agentId }: { agentId: string }) {
                     )}
                     <button
                       type="button"
-                      className="text-[12px] text-[#8E8E93] hover:text-black px-2 py-0.5"
+                      className="px-2 py-0.5 text-[12px] text-muted-foreground hover:text-foreground"
                       onClick={() => setIsEditMode(false)}
                       disabled={agentFileSaving}
                     >
@@ -120,10 +120,10 @@ export function SoulSection({ agentId }: { agentId: string }) {
                       disabled={!isDirty || agentFileSaving}
                       onClick={() => void saveFile("SOUL.md").then(() => setIsEditMode(false))}
                       className={cn(
-                        "text-[12px] font-semibold px-3 py-0.5 rounded-full transition-colors",
+                        "rounded-full px-3 py-0.5 text-[12px] font-semibold transition-colors",
                         isDirty && !agentFileSaving
-                          ? "bg-[#BA0034] text-white hover:bg-[#9b0029]"
-                          : "bg-[#E5E7EB] text-[#8E8E93] cursor-not-allowed",
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                          : "cursor-not-allowed bg-muted text-muted-foreground",
                       )}
                     >
                       {agentFileSaving ? "Saving…" : "Save"}
@@ -137,20 +137,20 @@ export function SoulSection({ agentId }: { agentId: string }) {
           {/* Content area */}
           <div className="flex-1 overflow-auto px-6 py-4">
             {!isEditMode ? (
-              <div className="prose prose-sm max-w-none text-sm prose-headings:font-bold prose-headings:text-[14px] prose-p:text-[#1A1A1A] prose-p:text-[13px] prose-li:text-[13px] prose-li:text-[#1A1A1A] prose-code:text-[#BA0034] prose-code:text-[12px] leading-relaxed">
+              <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed text-foreground prose-headings:font-bold prose-headings:text-[14px] prose-p:text-[13px] prose-li:text-[13px] prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-[12px] prose-code:before:content-none prose-code:after:content-none prose-code:text-primary">
                 {hasFile || content ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {content || "*Empty soul file.*"}
                   </ReactMarkdown>
                 ) : (
-                  <p className="text-sm text-[#8E8E93]">
+                  <p className="text-sm text-muted-foreground">
                     SOUL.md file does not exist yet — click Edit to create it.
                   </p>
                 )}
               </div>
             ) : (
               <textarea
-                className="w-full h-full resize-none rounded-xl bg-white px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#BA0034]/20"
+                className="h-full w-full resize-none rounded-xl border border-input bg-transparent px-3 py-2 font-mono text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
                 value={content}
                 onChange={(e) => changeFileDraft("SOUL.md", e.target.value)}
                 spellCheck={false}

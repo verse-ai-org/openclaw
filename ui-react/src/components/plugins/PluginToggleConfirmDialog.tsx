@@ -36,9 +36,10 @@ export function PluginToggleConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
           <AlertDialogAction
             variant={enabling ? "default" : "destructive"}
+            className="rounded-full"
             onClick={onConfirm}
           >
             {enabling ? "Enable" : "Disable"}

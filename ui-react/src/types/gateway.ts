@@ -5,7 +5,7 @@
  */
 
 // Storage / settings types (re-implemented to avoid Lit dependency)
-export type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light" | "dark";
 
 export type UiSettings = {
   gatewayUrl: string;
@@ -50,7 +50,6 @@ export const TAB_GROUPS: TabGroup[] = [
   { label: "Message", tabs: ["chat"] },
   { label: "Team", tabs: ["employees", "skills"] },
   { label: "Tools", tabs: ["channels", "plugins", "scheduled"] },
-  { label: "System", tabs: ["overview", "settings"] },
 ];
 
 export const TAB_PATHS: Record<Tab, string> = {

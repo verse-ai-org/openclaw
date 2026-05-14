@@ -88,8 +88,16 @@ export function AgentDetailDrawer({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" disabled={deleting}>Cancel</Button>
             <Button
+              type="button"
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
               variant="destructive"
               onClick={() => void handleConfirm()}
               disabled={deleting}
@@ -110,7 +118,10 @@ export function AgentDetailDrawer({
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-        <DrawerContent className="h-full w-[80vw] bg-muted" style={{ maxWidth: "80vw" }}>
+        <DrawerContent
+          className="h-full w-[80vw] border-l bg-background"
+          style={{ maxWidth: "80vw" }}
+        >
           <DrawerHeader className="px-8 py-2">
             <DialogTitle className="hidden">{selectedName}</DialogTitle>
             <div className="flex items-start justify-end gap-4">

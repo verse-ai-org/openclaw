@@ -56,7 +56,9 @@ function SessionItem({
       <div
         className={cn(
           "group/session relative w-full rounded-xl transition-colors",
-          isActive ? "bg-[rgb(186,0,52)]/5" : "hover:bg-[rgb(243,244,246)]",
+          isActive
+            ? "bg-primary/10 ring-1 ring-primary/20 dark:bg-primary/15 dark:ring-primary/25"
+            : "hover:bg-accent",
         )}
       >
         <button
@@ -68,12 +70,12 @@ function SessionItem({
             <span
               className={cn(
                 "truncate text-[13px] font-semibold leading-5",
-                isActive ? "text-[rgb(186,0,52)]" : "text-foreground",
+                isActive ? "text-primary" : "text-foreground",
               )}
             >
               {label}
             </span>
-            <span className="truncate text-[rgb(142,142,147)] text-[12px] leading-4 font-medium">
+            <span className="truncate text-muted-foreground text-[12px] leading-4 font-medium">
               {session.updatedAt ? formatRelative(session.updatedAt) : "Session"}
             </span>
           </div>
@@ -172,12 +174,12 @@ export function AgentSessionList({
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Header: back link + agent identity block */}
-      <div className="shrink-0 px-2 py-2 shadow-bottom">
+      <div className="shrink-0 border-b border-border px-2 py-2">
         {/* Back link — small, muted */}
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center justify-center px-1 mb-2 text-[12px] text-[rgb(142,142,147)] hover:text-foreground transition-colors"
+          className="flex items-center justify-center px-1 mb-2 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="size-4 shrink-0" />
           <span className="font-medium">Employees</span>
@@ -189,7 +191,7 @@ export function AgentSessionList({
             type="button"
             onClick={() => onViewProfile?.(agent.id)}
             disabled={!onViewProfile}
-            className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[rgb(243,244,246)] text-[22px] overflow-hidden transition-opacity hover:opacity-80 disabled:cursor-default disabled:hover:opacity-100"
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-[22px] overflow-hidden dark:ring-1 dark:ring-border transition-opacity hover:opacity-80 disabled:cursor-default disabled:hover:opacity-100"
             title={onViewProfile ? `View ${name} profile` : undefined}
           >
             {avatarUrl ? (
@@ -213,7 +215,7 @@ export function AgentSessionList({
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto px-2 py-4 border-t">
+      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto border-t border-border px-2 py-4">
         {/* Section heading + new session button */}
         <div className="flex items-center justify-between px-3 mb-3">
           <span className="text-[17px] font-bold leading-tight text-foreground">Sessions</span>
@@ -225,9 +227,9 @@ export function AgentSessionList({
             aria-label="New session"
             className={cn(
               "flex size-6 items-center justify-center rounded-full",
-              "text-[rgb(142,142,147)] transition-colors",
+              "text-muted-foreground transition-colors",
               isConnected
-                ? "hover:bg-[rgb(243,244,246)] hover:text-foreground"
+                ? "hover:bg-muted hover:text-foreground dark:hover:bg-accent"
                 : "opacity-40 cursor-not-allowed",
             )}
           >
@@ -236,12 +238,12 @@ export function AgentSessionList({
         </div>
 
         {/* Session list */}
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1">
           {loading && filtered.length === 0 && (
-            <p className="px-3 py-2 text-[13px] text-[rgb(142,142,147)]">Loading…</p>
+            <p className="px-3 py-2 text-[13px] text-muted-foreground">Loading…</p>
           )}
           {!loading && filtered.length === 0 && (
-            <p className="px-3 py-2 text-[13px] text-[rgb(142,142,147)]">
+            <p className="px-3 py-2 text-[13px] text-muted-foreground">
               {search ? "No results" : "No sessions yet"}
             </p>
           )}

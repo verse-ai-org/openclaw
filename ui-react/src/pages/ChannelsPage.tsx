@@ -278,7 +278,7 @@ export function ChannelsPage() {
                     {activeTabChannels.length > 0 && (
                       <div className="flex flex-col gap-3">
                         {discoverEntries.length > 0 && (
-                          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
+                          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
                             Installed
                           </p>
                         )}
@@ -323,7 +323,7 @@ export function ChannelsPage() {
                 {configuredChannels.length > 0 && (
                   <div className="flex flex-col gap-3">
                     {needsSetupChannels.length > 0 && (
-                      <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
+                      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
                         Configured
                       </p>
                     )}
@@ -339,10 +339,10 @@ export function ChannelsPage() {
                 {needsSetupChannels.length > 0 && (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-2 mt-4">
-                      <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wide">
+                      <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide dark:text-amber-400">
                         Needs Setup
                       </p>
-                      <span className="text-[11px] text-[#9CA3AF]">
+                      <span className="text-[11px] text-muted-foreground">
                         — enabled but not yet configured
                       </span>
                     </div>
@@ -364,7 +364,7 @@ export function ChannelsPage() {
                 {disabledChannels.length > 0 && (
                   <div className="flex flex-col gap-3">
                     {discoverEntries.length > 0 && (
-                      <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-wide">
+                      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
                         Disabled
                       </p>
                     )}

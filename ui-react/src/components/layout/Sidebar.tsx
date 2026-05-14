@@ -5,11 +5,10 @@ import { NavLink, useLocation } from "react-router";
 import {
   Sidebar,
   SidebarContent,
-  // SidebarFooter,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  // SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -77,21 +76,11 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      {/* Footer: user identity */}
-      {/* <SidebarFooter className='p-0'>
-        <Separator className="border" />
-        <div className="flex items-center gap-2.5 px-3 py-3 group-data-[collapsible=icon]:justify-center">
-          <Avatar className="size-8 shrink-0">
-            <AvatarFallback className="bg-primary/10 text-primary">
-              <UserIcon className="size-4" />
-            </AvatarFallback>
-          </Avatar>
-          <div className="grid flex-1 text-left text-sm leading-tight overflow-hidden group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-semibold">User</span>
-            <span className="truncate text-xs text-muted-foreground">Bossim Pro</span>
-          </div>
-        </div>
-      </SidebarFooter> */}
+      <SidebarFooter className="p-2 pt-0 group-data-[collapsible=icon]:p-2">
+        <SidebarMenu>
+          <NavItem tab="settings" />
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

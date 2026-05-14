@@ -202,28 +202,32 @@ export function ConfigPage() {
               variant="outline"
               disabled={configLoading}
               onClick={() => void reloadConfig()}
+              className="rounded-full"
             >
-              <RotateCcwIcon className="size-3.5 mr-1.5" />
+              <RotateCcwIcon className="size-3.5" />
               Reload
             </Button>
             <Button
               size="sm"
               disabled={!configDirty || configSaving || !!saveBlockedReason}
               onClick={() => void saveConfig()}
-              className={cn(configDirty && "border-amber-500")}
+              className={cn(
+                "rounded-full",
+                configDirty && "border-amber-500 dark:border-amber-400",
+              )}
               title={saveBlockedReason ?? undefined}
             >
               {configSaving ? (
-                <Loader2Icon className="size-3.5 mr-1.5 animate-spin" />
+                <Loader2Icon className="size-3.5 animate-spin" />
               ) : (
-                <SaveIcon className="size-3.5 mr-1.5" />
+                <SaveIcon className="size-3.5" />
               )}
               Save
             </Button>
           </div>
         </div>
         {configError ? (
-          <p className="text-xs text-red-600">{configError}</p>
+          <p className="text-xs text-destructive">{configError}</p>
         ) : null}
 
         <Card>
@@ -251,7 +255,9 @@ export function ConfigPage() {
               onEdit={() => setEditOpen(true)}
             />
             {saveBlockedReason ? (
-              <p className="text-xs text-amber-700">{saveBlockedReason}</p>
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                {saveBlockedReason}
+              </p>
             ) : null}
             <ProviderModelEditDialog
               open={editOpen}
@@ -333,7 +339,7 @@ export function ConfigPage() {
           <CardContent>
             <Dialog open={rawConfigOpen} onOpenChange={setRawConfigOpen}>
               <DialogTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
+                <Button type="button" variant="outline" size="sm" className="rounded-full">
                   <EyeIcon className="size-3.5 mr-1.5" />
                   View Detailed Config
                 </Button>

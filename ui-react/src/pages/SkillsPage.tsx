@@ -1,28 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { SkillCard } from "@/components/skills/SkillCard";
-import { plainMdComponents } from "@/components/assistant-ui/markdown-text";
-import { SkillsToolbar } from "@/components/skills/SkillsToolbar";
 import { SkillCategoryPills } from "@/components/skills/SkillCategoryPills";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { SkillManageDialog } from "@/components/skills/SkillManageDialog";
+import { SkillsToolbar } from "@/components/skills/SkillsToolbar";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSkillsStore } from "@/store/skills.store";
 import type { SkillStatusEntry } from "@/types/skills";
 
-type ParsedSkillMarkdown = {
-  frontmatter: string;
-  body: string;
-};
-
-type SkillsSourceFilter = "all" | "openclaw-bundled" | "openclaw-managed" | "openclaw-workspace" | "openclaw-extra";
+type SkillsSourceFilter =
+  | "all"
+  | "openclaw-bundled"
+  | "openclaw-managed"
+  | "openclaw-workspace"
+  | "openclaw-extra";
 
 const SOURCE_FILTER_OPTIONS: Array<{ id: SkillsSourceFilter; label: string }> = [
   { id: "all", label: "All" },
@@ -32,31 +22,10 @@ const SOURCE_FILTER_OPTIONS: Array<{ id: SkillsSourceFilter; label: string }> = 
   { id: "openclaw-extra", label: "Other" },
 ];
 
-function parseSkillMarkdown(markdown: string): ParsedSkillMarkdown {
-  const content = markdown.trimStart();
-  if (!content.startsWith("---\n")) {
-    return { frontmatter: "", body: markdown };
-  }
-
-  const end = content.indexOf("\n---\n", 4);
-  if (end === -1) {
-    return { frontmatter: "", body: markdown };
-  }
-
-  const frontmatter = content.slice(4, end).trim();
-  const body = content.slice(end + 5).trimStart();
-  return { frontmatter, body };
-}
-
 export function SkillsPage() {
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [detailContent, setDetailContent] = useState<string>("");
-  const [detailEditing, setDetailEditing] = useState(false);
-  const [detailDraft, setDetailDraft] = useState("");
-  const [detailSaving, setDetailSaving] = useState(false);
-  const [detailSkill, setDetailSkill] = useState<SkillStatusEntry | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
+  /** Dialog resolves skill from latest `report` so enable/disable updates the switch immediately. */
+  const [manageSkillKey, setManageSkillKey] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<SkillsSourceFilter>("all");
 
   const status = useGatewayStore((s) => s.status);
@@ -67,10 +36,15 @@ export function SkillsPage() {
   const busyKey = useSkillsStore((s) => s.busyKey);
   const edits = useSkillsStore((s) => s.edits);
   const messages = useSkillsStore((s) => s.messages);
-  // Subscribe to report (stable object reference when unchanged)
   const report = useSkillsStore((s) => s.report);
 
-  // Stable action references from the store (never change between renders)
+  const manageSkill = useMemo((): SkillStatusEntry | null => {
+    if (!manageSkillKey || !report?.skills?.length) {
+      return null;
+    }
+    return report.skills.find((s) => s.skillKey === manageSkillKey) ?? null;
+  }, [manageSkillKey, report]);
+
   const loadSkills = useSkillsStore((s) => s.loadSkills);
   const setFilter = useSkillsStore((s) => s.setFilter);
   const setEdit = useSkillsStore((s) => s.setEdit);
@@ -82,59 +56,11 @@ export function SkillsPage() {
   const getSkillFile = useSkillsStore((s) => s.getSkillFile);
   const saveSkillFile = useSkillsStore((s) => s.saveSkillFile);
 
-  const openSkillDetail = async (skill: SkillStatusEntry) => {
-    setDetailOpen(true);
-    setDetailSkill(skill);
-    setDetailError(null);
-    setDetailContent("");
-    setDetailDraft("");
-    setDetailEditing(false);
-    setDetailSaving(false);
-    setDetailLoading(true);
-    try {
-      const file = await getSkillFile({ baseDir: skill.baseDir, source: skill.source });
-      if (!file) {
-        setDetailError("Unable to load SKILL.md");
-        return;
-      }
-      const content = file.file.content ?? "";
-      setDetailContent(content);
-      setDetailDraft(content);
-    } catch {
-      setDetailError("Unable to load SKILL.md");
-    } finally {
-      setDetailLoading(false);
-    }
+  const openSkillManage = (skill: SkillStatusEntry) => {
+    setManageSkillKey(skill.skillKey);
+    setManageOpen(true);
   };
 
-  const saveSkillDetail = async () => {
-    if (!detailSkill) {
-      return;
-    }
-    setDetailSaving(true);
-    setDetailError(null);
-    try {
-      const result = await saveSkillFile({
-        baseDir: detailSkill.baseDir,
-        source: detailSkill.source,
-        content: detailDraft,
-      });
-      if (!result) {
-        setDetailError("Unable to save SKILL.md");
-        return;
-      }
-      setDetailContent(result.file.content ?? detailDraft);
-      setDetailDraft(result.file.content ?? detailDraft);
-      setDetailEditing(false);
-      await loadSkills(false);
-    } catch {
-      setDetailError("Unable to save SKILL.md");
-    } finally {
-      setDetailSaving(false);
-    }
-  };
-
-  // Compute filtered list when report/filter/source changes
   const filteredSkills = useMemo(() => {
     const skills = report?.skills ?? [];
     const f = filter.trim().toLowerCase();
@@ -149,7 +75,6 @@ export function SkillsPage() {
     });
   }, [report, filter, sourceFilter]);
 
-  // Load on mount and when connection is established
   useEffect(() => {
     async function load() {
       if (status === "connected") {
@@ -159,12 +84,12 @@ export function SkillsPage() {
     void load();
   }, [status, loadSkills]);
 
-  const parsedDetailContent = useMemo(() => parseSkillMarkdown(detailContent), [detailContent]);
-  const detailBodyContent = parsedDetailContent.body;
-  const detailFrontmatter = parsedDetailContent.frontmatter;
+  const canRemoveManaged =
+    manageSkill !== null &&
+    (manageSkill.source === "openclaw-workspace" || manageSkill.source === "openclaw-managed");
 
   return (
-    <div className="flex flex-col gap-12 p-8 max-w-4xl mx-auto w-full">
+    <div className="flex max-w-4xl w-full flex-col gap-12 p-8 mx-auto">
       {/* Header */}
       <div className="flex flex-col gap-2">
         <h2 className="text-[48px] font-extrabold leading-tight tracking-tight text-foreground">
@@ -177,7 +102,6 @@ export function SkillsPage() {
 
       {/* Toolbar + Tabs */}
       <div className="flex flex-col gap-8">
-        {/* Toolbar */}
         <SkillsToolbar
           filter={filter}
           loading={loading}
@@ -186,21 +110,18 @@ export function SkillsPage() {
           onRefresh={() => loadSkills(true)}
         />
 
-        {/* Error */}
         {error && (
           <div className="rounded-2xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         )}
 
-        {/* Disconnected notice */}
         {status !== "connected" && !loading && (
           <div className="rounded-2xl border px-4 py-3 text-sm text-muted-foreground">
             Not connected to gateway.
           </div>
         )}
 
-        {/* Source filter */}
         <div className="flex items-center gap-3">
           <SkillCategoryPills
             categories={SOURCE_FILTER_OPTIONS}
@@ -209,23 +130,15 @@ export function SkillsPage() {
           />
         </div>
 
-        {/* Skills list */}
         {filteredSkills.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {filteredSkills.map((skill) => (
               <SkillCard
                 key={skill.skillKey}
                 skill={skill}
                 busy={busyKey === skill.skillKey}
-                apiKeyEdit={edits[skill.skillKey] ?? ""}
                 message={messages[skill.skillKey] ?? null}
-                onToggle={() => toggleSkill(skill.skillKey, skill.disabled)}
-                onEdit={(value) => setEdit(skill.skillKey, value)}
-                onSaveKey={() => saveApiKey(skill.skillKey)}
-                onInstall={(installId) => installSkill(skill.skillKey, skill.name, installId)}
-                onSaveEnvVar={(envKey, value) => saveEnvVar(skill.skillKey, envKey, value)}
-                onRemove={() => void removeSkill(skill.baseDir, skill.source)}
-                onViewDetail={() => void openSkillDetail(skill)}
+                onOpen={() => openSkillManage(skill)}
               />
             ))}
           </div>
@@ -235,88 +148,40 @@ export function SkillsPage() {
         )}
       </div>
 
-      <Dialog
-        open={detailOpen}
+      <SkillManageDialog
+        open={manageOpen}
         onOpenChange={(next) => {
-          setDetailOpen(next);
+          setManageOpen(next);
           if (!next) {
-            setDetailEditing(false);
-            setDetailError(null);
-            setDetailSaving(false);
+            setManageSkillKey(null);
           }
         }}
-      >
-        <DialogContent className="w-[80vw] max-w-[80vw] sm:max-w-[80vw] max-h-[80vh] flex flex-col rounded-lg">
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <DialogTitle>{detailSkill?.name ?? "Skill"} - SKILL.md</DialogTitle>
-                {/* <DialogDescription className="text-xs break-all">
-                  {detailSkill?.filePath ?? ""}
-                </DialogDescription> */}
-              </div>
-              <Button
-                className="mr-6"
-                size="sm"
-                variant="outline"
-                disabled={detailLoading || detailSaving || !detailSkill}
-                onClick={() => {
-                  if (detailEditing) {
-                    setDetailDraft(detailContent);
-                    setDetailEditing(false);
-                  } else {
-                    setDetailDraft(detailContent);
-                    setDetailEditing(true);
-                  }
-                }}
-              >
-                {detailEditing ? "Cancel edit" : "Edit"}
-              </Button>
-            </div>
-          </DialogHeader>
-
-          <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/30 p-3">
-            {detailLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : detailError ? (
-              <p className="text-sm text-destructive">{detailError}</p>
-            ) : detailEditing ? (
-              <textarea
-                className="h-full min-h-[52vh] w-full resize-y rounded-md border bg-background p-3 text-sm leading-6 font-mono outline-none focus:ring-2 focus:ring-ring"
-                value={detailDraft}
-                onChange={(e) => setDetailDraft(e.target.value)}
-              />
-            ) : (
-              <div className="flex flex-col gap-3 text-sm leading-6">
-                {detailFrontmatter && (
-                  <details className="rounded-md border bg-background/70 p-2">
-                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-                      Metadata (frontmatter)
-                    </summary>
-                    <pre className="mt-2 overflow-auto rounded bg-muted/60 p-2 text-xs leading-5 whitespace-pre-wrap break-words font-mono">
-                      {detailFrontmatter}
-                    </pre>
-                  </details>
-                )}
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={plainMdComponents}>
-                  {detailBodyContent || "(empty)"}
-                </ReactMarkdown>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            {detailEditing && (
-              <Button onClick={() => void saveSkillDetail()} disabled={detailSaving || detailLoading}>
-                {detailSaving ? "Saving…" : "Save"}
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        skill={manageSkill}
+        busy={manageSkill !== null && busyKey === manageSkill.skillKey}
+        apiKeyEdit={manageSkill ? (edits[manageSkill.skillKey] ?? "") : ""}
+        message={manageSkill ? (messages[manageSkill.skillKey] ?? null) : null}
+        onToggle={() => manageSkill && void toggleSkill(manageSkill.skillKey, manageSkill.disabled)}
+        onEdit={(value) => manageSkill && setEdit(manageSkill.skillKey, value)}
+        onSaveKey={() => manageSkill && void saveApiKey(manageSkill.skillKey)}
+        onInstall={(installId) =>
+          manageSkill && void installSkill(manageSkill.skillKey, manageSkill.name, installId)
+        }
+        onSaveEnvVar={(envKey, value) =>
+          manageSkill && void saveEnvVar(manageSkill.skillKey, envKey, value)
+        }
+        onRemove={
+          canRemoveManaged && manageSkill
+            ? () => {
+                void removeSkill(manageSkill.baseDir, manageSkill.source);
+                setManageOpen(false);
+                setManageSkillKey(null);
+              }
+            : undefined
+        }
+        getSkillFile={getSkillFile}
+        saveSkillFile={saveSkillFile}
+        onSkillsReload={() => loadSkills(false)}
+      />
     </div>
   );
 }

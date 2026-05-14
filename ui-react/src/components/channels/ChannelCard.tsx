@@ -54,8 +54,8 @@ export function ChannelCard({
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
       className={cn(
-        "group relative flex flex-col gap-3 rounded-2xl border bg-white p-5 cursor-pointer",
-        "transition-all hover:shadow-md hover:border-[#E0E0E0]",
+        "group relative flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 cursor-pointer text-card-foreground",
+        "transition-all hover:shadow-md hover:border-muted-foreground/40",
         !enabled && "opacity-60",
       )}
     >
@@ -77,13 +77,15 @@ export function ChannelCard({
               }
               // Fallback to default icon if no logo
               return (
-                <MessageSquareIcon className="size-8 text-zinc-400" />
+                <MessageSquareIcon className="size-8 text-muted-foreground" />
               );
             })()}
           </div>
           <div>
-            <p className="text-sm font-semibold text-[#111827] leading-tight">{label}</p>
-            {detailLabel && <p className="text-[11px] text-[#9CA3AF] mt-0.5">{detailLabel}</p>}
+            <p className="text-sm font-semibold leading-tight">{label}</p>
+            {detailLabel && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">{detailLabel}</p>
+            )}
           </div>
         </div>
         <button type="button" disabled={isToggling} onClick={handleToggle}
@@ -91,47 +93,64 @@ export function ChannelCard({
             "shrink-0 transition-colors disabled:opacity-50",
             enabled
               ? "relative inline-flex h-6.5 w-11 cursor-pointer items-center rounded-full bg-primary"
-              : "rounded-full bg-primary px-5 py-1.5 text-[12px] font-bold text-white hover:bg-primary/90",
+              : "rounded-full bg-primary px-5 py-1.5 text-[12px] font-bold text-primary-foreground hover:bg-primary/90",
           )}
           title={enabled ? "Disable" : "Enable"}
         >
           {isToggling
-            ? <Loader2Icon className={cn("size-4 animate-spin", enabled ? "mx-auto text-white" : "")} />
+            ? (
+              <Loader2Icon
+                className={cn(
+                  "size-4 animate-spin text-primary-foreground",
+                  enabled && "mx-auto",
+                )}
+              />
+            )
             : enabled
-            ? <span className="inline-block size-5.5 translate-x-5 rounded-full bg-white shadow-sm transition-transform" />
+            ? <span className="inline-block size-5.5 translate-x-5 rounded-full bg-primary-foreground shadow-sm transition-transform" />
             : "Enable"}
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7280]">
+      <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
         {enabled && accounts.length > 0 && (
           <span className="inline-flex items-center gap-1">
-            {dot === "running" ? <WifiIcon className="size-3 text-emerald-500" /> : <WifiOffIcon className="size-3" />}
+            {dot === "running" ? (
+              <WifiIcon className="size-3 text-emerald-500 dark:text-emerald-400" />
+            ) : (
+              <WifiOffIcon className="size-3" />
+            )}
             {running}/{accounts.length} running
           </span>
         )}
         {enabled && configured && (
-          <span className="inline-flex items-center gap-1"><CheckCircle2Icon className="size-3 text-emerald-500" />configured</span>
+          <span className="inline-flex items-center gap-1">
+            <CheckCircle2Icon className="size-3 text-emerald-500 dark:text-emerald-400" />
+            configured
+          </span>
         )}
         {enabled && !configured && accounts.length > 0 && (
-          <span className="inline-flex items-center gap-1"><AlertCircleIcon className="size-3 text-amber-400" />not configured</span>
+          <span className="inline-flex items-center gap-1">
+            <AlertCircleIcon className="size-3 text-amber-600 dark:text-amber-400" />
+            not configured
+          </span>
         )}
         {!enabled && (
           <span className="inline-flex items-center gap-1"><XCircleIcon className="size-3" />disabled</span>
         )}
       </div>
 
-      {errMsg && <p className="text-[11px] text-red-500">{errMsg}</p>}
+      {errMsg && <p className="text-[11px] text-destructive">{errMsg}</p>}
 
       {needsSetup ? (
-        <div className="mt-auto pt-2 flex items-center justify-between rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
+        <div className="mt-auto pt-2 flex items-center justify-between rounded-xl border border-amber-200/80 bg-amber-500/10 px-3 py-2 dark:border-amber-500/25 dark:bg-amber-500/15">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900 dark:text-amber-200">
             <AlertCircleIcon className="size-3.5" /> Setup required to use
           </span>
           <span className="text-[11px] font-bold text-primary">Configure →</span>
         </div>
       ) : enabled ? (
-        <div className="flex items-center gap-1 text-[11px] text-[#9CA3AF] group-hover:text-[#6B7280] transition-colors mt-auto pt-1">
+        <div className="flex items-center gap-1 text-[11px] text-muted-foreground group-hover:text-foreground transition-colors mt-auto pt-1">
           <SettingsIcon className="size-3" />Configure
         </div>
       ) : null}

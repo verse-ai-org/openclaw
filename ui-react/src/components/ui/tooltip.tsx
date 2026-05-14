@@ -15,9 +15,14 @@ function TooltipProvider({
   );
 }
 
-function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+type TooltipProps = React.ComponentProps<typeof TooltipPrimitive.Root> & {
+  /** Passed to the nested Provider (hover delay). Defaults to 0 when omitted. */
+  delayDuration?: number;
+};
+
+function Tooltip({ delayDuration, ...props }: TooltipProps) {
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={delayDuration}>
       <TooltipPrimitive.Root data-slot="tooltip" {...props} />
     </TooltipProvider>
   );

@@ -417,7 +417,7 @@ export function ChannelConfigForm({
                     Minimum setup
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-2">
                   {feishuRequiredKeys.map((key) => {
                     const fieldSchema = channelNode.properties?.[key];
                     if (!fieldSchema) return null;
@@ -433,7 +433,7 @@ export function ChannelConfigForm({
                       },
                     } as ConfigUiHints;
                     return (
-                      <div key={key} className="rounded-lg bg-muted/25 border border-border/60 p-3">
+                      <div key={key} className="rounded-lg p-2">
                         <RenderNode
                           schema={fieldSchema}
                           path={hintPath}

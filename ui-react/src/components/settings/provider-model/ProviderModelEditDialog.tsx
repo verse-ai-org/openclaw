@@ -217,18 +217,24 @@ export function ProviderModelEditDialog({
             {selectedMethod?.label ?? "No auth method"}
           </div>
           {stepIndex < steps.length - 1 && nextBlockedReason && !hideFooterValidationHint ? (
-            <p className="mr-2 text-xs text-amber-700">{nextBlockedReason}</p>
+            <p className="mr-2 text-xs text-amber-800 dark:text-amber-200">{nextBlockedReason}</p>
           ) : null}
           {stepIndex === steps.length - 1 && applyBlockedReason ? (
-            <p className="mr-2 text-xs text-amber-700">{applyBlockedReason}</p>
+            <p className="mr-2 text-xs text-amber-800 dark:text-amber-200">{applyBlockedReason}</p>
           ) : null}
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           {stepIndex > 0 ? (
             <Button
               type="button"
               variant="outline"
+              className="rounded-full"
               onClick={() => setStepIndex((prev) => Math.max(0, prev - 1))}
             >
               Back
@@ -237,6 +243,7 @@ export function ProviderModelEditDialog({
           {stepIndex < steps.length - 1 ? (
             <Button
               type="button"
+              className="rounded-full"
               disabled={!!nextBlockedReason}
               onClick={() =>
                 setStepIndex((prev) => Math.min(steps.length - 1, prev + 1))
@@ -247,6 +254,7 @@ export function ProviderModelEditDialog({
           ) : (
             <Button
               type="button"
+              className="rounded-full"
               disabled={!!applyBlockedReason}
               onClick={() => {
                 onApply(draft, validation);
