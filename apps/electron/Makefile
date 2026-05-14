@@ -66,7 +66,7 @@ package: ## 完整打包 macOS（签名 + 公证，需配置 .env）
 	ARCH=$(ARCH) bash $(SCRIPTS_DIR)/package-electron.sh
 
 .PHONY: package-fast
-package-fast: ## 快速打包 macOS（无签名，用于本地验证安装流程）
+package-fast: ## 快速打包 macOS（无签名；仍 pnpm build，跳过 Lit ui:build）
 	@echo "⚡ 快速打包 macOS（无签名）..."
 	LOCAL_FAST=1 ARCH=$(ARCH) bash $(SCRIPTS_DIR)/package-electron.sh
 
@@ -88,7 +88,7 @@ package-win: ## 打包 Windows x64
 	ARCH=x64 bash $(SCRIPTS_DIR)/package-electron-win.sh
 
 .PHONY: package-win-fast
-package-win-fast: ## 快速打包 Windows（跳过构建，复用现有产物）
+package-win-fast: ## 快速打包 Windows（仍 pnpm build，跳过 Lit ui:build）
 	LOCAL_FAST=1 ARCH=x64 bash $(SCRIPTS_DIR)/package-electron-win.sh
 
 # ─────────────────────────────────────────────────────

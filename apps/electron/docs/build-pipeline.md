@@ -111,7 +111,8 @@ Bossim.app/
 - 需要 `.env` 中配置 `APP_STORE_CONNECT_*` 变量
 
 **快速打包**（`LOCAL_FAST=1`）：
-- 跳过构建（`SKIP_BUILD=1`）和依赖安装（`REUSE_RUNTIME_DEPS=1`）
+- 跳过传统 Lit Control UI 的 `ui:build`；**仍会执行根目录 `pnpm build`**，确保打进 `.app` 的 `dist/` 与当前网关/CLI 源码一致。
+- 复用运行时 `node_modules`（`REUSE_RUNTIME_DEPS=1`）；若 `packaged-runtime.json` 变更后行为异常，删除 `apps/electron/resources/prod-node_modules` 后重打。
 - `--config.mac.identity=null --config.mac.hardenedRuntime=false` 跳过签名
 - 生成可安装的 `.dmg`，macOS 会弹"无法验证开发者"，右键打开可绕过
 

@@ -8,8 +8,8 @@
  * When the user completes the form, their answers arrive as a new chat
  * message with structured metadata in `metadata.interaction`.
  */
-import { QUESTION_FLOW_MANIFEST } from "@openclaw/interactions";
 import { Type } from "@sinclair/typebox";
+import { QuestionFlowRequestSchema } from "./control-ui-interaction-schemas.js";
 import { type AnyAgentTool, ToolInputError, interactionPendingResult } from "./common.js";
 
 const OptionSchema = Type.Object({
@@ -58,7 +58,7 @@ export function createQuestionFlowTool(): AnyAgentTool {
       "Only available in Control UI sessions (sender label: openclaw-control-ui).",
     parameters: ParametersSchema,
     execute: async (_toolCallId, args) => {
-      const parsed = QUESTION_FLOW_MANIFEST.requestSchema.safeParse(args);
+      const parsed = QuestionFlowRequestSchema.safeParse(args);
       if (!parsed.success) {
         throw new ToolInputError(
           `question_flow schema validation failed: ${parsed.error.issues

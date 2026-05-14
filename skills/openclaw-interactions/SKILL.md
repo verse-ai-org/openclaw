@@ -50,9 +50,9 @@ Rules:
 
 | component        | Purpose                                 | request schema file |
 | ---------------- | --------------------------------------- | ------------------- |
-| `question_flow`  | Multi-step questionnaire (upfront form) | `packages/interactions/src/components/question-flow/schema.ts` |
-| `option_list`    | Single-step picker (single or multi)    | `packages/interactions/src/components/option-list/schema.ts` |
-| `approval_card`  | Explicit approve/deny confirmation      | `packages/interactions/src/components/approval-card/schema.ts` |
+| `question_flow`  | Multi-step questionnaire (upfront form) | `src/agents/tools/control-ui-interaction-schemas.ts` |
+| `option_list`    | Single-step picker (single or multi)    | `src/agents/tools/control-ui-interaction-schemas.ts` |
+| `approval_card`  | Explicit approve/deny confirmation      | `src/agents/tools/control-ui-interaction-schemas.ts` |
 
 ### `question_flow`
 
@@ -167,5 +167,5 @@ Possible response payloads:
 
 ## References
 
-- Shared schemas / registry: `packages/interactions/src/`
+- Shared wire schemas (gateway tools): `src/agents/tools/control-ui-interaction-schemas.ts`
 - Control UI documentation: `ui-react/docs/interaction-tool-architecture.md`

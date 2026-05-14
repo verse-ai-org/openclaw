@@ -1,8 +1,8 @@
 /**
  * approval_card — Control UI explicit approval/deny card.
  */
-import { APPROVAL_CARD_MANIFEST } from "@openclaw/interactions";
 import { Type } from "@sinclair/typebox";
+import { ApprovalCardRequestSchema } from "./control-ui-interaction-schemas.js";
 import { stringEnum } from "../schema/typebox.js";
 import { type AnyAgentTool, ToolInputError, interactionPendingResult } from "./common.js";
 
@@ -44,7 +44,7 @@ export function createApprovalCardTool(): AnyAgentTool {
       "After calling this tool, STOP and wait for the user's response — do not continue.",
     parameters: ParametersSchema,
     execute: async (_toolCallId, args) => {
-      const parsed = APPROVAL_CARD_MANIFEST.requestSchema.safeParse(args);
+      const parsed = ApprovalCardRequestSchema.safeParse(args);
       if (!parsed.success) {
         throw new ToolInputError(
           `approval_card schema validation failed: ${parsed.error.issues

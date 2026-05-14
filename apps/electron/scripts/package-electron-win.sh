@@ -49,7 +49,11 @@ print_banner() {
 build_artifacts_if_needed() {
   if [ "$SKIP_BUILD" = "1" ]; then
     echo ""
-    echo "⏭️  [1-2/5] 跳过 CLI + Control UI 构建，复用现有产物"
+    echo "⏭️  [1-2/5] LOCAL_FAST：跳过传统 Lit Control UI (ui:build)"
+    echo "   仍执行 pnpm build，保证 dist/ 与当前源码一致。"
+    echo ""
+    echo "📦 [1/5] 构建 openclaw CLI (pnpm build)"
+    (cd "$ROOT_DIR" && pnpm build)
   else
     echo ""
     echo "📦 [1/5] 构建 openclaw CLI (pnpm build)"

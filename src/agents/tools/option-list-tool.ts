@@ -8,8 +8,8 @@
  * When the user confirms their selection, their structured answer arrives
  * in the next user message's metadata.interaction field.
  */
-import { OPTION_LIST_MANIFEST } from "@openclaw/interactions";
 import { Type } from "@sinclair/typebox";
+import { OptionListRequestSchema } from "./control-ui-interaction-schemas.js";
 import { type AnyAgentTool, ToolInputError, interactionPendingResult } from "./common.js";
 
 const OptionSchema = Type.Object({
@@ -54,7 +54,7 @@ export function createOptionListTool(): AnyAgentTool {
       "Only available in Control UI sessions (sender label: openclaw-control-ui).",
     parameters: ParametersSchema,
     execute: async (_toolCallId, args) => {
-      const parsed = OPTION_LIST_MANIFEST.requestSchema.safeParse(args);
+      const parsed = OptionListRequestSchema.safeParse(args);
       if (!parsed.success) {
         throw new ToolInputError(
           `option_list schema validation failed: ${parsed.error.issues

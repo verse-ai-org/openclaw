@@ -35,13 +35,13 @@ make release-win-with-version VERSION=2026.3.31
 
 打包（macOS）
   package          完整打包当前架构（签名 + 公证，需配置 .env）
-  package-fast     快速打包（无签名，用于本地验证安装流程）
+  package-fast     快速打包（无签名；仍执行 `pnpm build` + ui-react，跳过 Lit `ui:build`）
   package-arm64    打包 arm64（Apple Silicon）
   package-x64      打包 x64（Intel）
 
 打包（Windows，在 macOS/Linux 交叉编译）
   package-win      打包 Windows x64
-  package-win-fast 快速打包 Windows（跳过构建，复用产物）
+  package-win-fast 快速打包 Windows（仍执行 `pnpm build` + ui-react，跳过 Lit `ui:build`）
 
 发布（上传到 Cloudflare R2）
   bump-version     自动递增版本号（支持 TYPE=major|beta|patch）
@@ -146,7 +146,7 @@ make package-fast
 
 ```bash
 make package-win      # 正式打包（Windows 不需要签名配置）
-make package-win-fast # 跳过构建步骤，复用现有产物
+make package-win-fast # 与 package-fast 相同策略：跳过 Lit ui:build，仍构建 dist/
 ```
 
 产物：`apps/electron/release/` 下的 `.exe` 安装包和 `.zip`。
