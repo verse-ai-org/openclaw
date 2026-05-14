@@ -215,7 +215,7 @@ export function AgentSessionList({
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto border-t border-border px-2 py-4">
+      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto border-border px-2 py-4">
         {/* Section heading + new session button */}
         <div className="flex items-center justify-between px-3 mb-3">
           <span className="text-[17px] font-bold leading-tight text-foreground">Sessions</span>
