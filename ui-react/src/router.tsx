@@ -26,8 +26,8 @@ export const router = createHashRouter([
       { path: "agents", element: <AgentsPage /> },
       { path: "employees", element: <AgentsPage /> },
       { path: "skills", element: <SkillsPage /> },
+      { path: "automation", element: <ScheduledTasksPage /> },
       { path: "plugins", element: <PluginsPage /> },
-      { path: "scheduled-tasks", element: <ScheduledTasksPage /> },
       { path: "settings", element: <ConfigPage /> }
     ],
   },
