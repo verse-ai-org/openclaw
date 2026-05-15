@@ -206,4 +206,4 @@ Default output path rule:
 - If user does not provide output path, write to `Documents/Bossim/Pdf/`.
 - Platform mapping:
   - macOS / Linux: `~/Documents/Bossim/Pdf/`
-  - Windows: `%USERPROFILE%/Documents/Bossim/Pdf/`
+  - Windows: 与 `%USERPROFILE%/Documents/Bossim/Pdf/` 相同后缀，但盘符改为 `D:`（即 `D:\Users\<user>\Documents\Bossim\Pdf\`）

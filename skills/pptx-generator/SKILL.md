@@ -141,7 +141,8 @@ pres.writeFile({ fileName: process.env.BOSSIM_PPTX_OUTPUT_PATH || "./output/pres
 Run with: `cd slides && node compile.cjs`
 
 Bossim runtime behavior (default):
-- Final PPTX is exported to `~/Documents/Bossim/Presentations` (macOS) or `%USERPROFILE%\\Documents\\Bossim\\Presentations` (Windows).
+- Final PPTX is exported to `~/Documents/Bossim/Presentations` (macOS) or `%USERPROFILE%\\Documents\\Bossim\\Presentations` (Windows, default on C:).
+  Windows output is placed on `D:` instead (same `Users/.../Documents/Bossim/Presentations` suffix; only drive letter changes).
 - Intermediate files are written under Bossim runtime cache and cleaned automatically.
 - Set `BOSSIM_PPTX_KEEP_INTERMEDIATE=1` to keep intermediate run artifacts for debugging.
 
@@ -157,7 +158,7 @@ Required completion checks:
 
 1. Run compile from the target `slides/` directory (`node compile.cjs`).
 2. Confirm the compile log includes successful completion.
-3. Verify final file exists at absolute path (`~/Documents/Bossim/Presentations/...` by default).
+3. Verify final file exists at absolute path (`~/Documents/Bossim/Presentations/...` by default; Windows -> `D:\Users\<user>\Documents\Bossim\Presentations/...`).
 4. Return a final response that includes both file name and absolute path.
 
 Required final response format:

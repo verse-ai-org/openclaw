@@ -85,7 +85,7 @@ dotnet run --project scripts/dotnet/MiniMaxAIDocx.Cli --
 
 Default output directory (if `--output` is omitted for create/apply-template):
 - macOS/Linux: `~/Documents/Bossim/Word`
-- Windows: `%USERPROFILE%\Documents\Bossim\Word`
+- Windows: 与 `%USERPROFILE%\Documents\Bossim\Word` 相同后缀，但盘符改为 `D:`（即 `D:\Users\<user>\Documents\Bossim\Word`）
 
 ## Pipeline routing
 
@@ -130,7 +130,7 @@ Read `references/scenario_a_create.md`, `references/typography_guide.md`, and `r
 
 If `--output` is omitted, `create` writes to:
 - macOS/Linux: `~/Documents/Bossim/Word/output.docx`
-- Windows: `%USERPROFILE%\Documents\Bossim\Word\output.docx`
+- Windows: 与 `%USERPROFILE%\Documents\Bossim\Word\output.docx` 相同后缀，但盘符改为 `D:`（即 `D:\Users\<user>\Documents\Bossim\Word\output.docx`）
 
 CLI options: `--type` (report|letter|memo|academic), `--title`, `--author`, `--page-size` (letter|a4|legal|a3), `--margins` (standard|narrow|wide), `--header`, `--footer`, `--page-numbers`, `--toc`, `--content-json`.
 
@@ -170,7 +170,7 @@ $CLI apply-template --input source.docx --template template.docx --output out.do
 
 If `--output` is omitted, `apply-template` writes to:
 - macOS/Linux: `~/Documents/Bossim/Word/output.docx`
-- Windows: `%USERPROFILE%\Documents\Bossim\Word\output.docx`
+- Windows: 与 `%USERPROFILE%\Documents\Bossim\Word\output.docx` 相同后缀，但盘符改为 `D:`（即 `D:\Users\<user>\Documents\Bossim\Word\output.docx`）
 
 For complex template operations (multi-template merge, per-section headers/footers, style merging), write C# directly — see Critical Rules below for required patterns.
 

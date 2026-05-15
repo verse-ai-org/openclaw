@@ -52,7 +52,7 @@ layout twice in a row.
 ```
 
 This copies `templates/deck.html` into
-`~/Documents/Bossim/Html/my-talk/index.html` (or `%USERPROFILE%/Documents/Bossim/Html/my-talk/index.html` on Windows) with
+`~/Documents/Bossim/Html/my-talk/index.html` (Windows: 与 `%USERPROFILE%/Documents/Bossim/Html/my-talk/index.html` 相同后缀，但盘符改为 `D:`) with
 paths rewritten. Add/remove `<section class="slide">` blocks to match your
 outline.
 

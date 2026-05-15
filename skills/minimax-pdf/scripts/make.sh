@@ -42,6 +42,21 @@ default_pdf_dir() {
   if [[ -z "$home_dir" ]]; then
     home_dir="."
   fi
+
+  # Windows: prefer D: (preserve the rest of the path under Users\...).
+  # Examples:
+  #   C:/Users/alice -> D:/Users/alice
+  #   /c/Users/alice -> /d/Users/alice
+  if [[ "$home_dir" =~ ^([A-Za-z]):/(.*)$ ]]; then
+    if [[ -d "D:/" || -d "/d" ]]; then
+      home_dir="D:/${BASH_REMATCH[2]}"
+    fi
+  elif [[ "$home_dir" =~ ^/([a-zA-Z])/(.*)$ ]]; then
+    if [[ -d "D:/" || -d "/d" ]]; then
+      home_dir="/d/${BASH_REMATCH[2]}"
+    fi
+  fi
+
   printf "%s/Documents/Bossim/Pdf" "$home_dir"
 }
 

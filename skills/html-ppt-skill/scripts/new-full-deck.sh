@@ -46,12 +46,36 @@ to_unix_path() {
 
 default_parent_dir() {
   if [[ -n "${HOME:-}" && -d "$HOME/Documents" ]]; then
-    echo "$HOME/Documents/Bossim/Html"
+    local home_dir="$HOME"
+
+    # Windows: prefer D drive (preserve rest of Users\... path).
+    if [[ -d "D:/" || -d "/d" ]]; then
+      if [[ "$home_dir" =~ ^([A-Za-z]):/(.*)$ ]]; then
+        home_dir="D:/${BASH_REMATCH[2]}"
+      elif [[ "$home_dir" =~ ^/([A-Za-z])/(.*)$ ]]; then
+        home_dir="/d/${BASH_REMATCH[2]}"
+      fi
+    fi
+
+    echo "$home_dir/Documents/Bossim/Html"
     return
   fi
   if [[ -n "${USERPROFILE:-}" ]]; then
     local win_home
     win_home="$(to_unix_path "$USERPROFILE")"
+
+    # Windows: prefer D: (preserve the rest of the path under Users\...).
+    # Example:
+    #   C:/Users/alice -> D:/Users/alice
+    #   /c/Users/alice -> /d/Users/alice
+    if [[ -d "D:/" || -d "/d" ]]; then
+      if [[ "$win_home" =~ ^([A-Za-z]):/(.*)$ ]]; then
+        win_home="D:/${BASH_REMATCH[2]}"
+      elif [[ "$win_home" =~ ^/([A-Za-z])/(.*)$ ]]; then
+        win_home="/d/${BASH_REMATCH[2]}"
+      fi
+    fi
+
     echo "$win_home/Documents/Bossim/Html"
     return
   fi

@@ -18,7 +18,7 @@ public static class ApplyTemplateCommand
         var templateOpt = new Option<string>("--template") { Description = "Template DOCX (formatting to apply)", Required = true };
         var outputOpt = new Option<string>("--output")
         {
-            Description = "Output DOCX file path (default: ~/Documents/Bossim/Word/output.docx)"
+            Description = "Output DOCX file path (default: ~/Documents/Bossim/Word/output.docx; Windows: D: drive equivalent)"
         };
         outputOpt.DefaultValueFactory = _ => OutputPathDefaults.GetDefaultOutputPath();
         var applyStylesOpt = new Option<bool>("--apply-styles") { Description = "Copy styles.xml from template" };

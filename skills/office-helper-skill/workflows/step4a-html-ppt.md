@@ -95,7 +95,9 @@ en: approval_card payload = examples/en/approval.confirm-generation.json
 3. 设置 `<body data-themes="...">` 包含推荐主题列表
 4. 按动画强度施加动画属性
 5. **内容语言 = `detected_language`**：生成时使用对应语言的文本内容
-6. 生成自包含的 HTML deck 到 `~/Documents/Bossim/Html/` 目录
+6. 生成自包含的 HTML deck 到输出目录：
+   - macOS/Linux: `~/Documents/Bossim/Html/`
+   - Windows: 与现有 `%USERPROFILE%/Documents/Bossim/Html/` 路径相同，但盘符改为 `D:`（即保留 `Users/.../Documents/Bossim/Html` 后缀）
 7. QA 验证：确保 `index.html` + `assets/` 自包含，无 repo-coupled 路径
 
 ### Completion message（按 `detected_language` 选择）

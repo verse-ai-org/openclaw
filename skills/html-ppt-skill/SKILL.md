@@ -234,7 +234,9 @@ capture, runtime.js exposes `#/N` deep-links, and render.sh iterates 1..N.
 ```bash
 ./scripts/render.sh templates/single-page/kpi-grid.html        # single page
 ./scripts/render.sh examples/demo-deck/index.html 8 out-dir    # 8 slides, custom dir
-# default output root when out-dir is omitted: ~/Documents/Bossim/Html/
+# default output root when out-dir is omitted:
+# - macOS/Linux: ~/Documents/Bossim/Html/
+# - Windows: 与 `%USERPROFILE%/Documents/Bossim/Html/` 相同后缀，但盘符改为 D:
 ```
 
 ## Keyboard cheat sheet

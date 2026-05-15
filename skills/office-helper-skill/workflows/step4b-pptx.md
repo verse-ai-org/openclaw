@@ -76,12 +76,13 @@ en: approval_card payload = examples/en/approval.confirm-generation.json
 2. 使用映射的色板作为 `theme` 对象（primary/secondary/accent/light/bg）
 3. 使用映射的风格控制 `rectRadius` 和间距
 4. 使用映射的字体搭配
-5. **内容语言 = `detected_language`**：生成时使用对应语言的文本内容
-6. 规划 Slide Outline（Cover → TOC → Content × N → Summary）
-7. 并行生成 slide JS 文件
-8. 编译 `compile.cjs`
-9. QA：`markitdown` 提取文本校验
-10. 确认 `.pptx` 文件存在，输出绝对路径
+5. 输出路径（Windows）：与 `%USERPROFILE%\\Documents\\Bossim\\Presentations` 相同，但**盘符改为 `D:`**（保留 `Users/.../Documents/...` 后续路径）；并确保在 pptx-generator 运行阶段设置 `BOSSIM_PPTX_OUTPUT_PATH` 指向最终 `.pptx` 的**绝对文件路径**（避免仍写到 C:）
+6. **内容语言 = `detected_language`**：生成时使用对应语言的文本内容
+7. 规划 Slide Outline（Cover → TOC → Content × N → Summary）
+8. 并行生成 slide JS 文件
+9. 编译 `compile.cjs`
+10. QA：`markitdown` 提取文本校验
+11. 确认 `.pptx` 文件存在，输出绝对路径
 
 ### Completion message（按 `detected_language` 选择）
 

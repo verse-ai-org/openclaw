@@ -17,7 +17,7 @@ public static class CreateCommand
     {
         var outputOption = new Option<string>("--output")
         {
-            Description = "Output DOCX file path (default: ~/Documents/Bossim/Word/output.docx)"
+            Description = "Output DOCX file path (default: ~/Documents/Bossim/Word/output.docx; Windows: D: drive equivalent)"
         };
         outputOption.DefaultValueFactory = _ => OutputPathDefaults.GetDefaultOutputPath();
         var typeOption = new Option<string>("--type") { Description = "Document type: report, letter, memo, academic" };
