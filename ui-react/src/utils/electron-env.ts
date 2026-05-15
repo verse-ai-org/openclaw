@@ -39,6 +39,6 @@ export function macOSTitleBarControlsPaddingInlineStartStyle(
     return undefined;
   }
   return {
-    paddingInlineStart: `max(${TITLEBAR_CONTROLS_INSET_END}, ${MACOS_TITLEBAR_CONTROLS_INSET_FALLBACK_PX}px)`,
+    paddingInlineStart: `68px`,
   };
 }
