@@ -16,6 +16,22 @@ ELECTRON_DIR := $(shell pwd -W 2>/dev/null || pwd)
 ROOT_DIR     := $(shell cd ../.. && pwd -W 2>/dev/null || pwd)
 SCRIPTS_DIR  := $(ELECTRON_DIR)/scripts
 
+# Subcommands: make version patch | make version beta | make version major
+VERSION_KIND :=
+ifeq ($(findstring version,$(MAKECMDGOALS)),version)
+ifeq ($(findstring major,$(MAKECMDGOALS)),major)
+VERSION_KIND := major
+else
+ifeq ($(findstring beta,$(MAKECMDGOALS)),beta)
+VERSION_KIND := beta
+else
+ifeq ($(findstring patch,$(MAKECMDGOALS)),patch)
+VERSION_KIND := patch
+endif
+endif
+endif
+endif
+
 # ── 自动加载 .env（若存在）────────────────────────────
 # 使变量如 R2_BUCKET_NAME / APP_STORE_CONNECT_* 在 make 目标中可用
 -include $(ELECTRON_DIR)/.env
@@ -95,21 +111,21 @@ package-win-fast: ## 快速打包 Windows（仍 pnpm build，跳过 Lit ui:build
 ##@ 发布（上传到 Cloudflare R2）
 # ─────────────────────────────────────────────────────
 
-.PHONY: bump-version
-bump-version: ## 自动更新版本号（用法：make bump-version [VERSION=2026.3.31] [TYPE=major|minor|patch|beta]）
+.PHONY: version
+version: ## 同步根目录 + apps/electron 的 version（默认今日 YYYY.M.DD；make version patch|beta|major）
 	@if [ -n "$(VERSION)" ]; then \
 		echo "📍 使用指定版本：$(VERSION)"; \
-		node -e 'const fs=require("fs");const p="$(ELECTRON_DIR)/package.json";const pkg=JSON.parse(fs.readFileSync(p,"utf8"));const prev=pkg.version;pkg.version="$(VERSION)";fs.writeFileSync(p,JSON.stringify(pkg,null,2)+"\n");console.log(`✅ version: $${prev} -> $${pkg.version}`);'; \
+		node "$(SCRIPTS_DIR)/bump-version-sync.mjs" "$(VERSION)"; \
 	else \
-		echo "🔍 自动检测并递增版本号..."; \
+		echo "🔍 计算版本号（默认对齐今日日期）…"; \
 		TODAY=$$(date +'%Y.%-m.%-d'); \
 		CURRENT_VERSION=$$(node -p "require('./package.json').version"); \
 		if echo "$$CURRENT_VERSION" | grep -qE "^$$TODAY(-|$$)"; then \
 			SUFFIX=$$(echo "$$CURRENT_VERSION" | sed -n "s/^$$TODAY-\(.*\)$$/\1/p"); \
-			if [ "$(TYPE)" = "major" ]; then \
+			if [ "$(VERSION_KIND)" = "major" ]; then \
 				NEXT_VERSION="$$TODAY"; \
-				echo "ℹ️  强制升级到主版本：$$NEXT_VERSION"; \
-			elif [ "$(TYPE)" = "beta" ]; then \
+				echo "ℹ️  强制主版本（今日）：$$NEXT_VERSION"; \
+			elif [ "$(VERSION_KIND)" = "beta" ]; then \
 				if [ -z "$$SUFFIX" ]; then \
 					NEXT_VERSION="$$TODAY-beta.1"; \
 				elif echo "$$SUFFIX" | grep -qE '^beta\.[0-9]+$$'; then \
@@ -119,8 +135,8 @@ bump-version: ## 自动更新版本号（用法：make bump-version [VERSION=202
 				else \
 					NEXT_VERSION="$$TODAY-beta.1"; \
 				fi; \
-				echo "ℹ️  Beta 版本：$$NEXT_VERSION"; \
-			elif [ "$(TYPE)" = "patch" ]; then \
+				echo "ℹ️  Beta：$$NEXT_VERSION"; \
+			elif [ "$(VERSION_KIND)" = "patch" ]; then \
 				if [ -z "$$SUFFIX" ]; then \
 					NEXT_VERSION="$$TODAY-patch.1"; \
 				elif echo "$$SUFFIX" | grep -qE '^patch\.[0-9]+$$'; then \
@@ -130,11 +146,12 @@ bump-version: ## 自动更新版本号（用法：make bump-version [VERSION=202
 				else \
 					NEXT_VERSION="$$TODAY-patch.1"; \
 				fi; \
-				echo "ℹ️  补丁版本：$$NEXT_VERSION"; \
+				echo "ℹ️  Patch：$$NEXT_VERSION"; \
 			else \
 				if [ -z "$$SUFFIX" ]; then \
-					NEXT_VERSION="$$TODAY-patch.1"; \
-					echo "ℹ️  今日基础版本 $$TODAY 已存在，自动生成补丁版本：$$NEXT_VERSION"; \
+					echo "⚠️  今日基础版本已存在：$$CURRENT_VERSION（与 $$TODAY 对齐）。"; \
+					echo "    同日再发请使用：make version patch   或   make version beta   或   make version major"; \
+					exit 1; \
 				elif echo "$$SUFFIX" | grep -qE '^beta\.[0-9]+$$'; then \
 					BETA_NUM=$$(echo "$$SUFFIX" | sed 's/beta\.//'); \
 					NEXT_BETA=$$((BETA_NUM + 1)); \
@@ -146,31 +163,42 @@ bump-version: ## 自动更新版本号（用法：make bump-version [VERSION=202
 					NEXT_VERSION="$$TODAY-patch.$$NEXT_PATCH"; \
 					echo "ℹ️  检测到 patch.$$PATCH_NUM，递增至：$$NEXT_VERSION"; \
 				else \
-					echo "⚠️  今日版本已存在且格式特殊 ($$CURRENT_VERSION)，请手动指定：make bump-version VERSION=$$TODAY-patch.2"; \
+					echo "⚠️  今日版本格式非常规 ($$CURRENT_VERSION)，请手动：make version VERSION=$$TODAY-patch.2"; \
 					exit 1; \
 				fi; \
 			fi; \
 		else \
-			if [ "$(TYPE)" = "beta" ]; then \
+			if [ "$(VERSION_KIND)" = "beta" ]; then \
 				NEXT_VERSION="$$TODAY-beta.1"; \
-				echo "ℹ️  创建 Beta 版本：$$NEXT_VERSION"; \
-			elif [ "$(TYPE)" = "patch" ]; then \
+				echo "ℹ️  新日历日 + beta：$$NEXT_VERSION"; \
+			elif [ "$(VERSION_KIND)" = "patch" ]; then \
 				NEXT_VERSION="$$TODAY-patch.1"; \
-				echo "ℹ️  创建补丁版本：$$NEXT_VERSION"; \
+				echo "ℹ️  新日历日 + patch：$$NEXT_VERSION"; \
 			else \
 				NEXT_VERSION="$$TODAY"; \
 				echo "ℹ️  使用今日日期版本：$$NEXT_VERSION"; \
 			fi; \
 		fi; \
-		node -e 'const fs=require("fs");const p="$(ELECTRON_DIR)/package.json";const pkg=JSON.parse(fs.readFileSync(p,"utf8"));const prev=pkg.version;const next="'"$$NEXT_VERSION"'";pkg.version=next;fs.writeFileSync(p,JSON.stringify(pkg,null,2)+"\n");console.log(`✅ version: $${prev} -> $${pkg.version}`);'; \
+		node "$(SCRIPTS_DIR)/bump-version-sync.mjs" "$$NEXT_VERSION"; \
 	fi
 
+# Pair with `make version patch` etc. — no-op when `version` is also a goal.
+.PHONY: patch beta major
+patch: ## 与 version 合用：make version patch；单独运行等价于 make version patch
+	$(if $(filter-out patch,$(MAKECMDGOALS)),@:,@$(MAKE) version patch)
+
+beta: ## 与 version 合用：make version beta；单独运行等价于 make version beta
+	$(if $(filter-out beta,$(MAKECMDGOALS)),@:,@$(MAKE) version beta)
+
+major: ## 与 version 合用：make version major；单独运行等价于 make version major
+	$(if $(filter-out major,$(MAKECMDGOALS)),@:,@$(MAKE) version major)
+
 .PHONY: release-with-version
-release-with-version: bump-version ## 一键发布 macOS（先改版本再执行 release，用法: make release-with-version VERSION=2026.3.31）
+release-with-version: version ## 一键发布 macOS（先改版本再 release；用法: make release-with-version VERSION=2026.3.31）
 	$(MAKE) release
 
 .PHONY: release-win-with-version
-release-win-with-version: bump-version ## 一键发布 Windows（先改版本再执行 release-win，用法: make release-win-with-version VERSION=2026.3.31）
+release-win-with-version: version ## 一键发布 Windows（先改版本再 release-win；用法: make release-win-with-version VERSION=2026.3.31）
 	$(MAKE) release-win
 
 # R2 配置可放在 .env 中，或直接导出环境变量：

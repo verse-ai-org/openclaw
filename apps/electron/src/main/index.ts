@@ -36,6 +36,10 @@ import {
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
 import { initAutoUpdater, checkForUpdates, quitAndInstall } from "./updater.js";
 
+// Menu bar label + “About …” title use app.getName(), which otherwise comes from
+// package.json `name` (openclaw-electron). Keep in sync with electron-builder.yml `productName`.
+app.setName("Bossim");
+
 // Windows: taskbar / Start menu grouping use App User Model ID; must match electron-builder.yml `appId`
 // and be set before the app "ready" event (Electron docs).
 if (process.platform === "win32") {

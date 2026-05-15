@@ -16,8 +16,10 @@ make release      # 一键完整发布：会先 clear，再打包 + 上传 R2 + 
 make package-win      # 打包 Windows
 make release-win      # 一键完整发布：会先 clear，再打包 + 上传 R2 + 验证
 
-# 版本管理
-make bump-version VERSION=2026.3.31
+# 版本管理（根 package.json + apps/electron/package.json 同步）
+make version                         # 默认设为今日 YYYY.M.DD（新日历日）
+make version patch                   # patch / beta / major 子命令
+make version VERSION=2026.3.31       # 显式版本
 make release-with-version VERSION=2026.3.31
 make release-win-with-version VERSION=2026.3.31
 ```
@@ -44,7 +46,10 @@ make release-win-with-version VERSION=2026.3.31
   package-win-fast 快速打包 Windows（仍执行 `pnpm build` + ui-react，跳过 Lit `ui:build`）
 
 发布（上传到 Cloudflare R2）
-  bump-version     自动递增版本号（支持 TYPE=major|beta|patch）
+  version          同步根目录 + electron 的 version（默认今日日期；子目标 patch / beta / major）
+  patch            单独运行等价 make version patch
+  beta             单独运行等价 make version beta
+  major            单独运行等价 make version major
   r2-setup         首次配置 rclone r2 remote
   upload-r2        上传 macOS release/ 产物到 R2
   upload-r2-verify 验证 macOS latest-mac.yml 是否可公开访问
@@ -155,43 +160,49 @@ make package-win-fast # 与 package-fast 相同策略：跳过 Lit ui:build，�
 
 ### 版本号管理（发布前）
 
-Electron 安装包版本来自 `apps/electron/package.json` 的 `version` 字段。
+`make version` 会**同时**写入仓库根目录 `package.json`（内嵌 openclaw / Gateway `hello` 版本）与 `apps/electron/package.json`（electron-builder、自动更新元数据），保持两者一致。脚本：`apps/electron/scripts/bump-version-sync.mjs`。
+
+Electron 安装包对外版本仍由 `apps/electron/package.json` 的 `version` 提供给 electron-builder。
 
 **版本格式：** `YYYY.M.DD[-patch.N | -beta.N]`
 
 可用以下命令管理版本：
 
 ```bash
-# 1. 自动递增（推荐）
-make bump-version                    # 自动检测并递增
-make bump-version TYPE=major         # 强制升级到主版本（YYYY.M.DD）
-make bump-version TYPE=beta          # 创建/递增 beta 版本
-make bump-version TYPE=patch         # 创建/递增 patch 版本
+# 1. 默认对齐今日日期 YYYY.M.DD（新日历日）
+make version                         # 设为今日；若已是当日基础版则失败（需显式 patch/beta）
+make version patch                   # patch：同日二次发版 / 递增 patch.N
+make version beta                    # beta：创建或递增 beta.N
+make version major                   # 当日强制回到纯日期版（无后缀）
+
+# 单字简写（等价于上面带 version）
+make patch
+make beta
+make major
 
 # 2. 手动指定版本
-make bump-version VERSION=2026.3.31
+make version VERSION=2026.3.31
 
 # 3. 更新版本并执行完整发布
-# macOS：更新版本并执行完整发布
 make release-with-version VERSION=2026.3.31
-
-# Windows：更新版本并执行完整发布
 make release-win-with-version VERSION=2026.3.31
 ```
 
-**自动递增规则示例：**
+**规则示例：**
 
-| 当前版本 | 命令 | 递增后 | 说明 |
+| 当前版本 | 命令 | 结果 | 说明 |
 |---------|------|--------|------|
-| `2026.4.1` | `make bump-version` | `2026.4.1-patch.1` | 同一天第 2 次发布 |
-| `2026.4.1-patch.1` | `make bump-version` | `2026.4.1-patch.2` | 补丁版本递增 |
-| `2026.4.1` | `make bump-version TYPE=beta` | `2026.4.1-beta.1` | 创建 beta 版本 |
-| `2026.4.1-beta.1` | `make bump-version TYPE=beta` | `2026.4.1-beta.2` | Beta 版本递增 |
-| `2026.4.1-beta.2` | `make bump-version TYPE=major` | `2026.4.1` | Beta 转正 |
+| `2026.4.1`（已是当日基础版） | `make version` | 失败（退出码 1） | 需 `make version patch` 等 |
+| `2026.4.1`（已是当日基础版） | `make version patch` / `make patch` | `2026.4.1-patch.1` | 同日第二次发版 |
+| `2026.4.1-patch.1` | `make version` | `2026.4.1-patch.2` | 已在 patch 梯子上时无参仍递增 |
+| `2026.4.1` | `make version beta` | `2026.4.1-beta.1` | 创建 beta |
+| `2026.4.1-beta.1` | `make version beta` | `2026.4.1-beta.2` | 递增 beta |
+| `2026.4.1-beta.2` | `make version major` | `2026.4.1` | 去掉后缀，回到当日主版本号 |
 
 > **注意：**
-> - `make release` / `make release-win` **不会**自动改版本；不走 `*-with-version` 时请先 `make bump-version` 或手动改 `apps/electron/package.json` 的 `version`。
-> - `make bump-version` 默认会按当天版本自动递增（patch / beta / major 等规则见上表）。
+> - `make release` / `make release-win` **不会**自动改版本；不走 `*-with-version` 时请先 `make version`，或手动把**根目录**与 **`apps/electron/package.json`** 的 `version` 改成一致。
+> - `make version` 在新日历日会设为当日 `YYYY.M.DD`；若**当前已是当日基础版**（无 `-patch`/`-beta` 后缀），须使用 `make version patch` / `make version beta` 等。
+> - 若当前已是 `YYYY.M.DD-patch.N`，无参 `make version` 仍会递增为 `patch.N+1`。
 > - `make release` / `make release-win` 会在打包前执行 `make clear`，删除 `release/` 与 `dist/`，避免混入旧产物。
 
 ---

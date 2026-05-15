@@ -3,7 +3,7 @@ import { Outlet, useLocation } from "react-router";
 import { GatewayStatusIndicator } from "@/components/gateway/GatewayStatusIndicator";
 import { GatewayRestartingOverlay } from "@/components/gateway/GatewayRestartingOverlay";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { UpdateBanner } from "@/components/layout/UpdateBanner";
+import { UpdateNavAction } from "@/components/layout/UpdateNavAction";
 import { AppSidebar } from "@/components/layout/Sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -58,6 +58,7 @@ function TopNav() {
         className="flex items-center gap-1"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
+        <UpdateNavAction />
         <button
           type="button"
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -98,7 +99,6 @@ export function AppShell() {
       <SidebarProvider className="h-full w-full overflow-hidden">
         <AppSidebar />
         <SidebarInset className="flex h-full m-0! min-h-0 flex-col overflow-hidden dark:bg-background/60 rounded-r-none!">
-          <UpdateBanner />
           <TopNav />
           <main className="flex-1 m-0! min-h-0 overflow-auto">
             <Outlet />
