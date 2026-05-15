@@ -133,9 +133,10 @@ for 小红书图文 (1242×1660).
 
 ## Troubleshooting
 
-- **Theme doesn't switch with T**: check `data-themes` on `<body>` and
+- **Theme doesn't switch with T**: check `data-themes` on `<html>` (or `<body>`) and
   `data-theme-base` pointing to the themes directory relative to the HTML
-  file.
+  file. You need a non-empty `data-themes` list **and** `<link id="theme-link" href="...">` — see `presenter-mode-reveal/index.html`.
+- **T cycles but colors never change**: `body.tpl-*` (or any ancestor of `.slide`) was probably redefining the same custom properties as the theme (`--bg`, `--accent`, …). Custom properties inherit from the nearest ancestor; `body` wins over `:root` for descendants. Remove those duplicates from the template `style.css` and rely on `:root` + theme files.
 - **Fonts fall back**: make sure `fonts.css` is linked before the theme.
 - **Chart.js colors wrong**: charts read CSS vars in JS; make sure they run
   after the DOM is ready (`addEventListener('DOMContentLoaded', …)`).

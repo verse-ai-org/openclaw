@@ -1,16 +1,8 @@
-/* xhs-post — 小红书 3:4 九宫格 */
+/* xhs-post — 小红书 3:4; slide colors from :root / theme-link (T). */
 .tpl-xhs-post{
-  --bg:#fef7f3;--bg-soft:#fff1ea;--surface:#ffffff;--surface-2:#fff5ef;
-  --border:rgba(90,40,30,.12);--border-strong:rgba(90,40,30,.24);
-  --text-1:#3a1f18;--text-2:#6f4a3e;--text-3:#a68676;
-  --accent:#ff6b8b;--accent-2:#ffa94d;--accent-3:#ffd166;
-  --grad:linear-gradient(135deg,#ffd3e0,#ffe5c7 50%,#d6f0ff);
-  --good:#7bc67b;--warn:#ffb547;--bad:#ff6b6b;
-  --radius:24px;--radius-lg:32px;
-  --shadow:0 14px 36px rgba(90,40,30,.08);
-  font-family:'Inter','Noto Sans SC','PingFang SC',sans-serif;
+  font-family:var(--font-sans),'Inter','Noto Sans SC','PingFang SC',sans-serif;
 }
-.tpl-xhs-post{background:#f0eae2;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.tpl-xhs-post{background:var(--bg-soft);display:flex;align-items:center;justify-content:center;min-height:100vh}
 .tpl-xhs-post .deck{width:810px;height:1080px;position:relative;background:transparent}
 .tpl-xhs-post .slide{
   position:absolute;inset:0;width:810px;height:1080px;aspect-ratio:3/4;

@@ -1,14 +1,6 @@
-/* pitch-deck — classic YC/VC pitch */
+/* pitch-deck — layout; tokens from :root / theme-link (T). */
 .tpl-pitch-deck{
-  --bg:#ffffff;--bg-soft:#f6f7fb;--surface:#ffffff;--surface-2:#f2f4fa;
-  --border:rgba(20,25,60,.08);--border-strong:rgba(20,25,60,.18);
-  --text-1:#0d1130;--text-2:#4a5070;--text-3:#8a90ad;
-  --accent:#3b5bff;--accent-2:#7a46ff;--accent-3:#d94cff;
-  --grad:linear-gradient(135deg,#3b5bff 0%,#7a46ff 55%,#d94cff 100%);
-  --grad-soft:linear-gradient(135deg,#eef1ff,#f4edff 55%,#fbedff);
-  --radius:20px;--radius-lg:28px;
-  --shadow:0 14px 40px rgba(20,25,60,.08),0 2px 8px rgba(20,25,60,.04);
-  font-family:'Inter','Noto Sans SC',sans-serif;
+  font-family:var(--font-sans),'Inter','Noto Sans SC',sans-serif;
 }
 .tpl-pitch-deck .slide{padding:88px 112px}
 .tpl-pitch-deck .kicker{color:var(--accent);font-weight:700}

@@ -3,7 +3,7 @@
 Self-contained multi-slide HTML decks under `templates/full-decks/<name>/`. Each folder contains:
 
 - `index.html` — complete multi-slide deck (cover / section / content / code / chart or diagram / CTA / thanks, 7+ slides)
-- `style.css` — scoped with `.tpl-<name>` class prefix so multiple templates can coexist
+- `style.css` — scoped with `.tpl-<name>` class prefix so multiple templates can coexist. **Do not set global theme tokens** (`--bg`, `--accent`, `--text-1`, …) on `body.tpl-*`: those inherit for all descendants and **override** `assets/themes/*.css` (which sets the same names on `:root`), so **T will not change colors**. Use `var(--bg)` / `var(--accent)` in selectors instead, or use **namespaced** variables (e.g. `--kb-ink`) like `knowledge-arch-blueprint` / `graphify-dark-graph` do. Default palette comes from `base.css` + `<link id="theme-link" href=".../themes/NAME.css">`.
 - `README.md` — short rationale, inspiration, and use guidance
 
 Template sources pull shared `assets/fonts.css`, `assets/base.css`, and `assets/runtime.js` from the skill root. For exported/user-facing decks, use:

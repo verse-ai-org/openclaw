@@ -1,13 +1,7 @@
-/* course-module — academic but friendly */
+/* course-module — academic layout; colors from :root / theme-link (T). */
+/* Do not redefine --bg/--accent/etc. on body: they shadow :root and break T. */
 .tpl-course-module{
-  --bg:#fbfaf6;--bg-soft:#f4f1e8;--surface:#ffffff;--surface-2:#f6f3ea;
-  --border:rgba(60,45,20,.12);--border-strong:rgba(60,45,20,.24);
-  --text-1:#2a2418;--text-2:#5a5140;--text-3:#8a7f68;
-  --accent:#2d7d6e;--accent-2:#d88a3a;--accent-3:#c4593f;
-  --grad:linear-gradient(135deg,#2d7d6e,#4ea893);
-  --radius:14px;--radius-lg:20px;
-  --shadow:0 12px 30px rgba(60,45,20,.07);
-  font-family:'Inter','Noto Sans SC',sans-serif;
+  font-family:var(--font-sans),'Inter','Noto Sans SC',sans-serif;
 }
 .tpl-course-module .slide{padding:64px 80px;background:var(--bg);display:grid;grid-template-columns:260px 1fr;gap:56px;align-content:start}
 .tpl-course-module .slide.full{grid-template-columns:1fr;display:flex;flex-direction:column;justify-content:center}

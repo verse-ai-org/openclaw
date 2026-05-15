@@ -1,14 +1,6 @@
-/* weekly-report — corporate clarity */
+/* weekly-report — layout; tokens from :root / theme-link (T). */
 .tpl-weekly-report{
-  --bg:#fafbfc;--bg-soft:#f3f5f9;--surface:#ffffff;--surface-2:#f3f5f9;
-  --border:rgba(22,30,55,.09);--border-strong:rgba(22,30,55,.2);
-  --text-1:#161e37;--text-2:#50586b;--text-3:#8b92a5;
-  --accent:#2e63eb;--accent-2:#0ea5b5;--accent-3:#f59e0b;
-  --good:#10b981;--warn:#f59e0b;--bad:#ef4444;
-  --grad:linear-gradient(120deg,#2e63eb,#0ea5b5);
-  --radius:14px;--radius-lg:18px;
-  --shadow:0 6px 20px rgba(22,30,55,.06),0 1px 3px rgba(22,30,55,.04);
-  font-family:'Inter','Noto Sans SC',sans-serif;
+  font-family:var(--font-sans),'Inter','Noto Sans SC',sans-serif;
 }
 .tpl-weekly-report .slide{padding:64px 88px;background:var(--bg)}
 .tpl-weekly-report .h1{font-size:64px;line-height:1.05;font-weight:800;letter-spacing:-.025em}
