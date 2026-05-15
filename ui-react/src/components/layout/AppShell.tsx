@@ -13,8 +13,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useGateway } from "@/hooks/gateway";
-import { cn } from "@/lib/utils";
 import { TAB_PATHS } from "@/types/gateway";
+import {
+  isMacOSElectron,
+  macOSTitleBarControlsPaddingInlineStartStyle,
+} from "@/utils/electron-env";
 
 /** Map path → readable breadcrumb label */
 const PATH_LABELS: Record<string, string> = Object.fromEntries(
@@ -27,8 +30,9 @@ const PATH_LABELS: Record<string, string> = Object.fromEntries(
 function TopNav() {
   const location = useLocation();
   const { state, isMobile, openMobile } = useSidebar();
-  // When the inset sidebar is off-screen, mirror its top-left drag strip (Sidebar.tsx) so titlebar controls do not cover the trigger (Electron).
-  const reserveTitleBarControlsInset = isMobile ? !openMobile : state === "collapsed";
+  // macOS Electron: when the inset sidebar is off-screen, reserve inline-start space for traffic lights (env + fallback; see `titleBarOverlay` in Electron main).
+  const reserveTitleBarControlsInset =
+    isMacOSElectron() && (isMobile ? !openMobile : state === "collapsed");
   const currentLabel =
     Object.entries(PATH_LABELS).find(
       ([path]) => location.pathname === path || location.pathname.startsWith(path + "/"),
@@ -41,11 +45,13 @@ function TopNav() {
     >
       {/* Left: sidebar toggle + breadcrumb */}
       <div
-        className={cn(
-          "flex items-center gap-3 transition-transform duration-300 ease-in-out",
-          reserveTitleBarControlsInset && "translate-x-16"
-        )}
-        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        className="flex items-center gap-3 transition-[padding-inline-start] duration-300 ease-in-out"
+        style={
+          {
+            WebkitAppRegion: "no-drag",
+            ...macOSTitleBarControlsPaddingInlineStartStyle(reserveTitleBarControlsInset),
+          } as React.CSSProperties
+        }
       >
         <SidebarTrigger className="z-50" />
         <div className="flex items-center gap-1.5 text-sm">

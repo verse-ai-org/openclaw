@@ -301,6 +301,7 @@ export function configureSession(port: number): void {
  */
 export function createWindow(): BrowserWindow {
   const bounds = getInitialWindowBounds();
+  const isDarwin = process.platform === "darwin";
   const win = new BrowserWindow({
     x: bounds.x,
     y: bounds.y,
@@ -309,7 +310,13 @@ export function createWindow(): BrowserWindow {
     minWidth: bounds.minWidth,
     minHeight: bounds.minHeight,
     titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 16, y: 16 },
+    ...(isDarwin
+      ? {
+          trafficLightPosition: { x: 16, y: 16 },
+          // Exposes env(titlebar-area-x/y/width/height) in the renderer (Window Controls Overlay).
+          titleBarOverlay: { height: 48 },
+        }
+      : {}),
     backgroundColor: "#1a1a1a",
     autoHideMenuBar: true,
     show: false,

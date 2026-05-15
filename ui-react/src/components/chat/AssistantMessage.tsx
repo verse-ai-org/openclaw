@@ -77,7 +77,7 @@ export const AssistantMessage: FC = () => {
       data-role="assistant"
     >
       {/* Avatar row */}
-      <div className="flex gap-3 items-self-start ml-[-40px]">
+      <div className="flex gap-3 items-self-start">
         <div className="shrink-0">
           {isFirstInTurn ? <AgentAvatar /> : <div className="w-8" />}
         </div>
