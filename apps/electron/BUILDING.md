@@ -61,7 +61,9 @@ make release-win-with-version VERSION=2026.3.31
   release-win-with-version 先更新 version 再执行 Windows 发布（需传 VERSION=...）
 
 工具
-  icons            从 icon.png 生成 macOS .icns（默认仅 icns；见下方「应用图标」）
+  icons            从 icon.png 生成 macOS .icns（默认；见「应用图标」）
+  icons-all        同时生成 .icns 与 .ico
+  icons-ico        仅生成 .ico（Windows）
   setup            初次设置：复制 .env 模板
   clear            删除上次构建产物（release/、dist/）；release / release-win 会在打包前自动执行
   clean            与 clear 相同（清理 release/ 和 dist/，供 clean-all 链式调用）
@@ -88,22 +90,14 @@ make release-win-with-version VERSION=2026.3.31
 **macOS 生成流程**（与原生 OpenClaw `scripts/build_icon.sh` 相同）：从 `Icon.icon` 用 Xcode Icon Composer（`ictool`）导出 824×824，再透明 padding 到 1024×1024，由系统应用 squircle 圆角。不要在资源里手画圆角白底方块，否则 Dock 会出现灰框套小白块。
 
 ```bash
-make icons
-# 等价于：bash scripts/generate-icons.sh
-# 默认只更新 icon.icns（icon.png 很少改，避免误动 icon.ico）
+make icons          # 默认只更新 icon.icns
+make icons-all      # 更换 icon.png 后：.icns + .ico
+make icons-ico      # 仅 .ico（Windows）
 ```
 
-更换源图后若需**同时**更新 Windows 图标：
+> `make` 不会把 `--ico-only` 传给脚本（会被当成 make 自己的参数）。请用上面的目标，或直接：`bash scripts/generate-icons.sh --ico-only`
 
-```bash
-bash scripts/generate-icons.sh --all
-```
-
-仅 Windows（`package-win` / `release-win` 已自动调用）：
-
-```bash
-bash scripts/generate-icons.sh --ico-only
-```
+`package-win` / `release-win` 打包时会自动执行 `--ico-only`。
 
 `make package` / `make package-fast` 会在打包前自动执行 `generate-icons.sh`（默认仅 `.icns`）。需本机已安装 Xcode（含 Icon Composer）；无 `ictool` 时会回退 Pillow 生成 `.icns` 并打印警告（Dock 显示可能不正确）。
 

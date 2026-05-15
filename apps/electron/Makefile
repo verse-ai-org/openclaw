@@ -72,9 +72,15 @@ build: ## 构建所有产物（CLI + UI + Electron 主进程）
 build-electron: ## 仅构建 Electron 主进程（tsdown）
 	pnpm build
 
-.PHONY: icons
-icons: ## 从 icon.png 生成 .icns（默认）；全量用 generate-icons.sh --all
+.PHONY: icons icons-all icons-ico
+icons: ## 从 icon.png 生成 .icns（macOS，默认）
 	bash $(SCRIPTS_DIR)/generate-icons.sh
+
+icons-all: ## 同时生成 .icns 与 .ico（更换 icon.png 后）
+	bash $(SCRIPTS_DIR)/generate-icons.sh --all
+
+icons-ico: ## 仅生成 .ico（Windows）
+	bash $(SCRIPTS_DIR)/generate-icons.sh --ico-only
 
 # ─────────────────────────────────────────────────────
 ##@ 打包（macOS）
