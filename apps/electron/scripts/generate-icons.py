@@ -165,14 +165,32 @@ def compose_icon(src: Image.Image) -> Image.Image:
     return canvas
 
 
+def flatten_for_ico(img: Image.Image) -> Image.Image:
+    """ICO writers on Windows often reject RGBA; composite onto white like the app icon."""
+    if img.mode == "RGB":
+        return img
+    rgba = img.convert("RGBA")
+    flat = Image.new("RGB", rgba.size, BACKGROUND_RGBA[:3])
+    flat.paste(rgba, mask=rgba.split()[3])
+    return flat
+
+
 def write_ico(master: Image.Image, out_path: Path) -> None:
-    images = [master.resize((size, size), Image.Resampling.LANCZOS) for size in ICO_SIZES]
-    images[0].save(
-        out_path,
-        format="ICO",
-        sizes=[(img.width, img.height) for img in images],
-        append_images=images[1:],
-    )
+    images = [
+        flatten_for_ico(master.resize((size, size), Image.Resampling.LANCZOS)) for size in ICO_SIZES
+    ]
+    try:
+        images[0].save(
+            out_path,
+            format="ICO",
+            sizes=[(img.width, img.height) for img in images],
+            append_images=images[1:],
+        )
+    except OSError as exc:
+        # Older Pillow on Windows: save largest frame only (electron-builder accepts it).
+        images[0].save(out_path, format="ICO")
+        print(f"Wrote {out_path} (single size; multi-size ICO failed: {exc})", file=sys.stderr)
+        return
     print(f"Wrote {out_path} ({len(ICO_SIZES)} sizes)")
 
 
