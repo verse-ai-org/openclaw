@@ -28,14 +28,12 @@ const MAIN_WELCOME: AgentWelcomeConfig = {
     {
       title: "规划旅行",
       subtitle: "线路规划 + 机酒交通 + 每日行程",
-      message:
-        "帮我规划一次川西5日游",
+      message:"帮我规划一次川西5日游，包含路线规划、每日路书、酒店交通等，总预算约 10000 元。",
     },
     {
-      title: "出差一条龙",
+      title: "出差规划",
       subtitle: "行程表 + 差旅说明文档",
-      message:
-        "下周我要出差：请先帮我规划往返交通、酒店和每日安排，再整理一份 Word 差旅说明（含日程表和注意事项）。",
+      message: "帮我规划一次出差，包含往返交通、酒店和每日安排，再整理一份 Word 差旅说明（含日程表和注意事项）。",
     },
     {
       title: "快速答疑",
@@ -52,7 +50,7 @@ const TRAVEL_PLANNER_WELCOME: AgentWelcomeConfig = {
     {
       title: "规划五日游",
       subtitle: "6月份去川西",
-      message: "帮我规划一个 5 天川西行程，包含路线规划、每日路书，总预算约 10000 元。",
+      message: "帮我规划一个 5 天川西行程，包含路线规划、每日路书、酒店交通等，总预算约 10000 元。",
     },
     {
       title: "查机票酒店",
@@ -60,14 +58,14 @@ const TRAVEL_PLANNER_WELCOME: AgentWelcomeConfig = {
       message: "帮我查下周北京往返成都的航班和市中心酒店方案，并比较 2–3 个性价比选项。",
     },
     {
-      title: "亲子轻松游",
-      subtitle: "东京 4 日攻略",
-      message: "帮我做一份适合带孩子的东京 4 日轻松行程，节奏不要太满，含交通和亲子友好景点。",
+      title: "高铁票查询",
+      subtitle: "成都到重庆",
+      message: "帮我查下周成都到重庆的高铁票，并比较 2–3 个性价比选项。",
     },
     {
-      title: "周末短途",
-      subtitle: "巴黎两日美食+博物馆",
-      message: "帮我规划巴黎周末两日游：以美食和博物馆为主，含交通建议和预约提示。",
+      title: "周边推荐",
+      subtitle: "成都美食、景点、酒店",
+      message: "帮我查下周成都周边的景点、酒店、美食等信息，并比较 2–3 个性价比选项，并给出推荐理由。",
     },
   ],
 };
