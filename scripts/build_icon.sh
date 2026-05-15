@@ -29,9 +29,11 @@ mkdir -p "$ICONSET_DIR" "$TMP_DIR"
 MASTER_ART="$TMP_DIR/icon_art_824.png"
 MASTER_1024="$TMP_DIR/icon_1024.png"
 
-# Render inner art (no margin) with macOS Default appearance
+# Render inner art (no margin) with macOS Default appearance.
+# ictool prints an empty "{}" JSON line to stdout; output is the PNG path above.
 "$ICTOOL" "$ICON_FILE" \
-  --export-preview macOS Default 824 824 1 -45 "$MASTER_ART"
+  --export-preview macOS Default 824 824 1 -45 "$MASTER_ART" \
+  >/dev/null
 
 # Pad to 1024x1024 with transparent border
 sips --padToHeightWidth 1024 1024 "$MASTER_ART" --out "$MASTER_1024" >/dev/null

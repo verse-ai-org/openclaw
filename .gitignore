@@ -72,6 +72,7 @@ apps/ios/fastlane/logs/
 apps/ios/fastlane/.env
 
 apps/electron/release/**
+apps/electron/build/**
 apps/electron/resources/node-arm64/**
 apps/electron/resources/node-x64/**
 apps/electron/resources/prod-node_modules/**

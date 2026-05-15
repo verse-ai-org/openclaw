@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Generate macOS .icns and Windows .ico from apps/electron/resources/icon.png.
+"""Generate Bossim app icons from resources/icon.png.
 
-Apple macOS app icon spec (Dock / Launchpad sizing):
-  - Canvas: 1024×1024 px
-  - Safe area for artwork: 824×824 px (100 px transparent margin on each side)
+macOS (.icns): Icon Composer (Icon.icon + scripts/build_icon.sh) — 824 art, transparent
+pad to 1024, system squircle mask (same pipeline as OpenClaw mac app).
 
-Icons drawn edge-to-edge on 1024 look oversized in the Dock; content must stay inside
-the 824 safe area. See scripts/build_icon.sh and Apple HIG > App icons.
+Windows (.ico): Pillow composite (white 1024 canvas + ring from icon.png).
+
+Usage:
+  python3 generate-icons.py           # .icns only (default; icon.png rarely changes)
+  python3 generate-icons.py --all     # .icns + .ico
+  python3 generate-icons.py --ico-only
 """
 from __future__ import annotations
 
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -18,36 +22,35 @@ import tempfile
 from pathlib import Path
 
 try:
-    from PIL import Image, ImageDraw
+    from PIL import Image
 except ImportError as exc:  # pragma: no cover
     print("Pillow is required: python3 -m pip install Pillow", file=sys.stderr)
     raise SystemExit(1) from exc
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-RESOURCES = SCRIPT_DIR.parent / "resources"
+ELECTRON_DIR = SCRIPT_DIR.parent
+REPO_ROOT = ELECTRON_DIR.parent.parent
+RESOURCES = ELECTRON_DIR / "resources"
 SOURCE = RESOURCES / "icon.png"
 ICNS_OUT = RESOURCES / "icon.icns"
 ICO_OUT = RESOURCES / "icon.ico"
+ICON_ICON = ELECTRON_DIR / "Icon.icon"
+ICON_ICON_ASSET = ICON_ICON / "Assets" / "bossim-ring.png"
+BUILD_ICON_SH = REPO_ROOT / "scripts" / "build_icon.sh"
+ICON_BUILD_OUT = ELECTRON_DIR / "build" / "icon"
 
 CANVAS = 1024
-# Apple standard safe area — matches Icon Composer / scripts/build_icon.sh (824 art + pad).
-MACOS_SAFE_AREA = 824
-MACOS_CANVAS_MARGIN = (CANVAS - MACOS_SAFE_AREA) // 2  # 100 px per side
-# White squircle fills the safe area so Dock size matches other macOS apps.
-WHITE_TILE_SIZE = MACOS_SAFE_AREA
-# Ring outer diameter vs white tile — ~83% keeps ~8% inner margin inside the 824 safe area.
-RING_FILL_OF_TILE = 0.83
-# Rounded-rect corner radius relative to the white tile edge (~macOS squircle).
-SQUIRCLE_CORNER_RATIO = 0.223
+MACOS_ART_SAFE_AREA = 824
+# Ring in Icon.icon layer (transparent PNG for ictool); ~1.0 fills the 824 safe area.
+RING_SCALE_FOR_COMPOSER = 1.0
+# Ring on white canvas for Windows .ico.
+RING_FILL_FOR_ICO = 0.83
 BACKGROUND_RGBA = (255, 255, 255, 255)
-# Treat near-black pixels as transparent (source icon.png uses a black matte).
 BLACK_KEY_THRESHOLD = 40
-# Ignore faint fringe pixels when computing visual center (ring body only).
 CENTROID_MIN_ALPHA = 48
 
 ICO_SIZES = (256, 128, 64, 48, 32, 24, 16)
 
-# Apple iconset: filename -> pixel size (see TN2314).
 ICONSET_ENTRIES: tuple[tuple[str, int], ...] = (
     ("icon_16x16.png", 16),
     ("icon_16x16@2x.png", 32),
@@ -62,6 +65,28 @@ ICONSET_ENTRIES: tuple[tuple[str, int], ...] = (
 )
 
 
+def find_ictool() -> Path | None:
+    xcode = Path(os.environ.get("XCODE_APP", "/Applications/Xcode.app"))
+    for name in ("ictool", "icontool"):
+        candidate = (
+            xcode
+            / "Contents/Applications/Icon Composer.app/Contents/Executables"
+            / name
+        )
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
+def can_use_icon_composer() -> bool:
+    return (
+        sys.platform == "darwin"
+        and find_ictool() is not None
+        and BUILD_ICON_SH.is_file()
+        and ICON_ICON.is_dir()
+    )
+
+
 def load_source() -> Image.Image:
     if not SOURCE.is_file():
         print(f"Missing source icon: {SOURCE}", file=sys.stderr)
@@ -70,7 +95,6 @@ def load_source() -> Image.Image:
 
 
 def crop_to_content(img: Image.Image) -> Image.Image:
-    """Trim transparent margins so scaling targets the ring, not the full 1024 canvas."""
     bbox = img.getbbox()
     if bbox is None:
         return img
@@ -78,17 +102,15 @@ def crop_to_content(img: Image.Image) -> Image.Image:
 
 
 def alpha_centroid(img: Image.Image) -> tuple[float, float]:
-    """Alpha-weighted visual center (glow is asymmetric vs bbox)."""
     pixels = img.load()
     width, height = img.size
     total = 0.0
     center_x = 0.0
     center_y = 0.0
-    min_alpha = CENTROID_MIN_ALPHA
     for y in range(height):
         for x in range(width):
             alpha = pixels[x, y][3]
-            if alpha < min_alpha:
+            if alpha < CENTROID_MIN_ALPHA:
                 continue
             total += alpha
             center_x += x * alpha
@@ -99,7 +121,6 @@ def alpha_centroid(img: Image.Image) -> tuple[float, float]:
 
 
 def center_in_square_by_centroid(img: Image.Image) -> Image.Image:
-    """Pad to a square canvas with the ring centroid at the exact center."""
     width, height = img.size
     centroid_x, centroid_y = alpha_centroid(img)
     half_side = max(centroid_x, width - centroid_x, centroid_y, height - centroid_y)
@@ -112,55 +133,51 @@ def center_in_square_by_centroid(img: Image.Image) -> Image.Image:
 
 
 def remove_near_black(src: Image.Image) -> Image.Image:
-    """Key out the black matte so the ring can sit on a white background."""
     img = src.convert("RGBA")
     pixels = img.load()
     width, height = img.size
-    threshold = BLACK_KEY_THRESHOLD
     for y in range(height):
         for x in range(width):
             red, green, blue, alpha = pixels[x, y]
-            if red <= threshold and green <= threshold and blue <= threshold:
+            if red <= BLACK_KEY_THRESHOLD and green <= BLACK_KEY_THRESHOLD and blue <= BLACK_KEY_THRESHOLD:
                 pixels[x, y] = (red, green, blue, 0)
     return img
 
 
-def white_tile_geometry() -> tuple[int, int, int]:
-    """Return (tile_size, inset_offset, corner_radius) inside the macOS 824 safe area."""
-    tile_size = WHITE_TILE_SIZE
-    inset = MACOS_CANVAS_MARGIN
-    radius = max(1, int(round(tile_size * SQUIRCLE_CORNER_RATIO)))
-    return tile_size, inset, radius
-
-
-def white_squircle_background() -> Image.Image:
-    tile_size, inset, radius = white_tile_geometry()
-    canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(canvas)
-    draw.rounded_rectangle(
-        (inset, inset, inset + tile_size - 1, inset + tile_size - 1),
-        radius=radius,
-        fill=BACKGROUND_RGBA,
-    )
-    return canvas
-
-
-def compose_icon(src: Image.Image) -> Image.Image:
+def compose_ring_layer(src: Image.Image, *, ring_scale: float) -> Image.Image:
+    """Transparent 1024×1024 ring for Icon.icon / ictool."""
     foreground = center_in_square_by_centroid(crop_to_content(remove_near_black(src)))
     width, height = foreground.size
-    tile_size, _, _ = white_tile_geometry()
-    target = int(round(tile_size * RING_FILL_OF_TILE))
+    target = int(round(MACOS_ART_SAFE_AREA * ring_scale))
     scale = min(target / width, target / height)
     new_w = max(1, int(round(width * scale)))
     new_h = max(1, int(round(height * scale)))
     logo = foreground.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-    canvas = white_squircle_background()
-    # Align ring centroid with white-tile center (= canvas center when tile is centered).
-    tile_center = CANVAS / 2
+    canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    center = CANVAS / 2
     centroid_x, centroid_y = alpha_centroid(logo)
-    offset_x = int(round(tile_center - centroid_x))
-    offset_y = int(round(tile_center - centroid_y))
+    offset_x = int(round(center - centroid_x))
+    offset_y = int(round(center - centroid_y))
+    canvas.paste(logo, (offset_x, offset_y), logo)
+    return canvas
+
+
+def compose_ico_master(src: Image.Image) -> Image.Image:
+    """White 1024×1024 + ring for Windows .ico."""
+    foreground = center_in_square_by_centroid(crop_to_content(remove_near_black(src)))
+    width, height = foreground.size
+    target = int(round(MACOS_ART_SAFE_AREA * RING_FILL_FOR_ICO))
+    scale = min(target / width, target / height)
+    new_w = max(1, int(round(width * scale)))
+    new_h = max(1, int(round(height * scale)))
+    logo = foreground.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+    canvas = Image.new("RGBA", (CANVAS, CANVAS), BACKGROUND_RGBA)
+    center = CANVAS / 2
+    centroid_x, centroid_y = alpha_centroid(logo)
+    offset_x = int(round(center - centroid_x))
+    offset_y = int(round(center - centroid_y))
     canvas.paste(logo, (offset_x, offset_y), logo)
     return canvas
 
@@ -173,6 +190,48 @@ def flatten_for_ico(img: Image.Image) -> Image.Image:
     flat = Image.new("RGB", rgba.size, BACKGROUND_RGBA[:3])
     flat.paste(rgba, mask=rgba.split()[3])
     return flat
+
+
+def prepare_icon_composer_asset(src: Image.Image) -> None:
+    ICON_ICON_ASSET.parent.mkdir(parents=True, exist_ok=True)
+    compose_ring_layer(src, ring_scale=RING_SCALE_FOR_COMPOSER).save(ICON_ICON_ASSET)
+
+
+def build_icns_via_icon_composer() -> None:
+    src = load_source()
+    prepare_icon_composer_asset(src)
+    env = {**os.environ, "DEST_ICNS": str(ICNS_OUT)}
+    subprocess.run(
+        ["bash", str(BUILD_ICON_SH), str(ICON_ICON), "Bossim", str(ICON_BUILD_OUT)],
+        check=True,
+        env=env,
+        cwd=str(REPO_ROOT),
+    )
+
+
+def write_icns_pillow_fallback(master: Image.Image, out_path: Path) -> None:
+    iconutil = shutil.which("iconutil")
+    sips = shutil.which("sips")
+    if not iconutil or not sips:
+        print("sips/iconutil not found; skipping .icns", file=sys.stderr)
+        return
+
+    with tempfile.TemporaryDirectory(prefix="bossim-icon-") as tmp:
+        tmp_path = Path(tmp)
+        master_path = tmp_path / "master_1024.png"
+        master.save(master_path)
+        iconset = tmp_path / "icon.iconset"
+        iconset.mkdir()
+        for filename, size in ICONSET_ENTRIES:
+            dest = iconset / filename
+            subprocess.run(
+                [sips, "-z", str(size), str(size), str(master_path), "--out", str(dest)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        subprocess.run([iconutil, "-c", "icns", str(iconset), "-o", str(out_path)], check=True)
+    print(f"Wrote {out_path} (Pillow fallback)")
 
 
 def write_ico(master: Image.Image, out_path: Path) -> None:
@@ -194,39 +253,32 @@ def write_ico(master: Image.Image, out_path: Path) -> None:
     print(f"Wrote {out_path} ({len(ICO_SIZES)} sizes)")
 
 
-def write_icns(master: Image.Image, out_path: Path) -> None:
-    iconutil = shutil.which("iconutil")
-    sips = shutil.which("sips")
-    if not iconutil or not sips:
-        print("sips/iconutil not found; skipping .icns (macOS only)", file=sys.stderr)
-        return
-
-    with tempfile.TemporaryDirectory(prefix="bossim-icon-") as tmp:
-        tmp_path = Path(tmp)
-        master_path = tmp_path / "master_1024.png"
-        master.save(master_path)
-
-        iconset = tmp_path / "icon.iconset"
-        iconset.mkdir()
-
-        for filename, size in ICONSET_ENTRIES:
-            dest = iconset / filename
-            subprocess.run(
-                [sips, "-z", str(size), str(size), str(master_path), "--out", str(dest)],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-
-        subprocess.run([iconutil, "-c", "icns", str(iconset), "-o", str(out_path)], check=True)
-
-    print(f"Wrote {out_path}")
-
-
 def main() -> None:
-    master = compose_icon(load_source())
-    write_ico(master, ICO_OUT)
-    write_icns(master, ICNS_OUT)
+    generate_all = "--all" in sys.argv
+    ico_only = "--ico-only" in sys.argv
+    if generate_all and ico_only:
+        print("Use only one of --all or --ico-only", file=sys.stderr)
+        raise SystemExit(1)
+
+    # Default: .icns only (icon.png rarely changes). Windows packaging uses --ico-only.
+    build_icns = not ico_only
+    build_ico = generate_all or ico_only
+
+    src = load_source()
+
+    if build_icns:
+        if can_use_icon_composer():
+            build_icns_via_icon_composer()
+        else:
+            print(
+                "Icon Composer unavailable; using Pillow .icns fallback (macOS build may look wrong).",
+                file=sys.stderr,
+            )
+            write_icns_pillow_fallback(compose_ico_master(src), ICNS_OUT)
+
+    if build_ico:
+        write_ico(compose_ico_master(src), ICO_OUT)
+
     print("Done.")
 
 

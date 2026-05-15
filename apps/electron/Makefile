@@ -73,7 +73,7 @@ build-electron: ## 仅构建 Electron 主进程（tsdown）
 	pnpm build
 
 .PHONY: icons
-icons: ## 从 resources/icon.png 生成 .icns 与 .ico
+icons: ## 从 icon.png 生成 .icns（默认）；全量用 generate-icons.sh --all
 	bash $(SCRIPTS_DIR)/generate-icons.sh
 
 # ─────────────────────────────────────────────────────

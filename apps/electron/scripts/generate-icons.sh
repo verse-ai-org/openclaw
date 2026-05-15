@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Regenerate resources/icon.icns and resources/icon.ico from resources/icon.png.
+# Regenerate resources/icon.icns from icon.png (default). Use --all or --ico-only when needed.
 set -euo pipefail
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if command -v python3 >/dev/null 2>&1; then

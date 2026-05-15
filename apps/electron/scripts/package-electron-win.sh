@@ -168,7 +168,7 @@ build_electron_main() {
 generate_app_icons() {
   echo ""
   echo "🎨 [4b/5] 生成应用图标 (.icns / .ico)"
-  bash "$ELECTRON_DIR/scripts/generate-icons.sh"
+  bash "$ELECTRON_DIR/scripts/generate-icons.sh" --ico-only
 }
 
 package_electron_app() {
