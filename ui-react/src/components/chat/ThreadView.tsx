@@ -13,6 +13,7 @@ import { Composer } from "./Composer";
 import { UserMessage } from "./UserMessage";
 import { UserEditComposer } from "./UserEditComposer";
 import { loadOlderHistoryFromGateway } from "@/hooks/session-manager/loaders";
+import { ThreadWelcome } from "./ThreadWelcome";
 
 // ---------------------------------------------------------------------------
 // ThreadView
@@ -97,18 +98,6 @@ export const ThreadView: FC = () => {
     </ThreadPrimitive.Root>
   );
 };
-
-// ---------------------------------------------------------------------------
-// Welcome screen (shown when thread is empty and not loading)
-// ---------------------------------------------------------------------------
-const ThreadWelcome: FC = () => (
-  <div className="mx-auto my-auto flex w-full max-w-(--thread-max-width) grow flex-col items-center justify-center gap-3 py-8">
-    <div className="flex flex-col items-center gap-2 text-center">
-      <h1 className="text-2xl font-semibold">Bossim</h1>
-      <p className="text-muted-foreground text-sm">Send a message to start the conversation.</p>
-    </div>
-  </div>
-);
 
 // ---------------------------------------------------------------------------
 // Loading skeleton — shown while session history is being fetched
