@@ -710,7 +710,7 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
   reusingExternalGateway = false;
   const report = opts.onProgress;
 
-  report?.("Starting local service…");
+  report?.("Preparing to start application...");
 
   // 审计 bundled extensions 和配置中的插件引用
   auditBundledExtensions();
@@ -821,7 +821,7 @@ async function spawnGateway(opts: {
     "--allow-unconfigured",
   ];
   if (opts.force) {
-    opts.onProgress?.("Preparing service port…");
+    opts.onProgress?.("Preparing Service...");
     await preFreeGatewayPort(opts.port);
     args.push("--force");
   }
@@ -878,7 +878,7 @@ async function spawnGateway(opts: {
   });
 
   logEvent("spawned", { pid: gatewayProcess.pid ?? null, port: opts.port }, "note");
-  opts.onProgress?.("Starting Gateway process…");
+  opts.onProgress?.("Starting Service...");
 
   gatewayProcess.stdout?.on("data", (data: Buffer) => {
     const text = data.toString();
@@ -926,8 +926,9 @@ async function spawnGateway(opts: {
   });
 
   const readyTimeoutMs = resolveGatewayReadyTimeoutMs();
-  opts.onProgress?.("Connecting to service…");
+  opts.onProgress?.("Ready to start application...");
   await waitForGatewayReady(opts.port, readyTimeoutMs, childWaitState);
+  opts.onProgress?.("Application starting...");
   logEvent("ready", { port: opts.port }, "note");
 }
 
