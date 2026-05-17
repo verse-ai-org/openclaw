@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from "node:child_process";
+import { spawn, spawnSync, ChildProcess } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -221,8 +221,66 @@ async function resolveLoginShellEnv(): Promise<Record<string, string>> {
 export async function warmLoginShellEnv(): Promise<void> {
   await resolveLoginShellEnv();
 }
-const GATEWAY_READY_TIMEOUT_MS = 15_000;
+
+const GATEWAY_READY_TIMEOUT_MS_DEV = 15_000;
+/** Packaged Windows cold start (35+ plugins, AV scan) often exceeds 15s. */
+const GATEWAY_READY_TIMEOUT_MS_PACKAGED_WIN = 60_000;
+const GATEWAY_READY_TIMEOUT_MS_PACKAGED = 45_000;
 const GATEWAY_READY_POLL_MS = 200;
+const CHILD_STDERR_TAIL_LINES = 30;
+
+function resolveGatewayReadyTimeoutMs(): number {
+  if (!app.isPackaged) {
+    return GATEWAY_READY_TIMEOUT_MS_DEV;
+  }
+  if (process.platform === "win32") {
+    return GATEWAY_READY_TIMEOUT_MS_PACKAGED_WIN;
+  }
+  return GATEWAY_READY_TIMEOUT_MS_PACKAGED;
+}
+
+/**
+ * Electron-managed spawns should pass --force on Windows/packaged builds so
+ * stale listeners from a crashed or task-killed app do not block bind/lock.
+ */
+function shouldForceGatewaySpawn(): boolean {
+  return app.isPackaged || process.platform === "win32";
+}
+
+type GatewayChildWaitState = {
+  stderrLines: string[];
+  exit: { code: number | null; signal: NodeJS.Signals | null } | null;
+};
+
+function appendChildStderr(state: GatewayChildWaitState, chunk: string): void {
+  for (const line of chunk.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+    state.stderrLines.push(trimmed);
+    if (state.stderrLines.length > CHILD_STDERR_TAIL_LINES) {
+      state.stderrLines.shift();
+    }
+  }
+}
+
+function formatStderrTail(state: GatewayChildWaitState | undefined): string {
+  if (!state || state.stderrLines.length === 0) {
+    return "";
+  }
+  return `\n--- gateway stderr (tail) ---\n${state.stderrLines.join("\n")}`;
+}
+
+function formatGatewayChildExitError(
+  port: number,
+  state: GatewayChildWaitState,
+): Error {
+  const { code, signal } = state.exit!;
+  return new Error(
+    `Gateway 子进程已退出 (code=${code ?? "null"} signal=${signal ?? "null"})，端口 ${port} 未就绪${formatStderrTail(state)}`,
+  );
+}
 
 /** Optional callback invoked when the self-managed Gateway process crashes unexpectedly. */
 let _onGatewayCrash:
@@ -423,10 +481,14 @@ async function isGatewayRunning(port: number): Promise<boolean> {
 async function waitForGatewayReady(
   port: number,
   timeoutMs: number,
+  childState?: GatewayChildWaitState,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   const url = `http://127.0.0.1:${port}/`;
   while (Date.now() < deadline) {
+    if (childState?.exit) {
+      throw formatGatewayChildExitError(port, childState);
+    }
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(1000) });
       // Gateway 返回任何非 5xx 状态都视为就绪
@@ -438,7 +500,12 @@ async function waitForGatewayReady(
     }
     await new Promise((resolve) => setTimeout(resolve, GATEWAY_READY_POLL_MS));
   }
-  throw new Error(`Gateway 未能在 ${timeoutMs}ms 内在端口 ${port} 上就绪`);
+  if (childState?.exit) {
+    throw formatGatewayChildExitError(port, childState);
+  }
+  throw new Error(
+    `Gateway 未能在 ${timeoutMs}ms 内在端口 ${port} 上就绪${formatStderrTail(childState)}`,
+  );
 }
 
 /**
@@ -447,9 +514,9 @@ async function waitForGatewayReady(
  * 复用策略：
  *   1. 若配置文件中存在 token（用户已配置 Gateway）：
  *      - 探测配置端口（或默认 18789），已在运行 → 直接复用，不启动子进程
- *      - 未运行 → 在原配置端口启动（不带 --force，避免干扰其他进程）
+ *      - 未运行 → 在原配置端口启动（Windows/打包时带 --force 清理残留占用）
  *   2. 若配置文件中没有 token（未配置）：
- *      - 在独立端口 18790 启动（带 --force 仅针对该端口），使用随机 token
+ *      - 在默认端口启动（带 --force），使用随机 token
  */
 export async function startGateway(opts: GatewayStartOptions): Promise<void> {
   logEvent("start-gateway", { phase: "begin" });
@@ -487,25 +554,25 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
       _activePort = configPort;
       return;
     }
-    // 未运行，在配置端口启动（不带 --force，不干扰其他端口上的进程）
+    const force = shouldForceGatewaySpawn();
     logEvent("spawn-gateway", {
       port: configPort,
-      force: false,
+      force,
       reason: "config-port-no-instance",
     });
     _activePort = configPort;
     await spawnGateway({
       port: configPort,
       token: existingToken,
-      force: false,
+      force,
     });
   } else {
-    // 无配置 token，在默认端口 18789 启动（带 --force），使用调用方提供的随机 token
     const port = opts.port ?? DEFAULT_GATEWAY_PORT;
     gatewayToken = opts.token;
     _activePort = port;
-    logEvent("spawn-gateway", { port, force: true, reason: "no-config-token" });
-    await spawnGateway({ port, token: opts.token, force: true });
+    const force = shouldForceGatewaySpawn();
+    logEvent("spawn-gateway", { port, force, reason: "no-config-token" });
+    await spawnGateway({ port, token: opts.token, force });
   }
 
   logEvent("start-gateway", { phase: "complete", port: _activePort });
@@ -586,6 +653,11 @@ async function spawnGateway(opts: {
       ? `${packagedNodeDir}${path.delimiter}${basePath}`
       : basePath;
 
+  const childWaitState: GatewayChildWaitState = {
+    stderrLines: [],
+    exit: null,
+  };
+
   gatewayProcess = spawn(nodeBin, args, {
     cwd: path.dirname(openclawEntry),
     env: {
@@ -604,18 +676,25 @@ async function spawnGateway(opts: {
       OPENCLAW_NO_RESPAWN: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
+    // Avoid orphaned console windows when spawning node.exe on Windows.
+    windowsHide: true,
   });
+
+  logEvent("spawned", { pid: gatewayProcess.pid ?? null });
 
   gatewayProcess.stdout?.on("data", (data: Buffer) => {
     writeChildStream("stdout", data.toString());
   });
 
   gatewayProcess.stderr?.on("data", (data: Buffer) => {
-    writeChildStream("stderr", data.toString());
+    const text = data.toString();
+    appendChildStderr(childWaitState, text);
+    writeChildStream("stderr", text);
   });
 
   gatewayProcess.on("exit", (code, signal) => {
-    logEvent("exit", { code, signal });
+    childWaitState.exit = { code, signal };
+    logEvent("exit", { code, signal, pid: gatewayProcess?.pid ?? null });
     gatewayProcess = null;
     // Distinguish deliberate stop (SIGTERM from stopGateway) from unexpected crashes.
     // Reusing an external Gateway is never managed by us, so no crash notification.
@@ -638,12 +717,48 @@ async function spawnGateway(opts: {
     logEvent("spawn-error", { error: err.message });
   });
 
+  const readyTimeoutMs = resolveGatewayReadyTimeoutMs();
   logEvent("wait-ready", {
     port: opts.port,
-    timeoutMs: GATEWAY_READY_TIMEOUT_MS,
+    timeoutMs: readyTimeoutMs,
+    platform: process.platform,
+    isPackaged: app.isPackaged,
   });
-  await waitForGatewayReady(opts.port, GATEWAY_READY_TIMEOUT_MS);
+  await waitForGatewayReady(opts.port, readyTimeoutMs, childWaitState);
   logEvent("ready", { port: opts.port });
+}
+
+function killGatewayChildProcess(proc: ChildProcess): void {
+  const pid = proc.pid;
+  if (pid == null) {
+    try {
+      proc.kill("SIGTERM");
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  if (process.platform === "win32") {
+    // SIGTERM alone often leaves node.exe listening after a GUI app exit.
+    const res = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      encoding: "utf8",
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    if (res.status !== 0) {
+      try {
+        proc.kill();
+      } catch {
+        // ignore
+      }
+    }
+    return;
+  }
+  try {
+    proc.kill("SIGTERM");
+  } catch {
+    // ignore
+  }
 }
 
 /**
@@ -659,10 +774,15 @@ export function stopGateway(): void {
     logEvent("stop", { status: "skipped", reason: "no-process" });
     return;
   }
-  logEvent("stop", { status: "sending-sigterm" });
+  logEvent("stop", {
+    status: "stopping",
+    pid: gatewayProcess.pid ?? null,
+    platform: process.platform,
+  });
   _intentionalStop = true;
-  gatewayProcess.kill("SIGTERM");
+  const proc = gatewayProcess;
   gatewayProcess = null;
+  killGatewayChildProcess(proc);
 }
 
 /**

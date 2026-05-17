@@ -247,6 +247,8 @@ publish:
 # 为所有通道生成更新文件（beta/alpha/latest），让 electron-updater 能正确识别版本
 generateUpdatesFilesForAllChannels: true
 
+# Windows: patch exe icon via rcedit (see scripts/patch-win-exe-icon.cjs)
+afterPack: scripts/patch-win-exe-icon.cjs
 # 公证 hook（签名完成后自动执行，需设置 APP_STORE_CONNECT_* 环境变量）
 afterSign: scripts/notarize.cjs
 
@@ -291,7 +293,11 @@ dmg:
 
 win:
   icon: resources/icon.ico
+  # Do not use signAndEditExecutable: true without a working winCodeSign cache — it downloads
+  # winCodeSign from GitHub and may fail on Windows (symlink privilege / network). Icon/metadata
+  # are applied in afterPack via scripts/patch-win-exe-icon.cjs (rcedit npm).
   signAndEditExecutable: false
+  signDlls: false
   # URL Scheme for OAuth callbacks (openclaw://oauth/callback?...)
   protocols:
     - name: OpenClaw OAuth
