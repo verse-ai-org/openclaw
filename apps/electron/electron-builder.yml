@@ -297,7 +297,6 @@ win:
   # winCodeSign from GitHub and may fail on Windows (symlink privilege / network). Icon/metadata
   # are applied in afterPack via scripts/patch-win-exe-icon.cjs (rcedit npm).
   signAndEditExecutable: false
-  signDlls: false
   # URL Scheme for OAuth callbacks (openclaw://oauth/callback?...)
   protocols:
     - name: OpenClaw OAuth

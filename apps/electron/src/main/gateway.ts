@@ -1,4 +1,4 @@
-import { spawn, spawnSync, ChildProcess } from "node:child_process";
+import { spawn, spawnSync, execFileSync, ChildProcess } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -222,35 +222,181 @@ export async function warmLoginShellEnv(): Promise<void> {
   await resolveLoginShellEnv();
 }
 
-const GATEWAY_READY_TIMEOUT_MS_DEV = 15_000;
+const GATEWAY_READY_TIMEOUT_MS = 15_000;
 /** Packaged Windows cold start (35+ plugins, AV scan) often exceeds 15s. */
-const GATEWAY_READY_TIMEOUT_MS_PACKAGED_WIN = 60_000;
-const GATEWAY_READY_TIMEOUT_MS_PACKAGED = 45_000;
+const GATEWAY_READY_TIMEOUT_MS_WIN = 60_000;
 const GATEWAY_READY_POLL_MS = 200;
 const CHILD_STDERR_TAIL_LINES = 30;
+/** Liveness probe — works even when bundled Control UI assets are missing (GET / returns 503). */
+const GATEWAY_PROBE_PATH = "/health";
 
 function resolveGatewayReadyTimeoutMs(): number {
-  if (!app.isPackaged) {
-    return GATEWAY_READY_TIMEOUT_MS_DEV;
+  if (process.platform === "win32" && app.isPackaged) {
+    return GATEWAY_READY_TIMEOUT_MS_WIN;
   }
-  if (process.platform === "win32") {
-    return GATEWAY_READY_TIMEOUT_MS_PACKAGED_WIN;
-  }
-  return GATEWAY_READY_TIMEOUT_MS_PACKAGED;
+  return GATEWAY_READY_TIMEOUT_MS;
 }
 
 /**
- * Electron-managed spawns should pass --force on Windows/packaged builds so
- * stale listeners from a crashed or task-killed app do not block bind/lock.
+ * Packaged Bossim owns the gateway port across quit/reopen. Dev mode may
+ * reuse a separately started CLI gateway instead.
+ */
+function canReuseExistingGateway(): boolean {
+  return !app.isPackaged;
+}
+
+/**
+ * Replace any listener on the gateway port before spawn (orphans after quit,
+ * task-kill, or a dying process that still answers /health briefly).
  */
 function shouldForceGatewaySpawn(): boolean {
   return app.isPackaged || process.platform === "win32";
 }
 
+function gatewayProbeUrl(port: number): string {
+  return `http://127.0.0.1:${port}${GATEWAY_PROBE_PATH}`;
+}
+
+async function probeGatewayHttpReady(
+  port: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  try {
+    const res = await fetch(gatewayProbeUrl(port), {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+const PRE_FREE_SIGTERM_WAIT_MS = 600;
+const PRE_FREE_RELEASE_TIMEOUT_MS = 3_000;
+const PRE_FREE_POLL_MS = 100;
+
+/** PIDs listening on TCP port (loopback). */
+function listListenersOnPort(port: number): number[] {
+  if (process.platform === "win32") {
+    try {
+      const out = execFileSync("netstat", ["-ano", "-p", "TCP"], {
+        encoding: "utf8",
+        windowsHide: true,
+      });
+      const pids = new Set<number>();
+      for (const line of out.split(/\r?\n/)) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 5 && parts[3] === "LISTENING") {
+          const addressPort = parts[1].split(":").pop();
+          if (addressPort === String(port)) {
+            const pid = Number.parseInt(parts[4] ?? "", 10);
+            if (Number.isFinite(pid) && pid > 0) {
+              pids.add(pid);
+            }
+          }
+        }
+      }
+      return [...pids];
+    } catch {
+      return [];
+    }
+  }
+  try {
+    const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-FpFc"], {
+      encoding: "utf8",
+    });
+    const pids = new Set<number>();
+    for (const line of out.split(/\r?\n/)) {
+      if (line.startsWith("p")) {
+        const pid = Number.parseInt(line.slice(1), 10);
+        if (Number.isFinite(pid) && pid > 0) {
+          pids.add(pid);
+        }
+      }
+    }
+    return [...pids];
+  } catch {
+    return [];
+  }
+}
+
+function killListenersOnPort(pids: number[], signal: NodeJS.Signals): void {
+  for (const pid of pids) {
+    if (pid === process.pid) {
+      continue;
+    }
+    try {
+      process.kill(pid, signal);
+    } catch {
+      // ESRCH — already gone
+    }
+  }
+}
+
+async function waitForGatewayPortReleased(
+  port: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!(await probeGatewayHttpReady(port, 400))) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, PRE_FREE_POLL_MS));
+  }
+  return !(await probeGatewayHttpReady(port, 400));
+}
+
+/**
+ * Clear stale gateway listeners before spawn so /health cannot succeed on a
+ * dying process while the new child is still running --force internally.
+ */
+async function preFreeGatewayPort(port: number): Promise<void> {
+  const initialPids = listListenersOnPort(port);
+  const initiallyHealthy = await probeGatewayHttpReady(port, 500);
+  if (initialPids.length === 0 && !initiallyHealthy) {
+    logEvent("pre-free-port", { status: "already-free", port });
+    return;
+  }
+
+  logEvent("pre-free-port", {
+    status: "begin",
+    port,
+    pids: initialPids.join(",") || "(health-only)",
+  });
+
+  killListenersOnPort(initialPids, "SIGTERM");
+  await new Promise((resolve) => setTimeout(resolve, PRE_FREE_SIGTERM_WAIT_MS));
+
+  const remaining = listListenersOnPort(port);
+  if (remaining.length > 0) {
+    killListenersOnPort(remaining, "SIGKILL");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  const released = await waitForGatewayPortReleased(
+    port,
+    PRE_FREE_RELEASE_TIMEOUT_MS,
+  );
+  logEvent("pre-free-port", {
+    status: released ? "done" : "health-still-up",
+    port,
+    remainingPids: listListenersOnPort(port).join(",") || "none",
+  });
+}
+
 type GatewayChildWaitState = {
   stderrLines: string[];
   exit: { code: number | null; signal: NodeJS.Signals | null } | null;
+  /** Set when child logs "listening on ws://…" */
+  sawListening: boolean;
 };
+
+function noteChildGatewayOutput(state: GatewayChildWaitState, text: string): void {
+  if (/listening on ws:\/\//i.test(text)) {
+    state.sawListening = true;
+  }
+}
 
 function appendChildStderr(state: GatewayChildWaitState, chunk: string): void {
   for (const line of chunk.split("\n")) {
@@ -468,14 +614,7 @@ export function readExistingGatewayPort(): number | null {
  * 探测指定端口是否已有 Gateway 就绪。
  */
 async function isGatewayRunning(port: number): Promise<boolean> {
-  try {
-    const res = await fetch(`http://127.0.0.1:${port}/`, {
-      signal: AbortSignal.timeout(1500),
-    });
-    return res.status < 500;
-  } catch {
-    return false;
-  }
+  return probeGatewayHttpReady(port, 1500);
 }
 
 async function waitForGatewayReady(
@@ -484,19 +623,15 @@ async function waitForGatewayReady(
   childState?: GatewayChildWaitState,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  const url = `http://127.0.0.1:${port}/`;
   while (Date.now() < deadline) {
     if (childState?.exit) {
       throw formatGatewayChildExitError(port, childState);
     }
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(1000) });
-      // Gateway 返回任何非 5xx 状态都视为就绪
-      if (res.status < 500) {
+    if (await probeGatewayHttpReady(port, 1000)) {
+      // Require our child's "listening on" log so /health cannot pass on a stale PID.
+      if (!childState || childState.sawListening) {
         return;
       }
-    } catch {
-      // 连接被拒绝或超时，继续等待
     }
     await new Promise((resolve) => setTimeout(resolve, GATEWAY_READY_POLL_MS));
   }
@@ -513,13 +648,14 @@ async function waitForGatewayReady(
  *
  * 复用策略：
  *   1. 若配置文件中存在 token（用户已配置 Gateway）：
- *      - 探测配置端口（或默认 18789），已在运行 → 直接复用，不启动子进程
- *      - 未运行 → 在原配置端口启动（Windows/打包时带 --force 清理残留占用）
+ *      - 开发模式：端口上已有健康 Gateway → 复用 CLI 实例
+ *      - 打包模式：始终 spawn 子进程（--force 清理上次退出残留）
  *   2. 若配置文件中没有 token（未配置）：
  *      - 在默认端口启动（带 --force），使用随机 token
  */
 export async function startGateway(opts: GatewayStartOptions): Promise<void> {
   logEvent("start-gateway", { phase: "begin" });
+  reusingExternalGateway = false;
 
   // 审计 bundled extensions 和配置中的插件引用
   auditBundledExtensions();
@@ -545,20 +681,28 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
   }
 
   if (existingToken) {
-    // 有配置 token，尝试复用已有 Gateway
     gatewayToken = existingToken;
-    const running = await isGatewayRunning(configPort);
-    if (running) {
-      logEvent("reuse-gateway", { port: configPort });
-      reusingExternalGateway = true;
-      _activePort = configPort;
-      return;
+    if (canReuseExistingGateway()) {
+      const running = await isGatewayRunning(configPort);
+      if (running) {
+        logEvent("reuse-gateway", { port: configPort });
+        reusingExternalGateway = true;
+        _activePort = configPort;
+        return;
+      }
+    } else if (await isGatewayRunning(configPort)) {
+      logEvent("replace-stale-gateway", {
+        port: configPort,
+        reason: "packaged-app-owns-lifecycle",
+      });
     }
     const force = shouldForceGatewaySpawn();
     logEvent("spawn-gateway", {
       port: configPort,
       force,
-      reason: "config-port-no-instance",
+      reason: canReuseExistingGateway()
+        ? "config-port-no-instance"
+        : "packaged-managed",
     });
     _activePort = configPort;
     await spawnGateway({
@@ -623,6 +767,7 @@ async function spawnGateway(opts: {
     "--allow-unconfigured",
   ];
   if (opts.force) {
+    await preFreeGatewayPort(opts.port);
     args.push("--force");
   }
 
@@ -656,6 +801,7 @@ async function spawnGateway(opts: {
   const childWaitState: GatewayChildWaitState = {
     stderrLines: [],
     exit: null,
+    sawListening: false,
   };
 
   gatewayProcess = spawn(nodeBin, args, {
@@ -683,7 +829,9 @@ async function spawnGateway(opts: {
   logEvent("spawned", { pid: gatewayProcess.pid ?? null });
 
   gatewayProcess.stdout?.on("data", (data: Buffer) => {
-    writeChildStream("stdout", data.toString());
+    const text = data.toString();
+    noteChildGatewayOutput(childWaitState, text);
+    writeChildStream("stdout", text);
   });
 
   gatewayProcess.stderr?.on("data", (data: Buffer) => {
@@ -766,10 +914,11 @@ function killGatewayChildProcess(proc: ChildProcess): void {
  * 若复用的是外部已有 Gateway，则不执行任何操作。
  */
 export function stopGateway(): void {
-  if (reusingExternalGateway) {
+  if (reusingExternalGateway && !app.isPackaged) {
     logEvent("stop", { status: "skipped", reason: "reusing-external" });
     return;
   }
+  reusingExternalGateway = false;
   if (!gatewayProcess) {
     logEvent("stop", { status: "skipped", reason: "no-process" });
     return;
@@ -791,10 +940,11 @@ export function stopGateway(): void {
  */
 export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
   logEvent("restart", { phase: "begin", port: _activePort });
-  if (reusingExternalGateway) {
+  if (reusingExternalGateway && !app.isPackaged) {
     logEvent("restart", { status: "skipped", reason: "reusing-external" });
     return;
   }
+  reusingExternalGateway = false;
   stopGateway();
   // 等待端口释放
   await new Promise((resolve) => setTimeout(resolve, 800));
