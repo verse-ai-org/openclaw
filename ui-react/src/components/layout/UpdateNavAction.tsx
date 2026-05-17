@@ -39,35 +39,27 @@ export function UpdateNavAction() {
     return null;
   }
 
-  const handleInstall = async () => {
+  const handleInstall = () => {
     setInstalling(true);
     setError(null);
-    try {
-      const bridge = (
-        window as Window & {
-          electronBridge?: { installUpdate?: () => Promise<void> };
-        }
-      ).electronBridge;
+    const bridge = (
+      window as Window & {
+        electronBridge?: { installUpdate?: () => Promise<void> };
+      }
+    ).electronBridge;
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Installation timed out, please retry")),
-          5000,
-        ),
-      );
+    const installPromise =
+      bridge?.installUpdate?.() ??
+      Promise.reject(new Error("Installation method is unavailable"));
 
-      const installPromise =
-        bridge?.installUpdate?.() ??
-        Promise.reject(new Error("Installation method is unavailable"));
-
-      await Promise.race([installPromise, timeoutPromise]);
-    } catch (err) {
+    // installUpdate 成功时会退出应用，IPC 通常不会 resolve；勿用短超时误判失败
+    void installPromise.catch((err: unknown) => {
       const errorMsg =
         err instanceof Error ? err.message : "Installation failed, please retry";
       setError(errorMsg);
       setInstalling(false);
       console.error("[UpdateNavAction] Installation failed:", err);
-    }
+    });
   };
 
   return (

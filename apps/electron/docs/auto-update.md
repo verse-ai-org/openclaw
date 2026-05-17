@@ -32,8 +32,9 @@ GitHub Actions (electron-release.yml)
         │
         ├─ 发现新版本 → 后台静默下载 .zip
         │
-        └─ 下载完成 → UI 顶部出现提示条
-                       用户点击「重启安装」→ quitAndInstall()
+        └─ 下载完成 → UI 顶部出现「Update」
+                       用户点击 Update → stopGateway + quitAndInstall()
+                       直接退出应用 → 不安装（更新包保留，下次仍可安装）
 ```
 
 ---
@@ -84,28 +85,30 @@ electron-builder 打包时会根据此配置自动生成 `latest-mac.yml`，内�
 
 | 函数 | 调用时机 |
 |------|----------|
-| `initAutoUpdater(mainWindow, log)` | `main()` 创建主窗口后，`app.isPackaged` 时调用 |
+| `initAutoUpdater(mainWindow)` | `main()` 创建主窗口后，`app.isPackaged` 时调用 |
 | `checkForUpdates()` | 启动后 10s 首次调用；之后每 4 小时定时调用 |
 | `quitAndInstall()` | 用户点击「重启安装」时，由 IPC handler 调用 |
 
 **行为说明：**
 - `autoDownload = false`：发现新版本后手动触发下载，避免非预期带宽消耗
-- `autoInstallOnAppQuit = true`：用户正常退出 app 时自动安装（无感知更新）
+- `autoInstallOnAppQuit = false`：**禁止**退出时自动安装（Windows NSIS 在退出瞬间安装可能删空安装目录；必须由用户点击「Update」）
+- `disableDifferentialDownload = true`：Windows 使用完整安装包，避免差量更新失败
 - 下载完成后发送 `app:update-ready` IPC 事件通知渲染进程
+- `quitAndInstall()` 前先 `stopGatewayForUpdate()`，释放 `node.exe` 文件锁
 
 ### 3. `index.ts` — IPC 注册
 
 ```typescript
 // 启动 10s 后检查，每 4 小时定时检查
 if (app.isPackaged) {
-  initAutoUpdater(mainWindow, mlog);
+  initAutoUpdater(mainWindow);
   setTimeout(() => checkForUpdates(), 10_000);
   setInterval(() => checkForUpdates(), 4 * 60 * 60 * 1_000);
 }
 
-// 用户确认后退出并安装
-ipcMain.handle("app:install-update", () => {
-  quitAndInstall();
+// 用户确认后停止 Gateway、退出并安装
+ipcMain.handle("app:install-update", async () => {
+  await quitAndInstall();
 });
 ```
 
@@ -238,7 +241,18 @@ openssl pkcs12 -in /tmp/test.p12 -noout -passin pass:"$APPLE_CERTIFICATE_PASSWOR
 
 1. 确认 app 是打包版本（非开发模式）
 2. 检查 `https://files.aiverser.com/bossim/releases/latest-mac.yml` 中的版本号是否大于当前版本
-3. 查看主进程日志（`~/.openclaw/electron-main.log`）中 `[updater]` 前缀的条目
+3. 查看主进程日志（`~/.openclaw/logs/electron-main.log`）中 `[updater]` 前缀的条目（更新日志默认落盘，无需 `BOSSIM_LOG_VERBOSE`）
+
+### Windows：退出后安装目录变空、无法启动
+
+**原因：** 旧版在 `autoInstallOnAppQuit = true` 时，用户下载完成后直接关闭应用会触发 NSIS「先删后装」；若安装未完成则目录被清空。
+
+**当前策略：**
+- 仅当用户点击 UI「Update」时调用 `quitAndInstall()`
+- 关闭应用**不会**自动安装；已下载的更新保留在缓存，下次启动仍可提示安装
+- `electron-builder.yml` 中 `nsis.differentialPackage: false`，运行时 `disableDifferentialDownload: true`
+
+**已损坏的安装：** 从 R2 下载完整 `Bossim Setup x.y.z.exe` 重新安装。
 
 ### 需要立即推送紧急更新
 

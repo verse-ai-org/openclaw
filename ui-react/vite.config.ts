@@ -47,6 +47,7 @@ export default defineConfig(() => {
         input: {
           main: path.resolve(here, "index.html"),
           setup: path.resolve(here, "setup.html"),
+          splash: path.resolve(here, "splash.html"),
         },
         output: {
           entryFileNames: "[name].js",

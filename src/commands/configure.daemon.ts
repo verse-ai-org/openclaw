@@ -49,7 +49,7 @@ export async function maybeInstallDaemon(params: {
       await withProgress(
         { label: "Gateway service", indeterminate: true, delayMs: 0 },
         async (progress) => {
-          progress.setLabel("Restarting Gateway service…");
+          progress.setLabel("Restarting service…");
           await service.restart({
             env: process.env,
             stdout: process.stdout,

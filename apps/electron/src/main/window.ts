@@ -2,7 +2,7 @@ import path from "node:path";
 import http from "node:http";
 import fs from "node:fs";
 import { app, BrowserWindow, shell, session, screen } from "electron";
-import { mainLogSync } from "./onboarding.js";
+import { mainLogError, mainLogInfo, mainLogWarn } from "./logger.js";
 
 // ---------------------------------------------------------------------------
 // Static file server for packaged ui-react build
@@ -79,13 +79,13 @@ export function getStaticServerPort(): number {
 }
 
 function wlog(msg: string): void {
-  console.log(msg);
-  mainLogSync(msg);
+  mainLogInfo(msg);
 }
 function wlogError(msg: string, detail?: unknown): void {
-  const d = detail !== undefined ? ` ${String(detail)}` : "";
-  console.error(msg + d);
-  mainLogSync(`[ERROR] ${msg}${d}`);
+  mainLogError(msg, detail);
+}
+function wlogWarn(msg: string): void {
+  mainLogWarn(msg);
 }
 
 const DEFAULT_GATEWAY_PORT = 18789;
@@ -175,7 +175,7 @@ function installExternalLinkNavigationHandlers(
 
 /**
  * 解析渲染页面的加载目标。
- * 所有页面（setup + index）均从 ui-react 工程加载：
+ * 所有页面（splash + setup + index）均从 ui-react 工程加载：
  * - 开发时：VITE_UI_REACT_URL (http://localhost:5174)
  * - 打包后：Resources/control-ui-react/
  */
@@ -338,22 +338,21 @@ export function createWindow(): BrowserWindow {
       `[window] render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`,
     );
   });
-  win.webContents.on("did-finish-load", () => {
-    wlog("[window] did-finish-load");
-  });
-  win.webContents.on("dom-ready", () => {
-    wlog("[window] dom-ready");
-  });
   win.webContents.on(
     "console-message",
     (_e, level, message, line, sourceId) => {
-      // level: 0=verbose 1=info 2=warning 3=error
-      // 记录所有渲染进程日志（verbose 除外），方便排查 Gateway 重连问题
-      if (level === 0) return; // 跳过 verbose
-      const prefix = level >= 3 ? "[ERROR]" : level >= 2 ? "[WARN]" : "[INFO]";
-      // 过滤掉 Electron CSP 安全警告（打包前正常，不需要记录到业务日志）
+      // level: 0=verbose 1=info 2=warning 3=error — file log: warn/error only
+      if (level === 0) return;
       if (message.includes("Insecure Content-Security-Policy")) return;
-      wlog(`[renderer]${prefix} ${message} (${sourceId}:${line})`);
+      if (message.includes("Download the React DevTools")) return;
+      const loc = ` (${sourceId}:${line})`;
+      if (level >= 3) {
+        wlogError(`[renderer] ${message}${loc}`);
+      } else if (level >= 2) {
+        wlogWarn(`[renderer] ${message}${loc}`);
+      } else {
+        mainLogInfo(`[renderer] ${message}${loc}`);
+      }
     },
   );
 
@@ -368,16 +367,23 @@ export function createWindow(): BrowserWindow {
   return win;
 }
 
+export type LoadRendererPageOpts = {
+  port: number;
+  token: string;
+  /** Splash already showed the window; skip ready-to-show gate. */
+  windowAlreadyVisible?: boolean;
+};
+
 /**
  * 加载 Electron 专属渲染页面。
  * - 开发时设了 VITE_DEV_SERVER_URL 则从 Vite dev server 加载（支持热更新）
  * - 否则从 file:// 静态产物加载
- * - opts.port / opts.token：注入到 URL hash，供 ui-react settings.store 读取
+ * - opts.port / opts.token：注入到 URL query，供 ui-react settings.store 读取
  */
 export function loadRendererPage(
   win: BrowserWindow,
   page: string,
-  opts?: { port: number; token: string },
+  opts?: LoadRendererPageOpts,
 ): void {
   const target = resolveRendererUrl(page);
   const gatewayPort = opts?.port ?? DEFAULT_GATEWAY_PORT;
@@ -391,7 +397,6 @@ export function loadRendererPage(
 
   // 打包后检查 HTML 文件是否存在
   if (target.type === "file") {
-    const fs = require("node:fs") as typeof import("node:fs");
     const exists = fs.existsSync(target.path);
     wlog(`[window] html file exists=${exists}: ${target.path}`);
     if (!exists) {
@@ -399,35 +404,56 @@ export function loadRendererPage(
     }
   }
 
-  // 构造携带 Gateway 连接信息的 query string（避免与 createHashRouter 的 # 冲突）
-  const query = opts
-    ? `?gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(opts.token)}`
-    : "";
+  const query =
+    opts != null
+      ? `?gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(opts.token)}`
+      : "";
 
-  // 备用超时：5s 内如果 ready-to-show 没有触发就强制显示窗口，避免永久黑屏
-  const showTimer = setTimeout(() => {
-    wlogError(`[window] ready-to-show 超时！强制显示窗口 (page=${page})`);
-    win.show();
-  }, 5000);
+  const alreadyVisible = opts?.windowAlreadyVisible === true;
+  let showTimer: ReturnType<typeof setTimeout> | undefined;
+  if (!alreadyVisible) {
+    showTimer = setTimeout(() => {
+      wlogError(`[window] ready-to-show 超时！强制显示窗口 (page=${page})`);
+      win.show();
+    }, 5000);
 
-  win.once("ready-to-show", () => {
-    clearTimeout(showTimer);
-    wlog(`[window] ready-to-show 触发，显示窗口 (page=${page})`);
-    win.show();
-  });
+    win.once("ready-to-show", () => {
+      if (showTimer) clearTimeout(showTimer);
+      wlog(`[window] ready-to-show 触发，显示窗口 (page=${page})`);
+      win.show();
+    });
+  } else {
+    wlog(`[window] loadRendererPage: window already visible (page=${page})`);
+  }
 
   if (target.type === "url") {
     wlog(`[window] loadURL: ${target.url}${query}`);
     void win.loadURL(`${target.url}${query}`);
+  } else if (query) {
+    wlog(`[window] loadURL (file+query): file://${target.path}${query}`);
+    void win.loadURL(`file://${target.path}${query}`);
   } else {
-    // file:// 协议需用 loadURL 拼完整路径（query string 在 file:// 下可正常读取）
-    if (query) {
-      wlog(`[window] loadURL (file+query): file://${target.path}${query}`);
-      void win.loadURL(`file://${target.path}${query}`);
-    } else {
-      wlog(`[window] loadFile: ${target.path}`);
-      void win.loadFile(target.path);
-    }
+    wlog(`[window] loadFile: ${target.path}`);
+    void win.loadFile(target.path);
+  }
+}
+
+/** Boot splash (no Gateway query params). */
+export function loadSplashPage(win: BrowserWindow): void {
+  const target = resolveRendererUrl("splash");
+  const gatewayPort = DEFAULT_GATEWAY_PORT;
+  installExternalLinkNavigationHandlers(
+    win,
+    buildRendererNavigationAllowList(target, gatewayPort),
+  );
+  wlog(`[window] loadSplashPage: type=${target.type}`);
+
+  win.show();
+
+  if (target.type === "url") {
+    void win.loadURL(target.url);
+  } else {
+    void win.loadFile(target.path);
   }
 }
 

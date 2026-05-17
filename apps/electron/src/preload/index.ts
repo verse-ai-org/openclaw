@@ -204,4 +204,40 @@ contextBridge.exposeInMainWorld("electronBridge", {
    * 用户点击"重启安装"按钮后调用。
    */
   installUpdate: (): Promise<void> => ipcRenderer.invoke("app:install-update"),
+
+  /**
+   * Boot splash: listen for startup phase updates from the main process.
+   */
+  onStartupPhase: (
+    callback: (payload: {
+      phase: string;
+      message?: string;
+      elapsedMs?: number;
+      error?: string;
+    }) => void,
+  ): (() => void) => {
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      payload: {
+        phase: string;
+        message?: string;
+        elapsedMs?: number;
+        error?: string;
+      },
+    ) => callback(payload);
+    ipcRenderer.on("startup:phase", handler);
+    return () => ipcRenderer.removeListener("startup:phase", handler);
+  },
+
+  /** Retry Gateway + navigation after a failed startup. */
+  retryStartup: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("startup:retry"),
+
+  /** Latest startup phase (for splash catch-up after late subscribe). */
+  getStartupPhase: (): Promise<{
+    phase: string;
+    message?: string;
+    elapsedMs?: number;
+    error?: string;
+  } | null> => ipcRenderer.invoke("startup:get-phase"),
 });

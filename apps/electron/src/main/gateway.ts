@@ -3,53 +3,77 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import { app } from "electron";
-import { mainLogSync } from "./onboarding.js";
+import {
+  formatGatewayChildLine,
+  isMainLogVerbose,
+  mainLogError,
+  mainLogInfo,
+  mainLogNote,
+  mainLogWarn,
+  shouldLogGatewayStdoutLine,
+  stripAnsi,
+} from "./logger.js";
 
-/**
- * 同时写 console + 日志文件（打包后 console 不可见）。
- */
-function log(msg: string): void {
-  console.log(msg);
-  mainLogSync(msg);
-}
-function logError(msg: string, err?: unknown): void {
-  const detail =
-    err instanceof Error
-      ? ` ${err.message}`
-      : err !== undefined
-        ? ` ${String(err)}`
-        : "";
-  console.error(msg + detail);
-  mainLogSync(`[ERROR] ${msg}${detail}`);
-}
+type GatewayLogKind = "info" | "note" | "warn";
 
 /**
  * Structured gateway log line for easier grep/filter.
  * Example: [gateway][spawn] port=18789 force=false
  */
-function logEvent(event: string, fields?: Record<string, unknown>): void {
+function formatEventLine(event: string, fields?: Record<string, unknown>): string {
   if (!fields || Object.keys(fields).length === 0) {
-    log(`[gateway][${event}]`);
-    return;
+    return `[gateway][${event}]`;
   }
   const kv = Object.entries(fields)
     .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
     .join(" ");
-  log(`[gateway][${event}] ${kv}`);
+  return `[gateway][${event}] ${kv}`;
+}
+
+function logEvent(
+  event: string,
+  fields?: Record<string, unknown>,
+  kind: GatewayLogKind = "info",
+): void {
+  const line = formatEventLine(event, fields);
+  if (kind === "note") {
+    mainLogNote(line);
+  } else if (kind === "warn") {
+    mainLogWarn(line);
+  } else {
+    mainLogInfo(line);
+  }
 }
 
 /**
- * Normalise child process output so each line is independently prefixed.
+ * Normalise child process output; only warnings/errors land in electron-main.log.
  */
 function writeChildStream(tag: "stdout" | "stderr", text: string): void {
   for (const line of text.split("\n")) {
-    if (!line.trim()) continue;
-    if (tag === "stdout") {
-      process.stdout.write(`[gateway:${tag}] ${line}\n`);
-    } else {
-      process.stderr.write(`[gateway:${tag}] ${line}\n`);
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
     }
-    mainLogSync(`[gateway:${tag}] ${line}`);
+    const plain = stripAnsi(trimmed);
+    const shouldFile =
+      tag === "stderr" || shouldLogGatewayStdoutLine(plain);
+    if (tag === "stdout") {
+      if (isMainLogVerbose() || shouldFile) {
+        process.stdout.write(`[gateway:stdout] ${plain}\n`);
+      }
+    } else {
+      process.stderr.write(`[gateway:stderr] ${plain}\n`);
+    }
+    if (shouldFile) {
+      const formatted = formatGatewayChildLine(tag, plain);
+      if (formatted) {
+        if (tag === "stderr") {
+          mainLogWarn(formatted);
+        } else {
+          mainLogNote(formatted);
+        }
+      }
+    }
   }
 }
 
@@ -63,7 +87,7 @@ function auditBundledExtensions(): void {
     : path.resolve(__dirname, "../../../../extensions");
 
   if (!fs.existsSync(extensionsDir)) {
-    logEvent("audit-extensions", { status: "missing", path: extensionsDir });
+    logEvent("audit-extensions", { status: "missing", path: extensionsDir }, "warn");
     return;
   }
 
@@ -91,23 +115,22 @@ function auditBundledExtensions(): void {
       });
     }
 
-    const summary = extensions
-      .map(
-        (e) =>
-          `${e.id}(manifest=${e.hasManifest ? "✓" : "✗"} pkg=${e.hasPackageJson ? "✓" : "✗"})`,
-      )
-      .join(" ");
-
-    logEvent("audit-extensions", {
-      status: "ok",
-      count: extensions.length,
-      list: summary,
-    });
+    const issues = extensions.filter((e) => !e.hasManifest || !e.hasPackageJson);
+    if (issues.length > 0) {
+      logEvent(
+        "audit-extensions",
+        {
+          status: "issues",
+          count: issues.length,
+          ids: issues.map((e) => e.id).join(","),
+        },
+        "warn",
+      );
+    } else {
+      mainLogInfo(`[gateway][audit-extensions] ok count=${extensions.length}`);
+    }
   } catch (err) {
-    logEvent("audit-extensions", {
-      status: "error",
-      error: String(err),
-    });
+    logEvent("audit-extensions", { status: "error", error: String(err) }, "warn");
   }
 }
 
@@ -146,12 +169,20 @@ function auditConfigPlugins(cfg: Record<string, unknown>): void {
     }
   }
 
-  logEvent("audit-config-plugins", {
-    status: missing.length === 0 ? "ok" : "missing",
-    total: entryIds.length,
-    found: found.length,
-    missing: missing.length > 0 ? missing.join(",") : undefined,
-  });
+  if (missing.length > 0) {
+    logEvent(
+      "audit-config-plugins",
+      {
+        status: "missing",
+        total: entryIds.length,
+        found: found.length,
+        missing: missing.join(","),
+      },
+      "warn",
+    );
+  } else {
+    mainLogInfo(`[gateway][audit-config-plugins] ok total=${entryIds.length}`);
+  }
 }
 
 const DEFAULT_GATEWAY_PORT = 18789;
@@ -201,13 +232,13 @@ async function resolveLoginShellEnv(): Promise<Record<string, string>> {
         }
       }
       _loginShellEnv = result;
-      log(
+      mainLogInfo(
         `[gateway] resolveLoginShellEnv: loaded ${Object.keys(result).length} vars from login shell`,
       );
       resolve(result);
     });
     child.on("error", (err) => {
-      logError("[gateway] resolveLoginShellEnv failed:", err);
+      mainLogError("[gateway] resolveLoginShellEnv failed:", err);
       _loginShellEnv = {};
       resolve({});
     });
@@ -355,15 +386,15 @@ async function preFreeGatewayPort(port: number): Promise<void> {
   const initialPids = listListenersOnPort(port);
   const initiallyHealthy = await probeGatewayHttpReady(port, 500);
   if (initialPids.length === 0 && !initiallyHealthy) {
-    logEvent("pre-free-port", { status: "already-free", port });
+    mainLogInfo(`[gateway] pre-free-port already-free port=${port}`);
     return;
   }
 
-  logEvent("pre-free-port", {
-    status: "begin",
-    port,
-    pids: initialPids.join(",") || "(health-only)",
-  });
+  logEvent(
+    "pre-free-port",
+    { status: "begin", port, pids: initialPids.join(",") || "(health-only)" },
+    "note",
+  );
 
   killListenersOnPort(initialPids, "SIGTERM");
   await new Promise((resolve) => setTimeout(resolve, PRE_FREE_SIGTERM_WAIT_MS));
@@ -378,11 +409,15 @@ async function preFreeGatewayPort(port: number): Promise<void> {
     port,
     PRE_FREE_RELEASE_TIMEOUT_MS,
   );
-  logEvent("pre-free-port", {
-    status: released ? "done" : "health-still-up",
-    port,
-    remainingPids: listListenersOnPort(port).join(",") || "none",
-  });
+  logEvent(
+    "pre-free-port",
+    {
+      status: released ? "done" : "health-still-up",
+      port,
+      remainingPids: listListenersOnPort(port).join(",") || "none",
+    },
+    released ? "info" : "warn",
+  );
 }
 
 type GatewayChildWaitState = {
@@ -457,6 +492,8 @@ let reusingExternalGateway = false;
 export interface GatewayStartOptions {
   port?: number;
   token: string;
+  /** Splash / startup UI: sub-status while phase stays `gateway`. */
+  onProgress?: (message: string) => void;
 }
 
 /**
@@ -469,14 +506,17 @@ function resolveBundledNode(): string {
     const nodeName = process.platform === "win32" ? "node.exe" : "node";
     const p = path.join(process.resourcesPath, "node", nodeName);
     const exists = fs.existsSync(p);
-    log(`[gateway] resolveBundledNode (packaged): ${p} exists=${exists}`);
+    mainLogInfo(`[gateway] resolveBundledNode (packaged): ${p} exists=${exists}`);
+    if (!exists) {
+      mainLogWarn(`[gateway] bundled node missing: ${p}`);
+    }
     return p;
   }
   // 开发时使用系统 node
   const devPath = process.execPath.includes("electron")
     ? "node"
     : process.execPath;
-  log(`[gateway] resolveBundledNode (dev): ${devPath}`);
+  mainLogInfo(`[gateway] resolveBundledNode (dev): ${devPath}`);
   return devPath;
 }
 
@@ -496,13 +536,19 @@ function resolveOpenclaw(): string {
   if (app.isPackaged) {
     const p = path.join(process.resourcesPath, "openclaw", "openclaw.mjs");
     const exists = fs.existsSync(p);
-    log(`[gateway] resolveOpenclaw (packaged): ${p} exists=${exists}`);
+    mainLogInfo(`[gateway] resolveOpenclaw (packaged): ${p} exists=${exists}`);
+    if (!exists) {
+      mainLogWarn(`[gateway] openclaw entry missing: ${p}`);
+    }
     return p;
   }
   // 开发时：__dirname = dist/main/，向上 4 级到 repo root
   const devPath = path.resolve(__dirname, "../../../../openclaw.mjs");
   const exists = fs.existsSync(devPath);
-  log(`[gateway] resolveOpenclaw (dev): ${devPath} exists=${exists}`);
+  mainLogInfo(`[gateway] resolveOpenclaw (dev): ${devPath} exists=${exists}`);
+  if (!exists) {
+    mainLogWarn(`[gateway] openclaw entry missing: ${devPath}`);
+  }
   return devPath;
 }
 
@@ -617,6 +663,12 @@ async function isGatewayRunning(port: number): Promise<boolean> {
   return probeGatewayHttpReady(port, 1500);
 }
 
+/** HTTP /health probe for activate / skip-splash heuristics. */
+export async function isGatewayHealthy(port?: number): Promise<boolean> {
+  const p = port ?? _activePort;
+  return probeGatewayHttpReady(p, 1500);
+}
+
 async function waitForGatewayReady(
   port: number,
   timeoutMs: number,
@@ -654,8 +706,11 @@ async function waitForGatewayReady(
  *      - 在默认端口启动（带 --force），使用随机 token
  */
 export async function startGateway(opts: GatewayStartOptions): Promise<void> {
-  logEvent("start-gateway", { phase: "begin" });
+  mainLogInfo("[gateway] starting");
   reusingExternalGateway = false;
+  const report = opts.onProgress;
+
+  report?.("Starting local service…");
 
   // 审计 bundled extensions 和配置中的插件引用
   auditBundledExtensions();
@@ -673,10 +728,11 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
       >;
       auditConfigPlugins(cfg);
     } catch (err) {
-      logEvent("audit-config-plugins", {
-        status: "parse-error",
-        error: String(err),
-      });
+      logEvent(
+        "audit-config-plugins",
+        { status: "parse-error", error: String(err) },
+        "warn",
+      );
     }
   }
 
@@ -685,47 +741,55 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
     if (canReuseExistingGateway()) {
       const running = await isGatewayRunning(configPort);
       if (running) {
-        logEvent("reuse-gateway", { port: configPort });
+        logEvent("reuse-gateway", { port: configPort }, "note");
+        report?.("Connecting to existing service…");
         reusingExternalGateway = true;
         _activePort = configPort;
         return;
       }
     } else if (await isGatewayRunning(configPort)) {
-      logEvent("replace-stale-gateway", {
-        port: configPort,
-        reason: "packaged-app-owns-lifecycle",
-      });
+      logEvent(
+        "replace-stale-gateway",
+        { port: configPort, reason: "packaged-app-owns-lifecycle" },
+        "note",
+      );
     }
     const force = shouldForceGatewaySpawn();
-    logEvent("spawn-gateway", {
-      port: configPort,
-      force,
-      reason: canReuseExistingGateway()
-        ? "config-port-no-instance"
-        : "packaged-managed",
-    });
+    logEvent(
+      "spawn-gateway",
+      {
+        port: configPort,
+        force,
+        reason: canReuseExistingGateway()
+          ? "config-port-no-instance"
+          : "packaged-managed",
+      },
+      "note",
+    );
     _activePort = configPort;
     await spawnGateway({
       port: configPort,
       token: existingToken,
       force,
+      onProgress: report,
     });
   } else {
     const port = opts.port ?? DEFAULT_GATEWAY_PORT;
     gatewayToken = opts.token;
     _activePort = port;
     const force = shouldForceGatewaySpawn();
-    logEvent("spawn-gateway", { port, force, reason: "no-config-token" });
-    await spawnGateway({ port, token: opts.token, force });
+    logEvent("spawn-gateway", { port, force, reason: "no-config-token" }, "note");
+    await spawnGateway({ port, token: opts.token, force, onProgress: report });
   }
 
-  logEvent("start-gateway", { phase: "complete", port: _activePort });
+  logEvent("start-gateway", { phase: "complete", port: _activePort }, "note");
 }
 
 async function spawnGateway(opts: {
   port: number;
   token: string;
   force: boolean;
+  onProgress?: (message: string) => void;
 }): Promise<void> {
   const nodeBin = resolveBundledNode();
   const openclawEntry = resolveOpenclaw();
@@ -739,22 +803,12 @@ async function spawnGateway(opts: {
       entry: entryExists ? "✓" : "✗",
     });
     if (!nodeExists || !entryExists) {
-      logEvent("path-check-failed", {
-        node: nodeBin,
-        entry: openclawEntry,
-      });
+      logEvent(
+        "path-check-failed",
+        { node: nodeBin, entry: openclawEntry },
+        "warn",
+      );
       throw new Error(`打包资源缺失: node=${nodeExists}, entry=${entryExists}`);
-    }
-    // 列出 Resources 目录帮助调试
-    try {
-      const resourcesDir = process.resourcesPath;
-      const topItems = fs.readdirSync(resourcesDir);
-      logEvent("resources-dir", {
-        count: topItems.length,
-        items: topItems.slice(0, 10).join(","),
-      });
-    } catch (e) {
-      logEvent("resources-dir-error", { error: String(e) });
     }
   }
 
@@ -767,17 +821,14 @@ async function spawnGateway(opts: {
     "--allow-unconfigured",
   ];
   if (opts.force) {
+    opts.onProgress?.("Preparing service port…");
     await preFreeGatewayPort(opts.port);
     args.push("--force");
   }
 
-  logEvent("spawn", {
-    node: nodeBin,
-    entry: openclawEntry,
-    port: opts.port,
-    force: opts.force,
-    cwd: path.dirname(openclawEntry),
-  });
+  mainLogInfo(
+    `[gateway] spawn port=${opts.port} force=${opts.force} entry=${openclawEntry}`,
+  );
 
   // Merge login shell env (already cached by warmLoginShellEnv) so that
   // variables set in ~/.zshrc / ~/.bash_profile (API keys, custom PATH, etc.)
@@ -826,7 +877,8 @@ async function spawnGateway(opts: {
     windowsHide: true,
   });
 
-  logEvent("spawned", { pid: gatewayProcess.pid ?? null });
+  logEvent("spawned", { pid: gatewayProcess.pid ?? null, port: opts.port }, "note");
+  opts.onProgress?.("Starting Gateway process…");
 
   gatewayProcess.stdout?.on("data", (data: Buffer) => {
     const text = data.toString();
@@ -842,7 +894,11 @@ async function spawnGateway(opts: {
 
   gatewayProcess.on("exit", (code, signal) => {
     childWaitState.exit = { code, signal };
-    logEvent("exit", { code, signal, pid: gatewayProcess?.pid ?? null });
+    logEvent(
+      "exit",
+      { code, signal, pid: gatewayProcess?.pid ?? null },
+      code === 0 && (signal === null || signal === "SIGTERM") ? "info" : "warn",
+    );
     gatewayProcess = null;
     // Distinguish deliberate stop (SIGTERM from stopGateway) from unexpected crashes.
     // Reusing an external Gateway is never managed by us, so no crash notification.
@@ -851,29 +907,28 @@ async function spawnGateway(opts: {
       // when OPENCLAW_NO_RESPAWN=1 is set (in-process restart keeps the
       // process alive). Guard against edge cases (e.g. older Gateway binary)
       // by auto-respawning on any unexpected clean exit too.
-      logEvent("unexpected-exit", {
-        code,
-        signal,
-        isCrash: code !== 0 || (signal !== null && signal !== "SIGTERM"),
-      });
+      logEvent(
+        "unexpected-exit",
+        {
+          code,
+          signal,
+          isCrash: code !== 0 || (signal !== null && signal !== "SIGTERM"),
+        },
+        "warn",
+      );
       _onGatewayCrash?.(code, signal);
     }
     _intentionalStop = false;
   });
 
   gatewayProcess.on("error", (err) => {
-    logEvent("spawn-error", { error: err.message });
+    logEvent("spawn-error", { error: err.message }, "warn");
   });
 
   const readyTimeoutMs = resolveGatewayReadyTimeoutMs();
-  logEvent("wait-ready", {
-    port: opts.port,
-    timeoutMs: readyTimeoutMs,
-    platform: process.platform,
-    isPackaged: app.isPackaged,
-  });
+  opts.onProgress?.("Connecting to service…");
   await waitForGatewayReady(opts.port, readyTimeoutMs, childWaitState);
-  logEvent("ready", { port: opts.port });
+  logEvent("ready", { port: opts.port }, "note");
 }
 
 function killGatewayChildProcess(proc: ChildProcess): void {
@@ -923,11 +978,7 @@ export function stopGateway(): void {
     logEvent("stop", { status: "skipped", reason: "no-process" });
     return;
   }
-  logEvent("stop", {
-    status: "stopping",
-    pid: gatewayProcess.pid ?? null,
-    platform: process.platform,
-  });
+  mainLogNote(`[gateway] stopping pid=${gatewayProcess.pid ?? "?"}`);
   _intentionalStop = true;
   const proc = gatewayProcess;
   gatewayProcess = null;
@@ -935,11 +986,42 @@ export function stopGateway(): void {
 }
 
 /**
+ * 为应用更新停止 Gateway 并等待子进程退出，避免 Windows NSIS 因文件锁导致安装失败。
+ */
+export async function stopGatewayForUpdate(): Promise<void> {
+  if (reusingExternalGateway && !app.isPackaged) {
+    return;
+  }
+  reusingExternalGateway = false;
+  const proc = gatewayProcess;
+  if (!proc) {
+    return;
+  }
+  mainLogNote(`[gateway] stopping for app update pid=${proc.pid ?? "?"}`);
+  _intentionalStop = true;
+  gatewayProcess = null;
+
+  const settleMs = process.platform === "win32" ? 2000 : 1000;
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, settleMs);
+    proc.once("exit", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    killGatewayChildProcess(proc);
+  });
+
+  if (process.platform === "win32") {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+/**
  * 重启 Gateway（配置更新后调用）。
  * 若当前为复用外部 Gateway，则仍复用（不重启）。
  */
 export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
-  logEvent("restart", { phase: "begin", port: _activePort });
+  mainLogNote(`[gateway] restart begin port=${_activePort}`);
   if (reusingExternalGateway && !app.isPackaged) {
     logEvent("restart", { status: "skipped", reason: "reusing-external" });
     return;
@@ -955,9 +1037,8 @@ export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
   const port = _activePort;
   const token = opts.token || gatewayToken;
   gatewayToken = token;
-  logEvent("restart", { phase: "spawning", port });
   await spawnGateway({ port, token, force: true });
-  logEvent("restart", { phase: "complete", port });
+  logEvent("restart", { phase: "complete", port }, "note");
 }
 
 export function getGatewayToken(): string {
@@ -969,7 +1050,7 @@ export function getGatewayToken(): string {
   if (reusingExternalGateway) {
     const fresh = readExistingGatewayToken();
     if (fresh && fresh !== gatewayToken) {
-      log(`[gateway] getGatewayToken: token rotated, updating cached value`);
+      mainLogNote("[gateway] token rotated, updating cached value");
       gatewayToken = fresh;
     }
   }

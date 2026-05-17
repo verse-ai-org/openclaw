@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { TAB_GROUPS, TAB_PATHS, type Tab } from "@/types/gateway";
 import { Separator } from "../ui/separator.tsx";
 import { CONFIG } from "@/data/config.ts";
+import { isMacOSElectron } from "@/utils/electron-env.ts";
 
 export function AppSidebar() {
   // const status = useGatewayStore((s) => s.status);
@@ -34,7 +35,7 @@ export function AppSidebar() {
     <Sidebar variant="inset">
       {/* Traffic Lights region — 48px reserved for macOS window controls (drag area) */}
       <div
-        className="h-10 shrink-0 select-none"
+        className={cn("h-10 shrink-0 select-none", isMacOSElectron() ? "" : "hidden")}
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
       />
 

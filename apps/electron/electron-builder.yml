@@ -320,6 +320,8 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Bossim
+  # 差量包在 Windows 上易触发 NSIS「删旧未装新」；与 autoUpdater.disableDifferentialDownload 配合
+  differentialPackage: false
 
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

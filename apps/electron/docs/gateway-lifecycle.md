@@ -48,20 +48,45 @@ Bossim **不在** Electron 进程内跑 Gateway，而是通过 `child_process.sp
 
 ## 应用启动时的调用顺序
 
-`main()` 在 `app.whenReady()` 之后大致按以下顺序执行（见 `index.ts`）：
+`main()` 在 `app.whenReady()` 之后大致按以下顺序执行（见 `index.ts` + `startup.ts`）：
 
 ```
 app.whenReady()
-  → generateToken()                    // 无配置 token 时的会话备用
-  → warmLoginShellEnv()                // macOS：读 login shell 环境变量
-  → startStaticServer(control-ui-react) // 仅打包：随机端口托管 UI
-  → patchConfigForElectron(staticPort)  // 写 allowedOrigins 等
-  → startGateway({ token: sessionToken })
-  → onGatewayCrash(...)                 // 子进程意外退出时通知渲染进程
-  → configureSession / createWindow / loadRendererPage
+  → generateToken()
+  → startStaticServer(control-ui-react)   // 打包 / dev:static
+  → configureSession (初始端口)
+  → createWindow() + show()
+  → loadSplashPage()                      // 回访用户；首次安装直接 load setup.html
+  → runStartupPipeline()（异步，不阻塞窗口）
+        → warmLoginShellEnv
+        → patchConfigForElectron + startGateway
+        → onGatewayCrash
+        → loadRendererPage(index|setup)
 ```
 
-Gateway 启动失败**不会**阻止窗口创建；UI 会尝试连接但可能连不上（`gatewayStarted=false`）。
+启动阶段通过 IPC `startup:phase` 推送到 `splash.html`（`ui-react` 独立入口）。**首次安装**（`isFirstLaunch()`）跳过 Splash，直接加载 `setup.html`；Gateway 仍在后台 `runStartupPipeline` 中启动，但不向安装向导推送 `starting` / `gateway` 等启动文案。回访用户：Splash 加载完成后再跑 pipeline（`waitForSplashReady`），并可用 `startup:get-phase` 补发当前阶段。
+
+短步骤（静态服务、shell 环境、配置同步）合并为单次 `starting`，避免 Splash 闪烁。`gateway` 阶段通过 `startGateway({ onProgress })` 推送子文案。
+
+| phase | 时机 | 默认文案（英文） |
+|-------|------|------------------|
+| `starting` | `warmLoginShellEnv` + `patchConfigForElectron`（合并） | Starting application… |
+| `gateway` | `startGateway()` | Starting local service… → 子状态见下 |
+| `workspace` | `loadRendererPage(setup\|index)` | Starting setup wizard… / Starting workspace… |
+| `ready` | 主界面 `did-finish-load` | Starting Bossim… |
+| `failed` | Gateway 启动失败 | Failed to start service（可 `startup:retry`） |
+
+**`gateway` 子状态**（同一 `phase`，仅 `message` 变化）：
+
+| 子文案 | 时机 |
+|--------|------|
+| Starting local service… | `startGateway` 开始 |
+| Connecting to existing service… | 开发模式复用已在跑的 Gateway |
+| Preparing service port… | 打包 `--force` 前清理端口 |
+| Starting Gateway process… | 子进程已 spawn |
+| Connecting to service… | 轮询 `/health` 等待就绪 |
+
+Gateway 启动失败时停留在 Splash，不进入主界面，直至用户重试成功。
 
 ---
 
@@ -225,21 +250,16 @@ http://127.0.0.1:<staticPort>/?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=<to
 
 ## 正常启动日志序列（打包，有残留）
 
-便于对照 `electron-main.log`：
+便于对照 `electron-main.log`（默认只记 warn/error 与关键里程碑；`BOSSIM_LOG_VERBOSE=1` 可恢复完整 info）：
 
 ```
-[gateway][start-gateway] phase="begin"
-[gateway][replace-stale-gateway]     # 可选：端口上仍有旧实例
-[gateway][spawn-gateway] force=true reason="packaged-managed"
-[gateway][pre-free-port] status="begin" pids="…"
-[gateway][pre-free-port] status="done"
-[gateway][spawn] …
-[gateway][spawned] pid=…
-[gateway][wait-ready] …
-[gateway:stdout] … listening on ws://127.0.0.1:18789 … (PID …)
+[gateway][spawn-gateway] port=18789 force=true …
+[gateway][spawned] pid=… port=18789
+[gateway:stdout] … listening on ws://127.0.0.1:18789 …   # 以及 Doctor warnings 等
 [gateway][ready] port=18789
-[main] Gateway 启动成功
-[renderer] ws open → hello-ok
+[startup] gateway started
+[startup] ready elapsed=…ms
+[main] startup complete gateway=true port=18789 …
 ```
 
 **不应出现**（修复后）：

@@ -3,22 +3,19 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import {
-  startGateway,
   stopGateway,
   restartGateway,
   getGatewayToken,
   getGatewayPort,
   readExistingGatewayToken,
-  warmLoginShellEnv,
-  onGatewayCrash,
 } from "./gateway.js";
 import {
   isFirstLaunch,
   saveOnboardingConfig,
   writeDebugLog,
-  mainLogSync,
   type OnboardingConfig,
 } from "./onboarding.js";
+import { mainLogError, mainLogInfo, mainLogNote, mainLogWarn } from "./logger.js";
 import { validateApiKey, validateInviteCode } from "./onboarding-validate.js";
 import {
   oauthStart,
@@ -31,10 +28,21 @@ import {
   createWindow,
   configureSession,
   loadRendererPage,
+  loadSplashPage,
   startStaticServer,
 } from "./window.js";
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
 import { initAutoUpdater, checkForUpdates, quitAndInstall } from "./updater.js";
+import {
+  runStartupPipeline,
+  registerStartupIpc,
+  resolveDevStaticServerPort,
+  shouldUseBootSplash,
+  isGatewayHealthy,
+  waitForSplashReady,
+  DEFAULT_GATEWAY_PORT,
+  type StartupPipelineContext,
+} from "./startup.js";
 
 // Menu bar label + “About …” title use app.getName(), which otherwise comes from
 // package.json `name` (openclaw-electron). Keep in sync with electron-builder.yml `productName`.
@@ -98,29 +106,86 @@ app.on("second-instance", (_event, argv) => {
 });
 
 function mlog(msg: string): void {
-  console.log(msg);
-  mainLogSync(msg);
+  mainLogInfo(msg);
 }
 function mlogError(msg: string, err?: unknown): void {
-  const d = err !== undefined ? ` ${String(err)}` : "";
-  console.error(msg + d);
-  mainLogSync(`[ERROR] ${msg}${d}`);
+  mainLogError(msg, err);
+}
+function mlogWarn(msg: string): void {
+  mainLogWarn(msg);
+}
+function mlogNote(msg: string): void {
+  mainLogNote(msg);
 }
 
 let mainWindow: BrowserWindow | null = null;
+let staticServerPort = 0;
+let sessionTokenForStartup = "";
+
+function buildStartupContext(setupPreloaded: boolean): StartupPipelineContext | null {
+  if (!mainWindow) {
+    return null;
+  }
+  return {
+    mainWindow,
+    sessionToken: sessionTokenForStartup,
+    staticServerPort,
+    useBootSplash: shouldUseBootSplash(),
+    setupPreloaded,
+    patchConfigForElectron,
+    registerWizardIpc,
+    log: mlog,
+    logError: mlogError,
+  };
+}
 
 // macOS：点击 Dock 图标时，若窗口已关闭则重新创建
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    mainWindow = createWindow();
-    loadRendererPage(mainWindow, "index", {
-      port: getGatewayPort(),
-      token: getGatewayToken(),
-    });
-  } else {
-    mainWindow?.show();
-  }
+  void (async () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createWindow();
+      mainWindow.show();
+      const port = getGatewayPort();
+      const token = getGatewayToken();
+      if (await isGatewayHealthy(port)) {
+        configureSession(port);
+        if (isFirstLaunch()) {
+          registerWizardIpc(port, token);
+          loadRendererPage(mainWindow, "setup", {
+            port,
+            token,
+            windowAlreadyVisible: true,
+          });
+        } else {
+          loadRendererPage(mainWindow, "index", {
+            port,
+            token,
+            windowAlreadyVisible: true,
+          });
+        }
+        return;
+      }
+      if (shouldUseBootSplash()) {
+        loadSplashPage(mainWindow);
+        await waitForSplashReady(mainWindow);
+      } else if (isFirstLaunch()) {
+        loadRendererPage(mainWindow, "setup", {
+          port: DEFAULT_GATEWAY_PORT,
+          token: getGatewayToken() || sessionTokenForStartup,
+          windowAlreadyVisible: true,
+        });
+      }
+      const ctx = buildStartupContext(isFirstLaunch());
+      if (ctx) {
+        void runStartupPipeline(ctx);
+      }
+    } else {
+      mainWindow?.show();
+    }
+  })();
 });
+
+registerStartupIpc(() => buildStartupContext(isFirstLaunch()));
 
 // 非 macOS：所有窗口关闭时退出
 app.on("window-all-closed", () => {
@@ -246,8 +311,8 @@ ipcMain.handle("onboarding:validateInviteCode", async (_, code: string) => {
 });
 
 // IPC：渲染进程用户确认后，退出并安装已下载的新版本
-ipcMain.handle("app:install-update", () => {
-  quitAndInstall();
+ipcMain.handle("app:install-update", async () => {
+  await quitAndInstall();
 });
 
 // IPC：Onboarding 完成，切换到 ui-react 主界面
@@ -368,8 +433,8 @@ function patchConfigForElectron(staticServerPort: number): void {
       (id) => !BUNDLED_PLUGIN_IDS.has(id),
     );
     if (nonBundledEntries.length > 0) {
-      mlog(
-        `[main] patchConfigForElectron: non-bundled plugin entries present (kept): ${nonBundledEntries.join(", ")}`,
+      mlogWarn(
+        `[main] patchConfigForElectron: non-bundled plugins (kept): ${nonBundledEntries.join(", ")}`,
       );
     }
 
@@ -401,107 +466,73 @@ function patchConfigForElectron(staticServerPort: number): void {
 
     if (dirty) {
       fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf8");
-      mlog(`[main] patchConfigForElectron: wrote ${cfgPath}`);
-    } else {
-      mlog("[main] patchConfigForElectron: no changes needed");
+      mlogNote(`[main] patchConfigForElectron: updated ${cfgPath}`);
     }
   } catch (err) {
     // Config doesn't exist yet (first launch) — skip
-    mlog(`[main] patchConfigForElectron: skipped (${String(err)})`);
+    mainLogInfo(`[main] patchConfigForElectron: skipped (${String(err)})`);
   }
 }
 
 async function main() {
-  mlog("[main] app 就绪前…");
   await app.whenReady();
-  mlog(
-    `[main] app.whenReady 完成；platform=${process.platform} isPackaged=${app.isPackaged} resourcesPath=${process.resourcesPath ?? "n/a"}`,
+  mainLogInfo(
+    `[main] ready platform=${process.platform} packaged=${app.isPackaged}`,
   );
 
-  // 生成本次会话 token 备用（无配置时使用）
-  const sessionToken = generateToken();
-  mlog("[main] sessionToken 已生成");
+  sessionTokenForStartup = generateToken();
 
-  // Pre-warm login shell env in parallel with static server startup so it's
-  // ready before spawnGateway() needs it. Errors are handled inside warmLoginShellEnv.
-  const shellEnvWarm = warmLoginShellEnv();
-  mlog("[main] warmLoginShellEnv 启动");
-
-  // 启动内嵌静态 HTTP server（打包时提供 ui-react，使 renderer origin 为 http://127.0.0.1:PORT）
-  let staticServerPort = 0;
+  staticServerPort = 0;
   if (app.isPackaged) {
     try {
       const uiReactDir = path.join(process.resourcesPath, "control-ui-react");
       staticServerPort = await startStaticServer(uiReactDir);
-      mlog(`[main] 静态 server 已启动，端口: ${staticServerPort}`);
     } catch (err) {
       mlogError("[main] 静态 server 启动失败:", err);
     }
+  } else {
+    try {
+      staticServerPort = await resolveDevStaticServerPort(startStaticServer);
+    } catch (err) {
+      mlogError("[main] dev 静态 server 启动失败:", err);
+    }
   }
 
-  // Ensure shell env is resolved before spawning Gateway subprocess.
-  await shellEnvWarm;
-  mlog("[main] warmLoginShellEnv 完成");
+  configureSession(getGatewayPort());
 
-  // 启动 Gateway（内部决策：复用外部 / 使用配置端口 / 使用独立端口）
-  let gatewayStarted = false;
-  try {
-    mlog("[main] 开始启动 Gateway…");
-    patchConfigForElectron(staticServerPort);
-    await startGateway({ token: sessionToken });
-    gatewayStarted = true;
-    mlog("[main] Gateway 启动成功");
-    // Register crash handler so the renderer can show a reconnect prompt.
-    onGatewayCrash((code, signal) => {
-      mlog(`[main] Gateway 崩溃: code=${code} signal=${signal}，通知渲染进程`);
-      mainWindow?.webContents.send("gateway:crashed", { code, signal });
-    });
-  } catch (err) {
-    mlogError("[main] Gateway 启动失败:", err);
-    // Gateway 失败不阻止渲染，以便展示错误页面
-  }
-
-  const activePort = getGatewayPort();
-  const activeToken = getGatewayToken();
-  mlog(`[main] activePort=${activePort} gatewayStarted=${gatewayStarted}`);
-
-  // 配置 session CSP（使用实际端口）
-  configureSession(activePort);
-  mlog("[main] session 已配置");
-
-  // 创建主窗口
   mainWindow = createWindow();
-  mlog("[main] 主窗口已创建");
+  mainWindow.show();
 
   const firstLaunch = isFirstLaunch();
-  mlog(`[main] isFirstLaunch=${firstLaunch}`);
-
-  if (firstLaunch) {
-    // 首次启动：加载 ui-react Setup Wizard 页面，注册 wizard IPC 中转
-    mlog("[main] 首次启动，加载 Setup Wizard");
-    registerWizardIpc(activePort, activeToken);
+  const useBootSplash = shouldUseBootSplash();
+  if (useBootSplash) {
+    loadSplashPage(mainWindow);
+    await waitForSplashReady(mainWindow);
+  } else if (firstLaunch) {
     loadRendererPage(mainWindow, "setup", {
-      port: activePort,
-      token: activeToken,
-    });
-  } else {
-    // 已配置：直接加载 ui-react 主界面，注入 Gateway 连接信息
-    mlog("[main] 已配置，加载主界面");
-    loadRendererPage(mainWindow, "index", {
-      port: activePort,
-      token: activeToken,
+      port: DEFAULT_GATEWAY_PORT,
+      token: sessionTokenForStartup,
+      windowAlreadyVisible: true,
     });
   }
 
-  // ─── 自动更新 ─────────────────────────────────────────────────────────────
-  // 仅在打包后的生产环境中启用，开发模式跳过（electron-updater 内部也会检查）
-  if (app.isPackaged) {
-    initAutoUpdater(mainWindow, mlog);
-    // 启动后延迟 20s 检查更新，避免影响启动性能
+  const ctx = buildStartupContext(firstLaunch);
+  if (ctx) {
+    void runStartupPipeline(ctx).then((result) => {
+      configureSession(result.port);
+      mlogNote(
+        `[main] startup complete gateway=${result.gatewayStarted} port=${result.port} firstLaunch=${result.firstLaunch}`,
+      );
+    }).catch((err) => {
+      mlogError("[main] 启动 pipeline 失败:", err);
+    });
+  }
+
+  if (app.isPackaged && mainWindow) {
+    initAutoUpdater(mainWindow);
     setTimeout(() => {
       checkForUpdates();
     }, 20_000);
-    // 每 4 小时定时检查一次
     setInterval(
       () => {
         checkForUpdates();
@@ -510,7 +541,6 @@ async function main() {
     );
   }
 
-  mlog("[main] main() 完成");
 }
 
 main().catch((err) => {

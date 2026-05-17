@@ -142,7 +142,7 @@ export async function finalizeOnboardingWizard(
           "Gateway service",
           { doneMessage: "Gateway service restarted." },
           async (progress) => {
-            progress.update("Restarting Gateway service…");
+            progress.update("Restarting service…");
             await service.restart({
               env: process.env,
               stdout: process.stdout,
