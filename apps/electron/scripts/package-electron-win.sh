@@ -165,12 +165,6 @@ build_electron_main() {
   (cd "$ELECTRON_DIR" && pnpm build)
 }
 
-generate_app_icons() {
-  echo ""
-  echo "🎨 [4b/5] 生成应用图标 (.icns / .ico)"
-  bash "$ELECTRON_DIR/scripts/generate-icons.sh" --ico-only
-}
-
 package_electron_app() {
   echo ""
   echo "📦 [5/5] 打包 Electron Windows App"
@@ -201,7 +195,6 @@ main() {
   prune_runtime_dependencies
   print_runtime_dependencies_summary
   build_electron_main
-  generate_app_icons
   package_electron_app
   cleanup_runtime_dependencies
   print_completion

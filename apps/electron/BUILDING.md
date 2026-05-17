@@ -97,9 +97,7 @@ make icons-ico      # 仅 .ico（Windows）
 
 > `make` 不会把 `--ico-only` 传给脚本（会被当成 make 自己的参数）。请用上面的目标，或直接：`bash scripts/generate-icons.sh --ico-only`
 
-`package-win` / `release-win` 打包时会自动执行 `--ico-only`。
-
-`make package` / `make package-fast` 会在打包前自动执行 `generate-icons.sh`（默认仅 `.icns`）。需本机已安装 Xcode（含 Icon Composer）；无 `ictool` 时会回退 Pillow 生成 `.icns` 并打印警告（Dock 显示可能不正确）。
+`icon.icns` / `icon.ico` 已提交到 git；`make package` / `package-win` / `release*` **不会**自动生成图标。更换 `icon.png` 后请本地执行 `make icons-all`（或分别 `make icons` + `make icons-ico`），并将生成的 `.icns` / `.ico` 一并提交。macOS `.icns` 需本机 Xcode（Icon Composer / `ictool`）；无 `ictool` 时会回退 Pillow 并打印警告（Dock 显示可能不正确）。
 
 ---
 
