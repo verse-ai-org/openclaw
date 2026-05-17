@@ -4,7 +4,8 @@
 macOS (.icns): Icon Composer (Icon.icon + scripts/build_icon.sh) — 824 art, transparent
 pad to 1024, system squircle mask (same pipeline as OpenClaw mac app).
 
-Windows (.ico): Pillow composite (white 1024 canvas + ring from icon.png).
+Windows (.ico): Icon Composer preview when available; otherwise Pillow with the same
+layer scale as Icon.icon (position.scale) and a squircle mask on white.
 
 Usage:
   python3 generate-icons.py           # .icns only (default; icon.png rarely changes)
@@ -13,6 +14,7 @@ Usage:
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 import shutil
@@ -22,7 +24,7 @@ import tempfile
 from pathlib import Path
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageChops
 except ImportError as exc:  # pragma: no cover
     print("Pillow is required: python3 -m pip install Pillow", file=sys.stderr)
     raise SystemExit(1) from exc
@@ -35,16 +37,21 @@ SOURCE = RESOURCES / "icon.png"
 ICNS_OUT = RESOURCES / "icon.icns"
 ICO_OUT = RESOURCES / "icon.ico"
 ICON_ICON = ELECTRON_DIR / "Icon.icon"
+ICON_ICON_JSON = ICON_ICON / "icon.json"
 ICON_ICON_ASSET = ICON_ICON / "Assets" / "bossim-ring.png"
 BUILD_ICON_SH = REPO_ROOT / "scripts" / "build_icon.sh"
 ICON_BUILD_OUT = ELECTRON_DIR / "build" / "icon"
 
 CANVAS = 1024
 MACOS_ART_SAFE_AREA = 824
-# Ring in Icon.icon layer (transparent PNG for ictool); ~1.0 fills the 824 safe area.
-RING_SCALE_FOR_COMPOSER = 1.0
-# Ring on white canvas for Windows .ico.
-RING_FILL_FOR_ICO = 0.83
+# bossim-ring.png is authored at 1.0; Icon.icon applies position.scale (e.g. 1.6).
+RING_SCALE_FOR_COMPOSER_ASSET = 1.0
+DEFAULT_ICON_LAYER_SCALE = 1.6
+# Superellipse exponent approximating macOS squircle (continuous corners).
+SQUIRCLE_EXPONENT = 5.0
+# Anti-alias band (~px at final size) for squircle mask edge.
+SQUIRCLE_FEATHER_PX = 2.0
+SQUIRCLE_SUPERSAMPLE = 2
 BACKGROUND_RGBA = (255, 255, 255, 255)
 BLACK_KEY_THRESHOLD = 40
 CENTROID_MIN_ALPHA = 48
@@ -85,6 +92,18 @@ def can_use_icon_composer() -> bool:
         and BUILD_ICON_SH.is_file()
         and ICON_ICON.is_dir()
     )
+
+
+def load_icon_layer_scale() -> float:
+    """Match Icon.icon layer position.scale (bossim-ring)."""
+    try:
+        data = json.loads(ICON_ICON_JSON.read_text(encoding="utf-8"))
+        scale = float(data["groups"][0]["layers"][0]["position"]["scale"])
+        if scale > 0:
+            return scale
+    except (OSError, KeyError, TypeError, ValueError, IndexError):
+        pass
+    return DEFAULT_ICON_LAYER_SCALE
 
 
 def load_source() -> Image.Image:
@@ -144,57 +163,166 @@ def remove_near_black(src: Image.Image) -> Image.Image:
     return img
 
 
-def compose_ring_layer(src: Image.Image, *, ring_scale: float) -> Image.Image:
-    """Transparent 1024×1024 ring for Icon.icon / ictool."""
+_SQUIRCLE_MASK_CACHE: dict[int, Image.Image] = {}
+
+
+def squircle_mask(size: int, exponent: float = SQUIRCLE_EXPONENT) -> Image.Image:
+    """macOS-style superellipse alpha mask with soft edges (anti-aliased)."""
+    cached = _SQUIRCLE_MASK_CACHE.get(size)
+    if cached is not None:
+        return cached
+
+    ss = max(1, SQUIRCLE_SUPERSAMPLE)
+    work = size * ss
+    mask = Image.new("L", (work, work), 0)
+    pixels = mask.load()
+    half = work / 2.0
+    radius = half
+    # Normalized "val" feather band (~SQUIRCLE_FEATHER_PX at output size).
+    feather = max((SQUIRCLE_FEATHER_PX * ss) / radius, 1e-6)
+
+    for y in range(work):
+        ny = (y - half + 0.5) / radius
+        abs_ny = abs(ny) ** exponent
+        for x in range(work):
+            nx = (x - half + 0.5) / radius
+            val = abs(nx) ** exponent + abs_ny
+            t = (1.0 - val) / feather
+            alpha = int(max(0, min(255, round(t * 255))))
+            pixels[x, y] = alpha
+
+    out = mask if ss == 1 else mask.resize((size, size), Image.Resampling.LANCZOS)
+    _SQUIRCLE_MASK_CACHE[size] = out
+    return out
+
+
+def apply_squircle(img: Image.Image) -> Image.Image:
+    """Clip icon to squircle (matches Icon Composer / Dock shape)."""
+    rgba = img.convert("RGBA")
+    mask = squircle_mask(rgba.size[0])
+    red, green, blue, alpha = rgba.split()
+    alpha = ImageChops.multiply(alpha, mask)
+    return Image.merge("RGBA", (red, green, blue, alpha))
+
+
+def layout_ring_on_canvas(
+    src: Image.Image,
+    *,
+    layer_scale: float,
+    background: tuple[int, int, int, int] | None,
+) -> Image.Image:
     foreground = center_in_square_by_centroid(crop_to_content(remove_near_black(src)))
     width, height = foreground.size
-    target = int(round(MACOS_ART_SAFE_AREA * ring_scale))
+    target = int(round(MACOS_ART_SAFE_AREA * layer_scale))
     scale = min(target / width, target / height)
     new_w = max(1, int(round(width * scale)))
     new_h = max(1, int(round(height * scale)))
     logo = foreground.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-    canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    bg = background if background is not None else (0, 0, 0, 0)
+    canvas = Image.new("RGBA", (CANVAS, CANVAS), bg)
     center = CANVAS / 2
     centroid_x, centroid_y = alpha_centroid(logo)
     offset_x = int(round(center - centroid_x))
     offset_y = int(round(center - centroid_y))
     canvas.paste(logo, (offset_x, offset_y), logo)
+    return canvas
+
+
+def compose_ring_layer(src: Image.Image) -> Image.Image:
+    """Transparent 1024×1024 ring for Icon.icon / ictool (scale applied in icon.json)."""
+    return layout_ring_on_canvas(
+        src,
+        layer_scale=RING_SCALE_FOR_COMPOSER_ASSET,
+        background=None,
+    )
+
+
+def export_icon_composer_preview_1024(src: Image.Image) -> Image.Image | None:
+    """Render Icon.icon via ictool (824 art + pad), matching macOS .icns appearance."""
+    ictool = find_ictool()
+    if ictool is None:
+        return None
+
+    prepare_icon_composer_asset(src)
+    sips = shutil.which("sips")
+    if not sips:
+        return None
+
+    # Appearance name varies by Xcode / Icon Composer (older: "macOS Default").
+    appearances = ("macOS", "macOS Default")
+    with tempfile.TemporaryDirectory(prefix="bossim-icon-") as tmp:
+        tmp_path = Path(tmp)
+        art_824 = tmp_path / "icon_art_824.png"
+        art_1024 = tmp_path / "icon_1024.png"
+        last_error: subprocess.CalledProcessError | None = None
+        for appearance in appearances:
+            try:
+                subprocess.run(
+                    [
+                        str(ictool),
+                        str(ICON_ICON),
+                        "--export-preview",
+                        appearance,
+                        "824",
+                        "824",
+                        "1",
+                        "-45",
+                        str(art_824),
+                    ],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                last_error = None
+                break
+            except subprocess.CalledProcessError as exc:
+                last_error = exc
+        if last_error is not None:
+            return None
+        subprocess.run(
+            [sips, "--padToHeightWidth", "1024", "1024", str(art_824), "--out", str(art_1024)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        return Image.open(art_1024).convert("RGBA")
+
+
+def compose_ico_master_pillow(src: Image.Image) -> Image.Image:
+    """White 1024×1024 + ring at Icon.icon layer scale + squircle."""
+    layer_scale = load_icon_layer_scale()
+    canvas = layout_ring_on_canvas(
+        src,
+        layer_scale=layer_scale,
+        background=BACKGROUND_RGBA,
+    )
     return canvas
 
 
 def compose_ico_master(src: Image.Image) -> Image.Image:
-    """White 1024×1024 + ring for Windows .ico."""
-    foreground = center_in_square_by_centroid(crop_to_content(remove_near_black(src)))
-    width, height = foreground.size
-    target = int(round(MACOS_ART_SAFE_AREA * RING_FILL_FOR_ICO))
-    scale = min(target / width, target / height)
-    new_w = max(1, int(round(width * scale)))
-    new_h = max(1, int(round(height * scale)))
-    logo = foreground.resize((new_w, new_h), Image.Resampling.LANCZOS)
-
-    canvas = Image.new("RGBA", (CANVAS, CANVAS), BACKGROUND_RGBA)
-    center = CANVAS / 2
-    centroid_x, centroid_y = alpha_centroid(logo)
-    offset_x = int(round(center - centroid_x))
-    offset_y = int(round(center - centroid_y))
-    canvas.paste(logo, (offset_x, offset_y), logo)
-    return canvas
+    preview: Image.Image | None = None
+    if can_use_icon_composer():
+        try:
+            preview = export_icon_composer_preview_1024(src)
+        except subprocess.CalledProcessError:
+            preview = None
+    if preview is not None:
+        # ictool exports square art; macOS applies squircle at display time for .icns.
+        # Bake squircle + white interior into .ico so Windows previews/taskbar match Dock.
+        flat = Image.new("RGBA", preview.size, BACKGROUND_RGBA)
+        flat.paste(preview, mask=preview.split()[3])
+        return flat
+    return compose_ico_master_pillow(src)
 
 
-def flatten_for_ico(img: Image.Image) -> Image.Image:
-    """ICO writers on Windows often reject RGBA; composite onto white like the app icon."""
-    if img.mode == "RGB":
-        return img
-    rgba = img.convert("RGBA")
-    flat = Image.new("RGB", rgba.size, BACKGROUND_RGBA[:3])
-    flat.paste(rgba, mask=rgba.split()[3])
-    return flat
+def finalize_ico_master(img: Image.Image) -> Image.Image:
+    """Apply squircle once at full resolution; ICO sizes are downscaled from this."""
+    return apply_squircle(img.convert("RGBA"))
 
 
 def prepare_icon_composer_asset(src: Image.Image) -> None:
     ICON_ICON_ASSET.parent.mkdir(parents=True, exist_ok=True)
-    compose_ring_layer(src, ring_scale=RING_SCALE_FOR_COMPOSER).save(ICON_ICON_ASSET)
+    compose_ring_layer(src).save(ICON_ICON_ASSET)
 
 
 def build_icns_via_icon_composer() -> None:
@@ -235,9 +363,8 @@ def write_icns_pillow_fallback(master: Image.Image, out_path: Path) -> None:
 
 
 def write_ico(master: Image.Image, out_path: Path) -> None:
-    images = [
-        flatten_for_ico(master.resize((size, size), Image.Resampling.LANCZOS)) for size in ICO_SIZES
-    ]
+    # Downscale already anti-aliased 1024 master — do not re-clip per size (causes jaggies).
+    images = [master.resize((size, size), Image.Resampling.LANCZOS) for size in ICO_SIZES]
     try:
         images[0].save(
             out_path,
@@ -274,10 +401,10 @@ def main() -> None:
                 "Icon Composer unavailable; using Pillow .icns fallback (macOS build may look wrong).",
                 file=sys.stderr,
             )
-            write_icns_pillow_fallback(compose_ico_master(src), ICNS_OUT)
+            write_icns_pillow_fallback(finalize_ico_master(compose_ico_master(src)), ICNS_OUT)
 
     if build_ico:
-        write_ico(compose_ico_master(src), ICO_OUT)
+        write_ico(finalize_ico_master(compose_ico_master(src)), ICO_OUT)
 
     print("Done.")
 
