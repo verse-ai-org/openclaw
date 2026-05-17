@@ -148,6 +148,70 @@ describe("conversation reducer", () => {
     }
   });
 
+  it("preserves tool and tool UI parts on snapshot mismatch reset", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const threadId = "main";
+      const runId = "run_mismatch_tools";
+      const toolCallId = "tool_ui_1";
+
+      const events: CanonicalChatEvent[] = [
+        { type: "run.started", threadId, runId, ts: 1 },
+        {
+          type: "message.appendText",
+          threadId,
+          ts: 2,
+          messageId: `run:${runId}`,
+          partId: "p1",
+          text: "pick one",
+        },
+        {
+          type: "tool.start",
+          threadId,
+          runId,
+          ts: 3,
+          toolCallId,
+          toolName: "choice",
+          args: { options: ["a", "b"] },
+        },
+        {
+          type: "tool.ui",
+          threadId,
+          runId,
+          ts: 4,
+          toolCallId,
+          toolName: "choice",
+          kind: "choice",
+          payload: { id: "choice-1", options: ["a", "b"] },
+        },
+        {
+          type: "message.setLiveText",
+          threadId,
+          ts: 5,
+          messageId: `run:${runId}`,
+          fullText: "different final body",
+        },
+        { type: "run.finished", threadId, runId, ts: 6 },
+      ];
+
+      const state = replayConversation(events, threadId);
+      const msg = state.messagesById.get(`run:${runId}`);
+      expect(msg?.parts.map((p) => p.type)).toEqual(["text", "tool"]);
+      expect(msg?.parts[0]).toMatchObject({ type: "text", text: "different final body" });
+      expect(msg?.parts[1]).toMatchObject({
+        type: "tool",
+        id: toolCallId,
+        ui: { kind: "choice", payload: { id: "choice-1", options: ["a", "b"] } },
+      });
+      expect(state.toolPartIndex.get(toolCallId)).toEqual({
+        messageId: `run:${runId}`,
+        index: 1,
+      });
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   it("RunActiveSnapshot forces the active run assistant message to be running (even after history snapshot)", () => {
     const threadId = "main";
     const runId = "run_active_1";

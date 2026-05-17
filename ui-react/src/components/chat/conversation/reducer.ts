@@ -153,7 +153,8 @@ export function isLiveTextSnapOvershootOnly(committed: string, fullText: string)
  *   streaming (append + chat agree).
  * - `local-ahead-trim`: `fullText` is a strict prefix of `committed` within a small tail window — chat
  *   snapshot can lag `agent.assistant` appends; reducer trims trailing committed chars to reconcile.
- * - `mismatch`: neither relationship — reducer replaces message text from the snapshot.
+ * - `mismatch`: neither relationship — reducer replaces committed text from the snapshot but
+ *   keeps tool parts (and tool UI) so interactive surfaces remain usable.
  */
 export type LiveTextSnapshotClass = "snapshot-ahead" | "local-ahead-trim" | "mismatch";
 
@@ -197,6 +198,55 @@ function trimTrailingTextCharsFromParts(parts: ChatPart[], removeCount: number):
   return remaining > 0 ? null : out;
 }
 
+/**
+ * Collapse committed text parts to a single snapshot string while preserving tool parts (and
+ * `ToolPart.ui`) in their original timeline positions.
+ */
+function partsAfterSnapshotTextReset(
+  existingParts: ChatPart[],
+  fullText: string,
+  ts: number,
+): ChatPart[] {
+  const out: ChatPart[] = [];
+  let placedSnapshot = false;
+  for (const p of existingParts) {
+    if (p.type === "tool") {
+      out.push(p);
+      continue;
+    }
+    if (p.type === "text") {
+      if (!placedSnapshot && fullText.trim()) {
+        out.push({ type: "text", id: `text:${ts}` as PartId, text: fullText });
+        placedSnapshot = true;
+      }
+    }
+  }
+  if (!placedSnapshot && fullText.trim()) {
+    out.push({ type: "text", id: `text:${ts}` as PartId, text: fullText });
+  }
+  return out;
+}
+
+function upsertToolPartIndexForMessage(
+  toolPartIndex: Map<PartId, { messageId: MessageId; index: number }>,
+  messageId: MessageId,
+  parts: ChatPart[],
+): Map<PartId, { messageId: MessageId; index: number }> {
+  const next = new Map(toolPartIndex);
+  for (const [toolId, where] of next) {
+    if (where.messageId === messageId) {
+      next.delete(toolId);
+    }
+  }
+  for (let index = 0; index < parts.length; index++) {
+    const part = parts[index];
+    if (part?.type === "tool") {
+      next.set(part.id, { messageId, index });
+    }
+  }
+  return next;
+}
+
 function resetMessageToSnapshotText(
   state: ConversationState,
   messageId: MessageId,
@@ -206,21 +256,11 @@ function resetMessageToSnapshotText(
   const msg = state.messagesById.get(messageId);
   if (!msg) return state;
 
-  const nextMsg: CanonicalMessage = {
-    ...msg,
-    parts: fullText.trim()
-      ? [{ type: "text", id: `text:${ts}` as PartId, text: fullText }]
-      : [],
-  };
+  const parts = partsAfterSnapshotTextReset(msg.parts, fullText, ts);
+  const nextMsg: CanonicalMessage = { ...msg, parts };
 
   const after = upsertMessage(state, nextMsg);
-
-  // Drop any tool index entries pointing at this message. A snapshot mismatch implies
-  // we cannot safely preserve tool/text interleaving from prior incremental assembly.
-  const toolPartIndex = new Map(after.toolPartIndex);
-  for (const [toolId, where] of toolPartIndex) {
-    if (where.messageId === messageId) toolPartIndex.delete(toolId);
-  }
+  const toolPartIndex = upsertToolPartIndexForMessage(after.toolPartIndex, messageId, parts);
 
   const liveTextByMessageId = new Map(after.liveTextByMessageId);
   liveTextByMessageId.delete(messageId);
