@@ -946,6 +946,8 @@
                 "group": "Fundamentals",
                 "pages": [
                   "pi",
+                  "agent/index",
+                  "agent/architecture",
                   "concepts/architecture",
                   "concepts/agent",
                   "concepts/agent-loop",
@@ -1545,6 +1547,8 @@
                 "group": "基础",
                 "pages": [
                   "zh-CN/pi",
+                  "zh-CN/agent/index",
+                  "zh-CN/agent/architecture",
                   "zh-CN/concepts/architecture",
                   "zh-CN/concepts/agent",
                   "zh-CN/concepts/agent-loop",
