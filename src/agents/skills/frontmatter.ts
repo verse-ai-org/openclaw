@@ -1,4 +1,3 @@
-import type { Skill } from "@mariozechner/pi-coding-agent";
 import { validateRegistryNpmSpec } from "../../infra/npm-registry-spec.js";
 import { parseFrontmatterBlock } from "../../markdown/frontmatter.js";
 import {
@@ -12,6 +11,8 @@ import {
   resolveOpenClawManifestOs,
   resolveOpenClawManifestRequires,
 } from "../../shared/frontmatter.js";
+import { readStringValue } from "../../shared/string-coerce.js";
+import type { Skill } from "./skill-contract.js";
 import type {
   OpenClawSkillMetadata,
   ParsedSkillFrontmatter,
@@ -194,12 +195,7 @@ export function resolveOpenClawMetadata(
   const install = resolveOpenClawManifestInstall(metadataObj, parseInstallSpec);
   const osRaw = resolveOpenClawManifestOs(metadataObj);
 
-  // primaryEnv resolution order:
-  // 1. metadata.openclaw.primaryEnv (explicit camelCase in metadata block)
-  // 2. top-level "primary-env" frontmatter key
-  // 3. auto-infer from requires.env when it has exactly one entry (unambiguous)
-  const explicitPrimaryEnv =
-    typeof metadataObj.primaryEnv === "string" ? metadataObj.primaryEnv : undefined;
+  const explicitPrimaryEnv = readStringValue(metadataObj.primaryEnv);
   const topLevelPrimaryEnv = getFrontmatterString(frontmatter, "primary-env");
   const inferredPrimaryEnv =
     !explicitPrimaryEnv && !topLevelPrimaryEnv && requires?.env?.length === 1
@@ -209,10 +205,10 @@ export function resolveOpenClawMetadata(
 
   return {
     always: typeof metadataObj.always === "boolean" ? metadataObj.always : undefined,
-    emoji: typeof metadataObj.emoji === "string" ? metadataObj.emoji : undefined,
-    homepage: typeof metadataObj.homepage === "string" ? metadataObj.homepage : undefined,
-    skillKey: typeof metadataObj.skillKey === "string" ? metadataObj.skillKey : undefined,
-    primaryEnv: primaryEnv,
+    emoji: readStringValue(metadataObj.emoji),
+    homepage: readStringValue(metadataObj.homepage),
+    skillKey: readStringValue(metadataObj.skillKey),
+    primaryEnv,
     os: osRaw.length > 0 ? osRaw : undefined,
     requires: requires,
     install: install.length > 0 ? install : undefined,

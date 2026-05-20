@@ -1,7 +1,7 @@
 /**
  * terminal_output — Control UI terminal session card (passthrough).
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { type AnyAgentTool, jsonResult } from "./common.js";
 
 const ParametersSchema = Type.Object({

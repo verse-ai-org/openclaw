@@ -5,6 +5,7 @@ import type {
   PluginsEnableResult,
   PluginsInstallResult,
 } from "@/types/plugins";
+import { normalizePluginRecord } from "@/lib/normalize-plugin-record";
 import { useGatewayStore } from "./gateway.store";
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -23,13 +24,14 @@ interface PluginsState {
 
   // Install state
   installing: boolean;
+  installingSpec: string | null;
   installResult: PluginsInstallResult | null;
   installError: string | null;
 
   // Actions
   fetchPlugins: () => Promise<void>;
-  enablePlugin: (pluginId: string, enabled: boolean) => Promise<void>;
-  installPlugin: (spec: string) => Promise<void>;
+  enablePlugin: (pluginId: string, enabled: boolean) => Promise<PluginsEnableResult | null>;
+  installPlugin: (spec: string) => Promise<PluginsInstallResult | null>;
   clearInstallResult: () => void;
 }
 
@@ -46,6 +48,7 @@ export const usePluginsStore = create<PluginsState>()((set, get) => ({
   toggleError: {},
 
   installing: false,
+  installingSpec: null,
   installResult: null,
   installError: null,
 
@@ -62,7 +65,7 @@ export const usePluginsStore = create<PluginsState>()((set, get) => ({
         diagnostics?: PluginDiagnostic[];
       }>("plugins.status", {});
       set({
-        plugins: res?.plugins ?? [],
+        plugins: (res?.plugins ?? []).map(normalizePluginRecord),
         workspaceDir: res?.workspaceDir,
         diagnostics: res?.diagnostics ?? [],
         loading: false,
@@ -76,7 +79,9 @@ export const usePluginsStore = create<PluginsState>()((set, get) => ({
 
   enablePlugin: async (pluginId: string, enabled: boolean) => {
     const client = useGatewayStore.getState().client;
-    if (!client) return;
+    if (!client) {
+      return null;
+    }
     set((s) => ({
       togglingPluginId: pluginId,
       toggleError: { ...s.toggleError, [pluginId]: "" },
@@ -99,6 +104,7 @@ export const usePluginsStore = create<PluginsState>()((set, get) => ({
             : p,
         ),
       }));
+      return res ?? { pluginId, enabled };
     } catch (err) {
       set((s) => ({
         togglingPluginId: null,
@@ -112,17 +118,23 @@ export const usePluginsStore = create<PluginsState>()((set, get) => ({
 
   installPlugin: async (spec: string) => {
     const client = useGatewayStore.getState().client;
-    if (!client) return;
-    set({ installing: true, installResult: null, installError: null });
+    if (!client) {
+      return null;
+    }
+    set({ installing: true, installingSpec: spec, installResult: null, installError: null });
     try {
       const res = await client.request<PluginsInstallResult>("plugins.install", { spec });
-      set({ installing: false, installResult: res ?? null });
-      // Refresh the list after a successful install
+      set({ installing: false, installingSpec: null, installResult: res ?? null });
       if (res?.ok) {
         await get().fetchPlugins();
+      } else if (res?.error) {
+        set({ installError: res.error });
       }
+      return res ?? null;
     } catch (err) {
-      set({ installing: false, installError: String(err) });
+      const message = String(err);
+      set({ installing: false, installingSpec: null, installError: message });
+      throw err;
     }
   },
 

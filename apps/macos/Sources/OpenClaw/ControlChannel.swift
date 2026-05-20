@@ -236,6 +236,12 @@ final class ControlChannel {
             case .timedOut:
                 return "Gateway request timed out; check gateway on localhost:\(port)."
             case .notConnectedToInternet:
+                if Self.isLikelyLocalNetworkPermissionBlock() {
+                    return """
+                    macOS is blocking OpenClaw Local Network access.
+                    Allow OpenClaw in System Settings → Privacy & Security → Local Network, then relaunch the app.
+                    """
+                }
                 return "No network connectivity; cannot reach gateway."
             default:
                 break
@@ -251,6 +257,22 @@ final class ControlChannel {
         let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.lowercased().hasPrefix("gateway error:") { return trimmed }
         return "Gateway error: \(trimmed)"
+    }
+
+    private static func isLikelyLocalNetworkPermissionBlock() -> Bool {
+        let root = OpenClawConfigFile.loadDict()
+        let resolution = GatewayRemoteConfig.resolveTransportResolution(root: root)
+        guard ConnectionModeResolver.resolve(root: root).mode == .remote,
+              resolution.transport == .direct,
+              let url = resolution.directURL,
+              url.scheme?.lowercased() == "ws",
+              let host = url.host,
+              GatewayRemoteConfig.isTrustedPlaintextRemoteHost(host),
+              !LoopbackHost.isLoopbackHost(host)
+        else {
+            return false
+        }
+        return true
     }
 
     private func scheduleRecovery(reason: String) {
@@ -320,6 +342,8 @@ final class ControlChannel {
         switch source {
         case .deviceToken:
             return "Auth: device token (paired device)"
+        case .bootstrapToken:
+            return "Auth: bootstrap token (setup code)"
         case .sharedToken:
             return "Auth: shared token (\(isRemote ? "gateway.remote.token" : "gateway.auth.token"))"
         case .password:

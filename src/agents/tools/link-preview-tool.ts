@@ -1,7 +1,7 @@
 /**
  * link_preview — Control UI link preview card (passthrough).
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { optionalStringEnum } from "../schema/typebox.js";
 import { type AnyAgentTool, jsonResult } from "./common.js";
 

@@ -288,6 +288,12 @@ export type ChannelsCatalogResult = {
   channels: ChannelCatalogEntry[];
 };
 
+export type ChannelsEnableResult = {
+  channelId: string;
+  enabled: boolean;
+  reason?: string;
+};
+
 // ── Config UI Hints ───────────────────────────────────────────────────────────
 
 export type ConfigUiHint = {

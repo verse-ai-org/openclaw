@@ -2,7 +2,7 @@ import { loadConfig, writeConfigFile } from "../../config/config.js";
 import { enablePluginInConfig } from "../../plugins/enable.js";
 import { setPluginEnabledInConfig } from "../../plugins/toggle-config.js";
 import { installPluginFromNpmSpec, installPluginFromPath } from "../../plugins/install.js";
-import { buildPluginStatusReport } from "../../plugins/status.js";
+import { buildPluginStatusReport, enrichPluginsForStatusApi } from "../../plugins/status.js";
 import {
   ErrorCodes,
   errorShape,
@@ -29,11 +29,8 @@ export const pluginsHandlers: GatewayRequestHandlers = {
     }
     try {
       const report = buildPluginStatusReport();
-      // console.log(
-      //   `[plugins.status] plugins=${report.plugins.map((p) => `${p.id}(channelIds=[${p.channelIds.join(",")}],enabled=${p.enabled},status=${p.status})`).join(" ")}`
-      // );
       respond(true, {
-        plugins: report.plugins,
+        plugins: enrichPluginsForStatusApi(report),
         workspaceDir: report.workspaceDir,
         diagnostics: report.diagnostics,
       });

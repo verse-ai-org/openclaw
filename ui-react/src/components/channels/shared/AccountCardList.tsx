@@ -1,3 +1,4 @@
+import { isBenignAccountStatusError } from "@/lib/channel-lifecycle";
 import type { ChannelAccountSnapshot } from "@/types/channels";
 import { cn } from "@/lib/utils";
 
@@ -61,10 +62,15 @@ export function AccountCardList({
             {account.lastError && (
               <p
                 className={cn(
-                  "text-xs text-destructive bg-destructive/10 rounded px-2 py-1",
+                  "text-xs rounded px-2 py-1",
+                  isBenignAccountStatusError(account.lastError)
+                    ? "text-amber-900 bg-amber-500/10 dark:text-amber-200"
+                    : "text-destructive bg-destructive/10",
                 )}
               >
-                {account.lastError}
+                {isBenignAccountStatusError(account.lastError)
+                  ? `Setup: ${account.lastError}`
+                  : account.lastError}
               </p>
             )}
           </div>

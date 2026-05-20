@@ -18,7 +18,7 @@ import {
   ensureAgentWorkspace,
   isWorkspaceOnboardingCompleted,
 } from "../../agents/workspace.js";
-import { movePathToTrash } from "../../browser/trash.js";
+import { movePathToTrash } from "../../plugin-sdk/browser-maintenance.js";
 import {
   applyAgentConfig,
   findAgentEntryIndex,
@@ -27,7 +27,7 @@ import {
 } from "../../commands/agents.config.js";
 import { loadConfig, writeConfigFile } from "../../config/config.js";
 import { resolveSessionTranscriptsDirForAgent } from "../../config/sessions/paths.js";
-import { sameFileIdentity } from "../../infra/file-identity.js";
+import { sameFileIdentity } from "../../infra/fs-safe-advanced.js";
 import {
   SafeOpenError,
   readLocalFileSafely,

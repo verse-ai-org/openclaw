@@ -12,11 +12,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { channelActionUsesWeixinQrLogin } from "@/lib/channel-post-enable";
 
 export type ChannelActionVariant =
   | { kind: "enable-channel"; channelId: string; label: string }
   | { kind: "disable-channel"; channelId: string; label: string }
-  | { kind: "enable-plugin"; pluginId: string; label: string };
+  | { kind: "enable-plugin"; pluginId: string; label: string }
+  | { kind: "install-channel"; channelId: string; label: string; npmSpec: string };
 
 /**
  * Unified confirmation dialog for all channel-related actions:
@@ -44,25 +46,51 @@ export function ChannelActionDialog({
     }
   };
 
-  const icon = action?.kind === "enable-plugin"
-    ? <PackagePlusIcon />
-    : action?.kind === "enable-channel"
-    ? <ToggleRightIcon />
-    : <ToggleLeftIcon />;
+  const icon =
+    action?.kind === "install-channel" || action?.kind === "enable-plugin" ? (
+      <PackagePlusIcon />
+    ) : action?.kind === "enable-channel" ? (
+      <ToggleRightIcon />
+    ) : (
+      <ToggleLeftIcon />
+    );
 
-  const title = !action ? "" :
-    action.kind === "enable-plugin" ? `Enable ${action.label}?` :
-    action.kind === "enable-channel" ? `Enable ${action.label}?` :
-    `Disable ${action.label}?`;
+  const title = !action
+    ? ""
+    : action.kind === "install-channel"
+      ? `Install ${action.label}?`
+      : action.kind === "enable-plugin"
+        ? `Enable ${action.label}?`
+        : action.kind === "enable-channel"
+          ? `Enable ${action.label}?`
+          : `Disable ${action.label}?`;
 
-  const description = action?.kind === "disable-channel"
-      ? "This will disable the channel. You can re-enable it at any time."
-      : "This will enable the channel. You may need to restart the gateway for changes to take effect."
+  const weixinQrAfterEnable = action ? channelActionUsesWeixinQrLogin(action) : false;
 
-  const confirmLabel = !action ? "" :
-    action.kind === "enable-plugin" ? "Enable" :
-    action.kind === "enable-channel" ? "Enable" :
-    "Disable";
+  const description =
+    action?.kind === "disable-channel"
+      ? "This turns off the channel in config. The plugin may stay installed; you can enable it again later."
+      : action?.kind === "install-channel"
+        ? weixinQrAfterEnable
+          ? `Installs ${action.npmSpec}, enables Weixin, and applies config. The gateway may restart; after reconnect, a QR login dialog opens.`
+          : `Installs ${action.npmSpec}, enables the channel, and applies config. The gateway may reload.`
+        : action?.kind === "enable-plugin"
+          ? weixinQrAfterEnable
+            ? "This enables the Weixin plugin and may restart the gateway. After reconnect, scan the WeChat QR code to finish setup."
+            : "This enables the plugin, applies config, and may briefly disconnect the control UI while the gateway reloads."
+          : weixinQrAfterEnable
+            ? "This enables Weixin in config. The gateway may restart once to load the plugin. After reconnect, a QR login dialog opens — scan with WeChat to connect."
+            : "This enables the channel in config. The gateway may restart once to load the plugin (for example Feishu). After it reconnects, the setup screen opens for credentials.";
+
+  const confirmLabel = !action
+    ? ""
+    : action.kind === "install-channel"
+      ? "Install"
+      : action.kind === "enable-plugin"
+        ? "Enable"
+        : action.kind === "enable-channel"
+          ? "Enable"
+          : "Disable";
 
   const confirmClass = !action ? "" :
     action.kind === "disable-channel"

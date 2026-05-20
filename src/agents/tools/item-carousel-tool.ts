@@ -1,7 +1,7 @@
 /**
  * item_carousel — Control UI image-first item carousel card (passthrough).
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { type AnyAgentTool, jsonResult } from "./common.js";
 
 const ActionSchema = Type.Object({

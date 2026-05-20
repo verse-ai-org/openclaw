@@ -17,7 +17,7 @@ import type {
   InteractiveSummaryPair,
 } from "@/components/chat/types";
 import { formatQaDisplayText, parseQaPairsFromMessage } from "./ui-qa-format";
-import { buildInteractionMetadata } from "./ui-interaction-metadata";
+import { buildInteractionMetadata, resolveInteractionId } from "./ui-interaction-metadata";
 
 export type SendMessageFn = (
   text: string,
@@ -147,7 +147,7 @@ const questionFlowHandler: UiInteractionHandler<SerializableQuestionFlow> = {
             setInteractiveSummary(pairs, { answers });
             await sendMessage(formatQaDisplayText(pairs), {
               metadata: buildInteractionMetadata({
-                interactionId: interactiveId,
+                interactionId: resolveInteractionId(upfrontConfig, interactiveId),
                 component: "question_flow",
                 payload: { answers },
               }),
@@ -176,7 +176,7 @@ const questionFlowHandler: UiInteractionHandler<SerializableQuestionFlow> = {
             setInteractiveSummary(pairs, { answers: { [payload.step]: optionIds } });
             await sendMessage(formatQaDisplayText(pairs), {
               metadata: buildInteractionMetadata({
-                interactionId: interactiveId,
+                interactionId: resolveInteractionId(payload, interactiveId),
                 component: "question_flow",
                 payload: { answers: { [payload.step]: optionIds } },
               }),
@@ -227,7 +227,7 @@ const optionListHandler: UiInteractionHandler<SerializableOptionList> = {
         setInteractiveSummary(pairs, { selected: ids });
         await sendMessage(formatQaDisplayText(pairs), {
           metadata: buildInteractionMetadata({
-            interactionId: interactiveId,
+            interactionId: resolveInteractionId(payload, interactiveId),
             component: "option_list",
             payload: { selected: ids },
           }),
@@ -258,7 +258,7 @@ const approvalCardHandler: UiInteractionHandler<SerializableApprovalCard> = {
         setInteractiveSummary(pairs, { decision: "approved" });
         await sendMessage(formatQaDisplayText(pairs), {
           metadata: buildInteractionMetadata({
-            interactionId: interactiveId,
+            interactionId: resolveInteractionId(payload, interactiveId),
             component: "approval_card",
             payload: { decision: "approved" },
           }),
@@ -269,7 +269,7 @@ const approvalCardHandler: UiInteractionHandler<SerializableApprovalCard> = {
         setInteractiveSummary(pairs, { decision: "denied" });
         await sendMessage(formatQaDisplayText(pairs), {
           metadata: buildInteractionMetadata({
-            interactionId: interactiveId,
+            interactionId: resolveInteractionId(payload, interactiveId),
             component: "approval_card",
             payload: { decision: "denied" },
           }),

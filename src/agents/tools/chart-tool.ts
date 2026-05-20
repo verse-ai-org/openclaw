@@ -1,7 +1,7 @@
 /**
  * chart — Control UI bar/line chart card (passthrough).
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { stringEnum } from "../schema/typebox.js";
 import { type AnyAgentTool, jsonResult } from "./common.js";
 

@@ -28,7 +28,8 @@ export type PluginRecord = {
   hookNames: string[];
   channelIds: string[];
   providerIds: string[];
-  gatewayMethods: string[];
+  /** Populated by plugins.status from gatewayMethodDescriptors; may be absent on stale payloads. */
+  gatewayMethods?: string[];
   cliCommands: string[];
   services: string[];
   commands: string[];

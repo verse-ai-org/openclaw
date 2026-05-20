@@ -1,7 +1,19 @@
 {
   "id": "openclaw-weixin",
-  "version": "2.1.1",
-  "channels": ["openclaw-weixin"],
+  "version": "2026.5.17",
+  "channels": [
+    "openclaw-weixin"
+  ],
+  "channelConfigs": {
+    "openclaw-weixin": {
+      "schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "label": "Weixin",
+      "description": "Personal WeChat conversation channel."
+    }
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

@@ -1,7 +1,7 @@
 /**
  * code_block — Control UI syntax-highlighted code card (passthrough).
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { stringEnum } from "../schema/typebox.js";
 import { type AnyAgentTool, jsonResult } from "./common.js";
 

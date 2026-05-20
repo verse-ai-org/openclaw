@@ -87,14 +87,18 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         },
       ]);
 
+      // Gateway clientRunId === chat.send idempotencyKey; seed run lifecycle before WS events.
+      const runId = crypto.randomUUID();
+      useConversationStore.getState().beginOutboundRun(activeSession, runId);
+
       // Start an optimistic run so isRunning=true before the first WS delta.
       st.setSending(true);
 
       try {
-        const resp = await client?.request<{ runId?: string }>("chat.send", {
+        const resp = await client?.request<{ runId?: string; status?: string }>("chat.send", {
           message: text,
           sessionKey: activeSession,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: runId,
           ...(opts?.attachments && opts.attachments.length > 0
             ? { attachments: opts.attachments }
             : {}),
@@ -104,7 +108,10 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           ...(opts?.metadata ? { metadata: opts.metadata } : {}),
         });
 
-        void resp;
+        const ackRunId = typeof resp?.runId === "string" && resp.runId.trim() ? resp.runId.trim() : runId;
+        if (ackRunId !== runId) {
+          useConversationStore.getState().beginOutboundRun(activeSession, ackRunId);
+        }
         // Re-fetch sessions.list so the sidebar shows the session (and titles) right after send ack.
         useChatStore.getState().triggerSessionsReload();
       } catch (err) {
@@ -184,6 +191,8 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         content: text,
         ts: Date.now(),
       };
+      const runId = crypto.randomUUID();
+      useConversationStore.getState().beginOutboundRun(activeSession, runId);
       st.setSending(true);
       // Phase 3: canonical user message emission for edited send.
       useConversationStore.getState().applyEvents(activeSession, [
@@ -218,9 +227,12 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         const resp = await client?.request<{ runId?: string }>("chat.send", {
           message: text,
           sessionKey: activeSession,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: runId,
         });
-        void resp;
+        const ackRunId = typeof resp?.runId === "string" && resp.runId.trim() ? resp.runId.trim() : runId;
+        if (ackRunId !== runId) {
+          useConversationStore.getState().beginOutboundRun(activeSession, ackRunId);
+        }
         useChatStore.getState().triggerSessionsReload();
       } catch (err) {
         console.error("[chat] edit send failed:", err);

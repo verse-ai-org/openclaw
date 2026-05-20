@@ -2,7 +2,7 @@
  * Structured weather for Control UI (Tool UI WeatherWidget payload).
  * Fetches wttr.in JSON (World Weather Online via wttr) and maps to version 3.1 schema.
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { stringEnum } from "../schema/typebox.js";
 import { type AnyAgentTool, jsonResult, readStringParam, ToolInputError } from "./common.js";

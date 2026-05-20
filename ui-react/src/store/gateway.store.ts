@@ -38,6 +38,9 @@ export interface IGatewayClient {
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
+/** Progress copy for GatewayRestartingOverlay during config apply. */
+export type ConfigApplyPhase = "idle" | "applying" | "restarting" | "reconnecting";
+
 interface GatewayState {
   // Connection
   status: ConnectionStatus;
@@ -52,6 +55,7 @@ interface GatewayState {
   // Used by the global GatewayRestartingOverlay to distinguish intentional
   // restarts from unexpected disconnects.
   restarting: boolean;
+  configApplyPhase: ConfigApplyPhase;
 
   // Presence / health (populated from hello snapshot + events)
   presenceEntries: PresenceEntry[];
@@ -71,10 +75,17 @@ interface GatewayState {
   setConnecting: () => void;
   handleEvent: (evt: GatewayEventFrame) => void;
   reset: () => void;
-  /** Mark that we are intentionally waiting for Gateway to restart. */
+  /** Mark that we are applying config (plugin/channel enable, install, etc.). */
+  beginConfigApply: () => void;
+  /** @deprecated Prefer beginConfigApply */
   beginRestart: () => void;
   /** Clear intentional restart state when no restart actually happens. */
   endRestart: () => void;
+  /**
+   * After a config write: wait briefly for an optional WS drop (SIGUSR1), then
+   * reconnect. If the gateway hot-reloads without disconnecting, returns while still connected.
+   */
+  waitForConfigApplySettle: (options?: { reconnectTimeoutMs?: number }) => Promise<void>;
 }
 
 const MAX_EVENT_LOG = 250;
@@ -87,6 +98,7 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
   lastErrorCode: null,
   serverVersion: null,
   restarting: false,
+  configApplyPhase: "idle",
   presenceEntries: [],
   debugHealth: null,
   presenceStatus: null,
@@ -115,6 +127,7 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
       status: "connected",
       // Clear restarting flag — Gateway is back up.
       restarting: false,
+      configApplyPhase: "idle",
       hello,
       lastError: null,
       lastErrorCode: null,
@@ -125,15 +138,58 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
     });
   },
 
-  beginRestart: () => set({ restarting: true }),
-  endRestart: () => set({ restarting: false }),
+  beginConfigApply: () =>
+    set({
+      restarting: true,
+      configApplyPhase: "applying",
+    }),
+  beginRestart: () => get().beginConfigApply(),
+  endRestart: () =>
+    set({
+      restarting: false,
+      configApplyPhase: "idle",
+    }),
+
+  waitForConfigApplySettle: async (options) => {
+    const reconnectTimeoutMs = options?.reconnectTimeoutMs ?? 60_000;
+    const disconnectWindowMs = 2_500;
+    const start = Date.now();
+    while (Date.now() - start < disconnectWindowMs) {
+      if (get().status !== "connected") {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (get().status === "connected") {
+      return;
+    }
+    const deadline = Date.now() + reconnectTimeoutMs;
+    while (get().status !== "connected") {
+      if (Date.now() > deadline) {
+        throw new Error(
+          "Gateway did not reconnect after configuration change. Try Refresh.",
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  },
 
   setDisconnected: ({ code, reason, error }) => {
     // Code 1012 = Service Restart (expected, not an error)
     const isExpectedRestart = code === 1012;
+    const wasConnected = get().status === "connected";
+    let configApplyPhase = get().configApplyPhase;
+    if (get().restarting) {
+      if (code === 1012) {
+        configApplyPhase = "restarting";
+      } else if (wasConnected || configApplyPhase === "applying") {
+        configApplyPhase = "reconnecting";
+      }
+    }
     set({
       status: "disconnected",
       hello: null,
+      configApplyPhase,
       lastError: isExpectedRestart
         ? null
         : (error?.message ?? `disconnected (${code}): ${reason || "no reason"}`),
@@ -205,6 +261,7 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
       lastErrorCode: null,
       serverVersion: null,
       restarting: false,
+      configApplyPhase: "idle",
       presenceEntries: [],
       debugHealth: null,
       presenceStatus: null,

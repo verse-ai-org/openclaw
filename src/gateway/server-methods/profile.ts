@@ -5,7 +5,7 @@
  * parses file contents, then uses the gateway's default AI model to
  * extract structured USER.md content and supplementary MEMORY.md content.
  */
-import { completeSimple } from "@mariozechner/pi-ai";
+import { completeSimple } from "@earendil-works/pi-ai";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import { getApiKeyForModel, requireApiKey } from "../../agents/model-auth.js";

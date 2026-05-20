@@ -4,7 +4,6 @@ import path from "node:path";
 import { normalizeAccountId } from "openclaw/plugin-sdk/account-id";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
-import { getWeixinRuntime } from "../runtime.js";
 import { resolveStateDir } from "../storage/state-dir.js";
 import { resolveFrameworkAllowFromPath } from "./pairing.js";
 import { logger } from "../util/logger.js";
@@ -130,8 +129,12 @@ function resolveAccountPath(accountId: string): string {
 /**
  * Legacy single-file token: `credentials/openclaw-weixin/credentials.json` (pre per-account files).
  */
+function resolveLegacyCredentialsPath(): string {
+  return path.join(resolveStateDir(), "credentials", "openclaw-weixin", "credentials.json");
+}
+
 function loadLegacyToken(): string | undefined {
-  const legacyPath = path.join(resolveStateDir(), "credentials", "openclaw-weixin", "credentials.json");
+  const legacyPath = resolveLegacyCredentialsPath();
   try {
     if (!fs.existsSync(legacyPath)) return undefined;
     const raw = fs.readFileSync(legacyPath, "utf-8");
@@ -139,6 +142,15 @@ function loadLegacyToken(): string | undefined {
     return typeof parsed.token === "string" ? parsed.token : undefined;
   } catch {
     return undefined;
+  }
+}
+
+/** Remove legacy single-file credentials from pre per-account storage. */
+export function clearLegacyWeixinCredentials(): void {
+  try {
+    fs.unlinkSync(resolveLegacyCredentialsPath());
+  } catch {
+    // ignore if not found
   }
 }
 
@@ -218,6 +230,23 @@ export function saveWeixinAccount(
  *   - accounts/{accountId}.context-tokens.json   (context tokens on disk)
  *   - credentials/openclaw-weixin-{accountId}-allowFrom.json (authorized users)
  */
+/** Clear stored credentials and index entry for one account (local logout). */
+export function logoutWeixinStoredAccount(accountId: string): { cleared: boolean } {
+  const id = normalizeAccountId(accountId.trim());
+  const hadCredentials = Boolean(loadWeixinAccount(id)?.token?.trim());
+  const hadLegacy = Boolean(loadLegacyToken());
+  clearWeixinAccount(id);
+  const rawId = deriveRawAccountId(id);
+  if (rawId) {
+    clearWeixinAccount(rawId);
+  }
+  unregisterWeixinAccountId(id);
+  if (hadLegacy) {
+    clearLegacyWeixinCredentials();
+  }
+  return { cleared: hadCredentials || hadLegacy };
+}
+
 export function clearWeixinAccount(accountId: string): void {
   const dir = resolveAccountsDir();
   const accountFiles = [
@@ -291,30 +320,39 @@ export function loadConfigRouteTag(accountId?: string): string | undefined {
 }
 
 /**
- * Ensure the openclaw-weixin channel section exists in openclaw.json so the gateway
- * recognises it as a configured channel at startup, then trigger a config reload.
+ * Read `botAgent` from `channels.openclaw-weixin.botAgent` in openclaw.json.
+ * Returns the raw configured string (caller is responsible for sanitization)
+ * or undefined when not set. Reuses the cached channel section.
+ */
+export function loadConfigBotAgent(): string | undefined {
+  const section = loadRouteTagSection();
+  if (!section) return undefined;
+  const value = section.botAgent;
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+/**
+ * Bump `channels.openclaw-weixin.channelConfigUpdatedAt` in openclaw.json on each successful login
+ * so the gateway reloads config from disk (no empty `accounts: {}` placeholder).
  */
 export async function triggerWeixinChannelReload(): Promise<void> {
   try {
-    const { loadConfig, writeConfigFile } = getWeixinRuntime().config;
+    const { loadConfig, writeConfigFile } = await import("openclaw/plugin-sdk/config-runtime");
     const cfg = loadConfig();
     const channels = (cfg.channels ?? {}) as Record<string, unknown>;
-    const weixinSection = channels["openclaw-weixin"] as Record<string, unknown> | undefined;
-    const hasAccounts = weixinSection && "accounts" in weixinSection;
-    if (!weixinSection || !hasAccounts) {
-      const updated: OpenClawConfig = {
-        ...cfg,
-        channels: {
-          ...channels,
-          "openclaw-weixin": {
-            ...(weixinSection ?? {}),
-            accounts: {},
-          },
+    const existing = (channels["openclaw-weixin"] as Record<string, unknown> | undefined) ?? {};
+    const updated: OpenClawConfig = {
+      ...cfg,
+      channels: {
+        ...channels,
+        "openclaw-weixin": {
+          ...existing,
+          channelConfigUpdatedAt: new Date().toISOString(),
         },
-      };
-      await writeConfigFile(updated);
-      logger.info("triggerWeixinChannelReload: wrote channel config to openclaw.json");
-    }
+      },
+    };
+    await writeConfigFile(updated);
+    logger.info("triggerWeixinChannelReload: wrote channel config to openclaw.json");
   } catch (err) {
     logger.warn(`triggerWeixinChannelReload: failed to update config: ${String(err)}`);
   }
@@ -345,6 +383,8 @@ type WeixinAccountConfig = {
 
 type WeixinSectionConfig = WeixinAccountConfig & {
   accounts?: Record<string, WeixinAccountConfig>;
+  /** Written on each successful login; see triggerWeixinChannelReload. */
+  channelConfigUpdatedAt?: string;
 };
 
 /** List accountIds from the index file (written at QR login). */

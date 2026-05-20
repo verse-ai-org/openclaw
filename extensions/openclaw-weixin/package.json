@@ -1,40 +1,35 @@
 {
   "name": "@tencent-weixin/openclaw-weixin",
-  "version": "2.1.1",
+  "version": "2026.5.17",
+  "private": true,
   "description": "OpenClaw Weixin channel",
   "license": "MIT",
   "author": "Tencent",
   "type": "module",
-  "files": [
-    "src/",
-    "!src/**/*.test.ts",
-    "!src/**/node_modules/",
-    "index.ts",
-    "openclaw.plugin.json",
-    "README.md",
-    "README.zh_CN.md",
-    "CHANGELOG.md",
-    "CHANGELOG.zh_CN.md"
-  ],
   "scripts": {
-    "test": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc",
-    "prepublishOnly": "npm run typecheck && npm run build"
+    "test": "vitest run --coverage"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "qrcode-terminal": "0.12.0",
-    "zod": "4.3.6"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*",
     "@vitest/coverage-v8": "^3.1.0",
-    "openclaw": "2026.3.23",
+    "openclaw": "workspace:*",
     "silk-wasm": "^3.7.1",
-    "typescript": "^5.8.0",
     "vitest": "^3.1.0"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.5.17"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
   },
   "openclaw": {
     "extensions": [
@@ -42,18 +37,20 @@
     ],
     "channel": {
       "id": "openclaw-weixin",
-      "label": "openclaw-weixin",
-      "selectionLabel": "openclaw-weixin",
-      "docsPath": "/channels/openclaw-weixin",
-      "docsLabel": "openclaw-weixin",
-      "blurb": "Weixin channel",
+      "label": "Weixin",
+      "selectionLabel": "Weixin（微信）",
+      "detailLabel": "Weixin",
+      "docsPath": "/channels/wechat",
+      "docsLabel": "weixin",
+      "blurb": "Personal WeChat messaging via QR-code login.",
+      "aliases": ["weixin", "wechat", "微信"],
       "order": 75
     },
-    "install": {
-      "npmSpec": "@tencent-weixin/openclaw-weixin",
-      "localPath": "extensions/openclaw-weixin",
-      "defaultChoice": "npm",
-      "minHostVersion": ">=2026.3.9"
+    "compat": {
+      "pluginApi": ">=2026.5.17"
+    },
+    "build": {
+      "openclawVersion": "2026.5.17"
     }
   },
   "ilink_appid": "bot"

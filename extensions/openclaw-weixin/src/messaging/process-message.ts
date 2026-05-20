@@ -1,11 +1,11 @@
 import path from "node:path";
 
+import { createTypingCallbacks } from "openclaw/plugin-sdk/channel-runtime";
 import {
-  createTypingCallbacks,
   resolveSenderCommandAuthorizationWithRuntime,
   resolveDirectDmAuthorizationOutcome,
-} from "openclaw/plugin-sdk";
-import { resolvePreferredOpenClawTmpDir } from "openclaw/plugin-sdk";
+} from "openclaw/plugin-sdk/command-auth";
+import { resolvePreferredOpenClawTmpDir } from "openclaw/plugin-sdk/infra-runtime";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { sendTyping } from "../api/api.js";
@@ -20,6 +20,7 @@ import { redactBody, redactToken } from "../util/redact.js";
 
 import { isDebugMode } from "./debug-mode.js";
 import { sendWeixinErrorNotice } from "./error-notice.js";
+import { applyWeixinMessageSendingHook, emitWeixinMessageSent } from "./outbound-hooks.js";
 import {
   setContextToken,
   weixinMessageToMsgContext,
@@ -28,7 +29,8 @@ import {
 } from "./inbound.js";
 import type { WeixinInboundMediaOpts } from "./inbound.js";
 import { sendWeixinMediaFile } from "./send-media.js";
-import { markdownToPlainText, sendMessageWeixin } from "./send.js";
+import { StreamingMarkdownFilter } from "./markdown-filter.js";
+import { sendMessageWeixin } from "./send.js";
 import { handleSlashCommand } from "./slash-commands.js";
 
 const MEDIA_OUTBOUND_TEMP_DIR = path.join(resolvePreferredOpenClawTmpDir(), "weixin/media/outbound-temp");
@@ -309,7 +311,11 @@ export async function processOneMessage(
       humanDelay,
       typingCallbacks,
       deliver: async (payload) => {
-        const text = markdownToPlainText(payload.text ?? "");
+        const rawText = payload.text ?? "";
+        let text = (() => {
+          const f = new StreamingMarkdownFilter();
+          return f.feed(rawText) + f.flush();
+        })();
         const mediaUrl = payload.mediaUrl ?? payload.mediaUrls?.[0];
         logger.debug(`outbound payload: ${redactBody(JSON.stringify(payload))}`);
         logger.info(
@@ -325,11 +331,22 @@ export async function processOneMessage(
           });
         }
 
+        const sendingResult = await applyWeixinMessageSendingHook({
+          to: ctx.To,
+          text,
+          accountId: deps.accountId,
+          mediaUrl,
+        });
+        if (sendingResult.cancelled) {
+          logger.info(`outbound: cancelled by message_sending hook to=${ctx.To}`);
+          return;
+        }
+        text = sendingResult.text;
+
         try {
           if (mediaUrl) {
             let filePath: string;
             if (!mediaUrl.includes("://") || mediaUrl.startsWith("file://")) {
-              // Local path: absolute, relative, or file:// URL
               if (mediaUrl.startsWith("file://")) {
                 filePath = new URL(mediaUrl).pathname;
               } else if (!path.isAbsolute(mediaUrl)) {
@@ -352,6 +369,7 @@ export async function processOneMessage(
                 token: deps.token,
                 contextToken,
               }});
+              emitWeixinMessageSent({ to: ctx.To, content: text, success: true, accountId: deps.accountId });
               logger.info(`outbound: text sent to=${ctx.To}`);
               return;
             }
@@ -362,6 +380,7 @@ export async function processOneMessage(
               opts: { baseUrl: deps.baseUrl, token: deps.token, contextToken },
               cdnBaseUrl: deps.cdnBaseUrl,
             });
+            emitWeixinMessageSent({ to: ctx.To, content: text, success: true, accountId: deps.accountId });
             logger.info(`outbound: media sent OK to=${ctx.To}`);
           } else {
             logger.debug(`outbound: sending text message to=${ctx.To}`);
@@ -370,9 +389,11 @@ export async function processOneMessage(
               token: deps.token,
               contextToken,
             }});
+            emitWeixinMessageSent({ to: ctx.To, content: text, success: true, accountId: deps.accountId });
             logger.info(`outbound: text sent OK to=${ctx.To}`);
           }
         } catch (err) {
+          emitWeixinMessageSent({ to: ctx.To, content: text, success: false, error: String(err), accountId: deps.accountId });
           logger.error(
             `outbound: FAILED to=${ctx.To} mediaUrl=${mediaUrl ?? "none"} err=${String(err)} stack=${(err as Error).stack ?? ""}`,
           );
@@ -414,7 +435,7 @@ export async function processOneMessage(
           ctx: finalized,
           cfg: deps.config,
           dispatcher,
-          replyOptions: { ...replyOptions, disableBlockStreaming: false },
+          replyOptions: { ...replyOptions, disableBlockStreaming: true },
         }),
     });
     logger.debug(`dispatchReplyFromConfig: done agentId=${route.agentId ?? "(none)"}`);
@@ -427,7 +448,7 @@ export async function processOneMessage(
     markDispatchIdle();
 
     logger.info(
-      `debug-check: accountId=${deps.accountId} debug=${String(debug)} hasContextToken=${Boolean(contextToken)} stateDir=${process.env.OPENCLAW_STATE_DIR ?? "(unset)"}`,
+      `debug-check: accountId=${deps.accountId} debug=${String(debug)} hasContextToken=${Boolean(contextToken)}`,
     );
 
     if (debug && contextToken) {

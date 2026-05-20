@@ -1,6 +1,5 @@
-import { Type } from "@sinclair/typebox";
-import { INPUT_PROVENANCE_KIND_VALUES } from "../../../sessions/input-provenance.js";
-import { ChatSendSessionKeyString, NonEmptyString } from "./primitives.js";
+import { Type } from "typebox";
+import { ChatSendSessionKeyString, InputProvenanceSchema, NonEmptyString } from "./primitives.js";
 
 export const LogsTailParamsSchema = Type.Object(
   {
@@ -28,11 +27,7 @@ export const ChatHistoryParamsSchema = Type.Object(
   {
     sessionKey: NonEmptyString,
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })),
-    /**
-     * Cursor pagination: return only messages strictly older than this timestamp (ms).
-     * If omitted, returns the most recent page.
-     */
-    beforeTs: Type.Optional(Type.Integer({ minimum: 0 })),
+    maxChars: Type.Optional(Type.Integer({ minimum: 1, maximum: 500_000 })),
   },
   { additionalProperties: false },
 );
@@ -40,25 +35,20 @@ export const ChatHistoryParamsSchema = Type.Object(
 export const ChatSendParamsSchema = Type.Object(
   {
     sessionKey: ChatSendSessionKeyString,
+    sessionId: Type.Optional(NonEmptyString),
     message: Type.String(),
     thinking: Type.Optional(Type.String()),
+    fastMode: Type.Optional(Type.Boolean()),
     deliver: Type.Optional(Type.Boolean()),
+    originatingChannel: Type.Optional(Type.String()),
+    originatingTo: Type.Optional(Type.String()),
+    originatingAccountId: Type.Optional(Type.String()),
+    originatingThreadId: Type.Optional(Type.String()),
     attachments: Type.Optional(Type.Array(Type.Unknown())),
     attachmentRefs: Type.Optional(Type.Array(Type.Unknown())),
     metadata: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     timeoutMs: Type.Optional(Type.Integer({ minimum: 0 })),
-    systemInputProvenance: Type.Optional(
-      Type.Object(
-        {
-          kind: Type.String({ enum: [...INPUT_PROVENANCE_KIND_VALUES] }),
-          originSessionId: Type.Optional(Type.String()),
-          sourceSessionKey: Type.Optional(Type.String()),
-          sourceChannel: Type.Optional(Type.String()),
-          sourceTool: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      ),
-    ),
+    systemInputProvenance: Type.Optional(InputProvenanceSchema),
     systemProvenanceReceipt: Type.Optional(Type.String()),
     idempotencyKey: NonEmptyString,
   },
@@ -90,21 +80,70 @@ export const ChatInjectParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const ChatEventSchema = Type.Object(
+const ChatEventBaseSchema = {
+  runId: NonEmptyString,
+  sessionKey: NonEmptyString,
+  spawnedBy: Type.Optional(NonEmptyString),
+  seq: Type.Integer({ minimum: 0 }),
+};
+
+const ChatEventErrorKindSchema = Type.Union([
+  Type.Literal("refusal"),
+  Type.Literal("timeout"),
+  Type.Literal("rate_limit"),
+  Type.Literal("context_length"),
+  Type.Literal("unknown"),
+]);
+
+export const ChatDeltaEventSchema = Type.Object(
   {
-    runId: NonEmptyString,
-    sessionKey: NonEmptyString,
-    seq: Type.Integer({ minimum: 0 }),
-    state: Type.Union([
-      Type.Literal("delta"),
-      Type.Literal("final"),
-      Type.Literal("aborted"),
-      Type.Literal("error"),
-    ]),
+    ...ChatEventBaseSchema,
+    state: Type.Literal("delta"),
     message: Type.Optional(Type.Unknown()),
-    errorMessage: Type.Optional(Type.String()),
+    deltaText: Type.String(),
+    replace: Type.Optional(Type.Boolean()),
+    usage: Type.Optional(Type.Unknown()),
+  },
+  { additionalProperties: false },
+);
+
+export const ChatFinalEventSchema = Type.Object(
+  {
+    ...ChatEventBaseSchema,
+    state: Type.Literal("final"),
+    message: Type.Optional(Type.Unknown()),
     usage: Type.Optional(Type.Unknown()),
     stopReason: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
 );
+
+export const ChatAbortedEventSchema = Type.Object(
+  {
+    ...ChatEventBaseSchema,
+    state: Type.Literal("aborted"),
+    message: Type.Optional(Type.Unknown()),
+    stopReason: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+export const ChatErrorEventSchema = Type.Object(
+  {
+    ...ChatEventBaseSchema,
+    state: Type.Literal("error"),
+    message: Type.Optional(Type.Unknown()),
+    errorMessage: Type.Optional(Type.String()),
+    errorKind: Type.Optional(ChatEventErrorKindSchema),
+    usage: Type.Optional(Type.Unknown()),
+    stopReason: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+export const ChatEventSchema = Type.Union([
+  ChatDeltaEventSchema,
+  ChatFinalEventSchema,
+  ChatAbortedEventSchema,
+  ChatErrorEventSchema,
+]);

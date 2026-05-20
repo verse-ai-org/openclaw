@@ -8,7 +8,7 @@
  * When the user completes the form, their answers arrive as a new chat
  * message with structured metadata in `metadata.interaction`.
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { QuestionFlowRequestSchema } from "./control-ui-interaction-schemas.js";
 import { type AnyAgentTool, ToolInputError, interactionPendingResult } from "./common.js";
 

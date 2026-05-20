@@ -203,7 +203,7 @@ function isInternalTool(toolName: string | undefined): boolean {
 function isRuntimeTool(toolName: string | undefined): boolean {
   // Agent runtime tools (read/exec/search) are useful for debugging, but extremely spammy
   // when they appear as many separate tool groups. We fold them to the last assistant
-  // message in a run to produce a single tool group.
+  // message in a run so live/history tool groups align with the visible tail bubble.
   if (!toolName) return false;
   const name = toolName.toLowerCase();
   return (
@@ -433,14 +433,11 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
   // For interactive tools (question_flow/option_list/approval_card), attach the UI to the last
   // assistant message in the run. This avoids duplicate rendering caused by run-folding logic.
   //
-  // For runtime tools (exec/read/web_search/etc), fold them to the first assistant message
-  // in the run so the tool group appears at the start of the turn.
+  // For runtime tools (exec/read/web_search/etc), fold them to the last assistant message
+  // in the run so the tool group stays with the bubble the user is watching.
   const lastAssistantMessageIdByRun = new Map<string, string>();
-  const firstAssistantMessageIdByRun = new Map<string, string>();
   for (const [runId, order] of assistantOrderByRun) {
-    const first = order.at(0);
     const last = order.at(-1);
-    if (first) firstAssistantMessageIdByRun.set(runId, first);
     if (last) lastAssistantMessageIdByRun.set(runId, last);
   }
   for (const tool of toolById.values()) {
@@ -453,8 +450,8 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
       continue;
     }
     if (isRuntimeTool(tool.toolName)) {
-      const first = firstAssistantMessageIdByRun.get(rid);
-      if (first) tool.ownerMessageId = first;
+      const last = lastAssistantMessageIdByRun.get(rid);
+      if (last) tool.ownerMessageId = last;
     }
   }
 

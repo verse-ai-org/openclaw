@@ -1,7 +1,7 @@
 /**
  * stats_display — Control UI KPI / stats grid (passthrough).
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { type AnyAgentTool, jsonResult } from "./common.js";
 
 const StatItemSchema = Type.Object(

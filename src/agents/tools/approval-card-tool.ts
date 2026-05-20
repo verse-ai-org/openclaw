@@ -1,7 +1,7 @@
 /**
  * approval_card — Control UI explicit approval/deny card.
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { ApprovalCardRequestSchema } from "./control-ui-interaction-schemas.js";
 import { stringEnum } from "../schema/typebox.js";
 import { type AnyAgentTool, ToolInputError, interactionPendingResult } from "./common.js";

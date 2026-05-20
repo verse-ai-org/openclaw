@@ -9,7 +9,9 @@ import type {
 } from "@/components/chat/conversation";
 import { EventType } from "@/components/chat/conversation";
 import { applyCanonicalEvent, emptyConversationState } from "@/components/chat/conversation";
+import { beginOutboundRunForThread } from "@/components/chat/conversation/run-lifecycle";
 import { chatMessagesToCanonicalSnapshot } from "@/components/chat/conversation/interop";
+import type { RunId } from "@/components/chat/conversation";
 
 export type HistoryPagingState = {
   oldestBeforeTs: number | null;
@@ -21,6 +23,7 @@ type ConversationStoreState = {
   byThread: Record<string, ConversationState>;
   historyPagingByThread: Record<string, HistoryPagingState>;
   applyEvents: (threadId: ThreadId, events: CanonicalChatEvent[]) => void;
+  beginOutboundRun: (threadId: ThreadId, runId: RunId) => void;
   setHistorySnapshot: (threadId: ThreadId, messages: ChatMessage[], ts?: number) => void;
   setHistoryCanonicalSnapshot: (
     threadId: ThreadId,
@@ -47,6 +50,11 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
       }
       return { byThread: { ...state.byThread, [threadId]: next } };
     }),
+
+  beginOutboundRun: (threadId, runId) =>
+    set((state) => ({
+      byThread: beginOutboundRunForThread(state.byThread, threadId, runId),
+    })),
 
   setHistorySnapshot: (threadId, messages, ts = Date.now()) =>
     set((state) => {

@@ -60,7 +60,7 @@ export function PluginDetailDialog({
     ...plugin.toolNames.map((t) => `tool: ${t}`),
     ...plugin.services.map((s) => `service: ${s}`),
     ...plugin.cliCommands.map((c) => `cli: ${c}`),
-    ...plugin.gatewayMethods.map((m) => `rpc: ${m}`),
+    ...(plugin.gatewayMethods ?? []).map((m) => `rpc: ${m}`),
     ...plugin.providerIds.map((p) => `provider: ${p}`),
     ...(plugin.hookCount > 0
       ? [`${plugin.hookCount} hook${plugin.hookCount !== 1 ? "s" : ""}`]

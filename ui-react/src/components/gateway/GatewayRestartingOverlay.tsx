@@ -6,19 +6,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { ConfigApplyPhase } from "@/store/gateway.store";
 import { useGatewayStore } from "@/store/gateway.store";
 
+const PHASE_COPY: Record<
+  Exclude<ConfigApplyPhase, "idle">,
+  { title: string; description: string }
+> = {
+  applying: {
+    title: "Applying configuration…",
+    description: "Saving plugin and channel settings. The UI may disconnect briefly.",
+  },
+  restarting: {
+    title: "Restarting gateway…",
+    description: "The local gateway is restarting to load changes.",
+  },
+  reconnecting: {
+    title: "Reconnecting…",
+    description: "Waiting for the control UI to connect again.",
+  },
+};
+
 /**
- * Global overlay shown while Gateway is intentionally restarting
- * (e.g. after enabling/disabling a channel or plugin).
- *
- * Visibility is driven by `useGatewayStore(s => s.restarting)`, which is
- * set to `true` by `beginRestart()` before any action that restarts the
- * Gateway, and cleared automatically by `setConnected()` once the
- * WebSocket reconnects.
+ * Global overlay shown while Gateway is applying config after channel/plugin actions.
  */
 export function GatewayRestartingOverlay() {
   const restarting = useGatewayStore((s) => s.restarting);
+  const phase = useGatewayStore((s) => s.configApplyPhase);
+  const copy =
+    phase === "idle"
+      ? PHASE_COPY.applying
+      : (PHASE_COPY[phase] ?? PHASE_COPY.applying);
 
   return (
     <Dialog open={restarting}>
@@ -31,10 +49,8 @@ export function GatewayRestartingOverlay() {
       >
         <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
         <DialogHeader className="items-center">
-          <DialogTitle className="text-base">Applying changes…</DialogTitle>
-          <DialogDescription>
-            Gateway is reloading. This will only take a moment.
-          </DialogDescription>
+          <DialogTitle className="text-base">{copy.title}</DialogTitle>
+          <DialogDescription>{copy.description}</DialogDescription>
         </DialogHeader>
       </DialogContent>
     </Dialog>

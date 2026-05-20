@@ -8,7 +8,7 @@
  * When the user confirms their selection, their structured answer arrives
  * in the next user message's metadata.interaction field.
  */
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { OptionListRequestSchema } from "./control-ui-interaction-schemas.js";
 import { type AnyAgentTool, ToolInputError, interactionPendingResult } from "./common.js";
 

@@ -59,7 +59,27 @@ struct MacGatewayChatTransport: OpenClawChatTransport {
             method: "sessions.list",
             params: params,
             timeoutMs: 15000)
-        return try JSONDecoder().decode(OpenClawChatSessionsListResponse.self, from: data)
+        let decoded = try JSONDecoder().decode(OpenClawChatSessionsListResponse.self, from: data)
+        let mainSessionKey = await GatewayConnection.shared.cachedMainSessionKey()
+        let defaults = decoded.defaults.map {
+            OpenClawChatSessionsDefaults(
+                modelProvider: $0.modelProvider,
+                model: $0.model,
+                contextTokens: $0.contextTokens,
+                thinkingLevels: $0.thinkingLevels,
+                thinkingOptions: $0.thinkingOptions,
+                thinkingDefault: $0.thinkingDefault,
+                mainSessionKey: mainSessionKey)
+        } ?? OpenClawChatSessionsDefaults(
+            model: nil,
+            contextTokens: nil,
+            mainSessionKey: mainSessionKey)
+        return OpenClawChatSessionsListResponse(
+            ts: decoded.ts,
+            path: decoded.path,
+            count: decoded.count,
+            defaults: defaults,
+            sessions: decoded.sessions)
     }
 
     func setSessionModel(sessionKey: String, model: String?) async throws {
@@ -101,6 +121,30 @@ struct MacGatewayChatTransport: OpenClawChatTransport {
 
     func requestHealth(timeoutMs: Int) async throws -> Bool {
         try await GatewayConnection.shared.healthOK(timeoutMs: timeoutMs)
+    }
+
+    func resetSession(sessionKey: String) async throws {
+        _ = try await GatewayConnection.shared.request(
+            method: "sessions.reset",
+            params: ["key": AnyCodable(sessionKey)],
+            timeoutMs: 10000)
+    }
+
+    func compactSession(sessionKey: String) async throws {
+        _ = try await GatewayConnection.shared.request(
+            method: "sessions.compact",
+            params: ["key": AnyCodable(sessionKey)],
+            timeoutMs: 10000)
+    }
+
+    func setActiveSessionKey(_ sessionKey: String) async throws {
+        await MainActor.run {
+            WebChatManager.shared.recordActiveSessionKey(sessionKey)
+        }
+        _ = try await GatewayConnection.shared.request(
+            method: "sessions.messages.subscribe",
+            params: ["key": AnyCodable(sessionKey)],
+            timeoutMs: 10000)
     }
 
     func events() -> AsyncStream<OpenClawChatTransportEvent> {
@@ -154,6 +198,15 @@ struct MacGatewayChatTransport: OpenClawChatTransport {
                     return nil
                 }
                 return .chat(chat)
+            case "session.message":
+                guard let payload = evt.payload else { return nil }
+                guard let message = try? JSONDecoder().decode(
+                    OpenClawSessionMessageEventPayload.self,
+                    from: JSONEncoder().encode(payload))
+                else {
+                    return nil
+                }
+                return .sessionMessage(message)
             case "agent":
                 guard let payload = evt.payload else { return nil }
                 guard let agent = try? JSONDecoder().decode(

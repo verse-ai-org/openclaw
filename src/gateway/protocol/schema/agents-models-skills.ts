@@ -1,4 +1,4 @@
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { NonEmptyString } from "./primitives.js";
 
 export const ModelChoiceSchema = Type.Object(
@@ -6,6 +6,7 @@ export const ModelChoiceSchema = Type.Object(
     id: NonEmptyString,
     name: NonEmptyString,
     provider: NonEmptyString,
+    alias: Type.Optional(NonEmptyString),
     contextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
     reasoning: Type.Optional(Type.Boolean()),
   },
@@ -28,14 +29,38 @@ export const AgentSummarySchema = Type.Object(
         { additionalProperties: false },
       ),
     ),
+    workspace: Type.Optional(NonEmptyString),
+    model: Type.Optional(
+      Type.Object(
+        {
+          primary: Type.Optional(NonEmptyString),
+          fallbacks: Type.Optional(Type.Array(NonEmptyString)),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+    agentRuntime: Type.Optional(
+      Type.Object(
+        {
+          id: NonEmptyString,
+          fallback: Type.Optional(Type.Union([Type.Literal("pi"), Type.Literal("none")])),
+          source: Type.Union([
+            Type.Literal("env"),
+            Type.Literal("agent"),
+            Type.Literal("defaults"),
+            Type.Literal("model"),
+            Type.Literal("provider"),
+            Type.Literal("implicit"),
+          ]),
+        },
+        { additionalProperties: false },
+      ),
+    ),
   },
   { additionalProperties: false },
 );
 
-export const AgentsListParamsSchema = Type.Object(
-  {},
-  { additionalProperties: false },
-);
+export const AgentsListParamsSchema = Type.Object({}, { additionalProperties: false });
 
 export const AgentsListResultSchema = Type.Object(
   {
@@ -51,12 +76,10 @@ export const AgentsCreateParamsSchema = Type.Object(
   {
     name: NonEmptyString,
     workspace: NonEmptyString,
+    model: Type.Optional(NonEmptyString),
     emoji: Type.Optional(Type.String()),
     avatar: Type.Optional(Type.String()),
-    /** Skill whitelist for this agent; empty array = all skills allowed */
-    skills: Type.Optional(Type.Array(Type.String())),
-    /** Short description shown in the agent list */
-    description: Type.Optional(Type.String()),
+    skills: Type.Optional(Type.Array(NonEmptyString)),
   },
   { additionalProperties: false },
 );
@@ -67,6 +90,7 @@ export const AgentsCreateResultSchema = Type.Object(
     agentId: NonEmptyString,
     name: NonEmptyString,
     workspace: NonEmptyString,
+    model: Type.Optional(NonEmptyString),
   },
   { additionalProperties: false },
 );
@@ -77,10 +101,9 @@ export const AgentsUpdateParamsSchema = Type.Object(
     name: Type.Optional(NonEmptyString),
     workspace: Type.Optional(NonEmptyString),
     model: Type.Optional(NonEmptyString),
+    emoji: Type.Optional(Type.String()),
     avatar: Type.Optional(Type.String()),
-    /** Skill whitelist override; null = remove restriction (allow all) */
-    skills: Type.Optional(Type.Array(Type.String())),
-    description: Type.Optional(Type.String()),
+    skills: Type.Optional(Type.Array(NonEmptyString)),
   },
   { additionalProperties: false },
 );
@@ -175,7 +198,11 @@ export const AgentsFilesSetResultSchema = Type.Object(
 );
 
 export const ModelsListParamsSchema = Type.Object(
-  {},
+  {
+    view: Type.Optional(
+      Type.Union([Type.Literal("default"), Type.Literal("configured"), Type.Literal("all")]),
+    ),
+  },
   { additionalProperties: false },
 );
 
@@ -193,10 +220,7 @@ export const SkillsStatusParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const SkillsBinsParamsSchema = Type.Object(
-  {},
-  { additionalProperties: false },
-);
+export const SkillsBinsParamsSchema = Type.Object({}, { additionalProperties: false });
 
 export const SkillsBinsResultSchema = Type.Object(
   {
@@ -205,24 +229,101 @@ export const SkillsBinsResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const SkillsInstallParamsSchema = Type.Object(
+const Sha256String = Type.String({
+  minLength: 64,
+  maxLength: 64,
+  pattern: "^[a-fA-F0-9]{64}$",
+});
+const SkillUploadIdempotencyKeyString = Type.String({
+  minLength: 1,
+  maxLength: 2048,
+});
+const SkillUploadDataBase64String = Type.String({
+  minLength: 1,
+  maxLength: 5_592_408,
+});
+
+export const SkillsUploadBeginParamsSchema = Type.Object(
   {
-    name: NonEmptyString,
-    installId: NonEmptyString,
-    timeoutMs: Type.Optional(Type.Integer({ minimum: 1000 })),
+    kind: Type.Literal("skill-archive"),
+    slug: NonEmptyString,
+    sizeBytes: Type.Integer({ minimum: 1 }),
+    sha256: Type.Optional(Sha256String),
+    force: Type.Optional(Type.Boolean()),
+    idempotencyKey: Type.Optional(SkillUploadIdempotencyKeyString),
   },
   { additionalProperties: false },
 );
 
-export const SkillsUpdateParamsSchema = Type.Object(
+export const SkillsUploadChunkParamsSchema = Type.Object(
   {
-    skillKey: NonEmptyString,
-    enabled: Type.Optional(Type.Boolean()),
-    apiKey: Type.Optional(Type.String()),
-    env: Type.Optional(Type.Record(NonEmptyString, Type.String())),
+    uploadId: NonEmptyString,
+    offset: Type.Integer({ minimum: 0 }),
+    dataBase64: SkillUploadDataBase64String,
   },
   { additionalProperties: false },
 );
+
+export const SkillsUploadCommitParamsSchema = Type.Object(
+  {
+    uploadId: NonEmptyString,
+    sha256: Type.Optional(Sha256String),
+  },
+  { additionalProperties: false },
+);
+
+export const SkillsInstallParamsSchema = Type.Union([
+  Type.Object(
+    {
+      name: NonEmptyString,
+      installId: NonEmptyString,
+      dangerouslyForceUnsafeInstall: Type.Optional(Type.Boolean()),
+      timeoutMs: Type.Optional(Type.Integer({ minimum: 1000 })),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      source: Type.Literal("clawhub"),
+      slug: NonEmptyString,
+      version: Type.Optional(NonEmptyString),
+      force: Type.Optional(Type.Boolean()),
+      timeoutMs: Type.Optional(Type.Integer({ minimum: 1000 })),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      source: Type.Literal("upload"),
+      uploadId: NonEmptyString,
+      slug: NonEmptyString,
+      force: Type.Optional(Type.Boolean()),
+      sha256: Type.Optional(Sha256String),
+      timeoutMs: Type.Optional(Type.Integer({ minimum: 1000 })),
+    },
+    { additionalProperties: false },
+  ),
+]);
+
+export const SkillsUpdateParamsSchema = Type.Union([
+  Type.Object(
+    {
+      skillKey: NonEmptyString,
+      enabled: Type.Optional(Type.Boolean()),
+      apiKey: Type.Optional(Type.String()),
+      env: Type.Optional(Type.Record(NonEmptyString, Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      source: Type.Literal("clawhub"),
+      slug: Type.Optional(NonEmptyString),
+      all: Type.Optional(Type.Boolean()),
+    },
+    { additionalProperties: false },
+  ),
+]);
 
 export const SkillsFileParamsSchema = Type.Object(
   {
@@ -295,21 +396,6 @@ export const SkillsImportParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export type SkillsImportParams = {
-  kind: "url" | "upload";
-  /** Where to install the skill. Defaults to "managed". */
-  target?: "workspace" | "managed";
-  url?: string;
-  data?: string;
-  filename?: string;
-  skillName?: string;
-  timeoutMs?: number;
-};
-
-/**
- * skills.remove — remove a user-installed skill directory from disk.
- * Only workspace and managed skills (source=openclaw-workspace|openclaw-managed) may be removed.
- */
 export const SkillsRemoveParamsSchema = Type.Object(
   {
     baseDir: NonEmptyString,
@@ -318,17 +404,122 @@ export const SkillsRemoveParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export type SkillsRemoveParams = {
-  /** Absolute path to the skill directory (contains SKILL.md). */
-  baseDir: string;
-  /** The skill source, e.g. "openclaw-workspace" or "openclaw-managed". */
-  source: string;
-};
+export const SkillsSearchParamsSchema = Type.Object(
+  {
+    query: Type.Optional(NonEmptyString),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+  },
+  { additionalProperties: false },
+);
+
+export const SkillsSearchResultSchema = Type.Object(
+  {
+    results: Type.Array(
+      Type.Object(
+        {
+          score: Type.Number(),
+          slug: NonEmptyString,
+          displayName: NonEmptyString,
+          summary: Type.Optional(Type.String()),
+          version: Type.Optional(NonEmptyString),
+          updatedAt: Type.Optional(Type.Integer()),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+  },
+  { additionalProperties: false },
+);
+
+export const SkillsDetailParamsSchema = Type.Object(
+  {
+    slug: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
+export const SkillsDetailResultSchema = Type.Object(
+  {
+    skill: Type.Union([
+      Type.Object(
+        {
+          slug: NonEmptyString,
+          displayName: NonEmptyString,
+          summary: Type.Optional(Type.String()),
+          tags: Type.Optional(Type.Record(NonEmptyString, Type.String())),
+          createdAt: Type.Integer(),
+          updatedAt: Type.Integer(),
+        },
+        { additionalProperties: false },
+      ),
+      Type.Null(),
+    ]),
+    latestVersion: Type.Optional(
+      Type.Union([
+        Type.Object(
+          {
+            version: NonEmptyString,
+            createdAt: Type.Integer(),
+            changelog: Type.Optional(Type.String()),
+          },
+          { additionalProperties: false },
+        ),
+        Type.Null(),
+      ]),
+    ),
+    metadata: Type.Optional(
+      Type.Union([
+        Type.Object(
+          {
+            os: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Null()])),
+            systems: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Null()])),
+          },
+          { additionalProperties: false },
+        ),
+        Type.Null(),
+      ]),
+    ),
+    owner: Type.Optional(
+      Type.Union([
+        Type.Object(
+          {
+            handle: Type.Optional(Type.Union([NonEmptyString, Type.Null()])),
+            displayName: Type.Optional(Type.Union([NonEmptyString, Type.Null()])),
+            image: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+          },
+          { additionalProperties: false },
+        ),
+        Type.Null(),
+      ]),
+    ),
+  },
+  { additionalProperties: false },
+);
 
 export const ToolsCatalogParamsSchema = Type.Object(
   {
     agentId: Type.Optional(NonEmptyString),
     includePlugins: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsEffectiveParamsSchema = Type.Object(
+  {
+    agentId: Type.Optional(NonEmptyString),
+    sessionKey: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsInvokeParamsSchema = Type.Object(
+  {
+    name: NonEmptyString,
+    args: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    sessionKey: Type.Optional(NonEmptyString),
+    agentId: Type.Optional(NonEmptyString),
+    confirm: Type.Optional(Type.Boolean()),
+    idempotencyKey: Type.Optional(NonEmptyString),
   },
   { additionalProperties: false },
 );
@@ -354,6 +545,10 @@ export const ToolCatalogEntrySchema = Type.Object(
     source: Type.Union([Type.Literal("core"), Type.Literal("plugin")]),
     pluginId: Type.Optional(NonEmptyString),
     optional: Type.Optional(Type.Boolean()),
+    risk: Type.Optional(
+      Type.Union([Type.Literal("low"), Type.Literal("medium"), Type.Literal("high")]),
+    ),
+    tags: Type.Optional(Type.Array(NonEmptyString)),
     defaultProfiles: Type.Array(
       Type.Union([
         Type.Literal("minimal"),
@@ -382,6 +577,72 @@ export const ToolsCatalogResultSchema = Type.Object(
     agentId: NonEmptyString,
     profiles: Type.Array(ToolCatalogProfileSchema),
     groups: Type.Array(ToolCatalogGroupSchema),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsEffectiveEntrySchema = Type.Object(
+  {
+    id: NonEmptyString,
+    label: NonEmptyString,
+    description: Type.String(),
+    rawDescription: Type.String(),
+    source: Type.Union([Type.Literal("core"), Type.Literal("plugin"), Type.Literal("channel")]),
+    pluginId: Type.Optional(NonEmptyString),
+    channelId: Type.Optional(NonEmptyString),
+    risk: Type.Optional(
+      Type.Union([Type.Literal("low"), Type.Literal("medium"), Type.Literal("high")]),
+    ),
+    tags: Type.Optional(Type.Array(NonEmptyString)),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsEffectiveGroupSchema = Type.Object(
+  {
+    id: Type.Union([Type.Literal("core"), Type.Literal("plugin"), Type.Literal("channel")]),
+    label: NonEmptyString,
+    source: Type.Union([Type.Literal("core"), Type.Literal("plugin"), Type.Literal("channel")]),
+    tools: Type.Array(ToolsEffectiveEntrySchema),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsEffectiveResultSchema = Type.Object(
+  {
+    agentId: NonEmptyString,
+    profile: NonEmptyString,
+    groups: Type.Array(ToolsEffectiveGroupSchema),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsInvokeErrorSchema = Type.Object(
+  {
+    code: NonEmptyString,
+    message: NonEmptyString,
+    details: Type.Optional(Type.Unknown()),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsInvokeResultSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    toolName: NonEmptyString,
+    output: Type.Optional(Type.Unknown()),
+    requiresApproval: Type.Optional(Type.Boolean()),
+    approvalId: Type.Optional(NonEmptyString),
+    source: Type.Optional(
+      Type.Union([
+        Type.Literal("core"),
+        Type.Literal("plugin"),
+        Type.Literal("mcp"),
+        Type.Literal("channel"),
+        Type.String(),
+      ]),
+    ),
+    error: Type.Optional(ToolsInvokeErrorSchema),
   },
   { additionalProperties: false },
 );

@@ -17,3 +17,10 @@ export const DEFAULT_CHANNEL_ORDER = [
   "imessage",
   "line",
 ] as const;
+
+/** First-class channels shipped with OpenClaw — enable loads plugin; no npm install step in UI. */
+export const PRIMARY_CHANNEL_IDS = new Set<string>(DEFAULT_CHANNEL_ORDER);
+
+export function isPrimaryChannelId(channelId: string): boolean {
+  return PRIMARY_CHANNEL_IDS.has(channelId);
+}

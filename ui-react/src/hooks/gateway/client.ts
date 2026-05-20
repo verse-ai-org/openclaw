@@ -1,5 +1,9 @@
 import type { GatewayEventFrame, GatewayHelloOk, GatewayErrorInfo } from "@/types/gateway";
 import {
+  MIN_CLIENT_PROTOCOL_VERSION,
+  PROTOCOL_VERSION,
+} from "@gateway/protocol/version.js";
+import {
   buildDevicePayload,
   loadOrCreateDeviceIdentity,
   signDevicePayload,
@@ -179,8 +183,8 @@ export class GatewayClient {
     }
 
     const params = {
-      minProtocol: 3,
-      maxProtocol: 3,
+      minProtocol: MIN_CLIENT_PROTOCOL_VERSION,
+      maxProtocol: PROTOCOL_VERSION,
       client: {
         id: "openclaw-control-ui",
         version: "control-ui-react",

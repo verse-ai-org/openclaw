@@ -5,16 +5,13 @@ import {
   resolveDefaultAgentId,
 } from "../agents/agent-scope.js";
 import type { AgentIdentityFile } from "../agents/identity-file.js";
-import {
-  identityHasValues,
-  loadAgentIdentityFromWorkspace,
-  parseIdentityMarkdown as parseIdentityMarkdownFile,
-} from "../agents/identity-file.js";
+import { identityHasValues, loadAgentIdentityFromWorkspace } from "../agents/identity-file.js";
 import { listRouteBindings } from "../config/bindings.js";
-import type { OpenClawConfig } from "../config/config.js";
 import type { IdentityConfig } from "../config/types.base.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { AgentToolsConfig } from "../config/types.tools.js";
 import { normalizeAgentId } from "../routing/session-key.js";
+import { normalizeOptionalString, resolvePrimaryStringValue } from "../shared/string-coerce.js";
 
 export type AgentSummary = {
   id: string;
@@ -32,52 +29,25 @@ export type AgentSummary = {
   isDefault: boolean;
 };
 
-type AgentEntry = NonNullable<
-  NonNullable<OpenClawConfig["agents"]>["list"]
->[number];
+type AgentEntry = NonNullable<NonNullable<OpenClawConfig["agents"]>["list"]>[number];
 
 export type AgentIdentity = AgentIdentityFile;
 export { listAgentEntries };
 
-export function findAgentEntryIndex(
-  list: AgentEntry[],
-  agentId: string,
-): number {
+export function findAgentEntryIndex(list: AgentEntry[], agentId: string): number {
   const id = normalizeAgentId(agentId);
   return list.findIndex((entry) => normalizeAgentId(entry.id) === id);
-}
-
-function resolveAgentName(cfg: OpenClawConfig, agentId: string) {
-  const entry = listAgentEntries(cfg).find(
-    (agent) => normalizeAgentId(agent.id) === normalizeAgentId(agentId),
-  );
-  return entry?.name?.trim() || undefined;
 }
 
 function resolveAgentModel(cfg: OpenClawConfig, agentId: string) {
   const entry = listAgentEntries(cfg).find(
     (agent) => normalizeAgentId(agent.id) === normalizeAgentId(agentId),
   );
-  if (entry?.model) {
-    if (typeof entry.model === "string" && entry.model.trim()) {
-      return entry.model.trim();
-    }
-    if (typeof entry.model === "object") {
-      const primary = entry.model.primary?.trim();
-      if (primary) {
-        return primary;
-      }
-    }
+  const entryPrimary = resolvePrimaryStringValue(entry?.model);
+  if (entryPrimary) {
+    return entryPrimary;
   }
-  const raw = cfg.agents?.defaults?.model;
-  if (typeof raw === "string") {
-    return raw;
-  }
-  return raw?.primary?.trim() || undefined;
-}
-
-export function parseIdentityMarkdown(content: string): AgentIdentity {
-  return parseIdentityMarkdownFile(content);
+  return resolvePrimaryStringValue(cfg.agents?.defaults?.model);
 }
 
 export function loadAgentIdentity(workspace: string): AgentIdentity | null {
@@ -101,9 +71,7 @@ export function buildAgentSummaries(cfg: OpenClawConfig): AgentSummary[] {
     bindingCounts.set(agentId, (bindingCounts.get(agentId) ?? 0) + 1);
   }
 
-  const ordered = orderedIds.filter(
-    (id, index) => orderedIds.indexOf(id) === index,
-  );
+  const ordered = orderedIds.filter((id, index) => orderedIds.indexOf(id) === index);
 
   return ordered.map((id) => {
     const workspace = resolveAgentWorkspaceDir(cfg, id);
@@ -120,7 +88,9 @@ export function buildAgentSummaries(cfg: OpenClawConfig): AgentSummary[] {
         : undefined;
     return {
       id,
-      name: resolveAgentName(cfg, id),
+      name: normalizeOptionalString(
+        configuredAgents.find((agent) => normalizeAgentId(agent.id) === id)?.name,
+      ),
       identityName,
       identityEmoji,
       identitySource,
@@ -145,7 +115,6 @@ export function applyAgentConfig(
     skills?: string[];
     /** Tool restrictions; undefined = leave unchanged */
     tools?: Pick<AgentToolsConfig, "profile" | "deny">;
-    /** Identity fields; undefined = leave unchanged, merges with existing identity */
     identity?: IdentityConfig;
   },
 ): OpenClawConfig {
@@ -154,30 +123,24 @@ export function applyAgentConfig(
   const list = listAgentEntries(cfg);
   const index = findAgentEntryIndex(list, agentId);
   const base = index >= 0 ? list[index] : { id: agentId };
+  const mergedIdentity = params.identity ? { ...base.identity, ...params.identity } : undefined;
   const nextEntry: AgentEntry = {
     ...base,
     ...(name ? { name } : {}),
     ...(params.workspace ? { workspace: params.workspace } : {}),
     ...(params.agentDir ? { agentDir: params.agentDir } : {}),
     ...(params.model ? { model: params.model } : {}),
-    // skills: undefined means "unchanged"; empty array means "allow all"
     ...(params.skills !== undefined
       ? { skills: params.skills.length > 0 ? params.skills : undefined }
       : {}),
     ...(params.tools !== undefined ? { tools: params.tools } : {}),
-    // identity: merges with existing identity fields; undefined = leave unchanged
-    ...(params.identity !== undefined
-      ? { identity: { ...base.identity, ...params.identity } }
-      : {}),
+    ...(mergedIdentity ? { identity: mergedIdentity } : {}),
   };
   const nextList = [...list];
   if (index >= 0) {
     nextList[index] = nextEntry;
   } else {
-    if (
-      nextList.length === 0 &&
-      agentId !== normalizeAgentId(resolveDefaultAgentId(cfg))
-    ) {
+    if (nextList.length === 0 && agentId !== normalizeAgentId(resolveDefaultAgentId(cfg))) {
       nextList.push({ id: resolveDefaultAgentId(cfg) });
     }
     nextList.push(nextEntry);
@@ -201,15 +164,11 @@ export function pruneAgentConfig(
 } {
   const id = normalizeAgentId(agentId);
   const agents = listAgentEntries(cfg);
-  const nextAgentsList = agents.filter(
-    (entry) => normalizeAgentId(entry.id) !== id,
-  );
+  const nextAgentsList = agents.filter((entry) => normalizeAgentId(entry.id) !== id);
   const nextAgents = nextAgentsList.length > 0 ? nextAgentsList : undefined;
 
   const bindings = cfg.bindings ?? [];
-  const filteredBindings = bindings.filter(
-    (binding) => normalizeAgentId(binding.agentId) !== id,
-  );
+  const filteredBindings = bindings.filter((binding) => normalizeAgentId(binding.agentId) !== id);
 
   const allow = cfg.tools?.agentToAgent?.allow ?? [];
   const filteredAllow = allow.filter((entry) => entry !== id);

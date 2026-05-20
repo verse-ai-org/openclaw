@@ -1,6 +1,12 @@
-import { Buffer } from "node:buffer";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { formatErrorMessage } from "../infra/errors.js";
 import { estimateBase64DecodedBytes } from "../media/base64.js";
+import { MAX_IMAGE_BYTES } from "../media/constants.js";
+import { extensionForMime, mimeTypeFromFilePath } from "../media/mime.js";
+import type { PromptImageOrderEntry } from "../media/prompt-image-order.js";
 import { sniffMimeFromBase64 } from "../media/sniff-mime-from-base64.js";
+import { deleteMediaBuffer, saveMediaBuffer } from "../media/store.js";
+import { normalizeOptionalLowercaseString } from "../shared/string-coerce.js";
 
 export type ChatAttachment = {
   type?: string;
@@ -15,13 +21,78 @@ export type ChatImageContent = {
   mimeType: string;
 };
 
-export type ParsedMessageWithImages = {
-  message: string;
-  images: ChatImageContent[];
+export type OffloadedRef = {
+  mediaRef: string;
+  id: string;
+  path: string;
+  mimeType: string;
+  label: string;
+  sizeBytes: number;
 };
 
+type ParsedMessageWithImages = {
+  message: string;
+  images: ChatImageContent[];
+  imageOrder: PromptImageOrderEntry[];
+  offloadedRefs: OffloadedRef[];
+};
+
+type AttachmentLog = {
+  info?: (message: string) => void;
+  warn: (message: string) => void;
+};
+
+type NormalizedAttachment = {
+  label: string;
+  mime: string;
+  base64: string;
+};
+
+type SavedMedia = {
+  id: string;
+  path: string;
+};
+
+const OFFLOAD_THRESHOLD_BYTES = 2_000_000;
+const TEXT_ONLY_OFFLOAD_LIMIT = 10;
+
+export const DEFAULT_CHAT_ATTACHMENT_MAX_MB = 20;
+
+export function resolveChatAttachmentMaxBytes(cfg: OpenClawConfig): number {
+  const configured = cfg.agents?.defaults?.mediaMaxMb;
+  const mb =
+    typeof configured === "number" && Number.isFinite(configured) && configured > 0
+      ? configured
+      : DEFAULT_CHAT_ATTACHMENT_MAX_MB;
+  return Math.floor(mb * 1024 * 1024);
+}
+
+type UnsupportedAttachmentReason =
+  | "empty-payload"
+  | "text-only-image"
+  | "unsupported-non-image"
+  | "non-image-too-large-for-sandbox";
+
+export class UnsupportedAttachmentError extends Error {
+  readonly reason: UnsupportedAttachmentReason;
+  constructor(reason: UnsupportedAttachmentReason, message: string) {
+    super(message);
+    this.name = "UnsupportedAttachmentError";
+    this.reason = reason;
+  }
+}
+
+export class MediaOffloadError extends Error {
+  override readonly cause: unknown;
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "MediaOffloadError";
+    this.cause = options?.cause;
+  }
+}
+
 /**
- * Heading before extracted document text in {@link parseMessageWithAttachments}.
+ * Heading before extracted document text in inline document-append flows.
  * Used to trim gateway-injected file content from Control UI / chat.history display.
  */
 export const CHAT_UPLOADED_FILES_CONTENT_HEADING = "以下是上传文件的内容：";
@@ -52,10 +123,6 @@ function inferMimeFromFileNameForHistory(fileName: string): string {
   return "text/plain";
 }
 
-/**
- * Split user text into display prefix vs appendix region (after the gateway heading).
- * Used to trim history and to extract `[文件: name]` hints for the UI.
- */
 export function splitUserMessageAndAppendixRegion(message: string): {
   displayText: string;
   appendixRegion: string;
@@ -79,7 +146,9 @@ export function splitUserMessageAndAppendixRegion(message: string): {
   return { displayText: message, appendixRegion: "" };
 }
 
-export function extractFileAttachmentHintsFromAppendix(appendixRegion: string): ChatHistoryAttachmentHint[] {
+export function extractFileAttachmentHintsFromAppendix(
+  appendixRegion: string,
+): ChatHistoryAttachmentHint[] {
   const attachments: ChatHistoryAttachmentHint[] = [];
   const seen = new Set<string>();
   let match: RegExpExecArray | null;
@@ -98,9 +167,6 @@ export function extractFileAttachmentHintsFromAppendix(appendixRegion: string): 
   return attachments;
 }
 
-/**
- * Shorten user transcript text for chat.history and recover file chips for the UI.
- */
 export function splitUserMessageForChatHistoryDisplay(message: string): {
   displayText: string;
   attachmentHints: ChatHistoryAttachmentHint[];
@@ -112,133 +178,15 @@ export function splitUserMessageForChatHistoryDisplay(message: string): {
   };
 }
 
-/**
- * Remove the appendix appended by {@link parseMessageWithAttachments} (extracted PDF/text),
- * keeping only the user-typed portion for display.
- */
 export function stripExtractedFileContentAppendix(message: string): string {
   return splitUserMessageAndAppendixRegion(message).displayText;
 }
-
-/** MIME types treated as plain text – content read directly from base64. */
-const PLAIN_TEXT_MIMES = new Set([
-  "text/plain",
-  "text/markdown",
-  "text/csv",
-  "application/json",
-  "application/xml",
-  "text/xml",
-  "text/html",
-]);
-
-/** MIME types for PDF documents. */
-const PDF_MIMES = new Set(["application/pdf"]);
-
-/** MIME types for Word documents. */
-const WORD_MIMES = new Set([
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/msword",
-]);
-
-/** MIME types for Excel spreadsheets. */
-const EXCEL_MIMES = new Set([
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-excel",
-]);
-
-/** Maximum characters of extracted text to include in the message. */
-const MAX_EXTRACTED_TEXT_CHARS = 8000;
-
-/**
- * Truncate extracted text to avoid exceeding model context limits.
- */
-function truncateText(text: string, maxChars: number): string {
-  if (text.length <= maxChars) {
-    return text;
-  }
-  return text.slice(0, maxChars) + `\n... [内容已截断，原始长度 ${text.length} 字符]`;
-}
-
-/**
- * Extract text from a PDF buffer using pdf-parse.
- */
-async function extractPdfText(buf: Buffer): Promise<string> {
-  // Dynamic import to avoid loading large binary deps at startup.
-  const pdfParse = (await import("pdf-parse")).default;
-  const result = await pdfParse(buf);
-  return result.text?.trim() ?? "";
-}
-
-/**
- * Extract text from a Word (.docx/.doc) buffer using mammoth.
- */
-async function extractWordText(buf: Buffer): Promise<string> {
-  const mammoth = await import("mammoth");
-  const result = await mammoth.extractRawText({ buffer: buf });
-  return result.value?.trim() ?? "";
-}
-
-/**
- * Extract text from an Excel buffer using xlsx.
- */
-async function extractExcelText(buf: Buffer): Promise<string> {
-  const XLSX = await import("xlsx");
-  const workbook = XLSX.read(buf, { type: "buffer" });
-  const parts: string[] = [];
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
-    if (!sheet) {
-      continue;
-    }
-    const csv = XLSX.utils.sheet_to_csv(sheet);
-    if (csv.trim()) {
-      parts.push(`[Sheet: ${sheetName}]\n${csv.trim()}`);
-    }
-  }
-  return parts.join("\n\n");
-}
-
-/**
- * Extract text content from a document based on its MIME type.
- * Returns extracted text or a fallback message if extraction fails.
- */
-async function extractDocumentText(
-  buf: Buffer,
-  mime: string,
-  label: string,
-  log?: AttachmentLog,
-): Promise<string> {
-  try {
-    if (PDF_MIMES.has(mime)) {
-      return truncateText(await extractPdfText(buf), MAX_EXTRACTED_TEXT_CHARS);
-    }
-    if (WORD_MIMES.has(mime)) {
-      return truncateText(await extractWordText(buf), MAX_EXTRACTED_TEXT_CHARS);
-    }
-    if (EXCEL_MIMES.has(mime)) {
-      return truncateText(await extractExcelText(buf), MAX_EXTRACTED_TEXT_CHARS);
-    }
-  } catch (err) {
-    log?.warn(`attachment ${label}: text extraction failed (${String(err)})`);
-  }
-  return "";
-}
-
-type AttachmentLog = {
-  warn: (message: string) => void;
-};
-
-type NormalizedAttachment = {
-  label: string;
-  mime: string;
-  base64: string;
-};
 
 function normalizeMime(mime?: string): string | undefined {
   if (!mime) {
     return undefined;
   }
-  const cleaned = mime.split(";")[0]?.trim().toLowerCase();
+  const cleaned = normalizeOptionalLowercaseString(mime.split(";")[0]);
   return cleaned || undefined;
 }
 
@@ -246,9 +194,94 @@ function isImageMime(mime?: string): boolean {
   return typeof mime === "string" && mime.startsWith("image/");
 }
 
+function isGenericContainerMime(mime?: string): boolean {
+  return mime === "application/zip" || mime === "application/octet-stream";
+}
+
+function shouldIgnoreImageMimeHint(params: { sniffedMime?: string; hintedMime?: string }): boolean {
+  return isGenericContainerMime(params.sniffedMime) && isImageMime(params.hintedMime);
+}
+
+function isSpecificMime(mime?: string): boolean {
+  return Boolean(mime && !isGenericContainerMime(mime));
+}
+
+function resolveAttachmentMime(params: {
+  sniffedMime?: string;
+  providedMime?: string;
+  labelMime?: string;
+}): string {
+  const trustedProvidedMime = shouldIgnoreImageMimeHint({
+    sniffedMime: params.sniffedMime,
+    hintedMime: params.providedMime,
+  })
+    ? undefined
+    : params.providedMime;
+  const trustedLabelMime = shouldIgnoreImageMimeHint({
+    sniffedMime: params.sniffedMime,
+    hintedMime: params.labelMime,
+  })
+    ? undefined
+    : params.labelMime;
+  return (
+    (isSpecificMime(params.sniffedMime) && params.sniffedMime) ||
+    (isSpecificMime(trustedProvidedMime) && trustedProvidedMime) ||
+    (isSpecificMime(trustedLabelMime) && trustedLabelMime) ||
+    params.sniffedMime ||
+    trustedProvidedMime ||
+    trustedLabelMime ||
+    "application/octet-stream"
+  );
+}
+
 function isValidBase64(value: string): boolean {
-  // Minimal validation; avoid full decode allocations for large payloads.
-  return value.length > 0 && value.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+  if (value.length === 0 || value.length % 4 !== 0) {
+    return false;
+  }
+  return /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+
+function verifyDecodedSize(buffer: Buffer, estimatedBytes: number, label: string): void {
+  if (Math.abs(buffer.byteLength - estimatedBytes) > 3) {
+    throw new Error(
+      `attachment ${label}: base64 contains invalid characters ` +
+        `(expected ~${estimatedBytes} bytes decoded, got ${buffer.byteLength})`,
+    );
+  }
+}
+
+function ensureExtension(label: string, mime: string): string {
+  if (/\.[a-zA-Z0-9]+$/.test(label)) {
+    return label;
+  }
+  const ext = extensionForMime(mime) ?? "";
+  return ext ? `${label}${ext}` : label;
+}
+
+function assertSavedMedia(value: unknown, label: string): SavedMedia {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    !("id" in value) ||
+    typeof (value as Record<string, unknown>).id !== "string"
+  ) {
+    throw new Error(`attachment ${label}: saveMediaBuffer returned an unexpected shape`);
+  }
+  const id = (value as Record<string, unknown>).id as string;
+  if (id.length === 0) {
+    throw new Error(`attachment ${label}: saveMediaBuffer returned an empty media ID`);
+  }
+  if (id.includes("/") || id.includes("\\") || id.includes("\0")) {
+    throw new Error(
+      `attachment ${label}: saveMediaBuffer returned an unsafe media ID ` +
+        `(contains path separator or null byte)`,
+    );
+  }
+  const path = (value as Record<string, unknown>).path;
+  if (typeof path !== "string" || path.length === 0) {
+    throw new Error(`attachment ${label}: saveMediaBuffer returned no on-disk path`);
+  }
+  return { id, path };
 }
 
 function normalizeAttachment(
@@ -269,7 +302,6 @@ function normalizeAttachment(
 
   let base64 = content.trim();
   if (opts.stripDataUrlPrefix) {
-    // Strip data URL prefix if present (e.g., "data:image/jpeg;base64,...").
     const dataUrlMatch = /^data:[^;]+;base64,(.*)$/.exec(base64);
     if (dataUrlMatch) {
       base64 = dataUrlMatch[1];
@@ -294,111 +326,214 @@ function validateAttachmentBase64OrThrow(
   return sizeBytes;
 }
 
-/**
- * Parse attachments and extract content (images + documents).
- *
- * Strategy (hybrid):
- * - Images: passed as base64 image blocks to the AI runner.
- * - Plain text files (txt, md, json, csv, …): decoded and appended inline.
- * - PDF / Word / Excel: text extracted via pdf-parse / mammoth / xlsx and appended.
- *
- * Returns the (possibly augmented) message and image blocks.
- */
 export async function parseMessageWithAttachments(
   message: string,
   attachments: ChatAttachment[] | undefined,
-  opts?: { maxBytes?: number; log?: AttachmentLog },
+  opts?: {
+    maxBytes?: number;
+    log?: AttachmentLog;
+    supportsImages?: boolean;
+    supportsInlineImages?: boolean;
+    acceptNonImage?: boolean;
+  },
 ): Promise<ParsedMessageWithImages> {
-  const maxBytes = opts?.maxBytes ?? 5_000_000; // decoded bytes (5,000,000)
+  const maxBytes = opts?.maxBytes ?? DEFAULT_CHAT_ATTACHMENT_MAX_MB * 1024 * 1024;
   const log = opts?.log;
+  const shouldForceImageOffload = opts?.supportsImages === false;
+  const supportsInlineImages = opts?.supportsInlineImages !== false;
+  const acceptNonImage = opts?.acceptNonImage !== false;
+
   if (!attachments || attachments.length === 0) {
-    return { message, images: [] };
+    return { message, images: [], imageOrder: [], offloadedRefs: [] };
   }
 
   const images: ChatImageContent[] = [];
-  // Collected document text blocks to append to the message.
-  const docBlocks: string[] = [];
+  const imageOrder: PromptImageOrderEntry[] = [];
+  const offloadedRefs: OffloadedRef[] = [];
+  let updatedMessage = message;
+  let textOnlyImageOffloadCount = 0;
+  const savedMediaIds: string[] = [];
 
-  for (const [idx, att] of attachments.entries()) {
-    if (!att) {
-      continue;
-    }
-    const normalized = normalizeAttachment(att, idx, {
-      stripDataUrlPrefix: true,
-      requireImageMime: false, // Allow all file types
-    });
-    validateAttachmentBase64OrThrow(normalized, { maxBytes });
-    const { base64: b64, label, mime } = normalized;
-
-    const providedMime = normalizeMime(mime);
-    if (!providedMime) {
-      log?.warn(`attachment ${label}: missing mime type, dropping`);
-      continue;
-    }
-
-    // ── Images: send as base64 image blocks ────────────────────────────────
-    if (providedMime.startsWith("image/")) {
-      const sniffedMime = normalizeMime(await sniffMimeFromBase64(b64));
-      if (sniffedMime && !isImageMime(sniffedMime)) {
-        log?.warn(`attachment ${label}: detected non-image (${sniffedMime}), dropping`);
+  try {
+    for (const [idx, att] of attachments.entries()) {
+      if (!att) {
         continue;
       }
-      if (!sniffedMime && !isImageMime(providedMime)) {
-        log?.warn(`attachment ${label}: unable to detect image mime type, dropping`);
-        continue;
+
+      const normalized = normalizeAttachment(att, idx, {
+        stripDataUrlPrefix: true,
+        requireImageMime: false,
+      });
+
+      const { base64: b64, label, mime } = normalized;
+
+      if (b64.length === 0) {
+        throw new UnsupportedAttachmentError("empty-payload", `attachment ${label}: empty payload`);
       }
-      if (sniffedMime && providedMime && sniffedMime !== providedMime) {
-        log?.warn(
-          `attachment ${label}: mime mismatch (${providedMime} -> ${sniffedMime}), using sniffed`,
+      if (!isValidBase64(b64)) {
+        throw new Error(`attachment ${label}: invalid base64 content`);
+      }
+
+      const sizeBytes = estimateBase64DecodedBytes(b64);
+      if (sizeBytes > maxBytes) {
+        throw new Error(
+          `attachment ${label}: exceeds size limit (${sizeBytes} > ${maxBytes} bytes)`,
         );
       }
-      images.push({
-        type: "image",
-        data: b64,
-        mimeType: sniffedMime ?? providedMime ?? mime,
+
+      const providedMime = normalizeMime(mime);
+      const sniffedMime = normalizeMime(await sniffMimeFromBase64(b64));
+      const labelMime = normalizeMime(mimeTypeFromFilePath(label));
+
+      // Prefer specific MIME signals over generic container types. OOXML
+      // documents (docx/xlsx/pptx) sniff as application/zip; without this
+      // priority the agent would receive a `.zip` instead of the specific
+      // Office document the caller declared.
+      const finalMime = resolveAttachmentMime({ sniffedMime, providedMime, labelMime });
+
+      if (
+        sniffedMime &&
+        providedMime &&
+        !isGenericContainerMime(providedMime) &&
+        sniffedMime !== providedMime
+      ) {
+        const usedSource =
+          finalMime === sniffedMime
+            ? "sniffed"
+            : finalMime === providedMime
+              ? "provided"
+              : "label-derived";
+        log?.warn(
+          `attachment ${label}: mime mismatch (${providedMime} -> ${sniffedMime}), using ${usedSource}`,
+        );
+      }
+
+      const isImage = isImageMime(finalMime);
+      if (isImage && !supportsInlineImages && !shouldForceImageOffload) {
+        throw new UnsupportedAttachmentError(
+          "text-only-image",
+          `attachment ${label}: active model does not accept image inputs`,
+        );
+      }
+      if (!isImage && !acceptNonImage) {
+        throw new UnsupportedAttachmentError(
+          "unsupported-non-image",
+          `attachment ${label}: non-image attachments (${finalMime}) are not supported on this entrypoint`,
+        );
+      }
+      // Agent-side hydration (loadImageFromRef via optimizeAndClampImage / GIF
+      // direct compare) caps at MAX_IMAGE_BYTES. Accepting images above that
+      // would offload a file the runner later drops to null — a successful
+      // response with a silently missing image. Reject here so the client
+      // sees an explicit 4xx. Non-image attachments keep the full maxBytes
+      // ceiling because their host path (ctx.MediaPaths → Read/Bash) doesn't
+      // load into the model.
+      if (isImage && sizeBytes > MAX_IMAGE_BYTES) {
+        throw new Error(
+          `attachment ${label}: image exceeds size limit (${sizeBytes} > ${MAX_IMAGE_BYTES} bytes)`,
+        );
+      }
+
+      if (
+        shouldForceImageOffload &&
+        isImage &&
+        textOnlyImageOffloadCount >= TEXT_ONLY_OFFLOAD_LIMIT
+      ) {
+        log?.warn(
+          `attachment ${label}: dropping image because text-only offload limit ` +
+            `${TEXT_ONLY_OFFLOAD_LIMIT} was reached`,
+        );
+        updatedMessage += "\n[image attachment omitted: text-only attachment limit reached]";
+        continue;
+      }
+
+      const shouldOffload =
+        shouldForceImageOffload || !isImage || sizeBytes > OFFLOAD_THRESHOLD_BYTES;
+
+      if (!shouldOffload) {
+        images.push({ type: "image", data: b64, mimeType: finalMime });
+        imageOrder.push("inline");
+        continue;
+      }
+
+      const buffer = Buffer.from(b64, "base64");
+      verifyDecodedSize(buffer, sizeBytes, label);
+
+      let savedMedia: SavedMedia;
+      try {
+        const labelWithExt = ensureExtension(label, finalMime);
+        const rawResult = await saveMediaBuffer(
+          buffer,
+          finalMime,
+          "inbound",
+          maxBytes,
+          labelWithExt,
+        );
+        savedMedia = assertSavedMedia(rawResult, label);
+      } catch (err) {
+        throw new MediaOffloadError(
+          `[Gateway Error] Failed to save intercepted media to disk: ${formatErrorMessage(err)}`,
+          { cause: err },
+        );
+      }
+
+      savedMediaIds.push(savedMedia.id);
+
+      const mediaRef = `media://inbound/${savedMedia.id}`;
+      if (isImage) {
+        updatedMessage += `\n[media attached: ${mediaRef}]`;
+      }
+      log?.info?.(
+        shouldForceImageOffload && isImage
+          ? `[Gateway] Offloaded image for text-only model. Saved: ${mediaRef}`
+          : `[Gateway] Offloaded attachment (${finalMime}). Saved: ${mediaRef}`,
+      );
+
+      offloadedRefs.push({
+        mediaRef,
+        id: savedMedia.id,
+        path: savedMedia.path,
+        mimeType: finalMime,
+        label,
+        sizeBytes,
       });
-      continue;
-    }
-
-    // ── All document types: decode buffer first ─────────────────────────────
-    const buf = Buffer.from(b64, "base64");
-
-    // Plain text files – read content directly
-    if (PLAIN_TEXT_MIMES.has(providedMime) || providedMime.startsWith("text/")) {
-      const text = truncateText(buf.toString("utf8").trim(), MAX_EXTRACTED_TEXT_CHARS);
-      if (text) {
-        docBlocks.push(`[文件: ${label}]\n${text}`);
-      } else {
-        log?.warn(`attachment ${label}: plain text file is empty`);
+      if (isImage) {
+        imageOrder.push("offloaded");
+        if (shouldForceImageOffload) {
+          textOnlyImageOffloadCount++;
+        }
       }
-      continue;
     }
-
-    // PDF / Word / Excel – extract text
-    if (PDF_MIMES.has(providedMime) || WORD_MIMES.has(providedMime) || EXCEL_MIMES.has(providedMime)) {
-      const text = await extractDocumentText(buf, providedMime, label, log);
-      if (text) {
-        docBlocks.push(`[文件: ${label}]\n${text}`);
-      } else {
-        // Extraction failed or empty – still mention the file so the AI knows.
-        docBlocks.push(`[文件: ${label} (${providedMime}) — 内容提取失败，文件已接收但无法读取文本内容]`);
-      }
-      continue;
+  } catch (err) {
+    if (savedMediaIds.length > 0) {
+      await Promise.allSettled(savedMediaIds.map((id) => deleteMediaBuffer(id, "inbound")));
     }
-
-    // Unknown document type – inform the AI of the file name/type
-    log?.warn(`attachment ${label}: unsupported document type (${providedMime}), adding file info only`);
-    docBlocks.push(`[文件: ${label} (${providedMime}) — 已接收，不支持内容提取]`);
+    throw err;
   }
 
-  // Append document text blocks to the message
-  let finalMessage = message;
-  if (docBlocks.length > 0) {
-    const separator = finalMessage.trim().length > 0 ? "\n\n" : "";
-    finalMessage = `${finalMessage}${separator}${CHAT_UPLOADED_FILES_CONTENT_HEADING}\n\n${docBlocks.join("\n\n")}`;
-  }
+  return {
+    message: updatedMessage !== message ? updatedMessage.trimEnd() : message,
+    images,
+    imageOrder,
+    offloadedRefs,
+  };
+}
 
-  return { message: finalMessage, images };
+export async function resolveChatAttachmentLooksLikeImage(
+  attachment: ChatAttachment,
+  index = 0,
+): Promise<boolean> {
+  const normalized = normalizeAttachment(attachment, index, {
+    stripDataUrlPrefix: true,
+    requireImageMime: false,
+  });
+  if (!isValidBase64(normalized.base64)) {
+    throw new Error(`attachment ${normalized.label}: invalid base64 content`);
+  }
+  const providedMime = normalizeMime(normalized.mime);
+  const sniffedMime = normalizeMime(await sniffMimeFromBase64(normalized.base64));
+  const labelMime = normalizeMime(mimeTypeFromFilePath(normalized.label));
+  return isImageMime(resolveAttachmentMime({ sniffedMime, providedMime, labelMime }));
 }
 
 /**
@@ -410,7 +545,8 @@ export function buildMessageWithAttachments(
   attachments: ChatAttachment[] | undefined,
   opts?: { maxBytes?: number },
 ): string {
-  const maxBytes = opts?.maxBytes ?? 2_000_000; // 2 MB
+  const maxBytes = opts?.maxBytes ?? 2_000_000;
+
   if (!attachments || attachments.length === 0) {
     return message;
   }
@@ -421,21 +557,22 @@ export function buildMessageWithAttachments(
     if (!att) {
       continue;
     }
+
     const normalized = normalizeAttachment(att, idx, {
       stripDataUrlPrefix: false,
       requireImageMime: true,
     });
     validateAttachmentBase64OrThrow(normalized, { maxBytes });
-    const { base64, label, mime } = normalized;
 
+    const { base64, label, mime } = normalized;
     const safeLabel = label.replace(/\s+/g, "_");
-    const dataUrl = `![${safeLabel}](data:${mime};base64,${base64})`;
-    blocks.push(dataUrl);
+    blocks.push(`![${safeLabel}](data:${mime};base64,${base64})`);
   }
 
   if (blocks.length === 0) {
     return message;
   }
+
   const separator = message.trim().length > 0 ? "\n\n" : "";
   return `${message}${separator}${blocks.join("\n\n")}`;
 }

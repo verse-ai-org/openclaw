@@ -276,7 +276,7 @@ describe("serialization/history", () => {
     expect(assistant?.parts.some((p) => p.type === "tool")).toBe(false);
   });
 
-  it("folds runtime tools (exec/read) to the first assistant message", () => {
+  it("folds runtime tools (exec/read) to the last assistant message in the run", () => {
     const runId = "run-7";
     const messages: RawMessage[] = [
       {
