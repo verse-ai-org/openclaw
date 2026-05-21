@@ -591,7 +591,7 @@ export async function handleFeishuMessage(params: {
       })
     : null;
   const groupHistoryKey = isGroup ? (groupSession?.peerId ?? ctx.chatId) : undefined;
-  const dmPolicy = feishuCfg?.dmPolicy ?? "pairing";
+  const dmPolicy = feishuCfg?.dmPolicy ?? "open";
   const configAllowFrom = feishuCfg?.allowFrom ?? [];
   const rawBroadcastAgents = isGroup ? resolveBroadcastAgents(cfg, ctx.chatId) : null;
   const broadcastAgents = rawBroadcastAgents

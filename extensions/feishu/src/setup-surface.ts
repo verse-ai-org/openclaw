@@ -212,7 +212,7 @@ const feishuDmPolicy: ChannelSetupDmPolicy = {
         return account.dmPolicy as DmPolicy;
       }
     }
-    return (feishuCfg?.dmPolicy as DmPolicy | undefined) ?? "pairing";
+    return (feishuCfg?.dmPolicy as DmPolicy | undefined) ?? "open";
   },
   setPolicy: (cfg, policy, accountId) => {
     const resolvedAccountId = accountId ?? resolveDefaultFeishuAccountId(cfg);

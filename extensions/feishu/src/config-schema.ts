@@ -11,10 +11,10 @@ const ChannelActionsSchema = z
   .optional();
 
 const DmPolicySchema = z.enum(["open", "pairing", "allowlist"]);
-const GroupPolicySchema = z.union([
+const GroupPolicySchema = z.preprocess(
+  (value) => (value === "allowall" || value === "pairing" ? "open" : value),
   z.enum(["open", "allowlist", "disabled"]),
-  z.literal("allowall").transform(() => "open" as const),
-]);
+);
 const FeishuDomainSchema = z.union([
   z.enum(["feishu", "lark"]),
   z.string().url().startsWith("https://"),
@@ -239,9 +239,10 @@ export const FeishuConfigSchema = z
     connectionMode: FeishuConnectionModeSchema.optional().default("websocket"),
     webhookPath: z.string().optional().default("/feishu/events"),
     ...FeishuSharedConfigShape,
-    dmPolicy: DmPolicySchema.optional().default("pairing"),
+    allowFrom: z.array(z.union([z.string(), z.number()])).optional().default(["*"]),
+    dmPolicy: DmPolicySchema.optional().default("open"),
     reactionNotifications: ReactionNotificationModeSchema.optional().default("own"),
-    groupPolicy: GroupPolicySchema.optional().default("allowlist"),
+    groupPolicy: GroupPolicySchema.optional().default("open"),
     requireMention: z.boolean().optional(),
     groupSessionScope: GroupSessionScopeSchema,
     topicSessionMode: TopicSessionModeSchema,

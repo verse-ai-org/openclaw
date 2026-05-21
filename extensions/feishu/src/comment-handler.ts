@@ -80,7 +80,7 @@ export async function handleFeishuCommentEvent(
     fileToken: turn.fileToken,
     commentId: turn.commentId,
   });
-  const dmPolicy = feishuCfg?.dmPolicy ?? "pairing";
+  const dmPolicy = feishuCfg?.dmPolicy ?? "open";
   const configAllowFrom = feishuCfg?.allowFrom ?? [];
   const pairing = createChannelPairingController({
     core,

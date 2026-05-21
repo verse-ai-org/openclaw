@@ -31,11 +31,15 @@ type JsonSchema = {
 const FEISHU_DEFAULT_VALUES: Record<string, unknown> = {
   connectionMode: "websocket",
   dmPolicy: "open",
+  allowFrom: ["*"],
   domain: "feishu",
   groupPolicy: "open",
   renderMode: "card",
   requireMention: true,
 };
+
+const FEISHU_DM_POLICY_OPTIONS = ["open", "pairing", "allowlist"] as const;
+const FEISHU_GROUP_POLICY_OPTIONS = ["open", "allowlist", "disabled"] as const;
 
 const FEISHU_REQUIRED_FIELD_HINTS: Record<string, string> = {
   appId: "Get your App ID from Feishu Open Platform -> App Credentials.",
@@ -120,6 +124,57 @@ function FieldWrapper({
       {help && <p className="text-xs text-muted-foreground">{help}</p>}
       {children}
     </div>
+  );
+}
+
+function FeishuPolicyField({
+  fieldKey,
+  path,
+  config,
+  hints,
+  disabled,
+  options,
+  onPatch,
+}: {
+  fieldKey: "dmPolicy" | "groupPolicy";
+  path: Array<string | number>;
+  config: Record<string, unknown>;
+  hints: ConfigUiHints;
+  disabled: boolean;
+  options: readonly string[];
+  onPatch: (path: Array<string | number>, value: unknown) => void;
+}) {
+  const hint = getHint(path, hints) as { label?: string; help?: string } | undefined;
+  const label =
+    hint?.label ??
+    (fieldKey === "dmPolicy" ? "DM Policy" : "Group Policy");
+  const help =
+    hint?.help ??
+    (fieldKey === "dmPolicy"
+      ? 'Direct message access control. "open" accepts inbound DMs when allowFrom includes "*".'
+      : 'Group access control. "allowlist" only admits groups in groupAllowFrom or channels.feishu.groups.<chat_id>.');
+  const value = getValueAt(config, path);
+  const current = value != null && value !== "" ? String(value) : String(options[0]);
+
+  return (
+    <FieldWrapper label={label} help={help}>
+      <Select
+        value={current}
+        onValueChange={(v) => onPatch(path, v)}
+        disabled={disabled}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select…" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt) => (
+            <SelectItem key={opt} value={opt}>
+              {opt}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FieldWrapper>
   );
 }
 
@@ -488,16 +543,39 @@ export function ChannelConfigForm({
                         {feishuOptionalKeys.map((key) => {
                           const fieldSchema = channelNode.properties?.[key];
                           if (!fieldSchema) return null;
+                          const fieldPath = ["channels", channelId, key] as Array<string | number>;
                           return (
                             <div key={key} className="rounded-lg bg-muted/25 border border-border/60 p-3">
-                              <RenderNode
-                                schema={fieldSchema}
-                                path={["channels", channelId, key]}
-                                config={configForm}
-                                hints={configUiHints}
-                                disabled={disabled}
-                                onPatch={onPatch}
-                              />
+                              {key === "dmPolicy" ? (
+                                <FeishuPolicyField
+                                  fieldKey="dmPolicy"
+                                  path={fieldPath}
+                                  config={configForm}
+                                  hints={configUiHints}
+                                  disabled={disabled}
+                                  options={FEISHU_DM_POLICY_OPTIONS}
+                                  onPatch={onPatch}
+                                />
+                              ) : key === "groupPolicy" ? (
+                                <FeishuPolicyField
+                                  fieldKey="groupPolicy"
+                                  path={fieldPath}
+                                  config={configForm}
+                                  hints={configUiHints}
+                                  disabled={disabled}
+                                  options={FEISHU_GROUP_POLICY_OPTIONS}
+                                  onPatch={onPatch}
+                                />
+                              ) : (
+                                <RenderNode
+                                  schema={fieldSchema}
+                                  path={fieldPath}
+                                  config={configForm}
+                                  hints={configUiHints}
+                                  disabled={disabled}
+                                  onPatch={onPatch}
+                                />
+                              )}
                             </div>
                           );
                         })}

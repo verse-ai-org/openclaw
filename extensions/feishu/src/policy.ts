@@ -16,7 +16,7 @@ import type { FeishuConfig } from "./types.js";
 
 type FeishuDmPolicy = "open" | "pairing" | "allowlist" | "disabled";
 type FeishuGroupPolicy = "open" | "allowlist" | "disabled" | "allowall";
-type NormalizedFeishuGroupPolicy = Exclude<FeishuGroupPolicy, "allowall">;
+type NormalizedFeishuGroupPolicy = "open" | "allowlist" | "disabled";
 
 const FEISHU_PROVIDER_PREFIX_RE = /^(feishu|lark):/i;
 const FEISHU_TYPED_PREFIX_RE = /^(chat|group|channel|user|dm|open_id):/i;

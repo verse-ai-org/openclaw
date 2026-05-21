@@ -17,8 +17,9 @@ describe("FeishuConfigSchema webhook validation", () => {
     expect(result.domain).toBe("feishu");
     expect(result.connectionMode).toBe("websocket");
     expect(result.webhookPath).toBe("/feishu/events");
-    expect(result.dmPolicy).toBe("pairing");
-    expect(result.groupPolicy).toBe("allowlist");
+    expect(result.dmPolicy).toBe("open");
+    expect(result.allowFrom).toEqual(["*"]);
+    expect(result.groupPolicy).toBe("open");
     // requireMention has no schema-level default now — it is resolved at runtime
     // through shared channel group-policy resolution, with an open-group override
     // that defaults to false only when requireMention is otherwise unset.
@@ -40,6 +41,14 @@ describe("FeishuConfigSchema webhook validation", () => {
   it("normalizes legacy groupPolicy allowall to open", () => {
     const result = FeishuConfigSchema.parse({
       groupPolicy: "allowall",
+    });
+
+    expect(result.groupPolicy).toBe("open");
+  });
+
+  it("normalizes legacy groupPolicy pairing to open", () => {
+    const result = FeishuConfigSchema.parse({
+      groupPolicy: "pairing",
     });
 
     expect(result.groupPolicy).toBe("open");
