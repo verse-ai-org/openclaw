@@ -99,7 +99,9 @@ make icons-ico      # 仅 .ico（Windows）
 
 `icon.icns` / `icon.ico` 已提交到 git；`make package` / `package-win` / `release*` **不会**自动生成图标。更换 `icon.png` 后请本地执行 `make icons-all`（或分别 `make icons` + `make icons-ico`），并将生成的 `.icns` / `.ico` 一并提交。macOS `.icns` 需本机 Xcode（Icon Composer / `ictool`）；无 `ictool` 时会回退 Pillow 并打印警告（Dock 显示可能不正确）。
 
-**Windows 安装后 exe 图标**：由 `afterPack` 脚本 `scripts/patch-win-exe-icon.cjs`（`rcedit`）写入 `Bossim.exe`，**不要**仅依赖 `signAndEditExecutable: true`。该选项会下载 `winCodeSign` 工具包，在 Windows 上常因无法创建符号链接（需「开发者模式」或管理员）或 GitHub 超时而失败。若已配置 Authenticode 证书并希望走官方签名流程，可改回 `signAndEditExecutable: true` 并确保 winCodeSign 缓存可正常解压。
+**Windows 安装后 exe 图标**：由 `afterPack` 脚本 `scripts/after-pack.cjs`（`rcedit`）写入 `Bossim.exe`，**不要**仅依赖 `signAndEditExecutable: true`。该选项会下载 `winCodeSign` 工具包，在 Windows 上常因无法创建符号链接（需「开发者模式」或管理员）或 GitHub 超时而失败。若已配置 Authenticode 证书并希望走官方签名流程，可改回 `signAndEditExecutable: true` 并确保 winCodeSign 缓存可正常解压。
+
+**Node shim**：`afterPack` 还会在 `Resources/node/` 下创建 `node` 符号链接（macOS/Linux）或硬链接（Windows），指向 Electron 二进制。这使 `gateway/paths.ts` 注入 PATH 后，声明了 `requires.bins: [node]` 的技能能通过运行时资格检查。
 
 ---
 

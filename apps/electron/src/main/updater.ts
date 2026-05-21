@@ -10,7 +10,7 @@
 
 import { autoUpdater, UpdateInfo } from "electron-updater";
 import type { BrowserWindow } from "electron";
-import { stopGatewayForUpdate } from "./gateway.js";
+import { stopGatewayForUpdate } from "./gateway/index.js";
 import { mainLogNote, mainLogWarn } from "./logger.js";
 
 let updaterMainWindow: BrowserWindow | null = null;

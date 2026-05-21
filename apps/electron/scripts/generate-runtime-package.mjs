@@ -17,17 +17,28 @@ if (!packagedRuntimeConfigPath || !rootPackagePath || !outputDir || !rootDir) {
 }
 
 const packagedRuntimeConfig = JSON.parse(fs.readFileSync(packagedRuntimeConfigPath, "utf8"));
+// Merge all dependency tiers into a single install set.
+// deferredDependencies are intentionally excluded — they are installed on-demand
+// when the corresponding extension is first activated (e.g. acpx with its ~380 MB
+// native agent binaries).
 const names = new Set([
   ...(packagedRuntimeConfig.coreRuntimeDependencies ?? []),
+  ...(packagedRuntimeConfig.channelRuntimeDependencies ?? []),
+  ...(packagedRuntimeConfig.providerRuntimeDependencies ?? []),
+  ...(packagedRuntimeConfig.mediaRuntimeDependencies ?? []),
+  ...(packagedRuntimeConfig.observabilityRuntimeDependencies ?? []),
+  ...(packagedRuntimeConfig.extensionRuntimeDependencies ?? []),
+  ...(packagedRuntimeConfig.nativeRuntimeDependencies ?? []),
+  // Legacy flat field for backward compat
   ...(packagedRuntimeConfig.runtimeDependencies ?? []),
 ]);
 
 const rootPkg = JSON.parse(fs.readFileSync(rootPackagePath, "utf8"));
 const requireFromRoot = createRequire(path.join(rootDir, "package.json"));
 const manifestVersionMap = {
-  ...(rootPkg.dependencies ?? {}),
-  ...(rootPkg.peerDependencies ?? {}),
-  ...(rootPkg.devDependencies ?? {}),
+  ...rootPkg.dependencies,
+  ...rootPkg.peerDependencies,
+  ...rootPkg.devDependencies,
 };
 
 function resolveInstalledVersion(name) {
@@ -98,10 +109,14 @@ const resolvedEntries = [...names].map((name) => {
 
 const missing = resolvedEntries.filter(([, spec]) => !spec).map(([name]) => name);
 if (missing.length > 0) {
-  console.error(
-    `Missing runtime dependency versions from package.json, installed node_modules, and pnpm-lock.yaml: ${missing.join(", ")}`,
+  // Use "*" for unresolvable versions — pnpm will resolve to latest.
+  // These are typically transitive deps of extensions not installed locally.
+  console.warn(
+    `⚠️  Using "*" for runtime deps not found in root manifest/lockfile: ${missing.join(", ")}`,
   );
-  process.exit(1);
+  for (let i = 0; i < resolvedEntries.length; i++) {
+    if (!resolvedEntries[i][1]) resolvedEntries[i][1] = "*";
+  }
 }
 
 const electronPnpmOverrides = packagedRuntimeConfig.electronPnpmOverrides ?? {};

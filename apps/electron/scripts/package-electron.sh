@@ -100,10 +100,20 @@ build_artifacts_if_needed() {
   (cd "$ROOT_DIR" && pnpm --filter openclaw-control-ui-react build)
 }
 
-download_runtime_node() {
+check_runtime_externals() {
   echo ""
-  echo "⬇️  [3/5] 下载 Node 24 二进制 ($ARCH)"
-  bash "$ELECTRON_DIR/scripts/download-node.sh" "$ARCH"
+  echo "🔍 [3a/5] 验证运行时依赖覆盖"
+  node "$ELECTRON_DIR/scripts/check-runtime-externals.mjs" \
+    "$ROOT_DIR/dist" \
+    "$PACKAGED_RUNTIME_CONFIG" \
+    "$ROOT_DIR"
+}
+
+download_runtime_node() {
+  # Electron 42+ 内嵌 Node 24.15.0，不再需要独立下载 Node 二进制。
+  # Gateway 子进程使用 ELECTRON_RUN_AS_NODE=1 + process.execPath 启动。
+  echo ""
+  echo "⏭️  [3/5] 跳过 Node 下载（Electron 42 内嵌 Node 24.15.0）"
 }
 
 generate_runtime_package_json() {
@@ -199,6 +209,12 @@ build_electron_main() {
 package_electron_app() {
   echo ""
   echo "📦 [5/5] 打包 Electron App"
+  # Large pnpm workspaces can hit EMFILE during electron-builder packaging; raise if still low.
+  local fd_limit
+  fd_limit="$(ulimit -n 2>/dev/null || echo 256)"
+  if [ "$fd_limit" -lt 8192 ] 2>/dev/null; then
+    ulimit -n 65536 2>/dev/null || ulimit -n 8192 2>/dev/null || true
+  fi
   # macOS 15+/Node 22+ 可能输出 [DEP0190] 到 pnpm JSON 输出流，
   # 会触发 electron-builder 的 pnpm 依赖树解析失败（No JSON content found in output）。
   # 这里关闭 Node deprecation warning，避免污染 JSON 输出。
@@ -288,6 +304,7 @@ main() {
   load_env
   print_banner
   build_artifacts_if_needed
+  check_runtime_externals
   download_runtime_node
   install_runtime_dependencies
   prune_runtime_dependencies

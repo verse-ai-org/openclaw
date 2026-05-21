@@ -14,6 +14,9 @@ import packagedRuntime from "./packaged-runtime.json";
 // 必须保持 neverBundle（不能内联）的原生/特殊模块
 export const NATIVE_EXTERNALS = packagedRuntime.neverBundleDependencies;
 
+// Electron 壳依赖：beforeBuild 跳过 app node_modules 收集，必须打进 main/preload bundle
+const ELECTRON_SHELL_ALWAYS_BUNDLE = ["electron-updater"] as const;
+
 export default defineConfig([
   // ─── Electron 主进程 ────────────────────────────────────────────────────────
   {
@@ -21,10 +24,11 @@ export default defineConfig([
     outDir: "dist",
     format: ["cjs"],
     platform: "node",
-    target: "node20",
+    target: "node24",
     deps: {
       // 不内联这些原生/特殊模块，运行时从 node_modules 加载
       neverBundle: NATIVE_EXTERNALS as unknown as string[],
+      alwaysBundle: [...ELECTRON_SHELL_ALWAYS_BUNDLE],
     },
     sourcemap: true,
     clean: true,
@@ -39,9 +43,10 @@ export default defineConfig([
     outDir: "dist",
     format: ["cjs"],
     platform: "node",
-    target: "node20",
+    target: "node24",
     deps: {
       neverBundle: NATIVE_EXTERNALS as unknown as string[],
+      alwaysBundle: [...ELECTRON_SHELL_ALWAYS_BUNDLE],
     },
     sourcemap: true,
     env: {

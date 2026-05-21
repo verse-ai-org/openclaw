@@ -1,6 +1,6 @@
 # Bossim Gateway 生命周期
 
-本文档描述 Bossim（Electron 桌面端）如何启动、探测就绪、停止与重启 OpenClaw Gateway。实现集中在主进程 `apps/electron/src/main/gateway.ts`，由 `apps/electron/src/main/index.ts` 在应用启动/退出时调用。
+本文档描述 Bossim（Electron 桌面端）如何启动、探测就绪、停止与重启 OpenClaw Gateway。实现集中在主进程 `apps/electron/src/main/gateway/`（barrel：`gateway/index.ts`），由 `apps/electron/src/main/index.ts` 在应用启动/退出时调用。
 
 ---
 
@@ -11,7 +11,7 @@ Bossim **不在** Electron 进程内跑 Gateway，而是通过 `child_process.sp
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Bossim 主进程 (Electron)                                      │
-│  index.ts → gateway.ts                                       │
+│  index.ts → gateway/ (lifecycle, spawn, …)                   │
 │    · patchConfigForElectron()                                  │
 │    · startGateway() / stopGateway() / restartGateway()         │
 │    · gatewayProcess: ChildProcess | null                       │
@@ -34,7 +34,7 @@ Bossim **不在** Electron 进程内跑 Gateway，而是通过 `child_process.sp
 
 | 组件 | 路径 / 说明 |
 |------|-------------|
-| Gateway 管理逻辑 | `apps/electron/src/main/gateway.ts` |
+| Gateway 管理逻辑 | `apps/electron/src/main/gateway/` |
 | 应用入口与 quit 钩子 | `apps/electron/src/main/index.ts` |
 | 捆绑 Node | `Resources/node/node`（Windows 为 `node.exe`） |
 | OpenClaw 入口 | `Resources/openclaw/openclaw.mjs` |
@@ -167,7 +167,7 @@ node openclaw.mjs gateway run --port <port> --allow-unconfigured [--force]
 | `OPENCLAW_GATEWAY_TOKEN` | 认证 token（不进 argv） |
 | `OPENCLAW_GATEWAY_PORT` | 端口 |
 | `OPENCLAW_NO_RESPAWN=1` | 禁止 Gateway 自行 fork/launchd 复活；由 Bossim 管生命周期 |
-| `PATH` | 前置 bundled `Resources/node`，便于 exec 找到 node |
+| `PATH` | 后置 bundled `Resources/node` 作为兜底，优先使用用户系统 node |
 | `HOME` + login shell 快照 | macOS 打包应用从 GUI 启动时补全 API Key 等 |
 
 ### 5. 就绪等待 `waitForGatewayReady()`
@@ -352,14 +352,14 @@ netstat -ano | findstr :18789
 
 | 符号 | 文件 |
 |------|------|
-| `startGateway` | `gateway.ts` |
-| `spawnGateway` | `gateway.ts` |
-| `preFreeGatewayPort` | `gateway.ts` |
-| `waitForGatewayReady` | `gateway.ts` |
-| `noteChildGatewayReadySignal` | `gateway-ready-signal.ts` |
+| `startGateway` | `gateway/lifecycle.ts` |
+| `spawnGateway` | `gateway/spawn.ts` |
+| `preFreeGatewayPort` | `gateway/port.ts` |
+| `waitForGatewayReady` | `gateway/probe.ts` |
+| `noteChildGatewayReadySignal` | `gateway/ready-signal.ts` |
 | `approvePendingControlUiDevicePairing` | `device-pairing.ts` |
-| `stopGateway` / `restartGateway` | `gateway.ts` |
-| `warmLoginShellEnv` | `gateway.ts` |
+| `stopGateway` / `restartGateway` | `gateway/lifecycle.ts` |
+| `warmLoginShellEnv` | `gateway/shell-env.ts` |
 | `mergeElectronControlUiAllowedOrigins` | `control-ui-origins.ts` |
 | `patchConfigForElectron` | `index.ts` |
 | `before-quit` → `stopGateway` | `index.ts` |

@@ -2,7 +2,7 @@ import path from "node:path";
 import http from "node:http";
 import fs from "node:fs";
 import { app, BrowserWindow, shell, session, screen } from "electron";
-import { readExistingGatewayToken } from "./gateway.js";
+import { readExistingGatewayToken } from "./gateway/index.js";
 import { mainLogError, mainLogInfo, mainLogWarn } from "./logger.js";
 
 // ---------------------------------------------------------------------------

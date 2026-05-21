@@ -16,11 +16,8 @@ asarUnpack:
 
 # 将外部资源打包进 Resources/
 extraResources:
-  # 捆绑的 Node 24 二进制（由 download-node.sh 下载到 resources/node-${arch}/）
-  # macOS / Linux：可执行文件名为 node
-  - from: "resources/node-${arch}/node"
-    to: "node/node"
-    filter: ["!*.exe"]
+  # Electron 42+ 内嵌 Node 24.15.0，不再需要独立的 Node 二进制（省 ~114 MB）。
+  # Gateway 子进程通过 Electron 自身的 Node 运行时启动（见 src/main/gateway/）。
 
   # openclaw CLI 入口脚本
   - from: "../../openclaw.mjs"
@@ -37,8 +34,13 @@ extraResources:
       - "**/*"
       - "!**/*.map"        # 生产环境不需要 sourcemap
       - "!**/test*"
+      - "!**/*.d.ts"       # 类型声明仅供外部插件开发，运行时不需要
       # Electron 使用 ui-react（Resources/control-ui-react）；旧 Lit control-ui 仅 CLI 需要，不必打进 app
       - "!control-ui/**"
+      - "!control-ui-react/**"  # 已单独复制到 Resources/control-ui-react/，避免重复
+      - "!plugin-sdk/src/**"    # plugin-sdk 类型源文件（纯 .d.ts），运行时不需要
+      - "!plugin-sdk/packages/**"
+      - "!plugin-sdk/.tsbuildinfo"
 
   # 运行时原生依赖（tsdown bundle 已内联大部分 JS 依赖，此处仅含含 .node 绑定的原生模块）
   # 由 package-electron.sh 中的 pnpm deploy --prod + 精简过滤展开到 resources/prod-node_modules/
@@ -95,142 +97,25 @@ extraResources:
     to: "openclaw/docs/reference/templates"
     filter: ["**/*"]
 
-  # 全量扩展（所有 extensions/* 均打包进安装包，后续按需裁剪包体积）
+  # Bundled plugin runtime overlays（由 pnpm build → runtime-postbuild 生成）。
+  # 包含所有 bundled extensions 的编译产物 + overlay wrappers，替代逐个复制源码目录。
+  # 新增 extension 无需修改此文件，只要 tsdown.config.ts 中注册即可自动打包。
+  - from: "../../dist-runtime"
+    to: "openclaw/dist-runtime"
+    filter:
+      - "**/*"
+      - "!**/*.map"
+      - "!**/*.d.ts"
 
-  # 基础设施
-  - from: "../../extensions/memory-core"
-    to: "openclaw/extensions/memory-core"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/memory-lancedb"
-    to: "openclaw/extensions/memory-lancedb"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/device-pair"
-    to: "openclaw/extensions/device-pair"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/shared"
-    to: "openclaw/extensions/shared"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/diagnostics-otel"
-    to: "openclaw/extensions/diagnostics-otel"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/diffs"
-    to: "openclaw/extensions/diffs"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/llm-task"
-    to: "openclaw/extensions/llm-task"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/lobster"
-    to: "openclaw/extensions/lobster"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/open-prose"
-    to: "openclaw/extensions/open-prose"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/thread-ownership"
-    to: "openclaw/extensions/thread-ownership"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/test-utils"
-    to: "openclaw/extensions/test-utils"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-
-  # AI Provider 认证
-  - from: "../../extensions/qwen-portal-auth"
-    to: "openclaw/extensions/qwen-portal-auth"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/minimax-portal-auth"
-    to: "openclaw/extensions/minimax-portal-auth"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/google-gemini-cli-auth"
-    to: "openclaw/extensions/google-gemini-cli-auth"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/copilot-proxy"
-    to: "openclaw/extensions/copilot-proxy"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-
-  # 消息通道
-  - from: "../../extensions/telegram"
-    to: "openclaw/extensions/telegram"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/discord"
-    to: "openclaw/extensions/discord"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+  # Extensions excluded from core tsdown build (bundledDist: false or
+  # EXCLUDED_CORE_BUNDLED_PLUGIN_DIRS) but still needed at runtime — shipped
+  # as source, loaded via jiti.
   - from: "../../extensions/slack"
     to: "openclaw/extensions/slack"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/signal"
-    to: "openclaw/extensions/signal"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
+    filter: ["**/*", "!node_modules/**", "!**/*.map", "!**/*.test.*", "!tsconfig.json"]
   - from: "../../extensions/whatsapp"
     to: "openclaw/extensions/whatsapp"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/imessage"
-    to: "openclaw/extensions/imessage"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/matrix"
-    to: "openclaw/extensions/matrix"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/msteams"
-    to: "openclaw/extensions/msteams"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/feishu"
-    to: "openclaw/extensions/feishu"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/openclaw-weixin"
-    to: "openclaw/extensions/openclaw-weixin"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/googlechat"
-    to: "openclaw/extensions/googlechat"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/irc"
-    to: "openclaw/extensions/irc"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/line"
-    to: "openclaw/extensions/line"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/mattermost"
-    to: "openclaw/extensions/mattermost"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/nextcloud-talk"
-    to: "openclaw/extensions/nextcloud-talk"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  # - from: "../../extensions/nostr"
-  #   to: "openclaw/extensions/nostr"
-  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  # - from: "../../extensions/synology-chat"
-  #   to: "openclaw/extensions/synology-chat"
-  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  # tlon: 依赖 git 依赖 @tloncorp/api，生产环境无法可靠安装，暂不打包
-  # - from: "../../extensions/twitch"
-  #   to: "openclaw/extensions/twitch"
-  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  # - from: "../../extensions/zalo"
-  #   to: "openclaw/extensions/zalo"
-  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  # - from: "../../extensions/zalouser"
-  #   to: "openclaw/extensions/zalouser"
-  #   filter: ["**/*", "!node_modules/**", "!**/*.map"]
-
-  # 语音 / 设备控制
-  - from: "../../extensions/voice-call"
-    to: "openclaw/extensions/voice-call"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/talk-voice"
-    to: "openclaw/extensions/talk-voice"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  - from: "../../extensions/phone-control"
-    to: "openclaw/extensions/phone-control"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  # acpx: 已确认为 npm public 包（v0.3.1），加回打包
-  - from: "../../extensions/acpx"
-    to: "openclaw/extensions/acpx"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-  # tlon: 依赖 git 依赖 @tloncorp/api，生产环境无法可靠安装，暂不打包
-  - from: "../../extensions/bluebubbles"
-    to: "openclaw/extensions/bluebubbles"
-    filter: ["**/*", "!node_modules/**", "!**/*.map"]
-
-  # Control UI 构建产物
-  # - from: "../../dist/control-ui"
-  #   to: "control-ui"
+    filter: ["**/*", "!node_modules/**", "!**/*.map", "!**/*.test.*", "!tsconfig.json"]
 
   # ui-react Setup Wizard 构建产物
   - from: "../../dist/control-ui-react"
@@ -247,8 +132,11 @@ publish:
 # 为所有通道生成更新文件（beta/alpha/latest），让 electron-updater 能正确识别版本
 generateUpdatesFilesForAllChannels: true
 
-# Windows: patch exe icon via rcedit (see scripts/patch-win-exe-icon.cjs)
-afterPack: scripts/patch-win-exe-icon.cjs
+# Runtime node_modules live in extraResources; skip pnpm workspace tree walk (EMFILE on large monorepos).
+beforeBuild: scripts/before-build.cjs
+
+# afterPack: node shim for packaged skills eligibility + Windows exe icon patch
+afterPack: scripts/after-pack.cjs
 # 公证 hook（签名完成后自动执行，需设置 APP_STORE_CONNECT_* 环境变量）
 afterSign: scripts/notarize.cjs
 
@@ -295,17 +183,14 @@ win:
   icon: resources/icon.ico
   # Do not use signAndEditExecutable: true without a working winCodeSign cache — it downloads
   # winCodeSign from GitHub and may fail on Windows (symlink privilege / network). Icon/metadata
-  # are applied in afterPack via scripts/patch-win-exe-icon.cjs (rcedit npm).
+  # are applied in afterPack via scripts/after-pack.cjs (rcedit npm).
   signAndEditExecutable: false
   # URL Scheme for OAuth callbacks (openclaw://oauth/callback?...)
   protocols:
     - name: OpenClaw OAuth
       schemes:
         - openclaw
-  extraResources:
-    # Windows：可执行文件名为 node.exe
-    - from: "resources/node-${arch}/node.exe"
-      to: "node/node.exe"
+  # Electron 42+ 内嵌 Node 24，Windows 不再需要独立 node.exe
   target:
     - target: nsis
       arch:

@@ -8,7 +8,7 @@ import {
   getGatewayToken,
   getGatewayPort,
   readExistingGatewayToken,
-} from "./gateway.js";
+} from "./gateway/index.js";
 import {
   isFirstLaunch,
   saveOnboardingConfig,

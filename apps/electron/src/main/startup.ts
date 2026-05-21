@@ -9,7 +9,7 @@ import {
   getGatewayPort,
   getGatewayToken,
   isGatewayHealthy,
-} from "./gateway.js";
+} from "./gateway/index.js";
 import { isFirstLaunch } from "./onboarding.js";
 import type { StartupPhasePayload, StartupPipelineResult } from "./startup-types.js";
 import { loadRendererPage, loadSplashPage } from "./window.js";

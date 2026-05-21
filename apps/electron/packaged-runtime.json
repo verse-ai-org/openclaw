@@ -14,38 +14,28 @@
     "@whiskeysockets/baileys",
     "jiti"
   ],
+
+  "_dependencyTiers": "Dependencies are organized into tiers for clarity. All tiers below are merged into a single flat install by generate-runtime-package.mjs. Only deferredDependencies are excluded from the default package.",
+
   "coreRuntimeDependencies": [
     "@agentclientprotocol/sdk",
-    "@aws-sdk/client-bedrock",
-    "@buape/carbon",
     "@clack/prompts",
-    "@discordjs/voice",
-    "@grammyjs/runner",
-    "@grammyjs/transformer-throttler",
+    "@google/genai",
     "@homebridge/ciao",
-    "@larksuiteoapi/node-sdk",
-    "@line/bot-sdk",
     "@lydell/node-pty",
-    "@mariozechner/pi-agent-core",
-    "@mariozechner/pi-ai",
-    "@mariozechner/pi-coding-agent",
-    "@mariozechner/pi-tui",
+    "@modelcontextprotocol/sdk",
     "@mozilla/readability",
-    "@sinclair/typebox",
-    "@slack/bolt",
-    "@slack/web-api",
-    "@whiskeysockets/baileys",
+    "@openclaw/proxyline",
+    "typebox",
     "ajv",
     "chalk",
     "chokidar",
     "cli-highlight",
     "commander",
     "croner",
-    "discord-api-types",
     "dotenv",
     "express",
     "file-type",
-    "grammy",
     "hono",
     "https-proxy-agent",
     "ipaddr.js",
@@ -54,28 +44,69 @@
     "linkedom",
     "long",
     "markdown-it",
-    "node-edge-tts",
-    "opusscript",
     "partial-json",
     "mammoth",
     "date-fns",
     "osc-progress",
     "pdf-parse",
     "pdfjs-dist",
-    "playwright-core",
-    "qrcode-terminal",
-    "sharp",
-    "sqlite-vec",
     "tar",
+    "quickjs-wasi",
+    "tokenjuice",
     "tslog",
     "undici",
+    "web-tree-sitter",
     "ws",
     "yaml",
     "zod",
-    "@napi-rs/canvas",
-    "qrcode",
-    "@anthropic-ai/sdk",
+    "jiti"
+  ],
 
+  "channelRuntimeDependencies": [
+    "@buape/carbon",
+    "@discordjs/voice",
+    "@grammyjs/runner",
+    "@grammyjs/transformer-throttler",
+    "@larksuiteoapi/node-sdk",
+    "@line/bot-sdk",
+    "@slack/bolt",
+    "@slack/web-api",
+    "@whiskeysockets/baileys",
+    "discord-api-types",
+    "grammy",
+    "matrix-js-sdk",
+    "nostr-tools",
+    "@twurple/api",
+    "@twurple/auth",
+    "@twurple/chat",
+    "qrcode-terminal",
+    "qrcode",
+    "web-push",
+    "zca-js"
+  ],
+
+  "providerRuntimeDependencies": [
+    "@aws-sdk/client-bedrock",
+    "@anthropic-ai/sdk",
+    "@earendil-works/pi-agent-core",
+    "@earendil-works/pi-ai",
+    "@earendil-works/pi-coding-agent",
+    "@earendil-works/pi-tui",
+    "google-auth-library",
+    "openai"
+  ],
+
+  "mediaRuntimeDependencies": [
+    "sharp",
+    "@napi-rs/canvas",
+    "music-metadata",
+    "node-edge-tts",
+    "opusscript",
+    "playwright-core",
+    "sqlite-vec"
+  ],
+
+  "observabilityRuntimeDependencies": [
     "@opentelemetry/api",
     "@opentelemetry/api-logs",
     "@opentelemetry/exporter-logs-otlp-proto",
@@ -86,33 +117,26 @@
     "@opentelemetry/sdk-metrics",
     "@opentelemetry/sdk-node",
     "@opentelemetry/sdk-trace-base",
-    "@opentelemetry/semantic-conventions",
-
-    "@pierre/diffs",
-
-    "google-auth-library",
-
-    "music-metadata",
-    "@vector-im/matrix-bot-sdk",
-
-    "openai",
-
-    "@microsoft/agents-hosting",
-
-    "nostr-tools",
-
-    "@twurple/api",
-    "@twurple/auth",
-    "@twurple/chat",
-
-    "zca-js",
-    "acpx"
+    "@opentelemetry/semantic-conventions"
   ],
-  "runtimeDependencies": [
+
+  "extensionRuntimeDependencies": [
+    "@pierre/diffs"
+  ],
+
+  "deferredDependencies": {
+    "_comment": "Heavy deps installed on-demand when the corresponding extension is first activated. Not included in the default Electron package to save ~380 MB.",
+    "acpx": {
+      "packages": ["acpx"],
+      "extension": "acpx",
+      "reason": "Transitive native binaries (@anthropic-ai/claude-agent-sdk-darwin-*, @zed-industries/codex-acp-darwin-*) add ~380 MB"
+    }
+  },
+
+  "nativeRuntimeDependencies": [
     "koffi",
     "@matrix-org/matrix-sdk-crypto-nodejs",
-    "@lancedb/lancedb",
-    "jiti"
+    "@lancedb/lancedb"
   ],
   "preinstalledExtensions": [
     "memory-core",
@@ -153,6 +177,7 @@
     "talk-voice",
     "phone-control",
     "acpx",
-    "bluebubbles"
+    "bluebubbles",
+    "speech-core"
   ]
 }
