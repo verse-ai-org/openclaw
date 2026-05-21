@@ -134,8 +134,8 @@ export async function loadHistoryFromGateway(params: {
     // Reset sending state when switching sessions to avoid stale running UI.
     chatState.setSending(false);
     chatState.setLastError(null);
+    chatState.setMessagesLoading(true);
   }
-  chatState.setMessagesLoading(true);
 
   try {
     const result = await client.request<ChatHistoryResponse>("chat.history", {
@@ -201,7 +201,7 @@ export async function loadHistoryFromGateway(params: {
       );
     }
   } finally {
-    if (requestSeq === historyRequestSeqRef.current) {
+    if (!silent && requestSeq === historyRequestSeqRef.current) {
       useChatStore.getState().setMessagesLoading(false);
     }
   }

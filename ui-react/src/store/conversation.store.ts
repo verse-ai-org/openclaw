@@ -19,8 +19,17 @@ export type HistoryPagingState = {
   loadingOlder: boolean;
 };
 
+function bumpThreadListGeneration(
+  generations: Record<string, number>,
+  threadId: ThreadId,
+): Record<string, number> {
+  return { ...generations, [threadId]: (generations[threadId] ?? 0) + 1 };
+}
+
 type ConversationStoreState = {
   byThread: Record<string, ConversationState>;
+  /** Bumped on full history snapshot apply; keys assistant-ui message list remounts. */
+  threadListGenerationByThread: Record<string, number>;
   historyPagingByThread: Record<string, HistoryPagingState>;
   applyEvents: (threadId: ThreadId, events: CanonicalChatEvent[]) => void;
   beginOutboundRun: (threadId: ThreadId, runId: RunId) => void;
@@ -39,6 +48,7 @@ type ConversationStoreState = {
 
 export const useConversationStore = create<ConversationStoreState>()((set) => ({
   byThread: {},
+  threadListGenerationByThread: {},
   historyPagingByThread: {},
 
   applyEvents: (threadId, events) =>
@@ -66,7 +76,13 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
         ts,
         messages: canonicalMessages,
       });
-      return { byThread: { ...state.byThread, [threadId]: next } };
+      return {
+        byThread: { ...state.byThread, [threadId]: next },
+        threadListGenerationByThread: bumpThreadListGeneration(
+          state.threadListGenerationByThread,
+          threadId,
+        ),
+      };
     }),
 
   setHistoryCanonicalSnapshot: (threadId, messages, ts = Date.now(), runs) =>
@@ -79,7 +95,13 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
         messages,
         ...(runs !== undefined ? { runs } : {}),
       });
-      return { byThread: { ...state.byThread, [threadId]: next } };
+      return {
+        byThread: { ...state.byThread, [threadId]: next },
+        threadListGenerationByThread: bumpThreadListGeneration(
+          state.threadListGenerationByThread,
+          threadId,
+        ),
+      };
     }),
 
   setHistoryPagingState: (threadId, next) =>

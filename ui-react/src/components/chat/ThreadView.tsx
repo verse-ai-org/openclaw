@@ -29,10 +29,15 @@ export const ThreadView: FC = () => {
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
   const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
   const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const threadListGeneration =
+    useConversationStore((s) => s.threadListGenerationByThread[activeSessionKey] ?? 0);
   const paging = useConversationStore((s) => s.historyPagingByThread[activeSessionKey]);
   const messages = conversation ? selectChatMessages(conversation) : [];
   const messageCount = messages.length;
-  const showMessageList = !messagesLoading || messageCount > 0;
+  // Hide the list while a full session history fetch is in flight (thread was reset).
+  // Post-run silent reloads keep the list mounted; snapshot generation keys remount instead.
+  const showMessageList = !messagesLoading && messageCount > 0;
+  const messageListKey = `${activeSessionKey}:${threadListGeneration}`;
 
   return (
     <ThreadPrimitive.Root
@@ -71,10 +76,10 @@ export const ThreadView: FC = () => {
           </AuiIf>
         )}
 
-        {/* Message list — keyed by sessionKey; omitted while cleared+loading (see showMessageList) to avoid useMessage / tapClientLookup races. */}
+        {/* Message list — keyed by session + snapshot generation; omitted while cleared+loading (see showMessageList) to avoid useMessage / tapClientLookup races. */}
         {showMessageList && (
           <ThreadPrimitive.Messages
-            key={activeSessionKey}
+            key={messageListKey}
             components={{
               UserMessage,
               UserEditComposer,

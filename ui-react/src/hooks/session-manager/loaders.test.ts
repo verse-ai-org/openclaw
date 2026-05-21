@@ -37,7 +37,11 @@ function resetChatState() {
     lastError: null,
   });
   useSessionsStore.setState({ sessions: [], defaults: null, loading: false });
-  useConversationStore.getState().resetThread("agent:travel:main");
+  useConversationStore.setState({
+    byThread: {},
+    threadListGenerationByThread: {},
+    historyPagingByThread: {},
+  });
 }
 
 describe("session-manager/loaders", () => {
@@ -101,6 +105,37 @@ describe("session-manager/loaders", () => {
 
     expect(useConversationStore.getState().byThread["agent:travel:main"]?.messageOrder.length).toBe(1);
     expect(useChatStore.getState().messagesLoading).toBe(false);
+  });
+
+  it("loadHistoryFromGateway silent reload does not toggle messagesLoading", async () => {
+    useConversationStore.getState().setHistoryCanonicalSnapshot("agent:travel:main", [
+      {
+        id: "m0",
+        role: "user",
+        createdAt: 0,
+        status: "complete",
+        parts: [{ type: "text", id: "p0", text: "hi" }],
+      },
+    ]);
+    const genBefore =
+      useConversationStore.getState().threadListGenerationByThread["agent:travel:main"] ?? 0;
+    const historyRequestSeqRef = { current: 0 };
+    const client = {
+      connected: true,
+      request: vi.fn(async () => ({ messages: [{ role: "assistant", text: "x" }] })),
+    };
+
+    await loadHistoryFromGateway({
+      client: client as never,
+      key: "agent:travel:main",
+      silent: true,
+      historyRequestSeqRef,
+    });
+
+    expect(useChatStore.getState().messagesLoading).toBe(false);
+    expect(
+      useConversationStore.getState().threadListGenerationByThread["agent:travel:main"],
+    ).toBe(genBefore + 1);
   });
 
   it("loadHistoryFromGateway drops stale response for switched session", async () => {
