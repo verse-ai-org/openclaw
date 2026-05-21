@@ -25,7 +25,7 @@ describe("mergeTurnUsageMeta", () => {
   });
 
   it("returns null when no usage or model", () => {
-    expect(mergeTurnUsageMeta(undefined, { role: "assistant" }, null)).toBeNull();
+    expect(mergeTurnUsageMeta(undefined, {}, null)).toBeNull();
   });
 });
 

@@ -2922,6 +2922,25 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
                 }
                 const existing = getRegisteredMemoryEmbeddingProvider(adapter.id);
                 if (existing) {
+                  // Non-activating status/diagnostic reloads re-run register() while the
+                  // active gateway registry is still present; same-owner re-registration
+                  // is idempotent and must not surface duplicate errors.
+                  if (existing.ownerPluginId === record.id) {
+                    const alreadyRecorded = registry.memoryEmbeddingProviders.some(
+                      (entry) =>
+                        entry.pluginId === record.id && entry.provider.id === adapter.id,
+                    );
+                    if (!alreadyRecorded) {
+                      registry.memoryEmbeddingProviders.push({
+                        pluginId: record.id,
+                        pluginName: record.name,
+                        provider: adapter,
+                        source: record.source,
+                        rootDir: record.rootDir,
+                      });
+                    }
+                    return;
+                  }
                   const ownerDetail = existing.ownerPluginId
                     ? ` (owner: ${existing.ownerPluginId})`
                     : "";

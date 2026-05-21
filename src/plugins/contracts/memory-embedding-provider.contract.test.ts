@@ -2,9 +2,17 @@ import {
   createPluginRegistryFixture,
   registerVirtualTestPlugin,
 } from "openclaw/plugin-sdk/plugin-test-contracts";
-import { describe, expect, it } from "vitest";
-import { getRegisteredMemoryEmbeddingProvider } from "../memory-embedding-providers.js";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  clearMemoryEmbeddingProviders,
+  getRegisteredMemoryEmbeddingProvider,
+  registerMemoryEmbeddingProvider,
+} from "../memory-embedding-providers.js";
 import { createPluginRecord } from "../status.test-helpers.js";
+
+afterEach(() => {
+  clearMemoryEmbeddingProviders();
+});
 
 describe("memory embedding provider registration", () => {
   it("rejects non-memory plugins that did not declare the capability contract", () => {
@@ -76,6 +84,76 @@ describe("memory embedding provider registration", () => {
     const provider = getRegisteredMemoryEmbeddingProvider("demo-embedding");
     expect(provider?.adapter.id).toBe("demo-embedding");
     expect(provider?.ownerPluginId).toBe("memory-core");
+  });
+
+  it("treats same-owner memory embedding re-registration as idempotent", () => {
+    registerMemoryEmbeddingProvider(
+      {
+        id: "openai",
+        create: async () => ({ provider: null }),
+      },
+      { ownerPluginId: "openai" },
+    );
+
+    const { config, registry } = createPluginRegistryFixture();
+
+    registerVirtualTestPlugin({
+      registry,
+      config,
+      id: "openai",
+      name: "OpenAI Provider",
+      contracts: {
+        memoryEmbeddingProviders: ["openai"],
+      },
+      register(api) {
+        api.registerMemoryEmbeddingProvider({
+          id: "openai",
+          create: async () => ({ provider: null }),
+        });
+      },
+    });
+
+    expect(
+      registry.registry.diagnostics.filter(
+        (entry) =>
+          entry.pluginId === "openai" &&
+          entry.message.includes("memory embedding provider already registered"),
+      ),
+    ).toEqual([]);
+    expect(getRegisteredMemoryEmbeddingProvider("openai")?.ownerPluginId).toBe("openai");
+    expect(registry.registry.memoryEmbeddingProviders).toHaveLength(1);
+  });
+
+  it("rejects memory embedding registration when another plugin already owns the adapter", () => {
+    registerMemoryEmbeddingProvider(
+      {
+        id: "shared-embedding",
+        create: async () => ({ provider: null }),
+      },
+      { ownerPluginId: "owner-a" },
+    );
+
+    const { config, registry } = createPluginRegistryFixture();
+
+    registerVirtualTestPlugin({
+      registry,
+      config,
+      id: "owner-b",
+      name: "Owner B",
+      contracts: {
+        memoryEmbeddingProviders: ["shared-embedding"],
+      },
+      register(api) {
+        api.registerMemoryEmbeddingProvider({
+          id: "shared-embedding",
+          create: async () => ({ provider: null }),
+        });
+      },
+    });
+
+    expect(
+      registry.registry.diagnostics.find((entry) => entry.pluginId === "owner-b")?.message,
+    ).toBe("memory embedding provider already registered: shared-embedding (owner: owner-a)");
   });
 
   it("keeps companion embedding providers available during tool discovery", () => {
