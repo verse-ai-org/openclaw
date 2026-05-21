@@ -12,8 +12,8 @@ import { mainLogError, mainLogInfo, mainLogWarn } from "./logger.js";
 // memory-core and other plugins to load normally.
 // ---------------------------------------------------------------------------
 
-let _staticServer: http.Server | null = null;
-let _staticServerPort = 0;
+let staticServer: http.Server | null = null;
+let staticServerPort = 0;
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -33,8 +33,8 @@ const MIME: Record<string, string> = {
 };
 
 export function startStaticServer(rootDir: string): Promise<number> {
-  if (_staticServer) {
-    return Promise.resolve(_staticServerPort);
+  if (staticServer) {
+    return Promise.resolve(staticServerPort);
   }
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
@@ -59,23 +59,23 @@ export function startStaticServer(rootDir: string): Promise<number> {
     });
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address() as { port: number };
-      _staticServerPort = addr.port;
-      _staticServer = server;
-      wlog(`[window] static server listening on http://127.0.0.1:${_staticServerPort}`);
-      resolve(_staticServerPort);
+      staticServerPort = addr.port;
+      staticServer = server;
+      wlog(`[window] static server listening on http://127.0.0.1:${staticServerPort}`);
+      resolve(staticServerPort);
     });
     server.on("error", reject);
   });
 }
 
 export function stopStaticServer(): void {
-  _staticServer?.close();
-  _staticServer = null;
-  _staticServerPort = 0;
+  staticServer?.close();
+  staticServer = null;
+  staticServerPort = 0;
 }
 
 export function getStaticServerPort(): number {
-  return _staticServerPort;
+  return staticServerPort;
 }
 
 function wlog(msg: string): void {

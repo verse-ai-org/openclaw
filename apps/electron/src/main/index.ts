@@ -32,6 +32,8 @@ import {
   startStaticServer,
 } from "./window.js";
 import { registerWizardIpc, unregisterWizardIpc } from "./ipc-wizard.js";
+import { approvePendingControlUiDevicePairing, approveDevicePairingByRequestId } from "./device-pairing.js";
+import { mergeElectronControlUiAllowedOrigins } from "./control-ui-origins.js";
 import { initAutoUpdater, checkForUpdates, quitAndInstall } from "./updater.js";
 import {
   runStartupPipeline,
@@ -233,6 +235,21 @@ ipcMain.handle("gateway:info", () => {
   };
 });
 
+// IPC：Electron 渲染进程请求主进程批准设备配对（loopback 桌面场景）
+ipcMain.handle("gateway:approveDevicePairing", async (_, requestId?: string) => {
+  const port = getGatewayPort();
+  const token = readExistingGatewayToken() || getGatewayToken();
+  const trimmed = typeof requestId === "string" ? requestId.trim() : "";
+  try {
+    const ok = trimmed
+      ? await approveDevicePairingByRequestId({ port, token, requestId: trimmed })
+      : await approvePendingControlUiDevicePairing({ port, token });
+    return { ok };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 // IPC：渲染进程写调试日志到 ~/.openclaw/electron-onboarding.log
 ipcMain.handle("onboarding:writeDebugLog", async (_, message: string) => {
   await writeDebugLog(`[renderer] ${message}`);
@@ -244,7 +261,12 @@ ipcMain.handle("onboarding:saveConfig", async (_, cfg: OnboardingConfig) => {
     `[main] saveOnboardingConfig called: ${JSON.stringify(cfg).slice(0, 200)}`,
   );
   try {
-    await saveOnboardingConfig(cfg);
+    const gatewayToken =
+      cfg.gatewayToken?.trim() ||
+      readExistingGatewayToken() ||
+      getGatewayToken() ||
+      sessionTokenForStartup;
+    await saveOnboardingConfig({ ...cfg, gatewayToken });
     await writeDebugLog("[main] saveOnboardingConfig: success");
     return { ok: true };
   } catch (err) {
@@ -316,15 +338,21 @@ ipcMain.handle("app:install-update", async () => {
 });
 
 // IPC：Onboarding 完成，切换到 ui-react 主界面
-ipcMain.handle("onboarding:complete", () => {
+ipcMain.handle("onboarding:complete", async () => {
   mlog("[main] Onboarding 完成，切换到 ui-react 主界面");
-  // 注销 wizard IPC 并关闭 WS 连接
   unregisterWizardIpc();
-  // 同一窗口切换到 ui-react 主界面，注入 Gateway 连接信息
+  const port = getGatewayPort();
+  const token = readExistingGatewayToken() || getGatewayToken();
   if (mainWindow) {
     loadRendererPage(mainWindow, "index", {
-      port: getGatewayPort(),
-      token: getGatewayToken(),
+      port,
+      token,
+    });
+    // Do not block UI navigation; pairing request is created after renderer connects.
+    void approvePendingControlUiDevicePairing({ port, token }).then((approved) => {
+      mlog(
+        `[main] device pairing auto-approve: ${approved ? "approved" : "no pending request"}`,
+      );
     });
   }
   return { ok: true };
@@ -438,29 +466,28 @@ function patchConfigForElectron(staticServerPort: number): void {
       );
     }
 
-    // 2. Add controlUi.allowedOrigins — static server origin + loopback + file:// fallback
+    // 2. Merge controlUi.allowedOrigins — keep canonical origins, prune stale static ports
     const gw = (cfg.gateway ?? {}) as Record<string, unknown>;
     const gatewayPort = typeof gw.port === "number" ? gw.port : 18789;
     const controlUi = (gw.controlUi ?? {}) as Record<string, unknown>;
     const existing = Array.isArray(controlUi.allowedOrigins)
       ? (controlUi.allowedOrigins as string[])
       : [];
-    const needed = [
-      `http://127.0.0.1:${gatewayPort}`,
-      `http://localhost:${gatewayPort}`,
-      "file://",
-      ...(staticServerPort > 0 ? [`http://127.0.0.1:${staticServerPort}`] : []),
-    ];
-    const merged = Array.from(new Set([...existing, ...needed]));
+    const merged = mergeElectronControlUiAllowedOrigins({
+      existing,
+      gatewayPort,
+      staticServerPort,
+      devUiUrl: process.env.VITE_UI_REACT_URL,
+    });
     if (
       merged.length !== existing.length ||
-      needed.some((o) => !existing.includes(o))
+      merged.some((origin, index) => origin !== existing[index])
     ) {
       gw.controlUi = { ...controlUi, allowedOrigins: merged };
       cfg.gateway = gw;
       dirty = true;
       mlog(
-        `[main] patchConfigForElectron: updated controlUi.allowedOrigins=${JSON.stringify(merged)}`,
+        `[main] patchConfigForElectron: updated controlUi.allowedOrigins (${existing.length} → ${merged.length})`,
       );
     }
 

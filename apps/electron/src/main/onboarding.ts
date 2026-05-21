@@ -10,6 +10,8 @@ import {
   OAUTH_METHOD_PROVIDER_OVERRIDE,
   OAUTH_METHOD_BASE_URL_OVERRIDE,
 } from "./onboarding-providers.js";
+import { mergeElectronControlUiAllowedOrigins } from "./control-ui-origins.js";
+import { getStaticServerPort } from "./window.js";
 
 /**
  * 解析 openclaw 配置文件路径。
@@ -263,8 +265,7 @@ export function buildOpenClawConfig(
           providers: {
             ...existingProviders,
             [provider]: {
-              ...((existingProviders[provider] as Record<string, unknown>) ??
-                {}),
+              ...(existingProviders[provider] as Record<string, unknown>),
               baseUrl: providerBaseUrlOverride ?? providerCfg.baseUrl,
               api: providerCfg.api,
               ...(providerCfg.authHeader ? { authHeader: true } : {}),
@@ -294,10 +295,7 @@ export function buildOpenClawConfig(
       models: {
         ...existingAgentModels,
         [primaryModelId]: {
-          ...((existingAgentModels?.[primaryModelId] as Record<
-            string,
-            unknown
-          >) ?? {}),
+          ...(existingAgentModels?.[primaryModelId] as Record<string, unknown>),
           alias: modelId,
         },
       },
@@ -315,7 +313,7 @@ export function buildOpenClawConfig(
   const authSection = {
     ...existingAuthSection,
     profiles: {
-      ...((existingAuthSection?.profiles as Record<string, unknown>) ?? {}),
+      ...(existingAuthSection?.profiles as Record<string, unknown>),
       [`${provider}:default`]: isOAuthMethod
         ? { provider, mode: "oauth" }
         : { provider, mode: "api_key" },
@@ -394,10 +392,13 @@ export function buildOpenClawConfig(
     existingWithoutPluginSlots.plugins = pluginsWithoutSlots;
   }
 
+  const existingControlUi = existingGw?.controlUi as Record<string, unknown> | undefined;
+  const existingAllowedOrigins = existingControlUi?.allowedOrigins;
+
   return {
     ...existingWithoutPluginSlots,
     wizard: {
-      ...((existing.wizard as Record<string, unknown>) ?? {}),
+      ...(existing.wizard as Record<string, unknown>),
       lastRunAt: new Date().toISOString(),
       lastRunVersion: "electron",
       lastRunCommand: "onboard",
@@ -410,13 +411,15 @@ export function buildOpenClawConfig(
       bind: cfg.gatewayBind ?? "loopback",
       auth: { mode: "token", token: gatewayToken },
       controlUi: {
-        ...((existingGw?.controlUi as Record<string, unknown>) ?? {}),
-        // Allow Electron renderer (file:// with injected loopback Origin) to connect.
-        allowedOrigins: [
-          `http://127.0.0.1:${cfg.gatewayPort ?? 18789}`,
-          `http://localhost:${cfg.gatewayPort ?? 18789}`,
-          `file://`,
-        ],
+        ...existingControlUi,
+        allowedOrigins: mergeElectronControlUiAllowedOrigins({
+          existing: Array.isArray(existingAllowedOrigins)
+            ? (existingAllowedOrigins as string[])
+            : [],
+          gatewayPort: cfg.gatewayPort ?? 18789,
+          staticServerPort: getStaticServerPort(),
+          devUiUrl: process.env.VITE_UI_REACT_URL,
+        }),
       },
     },
     agents: agentsSection,

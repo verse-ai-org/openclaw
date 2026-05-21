@@ -13,7 +13,7 @@ import type { BrowserWindow } from "electron";
 import { stopGatewayForUpdate } from "./gateway.js";
 import { mainLogNote, mainLogWarn } from "./logger.js";
 
-let _mainWindow: BrowserWindow | null = null;
+let updaterMainWindow: BrowserWindow | null = null;
 
 function updaterLog(message: string): void {
   mainLogNote(message);
@@ -26,7 +26,7 @@ function updaterLog(message: string): void {
  * @param mainWindow  主窗口引用，用于向渲染进程发送 IPC 消息
  */
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
-  _mainWindow = mainWindow;
+  updaterMainWindow = mainWindow;
 
   // 关闭自动下载，改为手动触发，避免在用户不知情的情况下占用带宽
   autoUpdater.autoDownload = false;
@@ -67,7 +67,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   autoUpdater.on("update-downloaded", (info: UpdateInfo) => {
     updaterLog(`[updater] 新版本 ${info.version} 下载完成，通知渲染进程`);
     // 通知渲染进程，由 UI 展示"重启安装"提示条
-    _mainWindow?.webContents.send("app:update-ready", {
+    updaterMainWindow?.webContents.send("app:update-ready", {
       version: info.version,
       releaseNotes: info.releaseNotes ?? "",
     });

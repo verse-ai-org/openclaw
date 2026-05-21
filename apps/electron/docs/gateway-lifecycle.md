@@ -177,7 +177,11 @@ node openclaw.mjs gateway run --port <port> --allow-unconfigured [--force]
 **成功条件**（同时满足）：
 
 1. `/health` 返回 HTTP 2xx（`res.ok`）。
-2. 子进程 stdout 已出现 `listening on ws://`（`childWaitState.sawListening`），避免误判残留进程。
+2. 子进程 **stdout 或 stderr** 已出现就绪日志（`childWaitState.sawListening`），匹配任一：
+   - `listening on ws://`（旧版 Gateway）
+   - `http server listening`（当前 Gateway，常出现在 stderr）
+   
+   避免仅凭 `/health` 误判残留进程。ANSI 颜色码会先剥离再匹配。
 
 **超时**：
 
@@ -239,10 +243,20 @@ node openclaw.mjs gateway run --port <port> --allow-unconfigured [--force]
 http://127.0.0.1:<staticPort>/?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=<token>
 ```
 
-- **staticPort**：每次启动随机（仅打包）；会追加到 `gateway.controlUi.allowedOrigins`。
-- **token**：有配置用 `gateway.auth.token`；无配置用当次 `sessionToken`（向导写入后应与文件一致）。
+- **staticPort**：每次启动随机（仅打包）；启动时会写入 `gateway.controlUi.allowedOrigins`，并** prune 掉**历次残留的 `http://127.0.0.1:<旧端口>`，只保留当前静态端口。
+- **token**：有配置用 `gateway.auth.token`；无配置用当次 `sessionToken`（向导 `saveOnboardingConfig` 会复用同一 token，避免 setup 与主界面 token 不一致）。
 
 `getGatewayToken()` 在 reuse 外部 Gateway 时会从磁盘重新读 token；自管子进程用内存缓存。
+
+### 首次 onboarding 后的设备配对（Control UI）
+
+OpenClaw Gateway 要求 Control UI 携带 device identity 并完成 pairing。Electron 在 loopback 桌面场景自动批准：
+
+1. **主进程** `device-pairing.ts`：以 `gateway-client` / `backend` + shared token 连接（保留 `operator.admin` / `operator.pairing` scopes），轮询 `device.pair.list` 并调用 `device.pair.approve`。
+2. **渲染进程** `use-gateway.ts`：若 WS 关闭原因为 `pairing required … (requestId: …)`，经 IPC `gateway:approveDevicePairing` 触发主进程批准并重连。
+3. 两条路径共用 **single-flight**，避免竞态；`unknown requestId` 视为已批准。
+
+开发模式下 `onboarding.ts` 会把 `VITE_UI_REACT_URL`（如 `http://localhost:5174`）写入 `gateway.controlUi.allowedOrigins`。
 
 子进程崩溃且非 intentional stop 时，主进程 `webContents.send("gateway:crashed", …)`。
 
@@ -255,7 +269,9 @@ http://127.0.0.1:<staticPort>/?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=<to
 ```
 [gateway][spawn-gateway] port=18789 force=true …
 [gateway][spawned] pid=… port=18789
-[gateway:stdout] … listening on ws://127.0.0.1:18789 …   # 以及 Doctor warnings 等
+[gateway:stdout] … listening on ws://127.0.0.1:18789 …   # 旧版
+# 或
+[gateway:stderr] … http server listening …                 # 当前常见
 [gateway][ready] port=18789
 [startup] gateway started
 [startup] ready elapsed=…ms
@@ -290,10 +306,12 @@ http://127.0.0.1:<staticPort>/?gatewayUrl=ws%3A%2F%2F127.0.0.1%3A18789&token=<to
 |------|----------|------|
 | `Gateway 未能在 …ms 内就绪` | 冷启动超时、配置无效、插件加载失败 | 查 `[gateway:stderr]`、`/tmp/openclaw/openclaw-*.log` |
 | `子进程已退出` + stderr | lock 冲突、端口占用、配置校验失败 | 同上；手动 `lsof -i :18789` / `netstat` |
-| UI `1006` 反复重连 | 旧逻辑误 reuse；或 Gateway 未 listening | 确认日志有 `pre-free-port` + `listening` 在 `ready` 前 |
+| UI `1006` 反复重连 | 旧逻辑误 reuse；或 Gateway 未 listening | 确认日志有 `pre-free-port` + 就绪日志在 `ready` 前 |
+| UI `pairing required` 后无法连接 | 主进程未批准 device pairing | 查 `[device-pairing] approved`；手动 `openclaw devices approve --latest` |
+| `[device-pairing] auto-approve failed: missing scope` | pairing RPC 用了 UI client 导致 scopes 被清空 | 应使用 `gateway-client`/`backend`（见 `device-pairing.ts`） |
 | 退出再连不上 | 旧版 reuse 残留 Gateway | 确认无 `reuse-gateway`；应有 `spawn-gateway` |
 | `Missing Control UI assets` | 打包未含 `dist/control-ui` | 预期内；UI 用 `control-ui-react`，不影响 WS |
-| `allowedOrigins` 列表很长 | 每次静态端口追加 | 无害；可考虑后续去重逻辑 |
+| `allowedOrigins` 列表变长 | 旧版每次启动只追加不清理 | 现已 prune 陈旧 `127.0.0.1` 静态端口；可手动删掉历史项后重启一次 |
 
 手动检查端口：
 
@@ -313,6 +331,7 @@ netstat -ano | findstr :18789
 | IPC / 函数 | 说明 |
 |------------|------|
 | `gateway:info` | 返回当前 port、token、wsUrl |
+| `gateway:approveDevicePairing` | 批准 pending device pairing（可选 `requestId`） |
 | `gateway:restart` / `gateway:manual-restart` | 见上文 |
 | `patchConfigForElectron()` | 启动前写 `controlUi.allowedOrigins`、处理 `plugins.slots.memory=none` 等 |
 
@@ -337,8 +356,11 @@ netstat -ano | findstr :18789
 | `spawnGateway` | `gateway.ts` |
 | `preFreeGatewayPort` | `gateway.ts` |
 | `waitForGatewayReady` | `gateway.ts` |
+| `noteChildGatewayReadySignal` | `gateway-ready-signal.ts` |
+| `approvePendingControlUiDevicePairing` | `device-pairing.ts` |
 | `stopGateway` / `restartGateway` | `gateway.ts` |
 | `warmLoginShellEnv` | `gateway.ts` |
+| `mergeElectronControlUiAllowedOrigins` | `control-ui-origins.ts` |
 | `patchConfigForElectron` | `index.ts` |
 | `before-quit` → `stopGateway` | `index.ts` |
 

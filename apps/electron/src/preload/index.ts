@@ -56,6 +56,12 @@ contextBridge.exposeInMainWorld("electronBridge", {
   getGatewayInfo: (): Promise<{ port: number; token: string; wsUrl: string }> =>
     ipcRenderer.invoke("gateway:info"),
 
+  /** Loopback desktop: approve a pending device pairing request */
+  approveDevicePairing: (
+    requestId?: string,
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("gateway:approveDevicePairing", requestId),
+
   /**
    * 监听 Gateway 正在重启事件
    * callback 参数：{ attempt: number, maxAttempts: number }

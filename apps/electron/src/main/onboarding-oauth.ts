@@ -17,7 +17,6 @@
  */
 
 import { generatePkce } from "./oauth-utils.js";
-import { randomBytes } from "node:crypto";
 import { shell } from "electron";
 import {
   startDeviceCodeFlow,

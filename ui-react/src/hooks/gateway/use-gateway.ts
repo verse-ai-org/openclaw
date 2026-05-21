@@ -2,6 +2,16 @@ import { useCallback, useEffect, useRef } from "react";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { GatewayClient } from "./client";
+import { parsePairingRequestId } from "./pairing-reason";
+
+type ElectronGatewayBridge = {
+  approveDevicePairing?: (requestId?: string) => Promise<{ ok: boolean; error?: string }>;
+};
+
+function getElectronGatewayBridge(): ElectronGatewayBridge | null {
+  const bridge = (window as unknown as { electronBridge?: ElectronGatewayBridge }).electronBridge;
+  return bridge?.approveDevicePairing ? bridge : null;
+}
 
 export function useGateway() {
   const settings = useSettingsStore((s) => s.settings);
@@ -30,6 +40,7 @@ export function useGateway() {
   setConnectingRef.current = setConnecting;
 
   const connect = useCallback(() => {
+    clientRef.current?.stop();
     console.log(
       "[gateway] connect() called | prev client serial=",
       (clientRef.current as (GatewayClient & { serial?: number }) | null)?.serial ??
@@ -52,6 +63,31 @@ export function useGateway() {
         console.log(
           `[gateway] closed code=${info.code} reason=${info.reason || "(none)"} errorCode=${info.error?.code ?? "(none)"} errorMsg=${info.error?.message ?? "(none)"}`,
         );
+        const reason = info.reason ?? "";
+        const requestId = parsePairingRequestId(reason);
+        const electronBridge = getElectronGatewayBridge();
+        if (requestId && electronBridge) {
+          void electronBridge
+            .approveDevicePairing!(requestId)
+            .then((result) => {
+              if (result.ok) {
+                console.log(`[gateway] device pairing approved requestId=${requestId}`);
+                connect();
+                return;
+              }
+              console.warn(
+                `[gateway] device pairing approve failed requestId=${requestId}`,
+                result.error ?? "",
+              );
+              // Background auto-approve may have won the race; retry connect once.
+              connect();
+            })
+            .catch((err) => {
+              console.warn("[gateway] device pairing approve threw", err);
+              storeRef.current.setDisconnected(info);
+            });
+          return;
+        }
         storeRef.current.setDisconnected(info);
       },
       onEvent: (evt) => storeRef.current.handleEvent(evt),

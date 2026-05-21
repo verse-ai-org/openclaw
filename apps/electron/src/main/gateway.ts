@@ -13,6 +13,7 @@ import {
   shouldLogGatewayStdoutLine,
   stripAnsi,
 } from "./logger.js";
+import { noteChildGatewayReadySignal } from "./gateway-ready-signal.js";
 
 type GatewayLogKind = "info" | "note" | "warn";
 
@@ -191,7 +192,7 @@ const DEFAULT_GATEWAY_PORT = 18789;
  * Cache for the login shell environment variables.
  * Populated once at startup; undefined means not yet resolved.
  */
-let _loginShellEnv: Record<string, string> | null = null;
+let loginShellEnv: Record<string, string> | null = null;
 
 /**
  * Reads environment variables from the user's login shell (bash -l).
@@ -202,12 +203,12 @@ let _loginShellEnv: Record<string, string> | null = null;
  * as a baseline, so the fallback is safe.
  */
 async function resolveLoginShellEnv(): Promise<Record<string, string>> {
-  if (_loginShellEnv !== null) {
-    return _loginShellEnv;
+  if (loginShellEnv !== null) {
+    return loginShellEnv;
   }
   if (process.platform === "win32") {
-    _loginShellEnv = {};
-    return _loginShellEnv;
+    loginShellEnv = {};
+    return loginShellEnv;
   }
   return new Promise((resolve) => {
     // Use login shell so ~/.zshrc / ~/.bash_profile / ~/.profile are sourced.
@@ -231,7 +232,7 @@ async function resolveLoginShellEnv(): Promise<Record<string, string>> {
           result[key] = val;
         }
       }
-      _loginShellEnv = result;
+      loginShellEnv = result;
       mainLogInfo(
         `[gateway] resolveLoginShellEnv: loaded ${Object.keys(result).length} vars from login shell`,
       );
@@ -239,7 +240,7 @@ async function resolveLoginShellEnv(): Promise<Record<string, string>> {
     });
     child.on("error", (err) => {
       mainLogError("[gateway] resolveLoginShellEnv failed:", err);
-      _loginShellEnv = {};
+      loginShellEnv = {};
       resolve({});
     });
   });
@@ -423,15 +424,9 @@ async function preFreeGatewayPort(port: number): Promise<void> {
 type GatewayChildWaitState = {
   stderrLines: string[];
   exit: { code: number | null; signal: NodeJS.Signals | null } | null;
-  /** Set when child logs "listening on ws://…" */
+  /** Set when the child logs a gateway listen-ready line (stdout or stderr). */
   sawListening: boolean;
 };
-
-function noteChildGatewayOutput(state: GatewayChildWaitState, text: string): void {
-  if (/listening on ws:\/\//i.test(text)) {
-    state.sawListening = true;
-  }
-}
 
 function appendChildStderr(state: GatewayChildWaitState, chunk: string): void {
   for (const line of chunk.split("\n")) {
@@ -464,7 +459,7 @@ function formatGatewayChildExitError(
 }
 
 /** Optional callback invoked when the self-managed Gateway process crashes unexpectedly. */
-let _onGatewayCrash:
+let gatewayCrashCallback:
   | ((code: number | null, signal: NodeJS.Signals | null) => void)
   | null = null;
 
@@ -477,15 +472,15 @@ let _onGatewayCrash:
 export function onGatewayCrash(
   cb: (code: number | null, signal: NodeJS.Signals | null) => void,
 ): void {
-  _onGatewayCrash = cb;
+  gatewayCrashCallback = cb;
 }
 
 /** Set to true just before a deliberate SIGTERM so exit handler can distinguish. */
-let _intentionalStop = false;
+let intentionalStop = false;
 let gatewayProcess: ChildProcess | null = null;
 let gatewayToken = "";
 /** 当前实际使用的 Gateway 端口 */
-let _activePort = DEFAULT_GATEWAY_PORT;
+let activePort = DEFAULT_GATEWAY_PORT;
 /** 是否复用了外部已有的 Gateway（不由 Electron 管理） */
 let reusingExternalGateway = false;
 
@@ -665,7 +660,7 @@ async function isGatewayRunning(port: number): Promise<boolean> {
 
 /** HTTP /health probe for activate / skip-splash heuristics. */
 export async function isGatewayHealthy(port?: number): Promise<boolean> {
-  const p = port ?? _activePort;
+  const p = port ?? activePort;
   return probeGatewayHttpReady(p, 1500);
 }
 
@@ -744,7 +739,7 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
         logEvent("reuse-gateway", { port: configPort }, "note");
         report?.("Connecting to existing service…");
         reusingExternalGateway = true;
-        _activePort = configPort;
+        activePort = configPort;
         return;
       }
     } else if (await isGatewayRunning(configPort)) {
@@ -766,7 +761,7 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
       },
       "note",
     );
-    _activePort = configPort;
+    activePort = configPort;
     await spawnGateway({
       port: configPort,
       token: existingToken,
@@ -776,13 +771,13 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
   } else {
     const port = opts.port ?? DEFAULT_GATEWAY_PORT;
     gatewayToken = opts.token;
-    _activePort = port;
+    activePort = port;
     const force = shouldForceGatewaySpawn();
     logEvent("spawn-gateway", { port, force, reason: "no-config-token" }, "note");
     await spawnGateway({ port, token: opts.token, force, onProgress: report });
   }
 
-  logEvent("start-gateway", { phase: "complete", port: _activePort }, "note");
+  logEvent("start-gateway", { phase: "complete", port: activePort }, "note");
 }
 
 async function spawnGateway(opts: {
@@ -834,7 +829,7 @@ async function spawnGateway(opts: {
   // variables set in ~/.zshrc / ~/.bash_profile (API keys, custom PATH, etc.)
   // are visible to the Gateway subprocess. process.env takes precedence over
   // the shell snapshot so any explicit Electron env overrides are preserved.
-  const shellEnv = _loginShellEnv ?? {};
+  const shellEnv = loginShellEnv ?? {};
 
   // Ensure bundled Node is discoverable by runtime exec commands.
   // This makes `exec` commands like `node script.mjs` work in packaged apps
@@ -882,12 +877,13 @@ async function spawnGateway(opts: {
 
   gatewayProcess.stdout?.on("data", (data: Buffer) => {
     const text = data.toString();
-    noteChildGatewayOutput(childWaitState, text);
+    noteChildGatewayReadySignal(childWaitState, text);
     writeChildStream("stdout", text);
   });
 
   gatewayProcess.stderr?.on("data", (data: Buffer) => {
     const text = data.toString();
+    noteChildGatewayReadySignal(childWaitState, text);
     appendChildStderr(childWaitState, text);
     writeChildStream("stderr", text);
   });
@@ -902,7 +898,7 @@ async function spawnGateway(opts: {
     gatewayProcess = null;
     // Distinguish deliberate stop (SIGTERM from stopGateway) from unexpected crashes.
     // Reusing an external Gateway is never managed by us, so no crash notification.
-    if (!_intentionalStop && !reusingExternalGateway) {
+    if (!intentionalStop && !reusingExternalGateway) {
       // code=0 means Gateway exited cleanly — this normally shouldn't happen
       // when OPENCLAW_NO_RESPAWN=1 is set (in-process restart keeps the
       // process alive). Guard against edge cases (e.g. older Gateway binary)
@@ -916,9 +912,9 @@ async function spawnGateway(opts: {
         },
         "warn",
       );
-      _onGatewayCrash?.(code, signal);
+      gatewayCrashCallback?.(code, signal);
     }
-    _intentionalStop = false;
+    intentionalStop = false;
   });
 
   gatewayProcess.on("error", (err) => {
@@ -980,7 +976,7 @@ export function stopGateway(): void {
     return;
   }
   mainLogNote(`[gateway] stopping pid=${gatewayProcess.pid ?? "?"}`);
-  _intentionalStop = true;
+  intentionalStop = true;
   const proc = gatewayProcess;
   gatewayProcess = null;
   killGatewayChildProcess(proc);
@@ -999,7 +995,7 @@ export async function stopGatewayForUpdate(): Promise<void> {
     return;
   }
   mainLogNote(`[gateway] stopping for app update pid=${proc.pid ?? "?"}`);
-  _intentionalStop = true;
+  intentionalStop = true;
   gatewayProcess = null;
 
   const settleMs = process.platform === "win32" ? 2000 : 1000;
@@ -1022,7 +1018,7 @@ export async function stopGatewayForUpdate(): Promise<void> {
  * 若当前为复用外部 Gateway，则仍复用（不重启）。
  */
 export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
-  mainLogNote(`[gateway] restart begin port=${_activePort}`);
+  mainLogNote(`[gateway] restart begin port=${activePort}`);
   if (reusingExternalGateway && !app.isPackaged) {
     logEvent("restart", { status: "skipped", reason: "reusing-external" });
     return;
@@ -1035,7 +1031,7 @@ export async function restartGateway(opts: GatewayStartOptions): Promise<void> {
   // 重启时始终用 force=true，避免旧进程残留占端口。
   // 同时直接用 spawnGateway 绕过 readExistingGatewayToken() 分支，
   // 确保使用调用方传入的最新 token，并强制在同端口上启动。
-  const port = _activePort;
+  const port = activePort;
   const token = opts.token || gatewayToken;
   gatewayToken = token;
   await spawnGateway({ port, token, force: true });
@@ -1060,5 +1056,5 @@ export function getGatewayToken(): string {
 
 /** 返回当前实际使用的 Gateway 端口（复用外部时为配置端口，否则为启动时指定端口）。 */
 export function getGatewayPort(): number {
-  return _activePort;
+  return activePort;
 }
