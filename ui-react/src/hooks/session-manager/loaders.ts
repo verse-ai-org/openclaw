@@ -7,8 +7,9 @@ import {
   mergeHistoryRuns,
   serializeGatewayHistoryToCanonicalSnapshot,
 } from "@/components/chat/serialization";
+import { useSessionsStore } from "@/store/sessions.store";
 import { enrichSessionsFromLocalConversation } from "./enrich-sessions-from-conversation";
-import type { SessionEntry } from "./types";
+import type { SessionEntry, SessionsListDefaults } from "./types";
 
 type ChatHistoryResponse = {
   messages?: unknown[];
@@ -71,34 +72,35 @@ export async function syncSessionRunStatusFromGateway(params: {
   }
 }
 
+type SessionsListResponse = {
+  sessions?: SessionEntry[];
+  defaults?: SessionsListDefaults;
+};
+
 export async function loadSessionsFromGateway(params: {
   client: IGatewayClient | null;
   sessionKey: string;
-  setLoading: (loading: boolean) => void;
-  setSessions: (updater: SessionEntry[] | ((prev: SessionEntry[]) => SessionEntry[])) => void;
+  setLoading?: (loading: boolean) => void;
+  setSessions?: (updater: SessionEntry[] | ((prev: SessionEntry[]) => SessionEntry[])) => void;
 }) {
-  const { client, sessionKey, setLoading, setSessions } = params;
+  const { client, sessionKey } = params;
+  const setLoading = params.setLoading ?? useSessionsStore.getState().setLoading;
+  const setSessions = params.setSessions ?? useSessionsStore.getState().setSessions;
+  const setDefaults = useSessionsStore.getState().setDefaults;
   if (!client?.connected) {
     return;
   }
   setLoading(true);
   try {
-    const result = await client.request<{ sessions?: SessionEntry[] }>(
-      "sessions.list",
-      {
-        includeDerivedTitles: true,
-        includeLastMessage: true,
-      },
-    );
-    setSessions(
-      enrichSessionsFromLocalConversation(result?.sessions ?? []),
-    );
-    // console.log("[session-manager] load sessions success", {
-    //   count: result?.sessions?.length ?? 0,
-    //   sessionKey,
-    // });
+    const result = await client.request<SessionsListResponse>("sessions.list", {
+      includeDerivedTitles: true,
+      includeLastMessage: true,
+    });
+    setSessions(enrichSessionsFromLocalConversation(result?.sessions ?? []));
+    setDefaults(result?.defaults ?? null);
   } catch {
     setSessions([{ key: sessionKey }]);
+    setDefaults(null);
     console.warn("[session-manager] load sessions failed; using fallback session", {
       sessionKey,
     });
@@ -144,9 +146,19 @@ export async function loadHistoryFromGateway(params: {
     const rawMessages = (Array.isArray(result?.messages)
       ? result.messages
       : []) as RawMessage[];
+    const activeSession = useSessionsStore
+      .getState()
+      .sessions.find((s) => s.key === key);
+    const defaultCtx = useSessionsStore.getState().defaults?.contextTokens;
+    const contextWindow =
+      (typeof activeSession?.contextTokens === "number" && activeSession.contextTokens > 0
+        ? activeSession.contextTokens
+        : null) ??
+      (typeof defaultCtx === "number" && defaultCtx > 0 ? defaultCtx : null);
     const { messages: canonicalMessages, runs: historyRuns } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: key,
       messages: rawMessages,
+      contextWindow,
     });
     const isLatest = requestSeq === historyRequestSeqRef.current;
     const activeSessionKey = useChatStore.getState().sessionKey;
@@ -216,9 +228,19 @@ export async function loadOlderHistoryFromGateway(params: {
       beforeTs,
     });
     const rawMessages = (Array.isArray(result?.messages) ? result.messages : []) as RawMessage[];
+    const activeSession = useSessionsStore
+      .getState()
+      .sessions.find((s) => s.key === key);
+    const defaultCtx = useSessionsStore.getState().defaults?.contextTokens;
+    const contextWindow =
+      (typeof activeSession?.contextTokens === "number" && activeSession.contextTokens > 0
+        ? activeSession.contextTokens
+        : null) ??
+      (typeof defaultCtx === "number" && defaultCtx > 0 ? defaultCtx : null);
     const { messages: olderCanonical, runs: olderRuns } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: key,
       messages: rawMessages,
+      contextWindow,
     });
 
     // Merge by id, sort by createdAt; then rebuild snapshot (simpler + robust).

@@ -1,5 +1,6 @@
 import { ComposerPrimitive, AuiIf, useComposerRuntime } from "@assistant-ui/react";
-import { SendHorizonal, Square } from "lucide-react";
+import { Download, SendHorizonal, Square } from "lucide-react";
+import { toast } from "sonner";
 import {
   useCallback,
   useEffect,
@@ -19,6 +20,14 @@ import {
   MAX_FILE_SIZE_BYTES_REFERENCE_MODE,
 } from "./gateway/providers/send";
 import { useComposerStore } from "@/store/composer.store";
+import { useConversationStore } from "@/store/conversation.store";
+import { selectChatMessages } from "@/store/conversation-selectors";
+import { useChatStore } from "@/store/chat.store";
+import { useSettingsStore } from "@/store/settings.store";
+import { useAgentsStore } from "@/store/agents.store";
+import { resolveActiveChatSessionKey } from "./session/active-session";
+import { exportChatMarkdown } from "./export-chat-markdown";
+import { resolveAssistantDisplayName } from "./resolve-assistant-display-name";
 
 // ---------------------------------------------------------------------------
 // Composer
@@ -30,6 +39,21 @@ import { useComposerStore } from "@/store/composer.store";
 export const Composer: FC = () => {
   const composerRuntime = useComposerRuntime();
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const chatSessionKey = useChatStore((s) => s.sessionKey);
+  const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
+  const activeSessionKey = resolveActiveChatSessionKey(chatSessionKey, settingsSessionKey);
+  const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const exportMessages = conversation ? selectChatMessages(conversation) : [];
+  const hasExportableMessages = exportMessages.length > 0;
+  const agentsList = useAgentsStore((s) => s.agentsList);
+  const assistantName = resolveAssistantDisplayName(activeSessionKey, agentsList);
+
+  const handleExport = useCallback(() => {
+    const ok = exportChatMarkdown(exportMessages, assistantName);
+    if (!ok) {
+      toast.error("Nothing to export", { duration: 2500 });
+    }
+  }, [exportMessages, assistantName]);
 
   const validateFiles = useCallback((files: FileList | null): string | null => {
     if (!files || files.length === 0) {
@@ -125,6 +149,21 @@ export const Composer: FC = () => {
         <div className="relative mx-2 mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1">
             <ComposerAddAttachment />
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={!hasExportableMessages}
+              className={cn(
+                "flex size-8 items-center justify-center rounded-full",
+                "text-muted-foreground transition-colors",
+                "hover:bg-muted hover:text-foreground",
+                "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
+              )}
+              title="Export chat"
+              aria-label="Export chat"
+            >
+              <Download className="size-4" />
+            </button>
           </div>
 
           {/* Send button (shown when not running) */}

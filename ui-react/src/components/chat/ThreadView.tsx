@@ -13,6 +13,7 @@ import { Composer } from "./Composer";
 import { UserMessage } from "./UserMessage";
 import { UserEditComposer } from "./UserEditComposer";
 import { loadOlderHistoryFromGateway } from "@/hooks/session-manager/loaders";
+import { ContextNotice } from "./ContextNotice";
 import { ThreadWelcome } from "./ThreadWelcome";
 
 // ---------------------------------------------------------------------------
@@ -92,6 +93,7 @@ export const ThreadView: FC = () => {
         >
           <ScrollToBottom />
           {lastError && <ErrorBanner message={lastError} />}
+          <ContextNotice />
           <Composer />
         </ThreadPrimitive.ViewportFooter>
       </ThreadPrimitive.Viewport>

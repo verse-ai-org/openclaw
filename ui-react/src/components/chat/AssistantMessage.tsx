@@ -44,21 +44,31 @@ export const AssistantMessage: FC = () => {
     });
   }, [conversation, messageId]);
 
-  const runWallDuration = useMemo((): ToolCallGroupRunDuration | undefined => {
-    if (!conversation) return undefined;
+  const { runWallDuration, runUsageMeta } = useMemo(() => {
+    if (!conversation) {
+      return { runWallDuration: undefined, runUsageMeta: undefined };
+    }
     const canonical = conversation.messagesById.get(messageId);
     const runId =
       canonical?.runId ??
       (messageId.startsWith("run:") ? messageId.slice("run:".length) : undefined);
-    if (!runId) return undefined;
-    const run = conversation.runsById.get(runId);
-    if (!run) return undefined;
-    if (run.status === "running" && typeof run.startedAt === "number") {
-      return { kind: "live", startedAt: run.startedAt };
+    if (!runId) {
+      return { runWallDuration: undefined, runUsageMeta: undefined };
     }
-    const ms = completedWholeRunDurationMs(run);
-    if (ms == null) return undefined;
-    return { kind: "done", ms };
+    const run = conversation.runsById.get(runId);
+    if (!run) {
+      return { runWallDuration: undefined, runUsageMeta: undefined };
+    }
+    let runWallDuration: ToolCallGroupRunDuration | undefined;
+    if (run.status === "running" && typeof run.startedAt === "number") {
+      runWallDuration = { kind: "live", startedAt: run.startedAt };
+    } else {
+      const ms = completedWholeRunDurationMs(run);
+      if (ms != null) {
+        runWallDuration = { kind: "done", ms };
+      }
+    }
+    return { runWallDuration, runUsageMeta: run.usageMeta };
   }, [conversation, messageId]);
   // console.log("rawContent", rawContent);
 
@@ -90,6 +100,7 @@ export const AssistantMessage: FC = () => {
             toolParts={toolParts}
             showThinking={showThinking}
             runDuration={runWallDuration}
+            usageMeta={runUsageMeta}
           />
 
           <AssistantMarkdownTextBlock textParts={textParts} />

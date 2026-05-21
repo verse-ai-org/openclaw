@@ -33,7 +33,12 @@ export function useGatewayEventBridge(): void {
               e.type === EventType.RunAborted,
           );
           if (hasTerminal) {
-            useChatStore.getState().setSending(false);
+            const st = useChatStore.getState();
+            st.setSending(false);
+            st.triggerSessionsReload();
+            if (sessionKey.trim()) {
+              st.setPendingHistoryReloadKey(sessionKey);
+            }
           }
 
           const error = canonical.find((e) => e.type === EventType.RunError);

@@ -11,6 +11,10 @@ import { type FC, type PropsWithChildren, useEffect, useRef, useState } from "re
 import { cn } from "@/lib/utils";
 // import { classifyTool, TOOL_CATEGORY_CONFIG } from "./tools";
 import { sliceToolCallParts } from "@/components/chat/adapters/assistant-ui";
+import {
+  formatTurnUsageHeaderLine,
+  type TurnUsageMeta,
+} from "@/components/chat/usage/turn-usage-meta";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -197,12 +201,15 @@ export type ToolCallGroupProps = PropsWithChildren<{
   endIndex: number;
   /** Whole-run wall time: live elapsed while run is in progress, or fixed when completed. */
   runDuration?: ToolCallGroupRunDuration;
+  /** Per-run token/cost summary (from gateway history). */
+  usageMeta?: TurnUsageMeta | null;
 }>;
 
 export const ToolCallGroup: FC<ToolCallGroupProps> = ({
   startIndex,
   endIndex,
   runDuration,
+  usageMeta,
   children,
 }) => {
   const toolCount = endIndex - startIndex + 1;
@@ -213,6 +220,7 @@ export const ToolCallGroup: FC<ToolCallGroupProps> = ({
       endIndex={endIndex}
       toolCount={toolCount}
       runDuration={runDuration}
+      usageMeta={usageMeta}
     >
       {children}
     </ToolCallGroupInner>
@@ -240,8 +248,9 @@ const ToolCallGroupInner: FC<
     endIndex: number;
     toolCount: number;
     runDuration?: ToolCallGroupRunDuration;
+    usageMeta?: TurnUsageMeta | null;
   }>
-> = ({ startIndex, endIndex, toolCount, runDuration, children }) => {
+> = ({ startIndex, endIndex, toolCount, runDuration, usageMeta, children }) => {
   const messageIsRunning = useAuiState((s) => s.message.status?.type === "running");
   const rawContent = useAuiState((s) => s.message.content as unknown) as readonly unknown[] | undefined;
   // Extract raw tool parts from message content for header summary
@@ -288,6 +297,10 @@ const ToolCallGroupInner: FC<
         ? runDuration.ms
         : undefined;
   const isLiveRunDuration = runDuration?.kind === "live";
+  const usageLine =
+    usageMeta && (usageMeta.input > 0 || usageMeta.output > 0 || usageMeta.cost > 0)
+      ? formatTurnUsageHeaderLine(usageMeta)
+      : null;
 
   return (
     <div
@@ -336,6 +349,15 @@ const ToolCallGroupInner: FC<
         <span className="ml-1 inline-flex items-center">
           <GroupStatusBadge status={groupStatus} failCount={failCount} />
         </span>
+
+        {usageLine?.primary ? (
+          <span
+            className="text-[11px] tabular-nums text-muted-foreground"
+            title={usageLine.title}
+          >
+            · {usageLine.primary}
+          </span>
+        ) : null}
 
         {/* Category icon strip */}
         {/* {iconConfigs.length > 0 && (

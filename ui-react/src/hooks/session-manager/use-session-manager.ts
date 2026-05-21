@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useChatStore } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
+import { useSessionsStore } from "@/store/sessions.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { resolveSessionDisplayName } from "./display-name";
 import { getSessionKeyFromHash, setSessionKeyInHash } from "./url-session";
@@ -14,11 +15,12 @@ import {
   loadSessionsFromGateway,
   syncSessionRunStatusFromGateway,
 } from "./loaders";
-import type { SessionEntry } from "./types";
+// import type { SessionEntry } from "./types";
 
 export function useSessionManager() {
-  const [sessions, setSessions] = useState<SessionEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const sessions = useSessionsStore((s) => s.sessions);
+  const loading = useSessionsStore((s) => s.loading);
+  const setSessions = useSessionsStore((s) => s.setSessions);
 
   const client = useGatewayStore((s) => s.client);
   const gatewayStatus = useGatewayStore((s) => s.status);
@@ -36,12 +38,7 @@ export function useSessionManager() {
   const historyRequestSeqRef = useRef(0);
 
   const loadSessions = useCallback(async () => {
-    await loadSessionsFromGateway({
-      client,
-      sessionKey,
-      setLoading,
-      setSessions,
-    });
+    await loadSessionsFromGateway({ client, sessionKey });
   }, [client, sessionKey]);
 
   const loadHistory = useCallback(

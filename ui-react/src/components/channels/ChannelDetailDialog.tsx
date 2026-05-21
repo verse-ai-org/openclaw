@@ -1,5 +1,4 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   channelNeedsSetup,
   resolveChannelLifecycle,
@@ -54,28 +53,26 @@ export function ChannelDetailDialog({
   return (
     <Dialog open={channelId !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[640px] max-w-[90vw] max-h-[80vh] flex flex-col rounded-2xl"
+        className="flex w-[640px] max-w-[90vw] max-h-[80vh] min-h-0 flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <DialogHeader className="gap-2">
+        <DialogHeader className="shrink-0 gap-2 px-6 pt-6 pb-4">
           <div className="flex flex-wrap items-center gap-2">
             <DialogTitle className="text-lg">{label}</DialogTitle>
             {lifecycle && <ChannelLifecycleBadge lifecycle={lifecycle} />}
           </div>
           {setupHint && <DialogDescription>{setupHint}</DialogDescription>}
         </DialogHeader>
-        <ScrollArea className="flex-1 min-h-0 overflow-auto">
-          <div className="px-1 pb-4">
-            {channelId && snapshot && (
-              <ChannelDetail
-                channelId={channelId}
-                snapshot={snapshot}
-                catalogEntry={catalog?.find((entry) => entry.id === channelId)}
-                onSaved={onSaved}
-              />
-            )}
-          </div>
-        </ScrollArea>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6">
+          {channelId && snapshot && (
+            <ChannelDetail
+              channelId={channelId}
+              snapshot={snapshot}
+              catalogEntry={catalog?.find((entry) => entry.id === channelId)}
+              onSaved={onSaved}
+            />
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

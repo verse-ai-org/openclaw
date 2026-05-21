@@ -9,6 +9,10 @@ import type {
   ThreadId,
 } from "@/components/chat/conversation";
 import { normalizeContent, normalizeHistoryAttachmentHints } from "@/components/chat/gateway";
+import {
+  mergeTurnUsageMeta,
+  type TurnUsageMeta,
+} from "@/components/chat/usage/turn-usage-meta";
 import { stripAttachmentContent } from "./_internal/history-attachment-strip";
 import { resolveToolUiComponent, safeParseToolUiPayload } from "@/components/chat/ui-tool/ui-tool-registry";
 
@@ -141,6 +145,7 @@ export function mergeHistoryRuns(a: CanonicalRun[], b: CanonicalRun[]): Canonica
       startedAt: Math.min(existing.startedAt, r.startedAt),
       finishedAt: Math.max(endA, endB),
       assistantMessageId: existing.assistantMessageId ?? r.assistantMessageId,
+      usageMeta: existing.usageMeta ?? r.usageMeta,
       status: "finished",
     });
   }
@@ -300,9 +305,11 @@ function parseAssistantTimelineFromContent(params: {
 export function serializeGatewayHistoryToCanonicalSnapshot(params: {
   threadId: ThreadId;
   messages: RawMessage[];
+  contextWindow?: number | null;
 }): { messages: CanonicalMessage[]; runs: CanonicalRun[] } {
-  const { threadId, messages } = params;
+  const { threadId, messages, contextWindow = null } = params;
 
+  const usageByRunId = new Map<string, TurnUsageMeta>();
   const toolById = new Map<string, HistoryToolRecord>();
   const assistantById = new Map<string, AssistantMessageAssembly>();
   const assistantOrderByRun = new Map<string, string[]>();
@@ -367,6 +374,14 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
     // Assistant rows: build a per-run timeline (text/tool/text/...).
     if (role === "assistant") {
       if (!runId) continue;
+      const mergedUsage = mergeTurnUsageMeta(
+        usageByRunId.get(runId),
+        raw,
+        contextWindow,
+      );
+      if (mergedUsage) {
+        usageByRunId.set(runId, mergedUsage);
+      }
       const messageId = raw.id ?? (`run:${runId}:${ts}` as const);
       const items = parseAssistantTimelineFromContent({
         ts,
@@ -642,6 +657,9 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
     };
     return canonical;
   });
-  const runs = deriveCanonicalRunsFromGatewayHistoryRaw({ threadId, messages });
+  const runs = deriveCanonicalRunsFromGatewayHistoryRaw({ threadId, messages }).map((run) => {
+    const usageMeta = usageByRunId.get(run.id);
+    return usageMeta ? { ...run, usageMeta } : run;
+  });
   return { messages: messagesOut, runs };
 }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
+import { useSessionsStore } from "@/store/sessions.store";
 import {
   loadHistoryFromGateway,
   loadSessionsFromGateway,
@@ -35,6 +36,7 @@ function resetChatState() {
     pendingSessionsReloadSeq: 0,
     lastError: null,
   });
+  useSessionsStore.setState({ sessions: [], defaults: null, loading: false });
   useConversationStore.getState().resetThread("agent:travel:main");
 }
 
@@ -62,6 +64,7 @@ describe("session-manager/loaders", () => {
 
     expect(setLoading).toHaveBeenNthCalledWith(1, true);
     expect(setSessions).toHaveBeenCalledWith([{ key: "agent:travel:main" }]);
+    expect(useSessionsStore.getState().defaults).toBeNull();
     expect(setLoading).toHaveBeenLastCalledWith(false);
   });
 

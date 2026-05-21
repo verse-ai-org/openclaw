@@ -364,6 +364,36 @@ describe("serialization/history", () => {
     expect(canonical.some((m) => m.runId === runId)).toBe(true);
   });
 
+  it("attaches aggregated usageMeta to runs from assistant history rows", () => {
+    const runId = "run-usage-1";
+    const messages: RawMessage[] = [
+      {
+        role: "assistant",
+        runId,
+        timestamp: 1000,
+        content: [{ type: "text", text: "Checking" }],
+        usage: { input: 105_944, output: 100 },
+        model: "anthropic/claude-opus-4-7",
+      },
+      {
+        role: "assistant",
+        runId,
+        timestamp: 1001,
+        content: [{ type: "text", text: "Done" }],
+        usage: { input: 108_577, output: 100 },
+      },
+    ];
+
+    const { runs } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:test",
+      messages,
+      contextWindow: 258_400,
+    });
+    expect(runs[0]?.usageMeta?.input).toBe(214_521);
+    expect(runs[0]?.usageMeta?.contextPercent).toBe(42);
+    expect(runs[0]?.usageMeta?.model).toBe("anthropic/claude-opus-4-7");
+  });
+
   it("treats policy-blocked tool bodies as errors when history has isError false (SSRFetch-style)", () => {
     const runId = "run-blocked-1";
     const messages: RawMessage[] = [

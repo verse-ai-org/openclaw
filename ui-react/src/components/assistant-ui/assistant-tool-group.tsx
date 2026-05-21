@@ -9,6 +9,7 @@ import {
   ToolCallGroupThinking,
 } from "@/components/chat/ToolCallGroup";
 import type { AssistantToolPart } from "@/components/chat/types";
+import type { TurnUsageMeta } from "@/components/chat/usage/turn-usage-meta";
 
 function getToolStatus(part: AssistantToolPart): ToolFallbackPartProps["status"] {
   if (part.isError) {
@@ -35,7 +36,8 @@ export const AssistantToolGroup: FC<{
   toolParts: AssistantToolPart[];
   showThinking?: boolean;
   runDuration?: ToolCallGroupRunDuration;
-}> = ({ toolParts, showThinking, runDuration }) => {
+  usageMeta?: TurnUsageMeta | null;
+}> = ({ toolParts, showThinking, runDuration, usageMeta }) => {
   if (toolParts.length === 0) {
     return showThinking ? <ToolCallGroupThinking /> : null;
   }
@@ -45,6 +47,7 @@ export const AssistantToolGroup: FC<{
       startIndex={0}
       endIndex={toolParts.length - 1}
       runDuration={runDuration}
+      usageMeta={usageMeta}
     >
       {toolParts.map((part) => (
         <ToolFallback key={part.toolCallId} {...buildToolFallbackProps(part)} />

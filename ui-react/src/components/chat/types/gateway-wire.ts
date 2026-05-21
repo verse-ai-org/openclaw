@@ -15,6 +15,9 @@ export type RawMessage = {
   timestamp?: number;
   runId?: string;
   sessionKey?: string;
+  usage?: unknown;
+  cost?: unknown;
+  model?: string;
 };
 
 export type GatewayChatEventState =
