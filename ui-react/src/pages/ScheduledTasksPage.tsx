@@ -315,7 +315,7 @@ export function ScheduledTasksPage() {
   if (!isConnected) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Not connected to gateway.
+        Not connected to Server.
       </div>
     );
   }

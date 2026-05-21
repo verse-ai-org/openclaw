@@ -41,7 +41,7 @@ export function PluginsPage() {
   if (!isConnected) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-        Not connected to gateway.
+        Not connected to Server.
       </div>
     );
   }

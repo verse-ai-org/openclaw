@@ -225,7 +225,7 @@ export function ChannelsPage() {
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-        <p className="text-sm">Not connected to gateway.</p>
+        <p className="text-sm">Not connected to Server.</p>
       </div>
     );
   }

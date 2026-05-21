@@ -199,7 +199,7 @@ function RenderNode({
   if (type === "object") {
     const props = schema.properties ?? {};
     const requiredSet = new Set(schema.required ?? []);
-    const sortedKeys = Object.keys(props).sort((a, b) => {
+    const sortedKeys = Object.keys(props).toSorted((a, b) => {
       const oa = (getHint([...path, a], hints) as { order?: number } | undefined)?.order ?? 0;
       const ob = (getHint([...path, b], hints) as { order?: number } | undefined)?.order ?? 0;
       return oa !== ob ? oa - ob : a.localeCompare(b);
@@ -266,7 +266,7 @@ function RenderNode({
             const v = e.target.value.trim();
             if (v === "") { onPatch(path, undefined); return; }
             const n = Number(v);
-            onPatch(path, isNaN(n) ? v : type === "integer" ? Math.trunc(n) : n);
+            onPatch(path, Number.isNaN(n) ? v : type === "integer" ? Math.trunc(n) : n);
           }} />
       </FieldWrapper>
     );
@@ -388,7 +388,7 @@ export function ChannelConfigForm({
     );
     return Object.keys(channelNode.properties)
       .filter((key) => !requiredSet.has(key) && !FEISHU_HIDDEN_OPTIONAL_KEYS.has(key))
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         const pa = priorityMap.get(a);
         const pb = priorityMap.get(b);
         if (pa !== undefined || pb !== undefined) {
@@ -484,7 +484,7 @@ export function ChannelConfigForm({
                   </div>
                   {optionalExpanded && (
                     <div className="space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                         {feishuOptionalKeys.map((key) => {
                           const fieldSchema = channelNode.properties?.[key];
                           if (!fieldSchema) return null;

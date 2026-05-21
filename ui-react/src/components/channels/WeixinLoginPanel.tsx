@@ -26,14 +26,14 @@ function QRCanvas({ url }: { url: string }) {
   if (error) {
     return (
       <div className={`${QR_SLOT_CLASS} flex-col gap-2`}>
-        <p className="text-xs text-destructive text-center">生成二维码失败</p>
+        <p className="text-xs text-destructive text-center">Failed to generate QR code</p>
         <a
           href={url}
           target="_blank"
           rel="noreferrer"
           className="text-xs text-blue-500 underline break-all max-w-[200px] text-center"
         >
-          点击打开二维码链接
+          Click to open QR code link
         </a>
       </div>
     );
@@ -63,9 +63,9 @@ function qrStatusCaption(message: string | null, loadingQr: boolean): string {
     return trimmed;
   }
   if (loadingQr) {
-    return "正在生成二维码…";
+    return "Generating QR code…";
   }
-  return "使用微信扫描二维码完成连接 / Scan with WeChat to connect";
+  return "Scan with WeChat to connect";
 }
 
 interface WeixinLoginPanelProps {
@@ -110,13 +110,13 @@ export function WeixinLoginPanel({
   return (
     <div className="mt-4 border rounded-lg p-4 bg-muted/20 space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        微信登录 / WeChat Login
+        WeChat Login
       </p>
 
       {connected && !qrDataUrl && !loadingQr && (
         <div className="flex items-center gap-2 text-emerald-600">
           <CheckCircle2Icon className="size-4" />
-          <span className="text-xs font-medium">已连接 / Connected</span>
+          <span className="text-xs font-medium">Connected</span>
         </div>
       )}
 
@@ -126,8 +126,8 @@ export function WeixinLoginPanel({
             <QrLoadingSlot
               label={
                 preparing
-                  ? "正在连接网关…"
-                  : message?.trim() || "正在生成二维码…"
+                  ? "Connecting to Server…"
+                  : message?.trim() || "Generating QR code…"
               }
             />
           ) : qrDataUrl ? (
@@ -163,7 +163,7 @@ export function WeixinLoginPanel({
             {busy ? (
               <>
                 <Loader2Icon className="size-3 mr-1 animate-spin" />
-                验证中…
+                Verifying…
               </>
             ) : (
               "提交配对码 / Submit code"
@@ -186,12 +186,12 @@ export function WeixinLoginPanel({
               className="h-7 text-xs"
             >
               <QrCodeIcon className="size-3 mr-1" />
-              {qrDataUrl ? "刷新二维码" : "扫码登录"}
+              {qrDataUrl ? "Refresh QR" : "Scan to login"}
             </Button>
           )}
           {showRetry && (
             <Button size="sm" variant="outline" onClick={onStart} className="h-7 text-xs">
-              重试 / Retry
+              Retry
             </Button>
           )}
           {connected && (

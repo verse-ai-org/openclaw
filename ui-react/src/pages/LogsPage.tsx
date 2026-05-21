@@ -104,7 +104,7 @@ export function LogsPage() {
       {!isConnected && (
         <Card className="border-amber-500/50 bg-amber-500/5">
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Not connected to gateway.</p>
+            <p className="text-sm text-muted-foreground">Not connected to Server.</p>
           </CardContent>
         </Card>
       )}

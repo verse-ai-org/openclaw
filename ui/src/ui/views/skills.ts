@@ -233,7 +233,7 @@ export function renderSkills(props: SkillsProps) {
         ? html`
             <div class="muted" style="margin-top: 16px">
               ${!props.connected && !props.report
-                ? "Not connected to gateway."
+                ? "Not connected to Server."
                 : "No skills found."}
             </div>
           `

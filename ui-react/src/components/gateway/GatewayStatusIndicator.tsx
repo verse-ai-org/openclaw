@@ -129,7 +129,7 @@ export function GatewayStatusIndicator() {
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Not connected to Gateway.
+                Not connected to Server.
               </p>
             )}
 

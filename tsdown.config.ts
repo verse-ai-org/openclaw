@@ -170,9 +170,11 @@ const explicitNeverBundleDependencies = [
   "@matrix-org/matrix-sdk-crypto-nodejs",
   "@vitest/expect",
   "matrix-js-sdk",
+  "postcss",
   "prism-media",
   "qrcode-terminal",
   "typescript",
+  "vite",
   "vitest",
 ].toSorted((left, right) => left.localeCompare(right));
 

@@ -58,7 +58,7 @@ export function DebugPage() {
         <Card className="border-amber-500/50 bg-amber-500/5">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">
-              Not connected to gateway. Connect to view debug information.
+              Not connected to Server. Connect to view debug information.
             </p>
           </CardContent>
         </Card>

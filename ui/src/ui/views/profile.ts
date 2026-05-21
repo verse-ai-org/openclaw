@@ -301,7 +301,7 @@ export async function handleProfileTemplateSave(state: ProfileState): Promise<vo
 
 export async function handleProfileFreeInputParse(state: ProfileState): Promise<void> {
   if (!state.client || !state.connected) {
-    state.profileError = "Not connected to gateway.";
+    state.profileError = "Not connected to Server.";
     return;
   }
   const text = state.profileFreeInput.trim();
@@ -383,7 +383,7 @@ export async function handleProfileSave(
   memoryMd: string,
 ): Promise<void> {
   if (!state.client || !state.connected) {
-    state.profileError = "Not connected to gateway.";
+    state.profileError = "Not connected to Server.";
     return;
   }
   const agentId = state.agentsList?.defaultId ?? state.agentsList?.agents?.[0]?.id ?? "main";
@@ -426,7 +426,7 @@ export async function handleProfileSave(
 // Save USER.md from template page edit mode
 export async function handleProfileTemplateUserMdSave(state: ProfileState): Promise<void> {
   if (!state.client || !state.connected) {
-    state.profileError = "Not connected to gateway.";
+    state.profileError = "Not connected to Server.";
     return;
   }
   const agentId = state.agentsList?.defaultId ?? state.agentsList?.agents?.[0]?.id ?? "main";
@@ -484,7 +484,7 @@ export async function handleProfileEditLoad(state: ProfileState): Promise<void> 
 // Directly save edited USER.md and MEMORY.md content
 export async function handleProfileEditSaveDirect(state: ProfileState): Promise<void> {
   if (!state.client || !state.connected) {
-    state.profileError = "Not connected to gateway.";
+    state.profileError = "Not connected to Server.";
     return;
   }
   const agentId = state.agentsList?.defaultId ?? state.agentsList?.agents?.[0]?.id ?? "main";

@@ -118,7 +118,7 @@ export function SkillsPage() {
 
         {status !== "connected" && !loading && (
           <div className="rounded-2xl border px-4 py-3 text-sm text-muted-foreground">
-            Not connected to gateway.
+            Not connected to Server.
           </div>
         )}
 
