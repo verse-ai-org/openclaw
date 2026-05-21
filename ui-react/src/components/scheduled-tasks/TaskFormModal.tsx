@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { ScheduledTaskFormData } from "@/types/agents";
+import type { ScheduledTaskFormData, ChannelRecipientEntry } from "@/types/agents";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -85,6 +85,8 @@ interface TaskFormModalProps {
   hasChannel?: boolean;
   /** List of available channels to choose from. When provided, shows a channel selector. */
   channelOptions?: DeliveryChannelOption[];
+  /** Known channel recipients from session identity hints (for auto-complete). */
+  channelRecipients?: ChannelRecipientEntry[];
   onSave: (form: ScheduledTaskFormData) => void;
   onClose: () => void;
 }
@@ -99,6 +101,7 @@ export function TaskFormModal({
   saving = false,
   hasChannel = true,
   channelOptions,
+  channelRecipients,
   onSave,
   onClose,
 }: TaskFormModalProps) {
@@ -221,10 +224,25 @@ export function TaskFormModal({
       ? form.deliveryChannel?.trim() || channelOptions?.[0]?.id
       : undefined;
   const isFeishuChannel = selectedDeliveryChannel === "feishu" || selectedDeliveryChannel === "lark";
-  // openclaw-weixin requires an explicit deliveryTo
   const isWeixinChannel =
     form.deliveryMode === "announce" && selectedDeliveryChannel === "openclaw-weixin";
-  const isDeliveryToValid = !isWeixinChannel || Boolean(form.deliveryTo?.trim());
+
+  // Recipient suggestions filtered by the selected delivery channel
+  const CHANNEL_ALIASES: Record<string, string[]> = {
+    feishu: ["feishu", "lark"],
+    lark: ["feishu", "lark"],
+    "openclaw-weixin": ["openclaw-weixin", "weixin", "wechat", "wx"],
+    weixin: ["openclaw-weixin", "weixin", "wechat", "wx"],
+  };
+  const recipientSuggestions = (channelRecipients ?? []).filter((r) => {
+    if (!selectedDeliveryChannel) return false;
+    const aliases = CHANNEL_ALIASES[selectedDeliveryChannel] ?? [selectedDeliveryChannel];
+    return aliases.includes(r.channel);
+  });
+  const hasRecipientSuggestions = recipientSuggestions.length > 0;
+
+  // WeChat requires explicit deliveryTo unless known recipients exist (auto-resolve at runtime)
+  const isDeliveryToValid = !isWeixinChannel || Boolean(form.deliveryTo?.trim()) || hasRecipientSuggestions;
   const isValid =
     form.name.trim().length > 0 &&
     form.agentPrompt.trim().length > 0 &&
@@ -525,30 +543,61 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* deliveryTo — weixin required, feishu optional */}
+          {/* deliveryTo — weixin required, feishu optional; auto-complete from known recipients */}
           {form.deliveryMode === "announce" && (isWeixinChannel || isFeishuChannel) && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="task-delivery-to" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Recipient ID {isWeixinChannel ? <span className="text-destructive">*</span> : null}
               </Label>
-              <Input
-                id="task-delivery-to"
-                type="password"
-                autoComplete="off"
-                placeholder={
-                  isWeixinChannel
-                    ? "e.g. wxid_xxxxx@im.wechat"
-                    : "e.g. user:ou_xxx (optional)"
-                }
-                value={form.deliveryTo ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, deliveryTo: e.target.value.trim() }))}
-                disabled={saving}
-              />
-              <p className="text-xs text-muted-foreground">
-                {isWeixinChannel
-                  ? "WeChat user ID (ends with @im.wechat). Required for openclaw-weixin delivery."
-                  : "Feishu recipient is optional. Leave empty to auto-resolve from session identity hints when available."}
-              </p>
+              {hasRecipientSuggestions ? (
+                <>
+                  <Select
+                    value={form.deliveryTo || "__auto__"}
+                    onValueChange={(v) =>
+                      setForm((f) => ({
+                        ...f,
+                        deliveryTo: v === "__auto__" ? "" : v,
+                      }))
+                    }
+                    disabled={saving}
+                  >
+                    <SelectTrigger id="task-delivery-to">
+                      <SelectValue placeholder="Select a known recipient" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__auto__">Auto-resolve at runtime</SelectItem>
+                      {recipientSuggestions.map((r) => (
+                        <SelectItem key={`${r.channel}:${r.target}`} value={r.target}>
+                          {r.target}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Auto-detected from channel conversations. Select a known recipient or leave as auto-resolve.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Input
+                    id="task-delivery-to"
+                    autoComplete="off"
+                    placeholder={
+                      isWeixinChannel
+                        ? "e.g. wxid_xxxxx@im.wechat"
+                        : "e.g. user:ou_xxx (optional)"
+                    }
+                    value={form.deliveryTo ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, deliveryTo: e.target.value.trim() }))}
+                    disabled={saving}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {isWeixinChannel
+                      ? "WeChat user ID (ends with @im.wechat). Required for openclaw-weixin delivery."
+                      : "Feishu recipient is optional. Leave empty to auto-resolve from session identity hints when available."}
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>

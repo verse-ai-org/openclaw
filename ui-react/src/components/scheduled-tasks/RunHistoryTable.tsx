@@ -176,6 +176,7 @@ export function RunHistoryTable({
             <tr className="border-b bg-muted/40">
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">Task Title</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground min-w-[200px] max-w-[300px]">Summary</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                 Execution Time
               </th>
@@ -186,14 +187,14 @@ export function RunHistoryTable({
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   <LoaderIcon className="mx-auto size-5 animate-spin" />
                 </td>
               </tr>
             )}
             {!loading && records.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   No run history found.
                 </td>
               </tr>
@@ -212,6 +213,15 @@ export function RunHistoryTable({
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={record.status} />
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground max-w-[300px]">
+                    {record.summary ? (
+                      <span className="line-clamp-2 text-xs" title={record.summary}>
+                        {record.summary}
+                      </span>
+                    ) : (
+                      <span className="text-xs italic">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatTimestamp(record.executionTime)}

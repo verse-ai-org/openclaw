@@ -64,6 +64,8 @@ import {
   ChannelsEnableParamsSchema,
   ChannelsEnableResultSchema,
   ChannelsCatalogParamsSchema,
+  ChannelsRecipientsParamsSchema,
+  type ChannelsRecipientsParams,
   type ChannelCatalogEntry,
   ChannelCatalogEntrySchema,
   ChannelsCatalogResultSchema,
@@ -752,6 +754,7 @@ export const validateChannelsLogoutParams = lazyCompile<ChannelsLogoutParams>(
 );
 export const validateChannelsEnableParams = lazyCompile(ChannelsEnableParamsSchema);
 export const validateChannelsCatalogParams = lazyCompile(ChannelsCatalogParamsSchema);
+export const validateChannelsRecipientsParams = lazyCompile<ChannelsRecipientsParams>(ChannelsRecipientsParamsSchema);
 export const validateModelsListParams = lazyCompile<ModelsListParams>(ModelsListParamsSchema);
 export const validateSkillsStatusParams = lazyCompile<SkillsStatusParams>(SkillsStatusParamsSchema);
 export const validateToolsCatalogParams = lazyCompile<ToolsCatalogParams>(ToolsCatalogParamsSchema);

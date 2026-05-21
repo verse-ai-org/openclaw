@@ -1,6 +1,7 @@
 import type { OpenClawConfig } from "../../config/config.js";
 import { loadSessionStore, resolveSessionStoreEntry, resolveStorePath } from "../../config/sessions.js";
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
+import { listAgentIds } from "../../agents/agent-scope-config.js";
 
 export type AutoRecipientResolution =
   | { ok: true; channel: string; target: string; matchedBy: string; canonical: string }
@@ -170,38 +171,81 @@ function resolveFromIdentityLinks(params: {
   };
 }
 
-function resolveFromSessionHints(params: {
+/**
+ * When sender candidates are unknown (Web Chat / cron), use a uniquely determined
+ * channel target from session.identityLinks (including auto-learned entries).
+ */
+function resolveFromIdentityLinksUniqueChannel(params: {
   adapter: RecipientAdapter;
-  cfg: OpenClawConfig;
-  agentSessionKey?: string;
+  identityLinks?: Record<string, string[]>;
 }): AutoRecipientResolution {
-  const sessionKey = params.agentSessionKey?.trim();
-  if (!sessionKey) {
-    return { ok: false, reason: "sender-missing" };
+  const identityLinks = params.identityLinks;
+  if (!identityLinks) {
+    return { ok: false, reason: "identityLinks-missing" };
   }
-  const agentId = resolveSessionAgentId({
-    sessionKey,
-    config: params.cfg,
-  });
-  const storePath = resolveStorePath(params.cfg.session?.store, { agentId });
-  const store = loadSessionStore(storePath);
-  const hits = new Set<string>();
-  const fromCurrent = resolveSessionStoreEntry({ store, sessionKey }).existing;
-  const aliasKey = params.adapter.aliases.find(
-    (alias) => fromCurrent?.identityHints?.recipientsByChannel?.[alias],
-  );
-  const currentHint =
-    (aliasKey ? fromCurrent?.identityHints?.recipientsByChannel?.[aliasKey]?.trim() : undefined) ??
-    (params.adapter.channel === "feishu" && fromCurrent?.identityHints?.feishuDirectUserId?.trim()
-      ? `user:${fromCurrent.identityHints.feishuDirectUserId.trim()}`
-      : undefined);
-  if (currentHint) {
-    const parsed = params.adapter.parseRecipient(currentHint);
-    if (parsed && params.adapter.isDirectUserTarget(parsed)) {
-      hits.add(parsed);
+  const targets = new Set<string>();
+  let canonical = "";
+  for (const [canonicalRaw, aliases] of Object.entries(identityLinks)) {
+    const canonicalTarget = params.adapter.parseRecipient(canonicalRaw);
+    if (canonicalTarget && params.adapter.isDirectUserTarget(canonicalTarget)) {
+      targets.add(canonicalTarget);
+      canonical = canonicalRaw;
+    }
+    if (!Array.isArray(aliases)) {
+      continue;
+    }
+    for (const alias of aliases) {
+      const parsed = params.adapter.parseRecipient(alias);
+      if (parsed && params.adapter.isDirectUserTarget(parsed)) {
+        targets.add(parsed);
+        canonical = canonicalRaw;
+      }
     }
   }
-  for (const entry of Object.values(store)) {
+  if (targets.size === 0) {
+    return { ok: false, reason: "channel-missing" };
+  }
+  if (targets.size !== 1) {
+    return { ok: false, reason: "channel-ambiguous" };
+  }
+  return {
+    ok: true,
+    channel: params.adapter.channel,
+    target: [...targets][0],
+    matchedBy: "session.identityLinks.unique",
+    canonical,
+  };
+}
+
+/**
+ * Scan a single session store for recipient hints matching the adapter channel.
+ * Optionally checks a specific sessionKey first (current session), then scans
+ * all entries. Returns the set of unique parsed targets found.
+ */
+function collectHitsFromStore(params: {
+  adapter: RecipientAdapter;
+  store: Record<string, { identityHints?: { recipientsByChannel?: Record<string, string>; feishuDirectUserId?: string }; origin?: { from?: string } }>;
+  sessionKey?: string;
+}): Set<string> {
+  const hits = new Set<string>();
+  if (params.sessionKey) {
+    const fromCurrent = resolveSessionStoreEntry({ store: params.store, sessionKey: params.sessionKey }).existing;
+    const aliasKey = params.adapter.aliases.find(
+      (alias) => fromCurrent?.identityHints?.recipientsByChannel?.[alias],
+    );
+    const currentHint =
+      (aliasKey ? fromCurrent?.identityHints?.recipientsByChannel?.[aliasKey]?.trim() : undefined) ??
+      (params.adapter.channel === "feishu" && fromCurrent?.identityHints?.feishuDirectUserId?.trim()
+        ? `user:${fromCurrent.identityHints.feishuDirectUserId.trim()}`
+        : undefined);
+    if (currentHint) {
+      const parsed = params.adapter.parseRecipient(currentHint);
+      if (parsed && params.adapter.isDirectUserTarget(parsed)) {
+        hits.add(parsed);
+      }
+    }
+  }
+  for (const entry of Object.values(params.store)) {
     const entryAlias = params.adapter.aliases.find(
       (alias) => entry.identityHints?.recipientsByChannel?.[alias],
     );
@@ -221,20 +265,81 @@ function resolveFromSessionHints(params: {
       hits.add(parsed);
     }
   }
+  return hits;
+}
+
+function hitsToResolution(
+  hits: Set<string>,
+  adapter: RecipientAdapter,
+  matchedBy: string,
+): AutoRecipientResolution {
   if (hits.size === 0) {
     return { ok: false, reason: "channel-missing" };
   }
   if (hits.size > 1) {
     return { ok: false, reason: "channel-ambiguous" };
   }
-  const target = [...hits][0];
   return {
     ok: true,
-    channel: params.adapter.channel,
-    target,
-    matchedBy: "session.identityHints",
-    canonical: "session.identityHints",
+    channel: adapter.channel,
+    target: [...hits][0],
+    matchedBy,
+    canonical: matchedBy,
   };
+}
+
+function resolveFromSessionHints(params: {
+  adapter: RecipientAdapter;
+  cfg: OpenClawConfig;
+  agentSessionKey?: string;
+}): AutoRecipientResolution {
+  const sessionKey = params.agentSessionKey?.trim();
+  if (!sessionKey) {
+    return { ok: false, reason: "sender-missing" };
+  }
+  const agentId = resolveSessionAgentId({
+    sessionKey,
+    config: params.cfg,
+  });
+  const storePath = resolveStorePath(params.cfg.session?.store, { agentId });
+  const store = loadSessionStore(storePath);
+  const hits = collectHitsFromStore({
+    adapter: params.adapter,
+    store,
+    sessionKey,
+  });
+  return hitsToResolution(hits, params.adapter, "session.identityHints");
+}
+
+/**
+ * Cross-agent fallback: scan all configured agents' session stores when the
+ * primary agent's store has no matching recipient. This allows non-main agents
+ * and Web Chat sessions to discover identityHints learned via channel inbound
+ * on other agents (e.g. main agent's WeChat/Feishu DM sessions).
+ */
+function resolveFromAllAgentSessionHints(params: {
+  adapter: RecipientAdapter;
+  cfg: OpenClawConfig;
+  excludeAgentId?: string;
+}): AutoRecipientResolution {
+  const allAgentIds = listAgentIds(params.cfg);
+  const hits = new Set<string>();
+  for (const agentId of allAgentIds) {
+    if (agentId === params.excludeAgentId) {
+      continue;
+    }
+    const storePath = resolveStorePath(params.cfg.session?.store, { agentId });
+    let store: Record<string, { identityHints?: { recipientsByChannel?: Record<string, string>; feishuDirectUserId?: string }; origin?: { from?: string } }>;
+    try {
+      store = loadSessionStore(storePath);
+    } catch {
+      continue;
+    }
+    for (const hit of collectHitsFromStore({ adapter: params.adapter, store })) {
+      hits.add(hit);
+    }
+  }
+  return hitsToResolution(hits, params.adapter, "session.identityHints.crossAgent");
 }
 
 export function resolveAutoRecipient(params: {
@@ -250,18 +355,41 @@ export function resolveAutoRecipient(params: {
   if (!adapter) {
     return { ok: false, reason: "channel-missing" };
   }
+  const identityLinks = params.cfg.session?.identityLinks;
   const fromLinks = resolveFromIdentityLinks({
     adapter,
-    identityLinks: params.cfg.session?.identityLinks,
+    identityLinks,
     senderCandidates: params.senderCandidates,
   });
   if (fromLinks.ok) {
     return fromLinks;
   }
-  return resolveFromSessionHints({
+  if (params.senderCandidates.length === 0) {
+    const fromUniqueLinks = resolveFromIdentityLinksUniqueChannel({
+      adapter,
+      identityLinks,
+    });
+    if (fromUniqueLinks.ok) {
+      return fromUniqueLinks;
+    }
+  }
+  const fromHints = resolveFromSessionHints({
     adapter,
     cfg: params.cfg,
     agentSessionKey: params.agentSessionKey,
+  });
+  if (fromHints.ok) {
+    return fromHints;
+  }
+  // Cross-agent fallback: scan other agents' session stores for identityHints
+  // learned via channel inbound (e.g. WeChat/Feishu DMs on main agent).
+  const excludeAgentId = params.agentSessionKey?.trim()
+    ? resolveSessionAgentId({ sessionKey: params.agentSessionKey.trim(), config: params.cfg })
+    : undefined;
+  return resolveFromAllAgentSessionHints({
+    adapter,
+    cfg: params.cfg,
+    excludeAgentId,
   });
 }
 
@@ -276,4 +404,49 @@ export function resolveAutoFeishuRecipient(params: {
     agentSessionKey: params.agentSessionKey,
     senderCandidates: params.senderCandidates,
   });
+}
+
+export type ChannelRecipientEntry = {
+  channel: string;
+  target: string;
+  agentId: string;
+};
+
+/**
+ * Collect all known channel recipients across all agents' session stores.
+ * Used by the UI to populate recipient auto-complete suggestions.
+ */
+export function collectAllChannelRecipients(params: {
+  cfg: OpenClawConfig;
+  channel?: string;
+}): ChannelRecipientEntry[] {
+  const allAgentIds = listAgentIds(params.cfg);
+  const results: ChannelRecipientEntry[] = [];
+  const seen = new Set<string>();
+  const adapters = params.channel
+    ? RECIPIENT_ADAPTERS.filter(
+        (a) => a.channel === params.channel || a.aliases.includes(params.channel!),
+      )
+    : RECIPIENT_ADAPTERS;
+  for (const agentId of allAgentIds) {
+    const storePath = resolveStorePath(params.cfg.session?.store, { agentId });
+    let store: Record<string, { identityHints?: { recipientsByChannel?: Record<string, string>; feishuDirectUserId?: string }; origin?: { from?: string } }>;
+    try {
+      store = loadSessionStore(storePath);
+    } catch {
+      continue;
+    }
+    for (const adapter of adapters) {
+      const hits = collectHitsFromStore({ adapter, store });
+      for (const target of hits) {
+        const dedupeKey = `${adapter.channel}:${target}`;
+        if (seen.has(dedupeKey)) {
+          continue;
+        }
+        seen.add(dedupeKey);
+        results.push({ channel: adapter.channel, target, agentId });
+      }
+    }
+  }
+  return results;
 }

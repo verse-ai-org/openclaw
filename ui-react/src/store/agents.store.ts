@@ -15,6 +15,7 @@ import type {
   AgentsDeleteResult,
   ScheduledTaskFormData,
   CronRunRecord,
+  ChannelRecipientEntry,
 } from "@/types/agents";
 import type { ChannelsStatusSnapshot } from "@/types/channels";
 import { useGatewayStore } from "./gateway.store";
@@ -175,6 +176,8 @@ interface AgentsState {
   channelsError: string | null;
   channelsSnapshot: ChannelsStatusSnapshot | null;
   channelsLastSuccess: number | null;
+  channelRecipients: ChannelRecipientEntry[];
+  channelRecipientsLoading: boolean;
 
   cronLoading: boolean;
   cronError: string | null;
@@ -236,6 +239,7 @@ interface AgentsState {
   clearAgentSkills: (agentId: string) => void;
   disableAllAgentSkills: (agentId: string) => void;
   loadChannelsStatus: () => Promise<void>;
+  loadChannelRecipients: (channel?: string) => Promise<void>;
   loadCronStatus: () => Promise<void>;
   /** Load only the jobs list (faster than loadCronStatus). */
   loadCronJobs: () => Promise<void>;
@@ -299,6 +303,8 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   channelsError: null,
   channelsSnapshot: null,
   channelsLastSuccess: null,
+  channelRecipients: [],
+  channelRecipientsLoading: false,
   cronLoading: false,
   cronError: null,
   cronStatus: null,
@@ -858,6 +864,25 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
   },
 
+  loadChannelRecipients: async (channel?: string) => {
+    const client = getClient();
+    if (!client || !isConnected()) {
+      return;
+    }
+    set({ channelRecipientsLoading: true });
+    try {
+      const res = await client.request<{ recipients: ChannelRecipientEntry[] }>(
+        "channels.recipients",
+        channel ? { channel } : {},
+      );
+      set({ channelRecipients: res?.recipients ?? [] });
+    } catch {
+      set({ channelRecipients: [] });
+    } finally {
+      set({ channelRecipientsLoading: false });
+    }
+  },
+
   loadCronStatus: async () => {
     const client = getClient();
     if (!client || !isConnected()) {
@@ -968,6 +993,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
           status?: "ok" | "error" | "skipped";
           durationMs?: number;
           error?: string;
+          summary?: string;
           sessionId?: string;
           sessionKey?: string;
         }>;
@@ -991,6 +1017,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
         executionTime: e.ts,
         durationMs: e.durationMs,
         error: e.error,
+        summary: e.summary,
         sessionId: e.sessionId,
         sessionKey: e.sessionKey,
       }));

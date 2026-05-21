@@ -29,6 +29,7 @@ export const CORE_GATEWAY_METHOD_SPECS: readonly CoreGatewayMethodSpec[] = [
   { name: "logs.tail", scope: "operator.read" },
   { name: "channels.status", scope: "operator.read" },
   { name: "channels.catalog", scope: "operator.read" },
+  { name: "channels.recipients", scope: "operator.read" },
   { name: "channels.enable", scope: "operator.admin" },
   { name: "channels.start", scope: "operator.admin" },
   { name: "channels.stop", scope: "operator.admin" },

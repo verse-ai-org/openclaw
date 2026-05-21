@@ -34,8 +34,10 @@ import {
   validateChannelsStartParams,
   validateChannelsStopParams,
   validateChannelsLogoutParams,
+  validateChannelsRecipientsParams,
   validateChannelsStatusParams,
 } from "../protocol/index.js";
+import { collectAllChannelRecipients } from "../../infra/outbound/recipient-resolver.js";
 import type { ChannelRuntimeSnapshot } from "../server-channel-runtime.types.js";
 import { formatForLog } from "../ws-log.js";
 import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
@@ -866,5 +868,23 @@ export const channelsHandlers: GatewayRequestHandlers = {
     } catch (err) {
       respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(err)));
     }
+  },
+
+  "channels.recipients": ({ params, respond }) => {
+    if (!validateChannelsRecipientsParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid channels.recipients params: ${formatValidationErrors(validateChannelsRecipientsParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const cfg = loadConfig();
+    const channel = (params as { channel?: string }).channel?.trim();
+    const recipients = collectAllChannelRecipients({ cfg, channel });
+    respond(true, { recipients }, undefined);
   },
 };

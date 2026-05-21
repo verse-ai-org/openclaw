@@ -755,6 +755,15 @@ const QrDataUrlSchema = Type.String({
   pattern: "^(data:image/png;base64,|https://)",
 });
 
+export const ChannelsRecipientsParamsSchema = Type.Object(
+  {
+    channel: Type.Optional(NonEmptyString),
+  },
+  { additionalProperties: false },
+);
+
+export type ChannelsRecipientsParams = { channel?: string };
+
 export const WebLoginWaitParamsSchema = Type.Object(
   {
     channel: Type.Optional(NonEmptyString),

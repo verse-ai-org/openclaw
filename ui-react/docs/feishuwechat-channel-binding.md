@@ -52,6 +52,19 @@
 - 飞书 direct 消息：学习 `feishu -> user:ou_xxx`（兼容保留 `feishuDirectUserId`）。
 - 微信 direct 消息：学习 `openclaw-weixin -> xxx@im.wechat`。
 
+### 2.1) 同步到 `openclaw.json`（`session.identityLinks`）
+
+实现：`src/config/sessions/identity-links-persist.ts`，在 `recordSessionMetaFromInbound` 学到新 hints 后写入配置。
+
+要点：
+
+- **不要**写入 `channels.openclaw-weixin.accounts`：那是插件账号凭证目录的镜像，空对象 `{}` 不代表未登录。
+- **应**写入 `session.identityLinks`：canonical → `["feishu:ou_xxx", "openclaw-weixin:xxx@im.wechat"]` 形式。
+- 自动学习条目同时挂在发送方 canonical（如 `wxid_…` / `ou_…`）与保留键 `__openclaw.learned` 下。
+- Web Chat / cron 无 sender 时，若某渠道在 `identityLinks` 中仅有唯一收件人，resolver 用 `session.identityLinks.unique` 解析。
+
+`gateway config.get` 在至少收到一条飞书/微信 direct 消息后，应能看到非空的 `session.identityLinks`。
+
 ---
 
 ## 3) Message 工具自动补全

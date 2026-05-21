@@ -8,6 +8,7 @@ import { extractTextFromChatContent } from "../../shared/chat-content.js";
 import { normalizeLowercaseStringOrEmpty } from "../../shared/string-coerce.js";
 import { isRecord, truncateUtf16Safe } from "../../utils.js";
 import type { DeliveryContext } from "../../utils/delivery-context.shared.js";
+import { resolveAutoRecipient } from "../../infra/outbound/recipient-resolver.js";
 import { resolveSessionAgentId } from "../agent-scope.js";
 import { optionalStringEnum, stringEnum } from "../schema/typebox.js";
 import { CRON_TOOL_DISPLAY_SUMMARY } from "../tool-description-presets.js";
@@ -758,7 +759,18 @@ Use jobId canonical; id accepted compat. contextMessages (0-10) adds previous me
               typeof currentDelivery?.channel === "string" ? currentDelivery.channel.trim() : "";
             const currentTo =
               typeof currentDelivery?.to === "string" ? currentDelivery.to.trim() : "";
-            if (currentChannel === "openclaw-weixin" && !currentTo && currentDelivery) {
+            if (!currentTo && currentChannel && currentDelivery) {
+              const autoRecipient = resolveAutoRecipient({
+                channel: currentChannel,
+                cfg,
+                agentSessionKey: opts.agentSessionKey,
+                senderCandidates: [],
+              });
+              if (autoRecipient.ok && autoRecipient.channel === currentChannel) {
+                currentDelivery.to = autoRecipient.target;
+              }
+            }
+            if (currentChannel === "openclaw-weixin" && !currentDelivery?.to && currentDelivery) {
               const msgText =
                 typeof (job as { payload?: { message?: unknown } }).payload?.message === "string"
                   ? ((job as { payload: { message: string } }).payload.message as string)

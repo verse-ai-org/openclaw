@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { LEARNED_IDENTITY_CANONICAL } from "../../config/sessions/identity-links-persist.js";
 import { resolveAutoFeishuRecipient, resolveAutoRecipient } from "./recipient-resolver.js";
 
 const mocks = vi.hoisted(() => ({
@@ -100,6 +101,26 @@ describe("resolveAutoFeishuRecipient", () => {
     if (result.ok) {
       expect(result.channel).toBe("openclaw-weixin");
       expect(result.target).toBe("wxid_abc123@im.wechat");
+    }
+  });
+
+  it("resolves weixin target from unique identityLinks when sender is unknown", () => {
+    const result = resolveAutoRecipient({
+      channel: "openclaw-weixin",
+      cfg: {
+        session: {
+          identityLinks: {
+            [LEARNED_IDENTITY_CANONICAL]: ["openclaw-weixin:wxid_cfg@im.wechat"],
+          },
+        },
+      } as never,
+      senderCandidates: [],
+      agentSessionKey: "agent:main:web",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.target).toBe("wxid_cfg@im.wechat");
+      expect(result.matchedBy).toBe("session.identityLinks.unique");
     }
   });
 

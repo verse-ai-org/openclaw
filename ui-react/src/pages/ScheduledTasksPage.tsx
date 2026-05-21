@@ -85,6 +85,10 @@ export function ScheduledTasksPage() {
         })
     : [];
 
+  // ── Channel recipients (for auto-complete in modal) ─────────────────────
+  const channelRecipients = useAgentsStore((s) => s.channelRecipients);
+  const loadChannelRecipients = useAgentsStore((s) => s.loadChannelRecipients);
+
   // ── Scheduled Tasks store slice ─────────────────────────────────────────
   const cronRunHistory = useAgentsStore((s) => s.cronRunHistory);
   const cronRunHistoryLoading = useAgentsStore((s) => s.cronRunHistoryLoading);
@@ -127,6 +131,13 @@ export function ScheduledTasksPage() {
       void loadChannelsStatus();
     }
   }, [isConnected, channelsSnapshot, loadChannelsStatus]);
+
+  // Load known channel recipients for auto-complete in the task form modal
+  useEffect(() => {
+    if (isConnected) {
+      void loadChannelRecipients();
+    }
+  }, [isConnected, loadChannelRecipients]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
   function handleOpenNew() {
@@ -198,8 +209,9 @@ export function ScheduledTasksPage() {
 
   function handleViewInChat(record: CronRunRecord) {
     if (record.sessionKey) {
-      // Set the active session key so the chat area loads the correct history
-      // and ChatSidebar's useEffect auto-syncs to the right agent + sessions view.
+      // Set the session key in both store and settings so the chat page loads
+      // the correct run's transcript on mount. useSessionManager reads
+      // sessionKey from chatStore and fires loadHistory on mount.
       useChatStore.getState().setSessionKey(record.sessionKey);
       useSettingsStore.getState().updateSettings({
         sessionKey: record.sessionKey,
@@ -456,6 +468,7 @@ export function ScheduledTasksPage() {
         saving={cronJobSaving}
         hasChannel={hasChannel}
         channelOptions={channelOptions}
+        channelRecipients={channelRecipients}
         onSave={(form) => void handleSave(form)}
         onClose={handleModalClose}
       />

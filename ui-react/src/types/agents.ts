@@ -293,6 +293,8 @@ export type CronRunRecord = {
   executionTime: number;
   durationMs?: number;
   error?: string;
+  /** Brief summary of the run result (assistant's last answer). */
+  summary?: string;
   /** Session ID produced by this run (if available). */
   sessionId?: string;
   /** Session key produced by this run (if available). */
@@ -302,6 +304,14 @@ export type CronRunRecord = {
 export type CronRunHistoryResult = {
   records: CronRunRecord[];
   total: number;
+};
+
+// ── Channel recipients ────────────────────────────────────────────────────────
+
+export type ChannelRecipientEntry = {
+  channel: string;
+  target: string;
+  agentId: string;
 };
 
 // ── Panel tabs ────────────────────────────────────────────────────────────────

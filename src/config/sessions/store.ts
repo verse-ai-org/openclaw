@@ -575,6 +575,27 @@ export async function updateSessionStoreEntry(params: {
   });
 }
 
+async function maybePersistIdentityHintsToConfig(params: {
+  ctx: MsgContext;
+  entry: SessionEntry | null;
+  patchHadIdentityHints: boolean;
+}): Promise<void> {
+  if (!params.patchHadIdentityHints || !params.entry?.identityHints) {
+    return;
+  }
+  const { persistIdentityHintsToIdentityLinks, resolveInboundIdentityCanonical } =
+    await import("./identity-links-persist.runtime.js");
+  const canonical = resolveInboundIdentityCanonical(params.ctx);
+  try {
+    await persistIdentityHintsToIdentityLinks({
+      hints: params.entry.identityHints,
+      canonical,
+    });
+  } catch {
+    // Config sync is best-effort; session store hints remain the source of truth.
+  }
+}
+
 export async function recordSessionMetaFromInbound(params: {
   storePath: string;
   sessionKey: string;
@@ -584,7 +605,8 @@ export async function recordSessionMetaFromInbound(params: {
 }): Promise<SessionEntry | null> {
   const { storePath, sessionKey, ctx } = params;
   const createIfMissing = params.createIfMissing ?? true;
-  return await updateSessionStore(
+  let identityHintsLearned = false;
+  const entry = await updateSessionStore(
     storePath,
     (store) => {
       const resolved = resolveSessionStoreEntry({ store, sessionKey });
@@ -595,6 +617,10 @@ export async function recordSessionMetaFromInbound(params: {
         existing,
         groupResolution: params.groupResolution,
       });
+      const nextHintsUpdatedAt = patch?.identityHints?.updatedAt;
+      identityHintsLearned = Boolean(
+        nextHintsUpdatedAt && nextHintsUpdatedAt !== existing?.identityHints?.updatedAt,
+      );
       if (!patch) {
         if (existing && resolved.legacyKeys.length > 0) {
           store[resolved.normalizedKey] = existing;
@@ -620,6 +646,12 @@ export async function recordSessionMetaFromInbound(params: {
     },
     { activeSessionKey: normalizeStoreSessionKey(sessionKey) },
   );
+  await maybePersistIdentityHintsToConfig({
+    ctx,
+    entry,
+    patchHadIdentityHints: identityHintsLearned,
+  });
+  return entry;
 }
 
 export async function updateLastRoute(params: {
