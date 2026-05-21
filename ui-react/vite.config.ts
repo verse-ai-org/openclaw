@@ -2,11 +2,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
+import { devDevicePairingPlugin } from "./vite-dev-device-pairing-plugin";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, here, "");
   return {
     test: {
       environment: "node",
@@ -14,7 +16,7 @@ export default defineConfig(() => {
       include: ["src/**/*.test.ts"],
     },
     base: "./",
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), devDevicePairingPlugin()],
     // Serve public assets from ui-react/public (includes avatars and static resources)
     publicDir: path.resolve(here, "public"),
     define: {
@@ -27,7 +29,7 @@ export default defineConfig(() => {
       // the UI can connect when opened directly in a browser without Electron.
       // Never baked into production builds (only active in DEV mode).
       "import.meta.env.VITE_GATEWAY_TOKEN": JSON.stringify(
-        process.env.VITE_GATEWAY_TOKEN ?? "",
+        env.VITE_GATEWAY_TOKEN ?? "",
       ),
     },
     resolve: {

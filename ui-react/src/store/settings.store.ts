@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ThemeMode, UiSettings } from "@/types/gateway";
+import { getElectronBridge } from "@/utils/electron-env";
 
 // ---------------------------------------------------------------------------
 // localStorage helpers (mirrors ui/src/ui/storage.ts without Lit dependency)
@@ -68,7 +69,7 @@ function resolveDefaultGatewayUrl(): string {
   // Port is read from VITE_GATEWAY_PORT env var so it stays in sync with
   // the Electron main process (which may use 18790 to avoid conflicts).
   if (
-    typeof import.meta !== "undefined" &&
+    import.meta !== undefined &&
     import.meta.env?.DEV &&
     location.hostname === "localhost" &&
     location.port === "5174"
@@ -103,7 +104,7 @@ function resolveDefaultGatewayUrl(): string {
 
 function isDevGatewayOverrideActive(): boolean {
   return (
-    typeof import.meta !== "undefined" &&
+    import.meta !== undefined &&
     !!import.meta.env?.DEV &&
     typeof location !== "undefined" &&
     location.hostname === "localhost" &&
@@ -111,16 +112,50 @@ function isDevGatewayOverrideActive(): boolean {
   );
 }
 
+function isElectronRenderer(): boolean {
+  return getElectronBridge()?.isElectron === true;
+}
+
+/** Vite on :5174 in a plain browser (no Electron shell). */
+function isBrowserOnlyViteDev(): boolean {
+  return isDevGatewayOverrideActive() && !isElectronRenderer();
+}
+
 function resolveDevToken(): string {
   // In Vite dev mode, read VITE_GATEWAY_TOKEN baked at build time.
   // Users configure this in ui-react/.env.local (git-ignored).
   // Returns empty string in production so it never leaks into packaged builds.
-  if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
+  if (import.meta !== undefined && import.meta.env?.DEV) {
     return (
       (import.meta.env.VITE_GATEWAY_TOKEN as string | undefined)?.trim() ?? ""
     );
   }
   return "";
+}
+
+/** Token priority for Control UI gateway auth. Exported for tests. */
+export function resolveGatewayToken(params: {
+  urlToken: string;
+  gatewayUrl: string;
+  devToken: string;
+  /** When true, Electron ?token= beats VITE_GATEWAY_TOKEN (.env.local). */
+  inElectron?: boolean;
+}): string {
+  const inElectron = params.inElectron === true;
+  // Browser-only dev on :5174 — .env.local beats sessionStorage.
+  // Inside Electron+Vite, main process injects the live token via ?token=.
+  if (isDevGatewayOverrideActive() && !inElectron && params.devToken.trim()) {
+    const devToken = params.devToken.trim();
+    const cached = loadSessionToken(params.gatewayUrl);
+    if (cached && cached !== devToken) {
+      persistSessionToken(params.gatewayUrl, devToken);
+    }
+    return devToken;
+  }
+  if (params.urlToken.trim()) {
+    return params.urlToken.trim();
+  }
+  return loadSessionToken(params.gatewayUrl) || params.devToken.trim();
 }
 
 export function loadSettings(): UiSettings {
@@ -163,8 +198,16 @@ export function loadSettings(): UiSettings {
         }
       }
       // Persist token to sessionStorage so it survives page refresh.
+      // Skip stale Electron session tokens only in browser-only Vite dev.
       if (urlToken) {
-        persistSessionToken(urlGatewayUrl || defaultUrl, urlToken);
+        const devToken = resolveDevToken();
+        const skipStaleElectronToken =
+          isBrowserOnlyViteDev() &&
+          devToken.trim() &&
+          urlToken.trim() !== devToken.trim();
+        if (!skipStaleElectronToken) {
+          persistSessionToken(urlGatewayUrl || defaultUrl, urlToken);
+        }
       }
     }
   } catch {
@@ -175,9 +218,15 @@ export function loadSettings(): UiSettings {
   const resolvedGatewayUrl = urlGatewayUrl || defaultUrl;
   // Token priority: URL param > sessionStorage > VITE_GATEWAY_TOKEN (dev-only env)
   const devToken = resolveDevToken();
+  const inElectron = isElectronRenderer();
   const defaults: UiSettings = {
     gatewayUrl: resolvedGatewayUrl,
-    token: urlToken || loadSessionToken(resolvedGatewayUrl) || devToken,
+    token: resolveGatewayToken({
+      urlToken,
+      gatewayUrl: resolvedGatewayUrl,
+      devToken,
+      inElectron,
+    }),
     sessionKey: "main",
     lastActiveSessionKey: "main",
     theme: "light",
@@ -210,7 +259,7 @@ export function loadSettings(): UiSettings {
     })();
     return {
       gatewayUrl,
-      token: urlToken || loadSessionToken(gatewayUrl) || devToken,
+      token: resolveGatewayToken({ urlToken, gatewayUrl, devToken, inElectron }),
       sessionKey:
         typeof parsed.sessionKey === "string" && parsed.sessionKey.trim()
           ? parsed.sessionKey.trim()

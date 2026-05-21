@@ -112,7 +112,7 @@ export class GatewayClient {
       this.ws = null;
       this.flushPending(new Error(`gateway closed (${ev.code}): ${reason}`));
       this.opts.onClose({ code: ev.code, reason, error: connectError });
-      if (!this.isNonRecoverable(connectError)) {
+      if (!isNonRecoverableGatewayClose({ reason, error: connectError })) {
         this.scheduleReconnect();
       }
     });
@@ -288,15 +288,24 @@ export class GatewayClient {
     }
     this.pending.clear();
   }
-
-  private isNonRecoverable(error: GatewayErrorInfo | undefined): boolean {
-    if (!error) {
-      return false;
-    }
-    return isNonRecoverableGatewayErrorCode(error.code);
-  }
 }
 
 export function isNonRecoverableGatewayErrorCode(code: string | undefined): boolean {
   return !!code && NON_RECOVERABLE_GATEWAY_ERROR_CODES.has(code);
+}
+
+export function isNonRecoverableGatewayClose(params: {
+  reason: string;
+  error?: GatewayErrorInfo;
+}): boolean {
+  if (isNonRecoverableGatewayErrorCode(params.error?.code)) {
+    return true;
+  }
+  const text = `${params.error?.message ?? ""} ${params.reason}`.toLowerCase();
+  return (
+    text.includes("too many failed authentication") ||
+    text.includes("gateway token mismatch") ||
+    text.includes("gateway password mismatch") ||
+    text.includes("pairing required")
+  );
 }

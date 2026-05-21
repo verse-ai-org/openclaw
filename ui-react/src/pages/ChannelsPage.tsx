@@ -16,7 +16,7 @@ import { MoreChannelsSection } from "@/components/channels/MoreChannelsSection";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import {
   buildDiscoverLists,
-  countDiscoverByLifecycle,
+  // countDiscoverByLifecycle,
   partitionChannelsByLifecycle,
   resolveChannelOrder,
 } from "@/pages/channels-page-helpers";
@@ -127,10 +127,10 @@ export function ChannelsPage() {
     [runtimeChannelIds, snapshot, catalog],
   );
 
-  const discoverCounts = useMemo(
-    () => countDiscoverByLifecycle(discoverEntries),
-    [discoverEntries],
-  );
+  // const discoverCounts = useMemo(
+  //   () => countDiscoverByLifecycle(discoverEntries),
+  //   [discoverEntries],
+  // );
 
   const hasRuntimeChannels = runtimeChannelIds.length > 0;
   const tabOptions = useMemo(() => {
@@ -271,7 +271,7 @@ export function ChannelsPage() {
 
           {mergedError && <ErrorCallout message={mergedError} />}
 
-          {!hasRuntimeChannels && discoverEntries.length > 0 && (
+          {/* {!hasRuntimeChannels && discoverEntries.length > 0 && (
             <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
               No channels are loaded yet. Install or enable a channel below, then configure
               credentials. ({discoverCounts.notLoaded} not enabled
@@ -283,7 +283,7 @@ export function ChannelsPage() {
                 : ""}
               )
             </div>
-          )}
+          )} */}
 
           <div className="flex flex-col gap-6">
             <SegmentedControl

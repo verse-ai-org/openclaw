@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useGatewayStore } from "@/store/gateway.store";
-import { useSettingsStore } from "@/store/settings.store";
+import { loadSettings, useSettingsStore } from "@/store/settings.store";
 import { GatewayClient } from "./client";
 import { parsePairingRequestId } from "./pairing-reason";
+import { approveDevicePairingInDev } from "./dev-device-pairing";
 
 type ElectronGatewayBridge = {
   approveDevicePairing?: (requestId?: string) => Promise<{ ok: boolean; error?: string }>;
@@ -79,11 +80,31 @@ export function useGateway() {
                 `[gateway] device pairing approve failed requestId=${requestId}`,
                 result.error ?? "",
               );
-              // Background auto-approve may have won the race; retry connect once.
               connect();
             })
             .catch((err) => {
               console.warn("[gateway] device pairing approve threw", err);
+              storeRef.current.setDisconnected(info);
+            });
+          return;
+        }
+        if (requestId && import.meta.env.DEV) {
+          const token = settingsRef.current.token;
+          void approveDevicePairingInDev({ requestId, token })
+            .then((result) => {
+              if (result.ok) {
+                console.log(`[gateway] dev device pairing approved requestId=${requestId}`);
+                connect();
+                return;
+              }
+              console.warn(
+                `[gateway] dev device pairing approve failed requestId=${requestId}`,
+                result.error ?? "",
+              );
+              storeRef.current.setDisconnected(info);
+            })
+            .catch((err) => {
+              console.warn("[gateway] dev device pairing approve threw", err);
               storeRef.current.setDisconnected(info);
             });
           return;
@@ -109,6 +130,27 @@ export function useGateway() {
 
   const gatewayUrl = settings.gatewayUrl;
   const token = settings.token;
+
+  // Vite dev may HMR without re-running loadSettings(); resync auth from env.
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+    if (location.hostname !== "localhost" || location.port !== "5174") {
+      return;
+    }
+    const fresh = loadSettings();
+    const current = useSettingsStore.getState().settings;
+    if (
+      fresh.token !== current.token ||
+      fresh.gatewayUrl !== current.gatewayUrl
+    ) {
+      useSettingsStore.getState().updateSettings({
+        token: fresh.token,
+        gatewayUrl: fresh.gatewayUrl,
+      });
+    }
+  }, []);
 
   useEffect(() => {
     connect();

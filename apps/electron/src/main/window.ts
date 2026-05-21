@@ -2,6 +2,7 @@ import path from "node:path";
 import http from "node:http";
 import fs from "node:fs";
 import { app, BrowserWindow, shell, session, screen } from "electron";
+import { readExistingGatewayToken } from "./gateway.js";
 import { mainLogError, mainLogInfo, mainLogWarn } from "./logger.js";
 
 // ---------------------------------------------------------------------------
@@ -180,6 +181,14 @@ function installExternalLinkNavigationHandlers(
  * - 打包后：Resources/control-ui-react/
  */
 const VITE_UI_REACT_URL = process.env.VITE_UI_REACT_URL?.replace(/\/$/, "");
+
+function resolveRendererAuthToken(token: string): string {
+  // Vite dev: prefer persisted config token over ephemeral sessionTokenForStartup.
+  if (VITE_UI_REACT_URL && !app.isPackaged) {
+    return readExistingGatewayToken()?.trim() || token;
+  }
+  return token;
+}
 
 function resolveRendererUrl(
   page: string,
@@ -404,9 +413,11 @@ export function loadRendererPage(
     }
   }
 
+  const authToken =
+    opts != null ? resolveRendererAuthToken(opts.token) : "";
   const query =
     opts != null
-      ? `?gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(opts.token)}`
+      ? `?gatewayUrl=${encodeURIComponent(`ws://127.0.0.1:${opts.port}`)}&token=${encodeURIComponent(authToken)}`
       : "";
 
   const alreadyVisible = opts?.windowAlreadyVisible === true;

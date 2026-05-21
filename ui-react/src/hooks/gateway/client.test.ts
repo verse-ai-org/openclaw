@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isNonRecoverableGatewayErrorCode } from "./client";
+import {
+  isNonRecoverableGatewayClose,
+  isNonRecoverableGatewayErrorCode,
+} from "./client";
 
 describe("gateway/client", () => {
   it("returns true for non-recoverable auth and pairing errors", () => {
@@ -14,5 +17,23 @@ describe("gateway/client", () => {
     expect(isNonRecoverableGatewayErrorCode(undefined)).toBe(false);
     expect(isNonRecoverableGatewayErrorCode("CONNECT_FAILED")).toBe(false);
     expect(isNonRecoverableGatewayErrorCode("SOME_UNKNOWN_CODE")).toBe(false);
+  });
+
+  it("treats auth rate limit and token mismatch close reasons as non-recoverable", () => {
+    expect(
+      isNonRecoverableGatewayClose({
+        reason: "unauthorized: too many failed authentication attempts (retry later)",
+      }),
+    ).toBe(true);
+    expect(
+      isNonRecoverableGatewayClose({
+        reason: "unauthorized: gateway token mismatch (open the dashboard URL)",
+      }),
+    ).toBe(true);
+    expect(
+      isNonRecoverableGatewayClose({
+        reason: "pairing required: device is not approved yet (requestId: abc)",
+      }),
+    ).toBe(true);
   });
 });
