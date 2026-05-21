@@ -23,6 +23,9 @@ import type { CronRunRecord } from "@/types/agents";
 // ---------------------------------------------------------------------------
 const PAGE_SIZE = 10;
 
+/** Re-enable when View in chat deep-link + cron history loading are wired. */
+const VIEW_IN_CHAT_ENABLED = false;
+
 const TIME_FILTER_OPTIONS = [
   { label: "Day", value: "day" },
   { label: "Week", value: "week" },
@@ -248,7 +251,7 @@ export function RunHistoryTable({
                             <span className="ml-1 text-xs text-muted-foreground">(unavailable)</span>
                           )}
                         </DropdownMenuItem>
-                        {onViewInChat && record.sessionKey && (
+                        {VIEW_IN_CHAT_ENABLED && onViewInChat && record.sessionKey && (
                           <DropdownMenuItem onClick={() => onViewInChat(record)}>
                             <MessageSquareIcon className="mr-2 size-3.5" />
                             View in chat

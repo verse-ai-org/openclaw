@@ -1,6 +1,7 @@
 node_modules
 **/node_modules/
 .env
+ui-react/.env.local
 docker-compose.override.yml
 docker-compose.extra.yml
 docker-compose.sandbox.yml

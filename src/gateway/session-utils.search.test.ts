@@ -189,9 +189,14 @@ describe("listSessionsFromStore search", () => {
     }
   });
 
-  test("hides cron run alias session keys from sessions list", () => {
+  test("hides scheduled-task cron session keys from sessions list", () => {
     const now = Date.now();
     const store: Record<string, SessionEntry> = {
+      "agent:main:main": {
+        sessionId: "main-session",
+        updatedAt: now,
+        label: "Main",
+      } as SessionEntry,
       "agent:main:cron:job-1": {
         sessionId: "run-abc",
         updatedAt: now,
@@ -211,7 +216,7 @@ describe("listSessionsFromStore search", () => {
       opts: {},
     });
 
-    expect(result.sessions.map((session) => session.key)).toEqual(["agent:main:cron:job-1"]);
+    expect(result.sessions.map((session) => session.key)).toEqual(["agent:main:main"]);
   });
 
   test.each([
