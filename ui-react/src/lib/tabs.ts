@@ -67,7 +67,7 @@ export function tabLabel(tab: Tab): string {
     sessions: "Sessions",
     usage: "Usage",
     cron: "Cron",
-    automation: "Automation",
+    automation: "Automations",
     agents: "Agents",
     employees: "Employees",
     plugins: "Plugins",
