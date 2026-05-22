@@ -189,9 +189,9 @@ export function TaskFormDeliveryStrip({
                   applySelection({ kind: "none" });
                 }}
                 className={cn(
-                  "absolute -right-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full",
+                  "absolute -right-0.5 -top-0 flex size-5 items-center justify-center rounded-full",
                   "border border-border bg-background text-muted-foreground shadow-sm",
-                  "hover:bg-destructive hover:text-destructive-foreground",
+                  "hover:bg-primary hover:text-primary-foreground",
                 )}
               >
                 <XIcon className="size-3" />

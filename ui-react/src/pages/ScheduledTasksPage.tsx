@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
@@ -33,6 +33,10 @@ import {
 import { TaskFormModal } from "@/components/scheduled-tasks/TaskFormModal";
 import { buildRunningDeliveryChannelOptions } from "@/lib/delivery-channel-options";
 import { cronJobToFormData } from "@/lib/cron-job-form";
+import {
+  filterUserVisibleCronJobs,
+  isManagedMemoryDreamingCronJob,
+} from "@/lib/cron-managed-jobs";
 import type { CronJob, ScheduledTaskFormData } from "@/types/agents";
 
 // ---------------------------------------------------------------------------
@@ -53,6 +57,7 @@ export function ScheduledTasksPage() {
   const cronLoading = useAgentsStore((s) => s.cronLoading);
   const cronError = useAgentsStore((s) => s.cronError);
   const cronJobs = useAgentsStore((s) => s.cronJobs);
+  const userCronJobs = useMemo(() => filterUserVisibleCronJobs(cronJobs), [cronJobs]);
   const loadCronStatus = useAgentsStore((s) => s.loadCronStatus);
 
   // ── Channels state (for delivery channel resolution) ────────────────────
@@ -219,7 +224,8 @@ export function ScheduledTasksPage() {
   async function handleRerun(jobId: string, jobName?: string) {
     // If job no longer exists (deleted), show a warning instead of firing a
     // silent request that will fail on the gateway side.
-    const jobExists = useAgentsStore.getState().cronJobs.some((j) => j.id === jobId);
+    const job = useAgentsStore.getState().cronJobs.find((j) => j.id === jobId);
+    const jobExists = Boolean(job && !isManagedMemoryDreamingCronJob(job));
     if (!jobExists) {
       toast.warning(`Task no longer exists and cannot be rerun.`, { duration: 3000 });
       return;
@@ -238,7 +244,7 @@ export function ScheduledTasksPage() {
   }
 
   // ── Sort + filter jobs ───────────────────────────────────────────────────
-  const sortedJobs: CronJob[] = cronJobs.toSorted((a: CronJob, b: CronJob) => {
+  const sortedJobs: CronJob[] = userCronJobs.toSorted((a: CronJob, b: CronJob) => {
     if (sortBy === "created-asc") {
       return (a.createdAtMs ?? 0) - (b.createdAtMs ?? 0);
     }
@@ -347,12 +353,12 @@ export function ScheduledTasksPage() {
             </div>
 
             <TabsContent value="my-tasks" className="mt-2 flex flex-col gap-4">
-              {cronLoading && cronJobs.length === 0 ? (
+              {cronLoading && userCronJobs.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
                   <Loader2Icon className="size-4 animate-spin" />
                   <span className="text-sm">Loading tasks…</span>
                 </div>
-              ) : cronJobs.length === 0 ? (
+              ) : userCronJobs.length === 0 ? (
                 <ScheduledTasksEmptyState
                   onCreate={handleOpenNew}
                   onCreateWithChat={handleCreateWithChat}
@@ -429,7 +435,7 @@ export function ScheduledTasksPage() {
         channelRecipients={channelRecipients}
         channelRecipientsLoading={channelRecipientsLoading}
         channelRecipientsError={channelRecipientsError}
-        cronJobs={cronJobs}
+        cronJobs={userCronJobs}
         onReloadChannelRecipients={loadChannelRecipients}
         onSave={(form) => void handleSave(form)}
         onClose={handleModalClose}
