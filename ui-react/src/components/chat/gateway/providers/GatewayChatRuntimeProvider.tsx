@@ -131,26 +131,39 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
           ?.length ?? 0
       );
       if (attachmentCount > MAX_ATTACHMENT_COUNT) {
-        toast.error(`Too many files. Maximum is ${MAX_ATTACHMENT_COUNT}.`, { duration: 3000 });
+        toast.error(`附件过多，最多支持 ${MAX_ATTACHMENT_COUNT} 个`, { duration: 3000 });
         return;
       }
+
+      // Route by purpose: images → base64, documents → attachmentRefs (Electron) or base64 (Web)
+      const imageAttachments = gatewayAttachments.filter((att) => att.mimeType.startsWith("image/"));
       const { refs: attachmentRefs, missingPathFiles } =
         await buildAttachmentRefsFromMessage(message);
-      if (missingPathFiles.length > 0) {
+
+      // For non-image files: Electron has refs, Web environment falls back to base64 (not yet wired)
+      // missingPathFiles means Web environment — currently no base64 fallback for documents,
+      // so we only warn for non-image files that lack a path.
+      const nonImageMissingPaths = missingPathFiles.filter((name) => {
+        const ext = name.split(".").pop()?.toLowerCase() ?? "";
+        return !["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext);
+      });
+      if (nonImageMissingPaths.length > 0) {
         toast.error(
-          `Cannot resolve local file path: ${missingPathFiles.join(", ")}. Please reattach from local disk.`,
+          `无法获取文件路径: ${nonImageMissingPaths.join(", ")}，请在桌面端重新添加文件`,
           { duration: 4000 },
         );
         return;
       }
-      if (gatewayAttachments.some((att) => att.mimeType.startsWith("image/"))) {
-        toast.error("Image uploads are currently disabled.", { duration: 3000 });
+
+      const allBase64Attachments = imageAttachments;
+      if (!text.trim() && allBase64Attachments.length === 0 && attachmentRefs.length === 0) {
         return;
       }
-      if (!text.trim() && gatewayAttachments.length === 0 && attachmentRefs.length === 0) {
-        return;
-      }
-      await sendMessage(text, { attachments: gatewayAttachments, attachmentRefs, displayAttachments });
+      await sendMessage(text, {
+        attachments: allBase64Attachments.length > 0 ? allBase64Attachments : undefined,
+        attachmentRefs: attachmentRefs.length > 0 ? attachmentRefs : undefined,
+        displayAttachments,
+      });
     },
     [sendMessage],
   );

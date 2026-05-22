@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useState,
+  type ClipboardEventHandler,
   type DragEventHandler,
   type FC,
   type FormEventHandler,
@@ -17,6 +18,7 @@ import {
 import {
   ALLOWED_MIME_TYPES,
   MAX_ATTACHMENT_COUNT,
+  MAX_IMAGE_SIZE_BYTES,
   MAX_FILE_SIZE_BYTES_REFERENCE_MODE,
 } from "./gateway/providers/send";
 import { useComposerStore } from "@/store/composer.store";
@@ -60,20 +62,23 @@ export const Composer: FC = () => {
       return null;
     }
     if (files.length > MAX_ATTACHMENT_COUNT) {
-      return `Too many files selected. Maximum is ${MAX_ATTACHMENT_COUNT}.`;
+      return `附件过多，最多支持 ${MAX_ATTACHMENT_COUNT} 个`;
     }
     for (const file of files) {
-      if (file.type.startsWith("image/")) {
-        return "Image uploads are currently disabled.";
-      }
       if (file.size <= 0) {
-        return `Empty files are not supported: ${file.name}`;
+        return `不支持空文件: ${file.name}`;
+      }
+      if (file.type.startsWith("image/")) {
+        if (file.size > MAX_IMAGE_SIZE_BYTES) {
+          return `图片过大: ${file.name}，最大支持 ${MAX_IMAGE_SIZE_BYTES / 1024 / 1024}MB`;
+        }
+        continue;
       }
       if (file.size > MAX_FILE_SIZE_BYTES_REFERENCE_MODE) {
-        return `File is too large: ${file.name}. Max size is 100MB.`;
+        return `文件过大: ${file.name}，最大支持 100MB`;
       }
       if (!ALLOWED_MIME_TYPES.has(file.type)) {
-        return `Unsupported file type: ${file.name}`;
+        return `不支持的文件类型: ${file.name}`;
       }
     }
     return null;
@@ -90,6 +95,31 @@ export const Composer: FC = () => {
   const handleDropCapture = useCallback<DragEventHandler<HTMLDivElement>>((evt) => {
     setAttachmentError(validateFiles(evt.dataTransfer.files));
   }, [validateFiles]);
+
+  const handlePaste = useCallback<ClipboardEventHandler<HTMLTextAreaElement>>((evt) => {
+    const items = evt.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+    if (imageFiles.length === 0) return;
+    evt.preventDefault();
+    for (const file of imageFiles) {
+      const err = validateFiles(
+        Object.assign([file], { item: () => file }) as unknown as FileList,
+      );
+      if (err) {
+        setAttachmentError(err);
+        return;
+      }
+      composerRuntime.addAttachment(file);
+    }
+  }, [composerRuntime, validateFiles]);
 
   // Consume pendingDraftMessage once on mount to pre-fill the input.
   // Clears the store entry immediately so it only fires once.
@@ -143,6 +173,7 @@ export const Composer: FC = () => {
           rows={1}
           autoFocus
           aria-label="Message input"
+          onPaste={handlePaste}
         />
 
         {/* Action row */}

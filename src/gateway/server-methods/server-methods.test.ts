@@ -960,20 +960,20 @@ describe("normalizeRpcAttachmentsToChatAttachments", () => {
     ]);
   });
 
-  it("rejects image attachments in validator", () => {
+  it("accepts image attachments in validator", () => {
     const res = validateNormalizedChatAttachments([
       { mimeType: "image/png", content: "Zm9v" },
     ]);
-    expect(res).toEqual({ ok: false, error: "image uploads are currently disabled" });
+    expect(res).toEqual({ ok: true });
   });
 
   it("rejects unsupported attachment mime types in validator", () => {
     const res = validateNormalizedChatAttachments([
-      { mimeType: "application/zip", content: "Zm9v" },
+      { mimeType: "application/x-executable", content: "Zm9v" },
     ]);
     expect(res).toEqual({
       ok: false,
-      error: "unsupported attachment mimeType: application/zip",
+      error: "unsupported attachment mimeType: application/x-executable",
     });
   });
 

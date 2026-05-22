@@ -40,6 +40,12 @@ export const ALLOWED_CHAT_ATTACHMENT_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-powerpoint",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/zip",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/webm",
 ]);
 
 function normalizeAttachmentContent(content: unknown): string | undefined {
@@ -90,10 +96,7 @@ export function validateNormalizedChatAttachments(
     if (!mime) {
       return { ok: false, error: "attachment mimeType is required" };
     }
-    if (mime.startsWith("image/")) {
-      return { ok: false, error: "image uploads are currently disabled" };
-    }
-    if (!ALLOWED_CHAT_ATTACHMENT_MIME_TYPES.has(mime)) {
+    if (!mime.startsWith("image/") && !ALLOWED_CHAT_ATTACHMENT_MIME_TYPES.has(mime)) {
       return { ok: false, error: `unsupported attachment mimeType: ${mime}` };
     }
   }
