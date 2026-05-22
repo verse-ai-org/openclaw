@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 /**
  * 安全桥接：通过 contextBridge 暴露有限的 Electron API 给渲染进程。
@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld("electronBridge", {
 
   /** 是否在 Electron 环境中运行 */
   isElectron: true,
+
+  /**
+   * Resolve a renderer File object's absolute local path (Electron 32+).
+   * Replaces the removed File.path property; used for chat attachment reference mode.
+   */
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 
   /**
    * 向 Gateway 发起 wizard RPC 请求（通过主进程 WS 中转）。

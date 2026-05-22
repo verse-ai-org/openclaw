@@ -1,4 +1,5 @@
 import type { AppendMessage, CompleteAttachment } from "@assistant-ui/react";
+import { getElectronBridge } from "@/utils/electron-env";
 
 export type ChatAttachmentRef = {
   fileId: string;
@@ -25,6 +26,10 @@ async function sha256File(file: File): Promise<string> {
 }
 
 function getElectronFilePath(file: File): string | null {
+  const fromBridge = getElectronBridge()?.getPathForFile?.(file);
+  if (typeof fromBridge === "string" && fromBridge.trim()) {
+    return fromBridge.trim();
+  }
   const withPath = file as File & { path?: string };
   if (typeof withPath.path === "string" && withPath.path.trim()) {
     return withPath.path.trim();

@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 export type ElectronBridgeEnv = {
   platform?: string;
   isElectron?: boolean;
+  getPathForFile?: (file: File) => string;
 };
 
 export function getElectronBridge(): ElectronBridgeEnv | undefined {
