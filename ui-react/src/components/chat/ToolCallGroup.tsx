@@ -352,7 +352,7 @@ const ToolCallGroupInner: FC<
 
         {usageLine?.primary ? (
           <span
-            className="text-[11px] tabular-nums text-muted-foreground"
+            className="text-[11px] tabular-nums text-muted-foreground animate-in fade-in duration-300"
             title={usageLine.title}
           >
             · {usageLine.primary}

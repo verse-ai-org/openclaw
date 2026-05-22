@@ -175,7 +175,12 @@ export async function loadHistoryFromGateway(params: {
     }
 
     // Feed canonical conversation snapshot (thread-level reducer).
-    useConversationStore.getState().setHistoryCanonicalSnapshot(key, canonicalMessages, Date.now(), historyRuns);
+    // Silent reloads (post-run refresh) skip the generation bump to avoid a full message list
+    // remount that causes a visible flicker with identical content.
+    useConversationStore.getState().setHistoryCanonicalSnapshot(
+      key, canonicalMessages, Date.now(), historyRuns,
+      silent ? { skipGenerationBump: true } : undefined,
+    );
     useConversationStore.getState().setHistoryPagingState(key, {
       oldestBeforeTs: typeof result?.nextBeforeTs === "number" ? result.nextBeforeTs : null,
       hasMore: Boolean(result?.hasMore),

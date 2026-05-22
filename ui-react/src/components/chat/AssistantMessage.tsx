@@ -4,6 +4,7 @@ import {
 } from "@assistant-ui/react";
 import { type FC, useMemo } from "react";
 import type { CanonicalRun } from "@/components/chat/conversation";
+import type { TurnUsageMeta } from "@/components/chat/usage/turn-usage-meta";
 import { AssistantMarkdownTextBlock } from "../assistant-ui/markdown-text.tsx";
 import { AssistantToolGroup } from "../assistant-ui/assistant-tool-group.tsx";
 import { useChatStore } from "@/store/chat.store";
@@ -25,6 +26,15 @@ function completedWholeRunDurationMs(
   return Math.max(0, run.finishedAt - run.startedAt);
 }
 
+function resolveRunIdForMessage(
+  conversation: { messagesById: Map<string, { runId?: string }> } | undefined,
+  messageId: string,
+): string | undefined {
+  if (!conversation) return undefined;
+  const canonical = conversation.messagesById.get(messageId);
+  return canonical?.runId ?? (messageId.startsWith("run:") ? messageId.slice("run:".length) : undefined);
+}
+
 // ---------------------------------------------------------------------------
 // AssistantMessage
 // ---------------------------------------------------------------------------
@@ -44,32 +54,28 @@ export const AssistantMessage: FC = () => {
     });
   }, [conversation, messageId]);
 
-  const { runWallDuration, runUsageMeta } = useMemo(() => {
-    if (!conversation) {
-      return { runWallDuration: undefined, runUsageMeta: undefined };
-    }
-    const canonical = conversation.messagesById.get(messageId);
-    const runId =
-      canonical?.runId ??
-      (messageId.startsWith("run:") ? messageId.slice("run:".length) : undefined);
-    if (!runId) {
-      return { runWallDuration: undefined, runUsageMeta: undefined };
-    }
-    const run = conversation.runsById.get(runId);
-    if (!run) {
-      return { runWallDuration: undefined, runUsageMeta: undefined };
-    }
-    let runWallDuration: ToolCallGroupRunDuration | undefined;
+  // Narrow selectors: extract only the run fields we care about so that unrelated
+  // conversation state changes (e.g. other messages) don't trigger re-renders here.
+  const runId = useMemo(
+    () => resolveRunIdForMessage(conversation, messageId),
+    [conversation, messageId],
+  );
+
+  const run: CanonicalRun | undefined = useConversationStore((s) => {
+    const conv = s.byThread[activeSessionKey];
+    return runId ? conv?.runsById.get(runId) : undefined;
+  });
+
+  const runWallDuration: ToolCallGroupRunDuration | undefined = useMemo(() => {
+    if (!run) return undefined;
     if (run.status === "running" && typeof run.startedAt === "number") {
-      runWallDuration = { kind: "live", startedAt: run.startedAt };
-    } else {
-      const ms = completedWholeRunDurationMs(run);
-      if (ms != null) {
-        runWallDuration = { kind: "done", ms };
-      }
+      return { kind: "live", startedAt: run.startedAt };
     }
-    return { runWallDuration, runUsageMeta: run.usageMeta };
-  }, [conversation, messageId]);
+    const ms = completedWholeRunDurationMs(run);
+    return ms != null ? { kind: "done", ms } : undefined;
+  }, [run]);
+
+  const runUsageMeta: TurnUsageMeta | undefined = run?.usageMeta;
   // console.log("rawContent", rawContent);
 
   const { textParts, toolParts, uiParts } = useMemo(

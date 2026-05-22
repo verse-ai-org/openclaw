@@ -39,6 +39,7 @@ type ConversationStoreState = {
     messages: CanonicalMessage[],
     ts?: number,
     runs?: CanonicalRun[],
+    options?: { skipGenerationBump?: boolean },
   ) => void;
   setHistoryPagingState: (threadId: ThreadId, next: Partial<HistoryPagingState>) => void;
   setActiveRunSnapshot: (threadId: ThreadId, runId: string | null, startedAt?: number | null) => void;
@@ -85,7 +86,7 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
       };
     }),
 
-  setHistoryCanonicalSnapshot: (threadId, messages, ts = Date.now(), runs) =>
+  setHistoryCanonicalSnapshot: (threadId, messages, ts = Date.now(), runs, options) =>
     set((state) => {
       const prev = state.byThread[threadId] ?? emptyConversationState(threadId);
       const next = applyCanonicalEvent(prev, {
@@ -97,10 +98,14 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
       });
       return {
         byThread: { ...state.byThread, [threadId]: next },
-        threadListGenerationByThread: bumpThreadListGeneration(
-          state.threadListGenerationByThread,
-          threadId,
-        ),
+        ...(options?.skipGenerationBump
+          ? {}
+          : {
+              threadListGenerationByThread: bumpThreadListGeneration(
+                state.threadListGenerationByThread,
+                threadId,
+              ),
+            }),
       };
     }),
 
