@@ -13,18 +13,16 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useGateway } from "@/hooks/gateway";
-import { TAB_PATHS } from "@/types/gateway";
+import { tabLabel } from "@/lib/tabs";
+import { TAB_PATHS, type Tab } from "@/types/gateway";
 import {
   isMacOSElectron,
   macOSTitleBarControlsPaddingInlineStartStyle,
 } from "@/utils/electron-env";
 
-/** Map path → readable breadcrumb label */
+/** Map path → readable breadcrumb label (same labels as sidebar). */
 const PATH_LABELS: Record<string, string> = Object.fromEntries(
-  Object.entries(TAB_PATHS).map(([tab, path]) => [
-    path,
-    (tab as string).charAt(0).toUpperCase() + (tab as string).slice(1),
-  ]),
+  Object.entries(TAB_PATHS).map(([tab, path]) => [path, tabLabel(tab as Tab)]),
 );
 
 function TopNav() {
