@@ -541,6 +541,7 @@ export const cronHandlers: GatewayRequestHandlers = {
       deliveryStatus?: "delivered" | "not-delivered" | "unknown" | "not-requested";
       query?: string;
       sortDir?: "asc" | "desc";
+      sinceMs?: number;
     };
     const explicitScope = p.scope;
     const jobId = p.id ?? p.jobId;
@@ -571,6 +572,7 @@ export const cronHandlers: GatewayRequestHandlers = {
         deliveryStatus: p.deliveryStatus,
         query: p.query,
         sortDir: p.sortDir,
+        sinceMs: p.sinceMs,
         jobNameById,
       });
       respond(true, page, undefined);
@@ -601,6 +603,7 @@ export const cronHandlers: GatewayRequestHandlers = {
       deliveryStatus: p.deliveryStatus,
       query: p.query,
       sortDir: p.sortDir,
+      sinceMs: p.sinceMs,
     });
     respond(true, page, undefined);
   },

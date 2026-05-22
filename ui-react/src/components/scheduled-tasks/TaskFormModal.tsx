@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
-import { format } from "date-fns";
-import { CalendarIcon, Loader2Icon } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ChevronDownIcon, Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -12,11 +15,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -24,16 +22,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { ScheduledTaskFormData, ChannelRecipientEntry } from "@/types/agents";
+import { DEFAULT_SCHEDULED_TASK_FORM } from "@/lib/cron-job-form";
+import {
+  deliverySelectionFromFormData,
+  isWeixinDeliveryChannel,
+  validateDeliveryDialogDraft,
+} from "@/lib/cron-delivery-form";
+import type { DeliveryChannelOption } from "@/lib/cron-delivery-form";
+import { buildAnnounceRecipientSuggestions } from "@/lib/cron-delivery-suggestions";
+import { normalizeDeliveryChannelId } from "@/lib/delivery-channel-options";
+import type { CronJob } from "@/types/agents";
+import { TaskFormAgentPicker } from "@/components/scheduled-tasks/TaskFormAgentPicker";
+import { TaskFormDeliveryStrip } from "@/components/scheduled-tasks/TaskFormDeliveryStrip";
+import { TaskFormScheduleFields } from "@/components/scheduled-tasks/TaskFormScheduleFields";
+import type {
+  ChannelRecipientEntry,
+  GatewayAgentRow,
+  ScheduledTaskFormData,
+} from "@/types/agents";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** HOURS options 00–23 */
-const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-/** MINUTES options: 00–59 */
-const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
 
 /**
  * Build a timezone-aware ISO string from a Date + HH + mm.
@@ -55,40 +65,75 @@ function buildLocalIso(date: Date, hh: string, mm: string): string {
 // Default form state
 // ---------------------------------------------------------------------------
 
-const DEFAULT_FORM: ScheduledTaskFormData = {
-  name: "",
-  scheduleKind: "daily",
-  preferredTime: "08:00",
-  everyAmount: "1",
-  everyUnit: "hours",
-  scheduleAt: "",           // populated from oneTimeDate + oneTimeHour + oneTimeMinute
-  deliveryMode: "none",
-  agentPrompt: "",
+type FormFieldErrors = {
+  name?: string;
+  agentPrompt?: string;
+  scheduleAt?: string;
+  everyAmount?: string;
+  deliveryTo?: string;
 };
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+function FieldError({ message }: { message?: string }) {
+  if (!message) {
+    return null;
+  }
+  return <p className="text-xs text-destructive">{message}</p>;
+}
 
-/** Describes a channel available for delivery selection. */
-export type DeliveryChannelOption = {
-  id: string;
-  label: string;
-};
+function FormSection({
+  title,
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-4">
+      {title ? (
+        <div className="flex items-center">
+          <h3 className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {title}
+          </h3>
+          <div className="h-px min-h-px flex-1 bg-border" />
+        </div>
+      ) : null}
+      {children}
+    </section>
+  );
+}
+
+export type { DeliveryChannelOption } from "@/lib/cron-delivery-form";
 
 interface TaskFormModalProps {
   open: boolean;
   mode: "new" | "edit";
   initialData?: Partial<ScheduledTaskFormData>;
   saving?: boolean;
+  defaultAgentId?: string;
+  agents?: GatewayAgentRow[];
   /** Whether at least one messaging channel is configured. Used to warn when announce mode is selected. */
   hasChannel?: boolean;
   /** List of available channels to choose from. When provided, shows a channel selector. */
   channelOptions?: DeliveryChannelOption[];
   /** Known channel recipients from session identity hints (for auto-complete). */
   channelRecipients?: ChannelRecipientEntry[];
+  channelRecipientsLoading?: boolean;
+  channelRecipientsError?: string | null;
+  cronJobs?: CronJob[];
+  onReloadChannelRecipients?: (options?: { force?: boolean }) => Promise<boolean>;
   onSave: (form: ScheduledTaskFormData) => void;
   onClose: () => void;
+}
+
+function buildDefaultForm(
+  defaultAgentId: string,
+  initialData?: Partial<ScheduledTaskFormData>,
+): ScheduledTaskFormData {
+  return {
+    ...DEFAULT_SCHEDULED_TASK_FORM,
+    agentId: defaultAgentId,
+    ...initialData,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -99,16 +144,22 @@ export function TaskFormModal({
   mode,
   initialData,
   saving = false,
+  defaultAgentId = "main",
+  agents = [],
   hasChannel = true,
   channelOptions,
   channelRecipients,
+  channelRecipientsLoading = false,
+  channelRecipientsError = null,
+  cronJobs = [],
+  onReloadChannelRecipients,
   onSave,
   onClose,
 }: TaskFormModalProps) {
-  const [form, setForm] = useState<ScheduledTaskFormData>({
-    ...DEFAULT_FORM,
-    ...initialData,
-  });
+  const [form, setForm] = useState<ScheduledTaskFormData>(() =>
+    buildDefaultForm(defaultAgentId, initialData),
+  );
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // ── Preferred time: split into hour + minute selects ────────────────────
   const [preferredHour, setPreferredHour] = useState<string>(
@@ -123,36 +174,45 @@ export function TaskFormModal({
     // If editing an existing one-time job, try to restore the date
     if (initialData?.scheduleAt) {
       const d = new Date(initialData.scheduleAt);
-      return isNaN(d.getTime()) ? new Date(Date.now() + 3_600_000) : d;
+      return Number.isNaN(d.getTime()) ? new Date(Date.now() + 3_600_000) : d;
     }
     return new Date(Date.now() + 3_600_000);
   });
   const [oneTimeHour, setOneTimeHour] = useState<string>(() => {
     if (initialData?.scheduleAt) {
       const d = new Date(initialData.scheduleAt);
-      return isNaN(d.getTime()) ? "09" : String(d.getHours()).padStart(2, "0");
+      return Number.isNaN(d.getTime()) ? "09" : String(d.getHours()).padStart(2, "0");
     }
     return "09";
   });
   const [oneTimeMinute, setOneTimeMinute] = useState<string>(() => {
     if (initialData?.scheduleAt) {
       const d = new Date(initialData.scheduleAt);
-      return isNaN(d.getTime()) ? "00" : String(d.getMinutes()).padStart(2, "0");
+      return Number.isNaN(d.getTime()) ? "00" : String(d.getMinutes()).padStart(2, "0");
     }
     return "00";
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   // Reset form when dialog opens with new initialData
   useEffect(() => {
     if (open) {
-      setForm({ ...DEFAULT_FORM, ...initialData });
+      setSubmitAttempted(false);
+      setForm(buildDefaultForm(defaultAgentId, initialData));
+      setAdvancedOpen(
+        Boolean(
+          initialData?.description?.trim() ||
+            initialData?.sessionTarget === "main" ||
+            initialData?.wakeMode === "now",
+        ),
+      );
       const pt = initialData?.preferredTime ?? "08:00";
       setPreferredHour(pt.split(":")[0]);
       setPreferredMinute(pt.split(":")[1] ?? "00");
       if (initialData?.scheduleAt) {
         const d = new Date(initialData.scheduleAt);
-        if (!isNaN(d.getTime())) {
+        if (!Number.isNaN(d.getTime())) {
           setOneTimeDate(d);
           setOneTimeHour(String(d.getHours()).padStart(2, "0"));
           setOneTimeMinute(String(d.getMinutes()).padStart(2, "0"));
@@ -198,17 +258,59 @@ export function TaskFormModal({
     setForm((f) => ({ ...f, scheduleAt: buildScheduleAt(oneTimeDate, oneTimeHour, m) }));
   }
 
-  function handleSave() {
-    if (!form.name.trim() || !form.agentPrompt.trim()) {
-      return;
+  const showAgentPicker = agents.length > 0;
+
+  function buildFieldErrors(): FormFieldErrors {
+    const errors: FormFieldErrors = {};
+    if (!form.name.trim()) {
+      errors.name = "Task name is required.";
+    }
+    if (!form.agentPrompt.trim()) {
+      errors.agentPrompt = "Agent prompt is required.";
     }
     if (form.scheduleKind === "one-time" && !oneTimeDate) {
+      errors.scheduleAt = "Pick a date and time for the one-time run.";
+    }
+    if (form.scheduleKind === "every" && !(Number.parseInt(form.everyAmount, 10) > 0)) {
+      errors.everyAmount = "Enter an interval greater than zero.";
+    }
+    const delivery = deliverySelectionFromFormData(form);
+    if (delivery.kind !== "none") {
+      const announceChannel =
+        delivery.kind === "announce"
+          ? normalizeDeliveryChannelId(delivery.channel, channelOptions ?? [])
+          : "";
+      const announceSuggestions =
+        delivery.kind === "announce" && announceChannel
+          ? buildAnnounceRecipientSuggestions({
+              channelRecipients: channelRecipients ?? [],
+              cronJobs,
+              effectiveChannel: announceChannel,
+            })
+          : [];
+      const deliveryErrors = validateDeliveryDialogDraft(delivery, {
+        isWeixinChannel:
+          delivery.kind === "announce"
+            ? isWeixinDeliveryChannel(announceChannel)
+            : false,
+        hasRecipientSuggestions: announceSuggestions.length > 0,
+      });
+      if (deliveryErrors.deliveryTo) {
+        errors.deliveryTo = deliveryErrors.deliveryTo;
+      }
+    }
+    return errors;
+  }
+
+  const fieldErrors = submitAttempted ? buildFieldErrors() : {};
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+
+  function handleSave() {
+    setSubmitAttempted(true);
+    const errors = buildFieldErrors();
+    if (Object.keys(errors).length > 0) {
       return;
     }
-    if (form.scheduleKind === "every" && !(parseInt(form.everyAmount, 10) > 0)) {
-      return;
-    }
-    // Ensure scheduleAt is up to date before saving
     const finalForm: ScheduledTaskFormData =
       form.scheduleKind === "one-time"
         ? { ...form, scheduleAt: buildScheduleAt(oneTimeDate, oneTimeHour, oneTimeMinute) }
@@ -216,400 +318,226 @@ export function TaskFormModal({
     onSave(finalForm);
   }
 
-  const isOneTimeValid = form.scheduleKind !== "one-time" || Boolean(oneTimeDate);
-  const isEveryValid =
-    form.scheduleKind !== "every" || parseInt(form.everyAmount, 10) > 0;
-  const selectedDeliveryChannel =
-    form.deliveryMode === "announce"
-      ? form.deliveryChannel?.trim() || channelOptions?.[0]?.id
-      : undefined;
-  const isFeishuChannel = selectedDeliveryChannel === "feishu" || selectedDeliveryChannel === "lark";
-  const isWeixinChannel =
-    form.deliveryMode === "announce" && selectedDeliveryChannel === "openclaw-weixin";
-
-  // Recipient suggestions filtered by the selected delivery channel
-  const CHANNEL_ALIASES: Record<string, string[]> = {
-    feishu: ["feishu", "lark"],
-    lark: ["feishu", "lark"],
-    "openclaw-weixin": ["openclaw-weixin", "weixin", "wechat", "wx"],
-    weixin: ["openclaw-weixin", "weixin", "wechat", "wx"],
-  };
-  const recipientSuggestions = (channelRecipients ?? []).filter((r) => {
-    if (!selectedDeliveryChannel) return false;
-    const aliases = CHANNEL_ALIASES[selectedDeliveryChannel] ?? [selectedDeliveryChannel];
-    return aliases.includes(r.channel);
-  });
-  const hasRecipientSuggestions = recipientSuggestions.length > 0;
-
-  // WeChat requires explicit deliveryTo unless known recipients exist (auto-resolve at runtime)
-  const isDeliveryToValid = !isWeixinChannel || Boolean(form.deliveryTo?.trim()) || hasRecipientSuggestions;
-  const isValid =
-    form.name.trim().length > 0 &&
-    form.agentPrompt.trim().length > 0 &&
-    isOneTimeValid &&
-    isEveryValid &&
-    isDeliveryToValid;
-
-  const title = mode === "new" ? "New Scheduled Task" : "Edit Scheduled Task";
-  const showTimePicker = ["daily", "weekly", "monthly"].includes(form.scheduleKind);
-  const showEveryFields = form.scheduleKind === "every";
-  const showOneTimeField = form.scheduleKind === "one-time";
+  const title = mode === "new" ? "New Task" : "Edit Task";
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); } }}>
-      <DialogContent className="sm:max-w-[600px] flex flex-col max-h-[90vh]" onOpenAutoFocus={(e) => e.preventDefault()}>
-        <DialogHeader className="shrink-0">
+      <DialogContent
+        className="flex max-h-[90vh] min-h-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-[600px]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="shrink-0 gap-2 px-6 pt-6 pr-12">
           <DialogTitle>{title}</DialogTitle>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground">
             The task will run automatically as scheduled, or it can be triggered manually at any
-            time. Please describe the operation you want to perform periodically. Also you can
-            create one quickly via chat.
+            time. You can also create one quickly via chat.
           </p>
         </DialogHeader>
 
-        <div className="flex flex-col gap-5 pt-2 overflow-y-auto flex-1 pr-1">
-          {/* Task Name */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="task-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Task Name
-            </Label>
-            <Input
-              id="task-name"
-              placeholder="e.g. Morning Architectural Digest"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              disabled={saving}
-            />
-          </div>
-
-          {/* Schedule Kind row — always visible */}
-          <div className="flex flex-wrap items-end gap-4">
-            {/* Schedule Type */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex flex-col gap-4 px-6 pb-4 pt-2">
+          {/* 1. Task basics */}
+          <FormSection>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="task-schedule-kind" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Schedule Type
+              <Label htmlFor="task-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Task Name
               </Label>
-              <Select
-                value={form.scheduleKind}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, scheduleKind: v as ScheduledTaskFormData["scheduleKind"] }))
-                }
+              <Input
+                id="task-name"
+                placeholder="e.g. Morning Architectural Digest"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 disabled={saving}
-              >
-                <SelectTrigger id="task-schedule-kind" className="w-52">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly (Monday)</SelectItem>
-                  <SelectItem value="monthly">Monthly (1st)</SelectItem>
-                  <SelectItem value="every">Every N minutes/hours/days</SelectItem>
-                  <SelectItem value="one-time">One-time</SelectItem>
-                </SelectContent>
-              </Select>
+                aria-invalid={Boolean(fieldErrors.name)}
+              />
+              <FieldError message={fieldErrors.name} />
             </div>
 
-            {/* Preferred Time (daily/weekly/monthly) — inline, right of Schedule Type */}
-            {showTimePicker && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="task-prompt" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Agent Prompt
+              </Label>
+              <textarea
+                id="task-prompt"
+                rows={4}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                placeholder="Describe the operation you want to perform periodically. e.g. 'Send a daily report to the team.'"
+                value={form.agentPrompt}
+                onChange={(e) => setForm((f) => ({ ...f, agentPrompt: e.target.value }))}
+                disabled={saving}
+                aria-invalid={Boolean(fieldErrors.agentPrompt)}
+              />
+              <FieldError message={fieldErrors.agentPrompt} />
+            </div>
+          </FormSection>
+
+          {/* 2. Schedule */}
+          <FormSection>
+            <TaskFormScheduleFields
+              form={form}
+              onFormChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+              disabled={saving}
+              fieldErrors={{
+                scheduleAt: fieldErrors.scheduleAt,
+                everyAmount: fieldErrors.everyAmount,
+              }}
+              preferredHour={preferredHour}
+              preferredMinute={preferredMinute}
+              onPreferredHourChange={handlePreferredHourChange}
+              onPreferredMinuteChange={handlePreferredMinuteChange}
+              oneTimeDate={oneTimeDate}
+              oneTimeHour={oneTimeHour}
+              oneTimeMinute={oneTimeMinute}
+              datePickerOpen={datePickerOpen}
+              onDatePickerOpenChange={setDatePickerOpen}
+              onOneTimeDateSelect={handleOneTimeDateSelect}
+              onOneTimeHourChange={handleOneTimeHourChange}
+              onOneTimeMinuteChange={handleOneTimeMinuteChange}
+            />
+          </FormSection>
+
+          {/* 3. Assignee */}
+          {showAgentPicker && (
+            <FormSection>
+              <TaskFormAgentPicker
+                agents={agents}
+                selectedAgentId={form.agentId}
+                defaultAgentId={defaultAgentId}
+                disabled={saving}
+                onSelect={(agentId) => setForm((f) => ({ ...f, agentId }))}
+              />
+            </FormSection>
+          )}
+
+          {/* 4. Delivery */}
+          <FormSection>
+            <TaskFormDeliveryStrip
+              form={form}
+              channelOptions={channelOptions ?? []}
+              channelRecipients={channelRecipients}
+              channelRecipientsLoading={channelRecipientsLoading}
+              channelRecipientsError={channelRecipientsError}
+              cronJobs={cronJobs}
+              hasChannel={hasChannel}
+              disabled={saving}
+              onReloadRecipients={onReloadChannelRecipients}
+              onFormChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            />
+            <FieldError message={fieldErrors.deliveryTo} />
+          </FormSection>
+
+          {/* 5. Advanced */}
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <CollapsibleTrigger className="px-0!" asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-between px-0 font-semibold text-xs uppercase tracking-wider text-muted-foreground hover:bg-transparent"
+              >
+                Advanced
+                <ChevronDownIcon
+                  className={cn(
+                    "size-4 transition-transform",
+                    advancedOpen && "rotate-180",
+                  )}
+                />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="flex flex-col gap-4 pt-2">
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Preferred Time
-                </Label>
-                <div className="flex items-center gap-1.5">
-                  <Select
-                    value={preferredHour}
-                    onValueChange={handlePreferredHourChange}
-                    disabled={saving}
-                  >
-                    <SelectTrigger className="w-20">
-                      <SelectValue placeholder="HH" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" className="h-44 overflow-y-auto">
-                      {HOURS.map((h) => (
-                        <SelectItem key={h} value={h}>{h}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="text-muted-foreground font-medium">:</span>
-                  <Select
-                    value={preferredMinute}
-                    onValueChange={handlePreferredMinuteChange}
-                    disabled={saving}
-                  >
-                    <SelectTrigger className="w-20">
-                      <SelectValue placeholder="MM" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" className="h-44 overflow-y-auto">
-                      {MINUTES.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-
-            {/* One-time: Run At — inline, right of Schedule Type */}
-            {showOneTimeField && (
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Run At
-                </Label>
-                <div className="flex items-center gap-2">
-                  {/* Date picker */}
-                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        disabled={saving}
-                        className={cn(
-                          "w-40 justify-start text-left font-normal",
-                          !oneTimeDate && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 size-4 shrink-0" />
-                        {oneTimeDate
-                          ? format(oneTimeDate, "MMM d, yyyy")
-                          : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={oneTimeDate}
-                        onSelect={handleOneTimeDateSelect}
-                        disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-
-                  {/* Hour select */}
-                  <Select
-                    value={oneTimeHour}
-                    onValueChange={handleOneTimeHourChange}
-                    disabled={saving}
-                  >
-                    <SelectTrigger className="w-20">
-                      <SelectValue placeholder="HH" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" className="h-44 overflow-y-auto">
-                      {HOURS.map((h) => (
-                        <SelectItem key={h} value={h}>{h}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <span className="text-muted-foreground font-medium">:</span>
-
-                  {/* Minute select */}
-                  <Select
-                    value={oneTimeMinute}
-                    onValueChange={handleOneTimeMinuteChange}
-                    disabled={saving}
-                  >
-                    <SelectTrigger className="w-20">
-                      <SelectValue placeholder="MM" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" className="h-44 overflow-y-auto">
-                      {MINUTES.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Every N interval */}
-          {showEveryFields && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="task-every-amount" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Interval Amount
+                <Label
+                  htmlFor="task-description"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                  Description (optional)
                 </Label>
                 <Input
-                  id="task-every-amount"
-                  type="number"
-                  min="1"
-                  placeholder="e.g. 30"
-                  value={form.everyAmount}
-                  onChange={(e) => setForm((f) => ({ ...f, everyAmount: e.target.value }))}
+                  id="task-description"
+                  placeholder="Short note shown in task lists"
+                  value={form.description ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   disabled={saving}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="task-every-unit" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Unit
-                </Label>
-                <Select
-                  value={form.everyUnit}
-                  onValueChange={(v) =>
-                    setForm((f) => ({ ...f, everyUnit: v as ScheduledTaskFormData["everyUnit"] }))
-                  }
-                  disabled={saving}
-                >
-                  <SelectTrigger id="task-every-unit">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="minutes">Minutes</SelectItem>
-                    <SelectItem value="hours">Hours</SelectItem>
-                    <SelectItem value="days">Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
 
-          {/* One-time Run At block removed — now inline with Schedule Type above */}
-
-          {/* Agent Prompt */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="task-prompt" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Agent Prompt
-            </Label>
-            <textarea
-              id="task-prompt"
-              rows={6}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              placeholder="Describe what the agent should do on each run…"
-              value={form.agentPrompt}
-              onChange={(e) => setForm((f) => ({ ...f, agentPrompt: e.target.value }))}
-              disabled={saving}
-            />
-          </div>
-
-          {/* Delivery Mode */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="task-delivery-mode" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Delivery Mode
-            </Label>
-            <Select
-              value={form.deliveryMode}
-              onValueChange={(v) =>
-                setForm((f) => ({ ...f, deliveryMode: v as ScheduledTaskFormData["deliveryMode"] }))
-              }
-              disabled={saving}
-            >
-              <SelectTrigger id="task-delivery-mode">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No notification</SelectItem>
-                <SelectItem value="announce">Announce to channel</SelectItem>
-              </SelectContent>
-            </Select>
-            {form.deliveryMode === "announce" && (
-              <p className={cn(
-                "text-xs",
-                hasChannel ? "text-muted-foreground" : "text-destructive font-medium",
-              )}>
-                {hasChannel
-                  ? "Requires at least one messaging channel (e.g. Telegram, Discord) to be configured."
-                  : "⚠️ No messaging channel detected. The task will still be created but delivery will be silently downgraded to None until a channel is connected."}
-              </p>
-            )}
-          </div>
-
-          {/* Channel selector — shown when announce mode is on and channelOptions are available */}
-          {form.deliveryMode === "announce" && channelOptions && channelOptions.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="task-delivery-channel" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Delivery Channel
-              </Label>
-              <Select
-                value={form.deliveryChannel ?? "__auto__"}
-                onValueChange={(v) =>
-                  setForm((f) => ({
-                    ...f,
-                    deliveryChannel: v === "__auto__" ? undefined : v,
-                    deliveryTo: "",
-                  }))
-                }
-                disabled={saving}
-              >
-                <SelectTrigger id="task-delivery-channel">
-                  <SelectValue placeholder="Auto (first configured)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__auto__">Auto (first configured)</SelectItem>
-                  {channelOptions.map((ch) => (
-                    <SelectItem key={ch.id} value={ch.id}>{ch.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* deliveryTo — weixin required, feishu optional; auto-complete from known recipients */}
-          {form.deliveryMode === "announce" && (isWeixinChannel || isFeishuChannel) && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="task-delivery-to" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Recipient ID {isWeixinChannel ? <span className="text-destructive">*</span> : null}
-              </Label>
-              {hasRecipientSuggestions ? (
-                <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    htmlFor="task-session-target"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Session target
+                  </Label>
                   <Select
-                    value={form.deliveryTo || "__auto__"}
+                    value={form.sessionTarget}
                     onValueChange={(v) =>
                       setForm((f) => ({
                         ...f,
-                        deliveryTo: v === "__auto__" ? "" : v,
+                        sessionTarget: v as ScheduledTaskFormData["sessionTarget"],
                       }))
                     }
                     disabled={saving}
                   >
-                    <SelectTrigger id="task-delivery-to">
-                      <SelectValue placeholder="Select a known recipient" />
+                    <SelectTrigger id="task-session-target">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__auto__">Auto-resolve at runtime</SelectItem>
-                      {recipientSuggestions.map((r) => (
-                        <SelectItem key={`${r.channel}:${r.target}`} value={r.target}>
-                          {r.target}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="isolated">Isolated (new session per run)</SelectItem>
+                      <SelectItem value="main">Main agent session</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    htmlFor="task-wake-mode"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Wake mode
+                  </Label>
+                  <Select
+                    value={form.wakeMode}
+                    onValueChange={(v) =>
+                      setForm((f) => ({
+                        ...f,
+                        wakeMode: v as ScheduledTaskFormData["wakeMode"],
+                      }))
+                    }
+                    disabled={saving}
+                  >
+                    <SelectTrigger id="task-wake-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="next-heartbeat">Next heartbeat</SelectItem>
+                      <SelectItem value="now">Wake now</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Auto-detected from channel conversations. Select a known recipient or leave as auto-resolve.
+                    Controls how soon the gateway schedules the agent run after the cron fires.
                   </p>
-                </>
-              ) : (
-                <>
-                  <Input
-                    id="task-delivery-to"
-                    autoComplete="off"
-                    placeholder={
-                      isWeixinChannel
-                        ? "e.g. wxid_xxxxx@im.wechat"
-                        : "e.g. user:ou_xxx (optional)"
-                    }
-                    value={form.deliveryTo ?? ""}
-                    onChange={(e) => setForm((f) => ({ ...f, deliveryTo: e.target.value.trim() }))}
-                    disabled={saving}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {isWeixinChannel
-                      ? "WeChat user ID (ends with @im.wechat). Required for openclaw-weixin delivery."
-                      : "Feishu recipient is optional. Leave empty to auto-resolve from session identity hints when available."}
-                  </p>
-                </>
-              )}
-            </div>
-          )}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 pt-2 shrink-0 border-t mt-2">
+        <div className="flex shrink-0 flex-col gap-2 border-t px-6 pb-6 pt-4">
+          {submitAttempted && hasFieldErrors && (
+            <p className="text-xs text-destructive text-right">
+              Fix the highlighted fields before saving.
+            </p>
+          )}
+          <div className="flex items-center justify-end gap-3">
           <Button variant="ghost" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || !isValid} className="min-w-[80px]">
+          <Button onClick={handleSave} disabled={saving} className="min-w-[80px]">
             {saving ? <Loader2Icon className="size-4 animate-spin" /> : "Save"}
           </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

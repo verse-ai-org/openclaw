@@ -262,39 +262,73 @@ export type ScheduledTaskFormData = {
   scheduleKind: "daily" | "weekly" | "monthly" | "every" | "one-time";
   /** Preferred wall-clock time in "HH:mm" 24-hour format (used for daily/weekly/monthly). */
   preferredTime: string;
+  /** Cron day-of-week (0=Sun … 6=Sat) for weekly schedules. */
+  weeklyDayOfWeek: string;
+  /** Day of month (1–31) for monthly schedules. */
+  monthlyDayOfMonth: string;
   /** For scheduleKind=="every": amount of units (as string for input binding). */
   everyAmount: string;
   /** For scheduleKind=="every": time unit. */
   everyUnit: "minutes" | "hours" | "days";
   /** For scheduleKind=="one-time": datetime-local value e.g. "2026-04-15T09:00". */
   scheduleAt: string;
-  /** Delivery mode: "none" = run silently, "announce" = post result to channel. */
-  deliveryMode: "none" | "announce";
+  /** Agent to run the task; empty uses gateway default agent. */
+  agentId: string;
+  /** Whether the job is enabled when saved. */
+  enabled: boolean;
+  sessionTarget: CronSessionTarget;
+  wakeMode: CronWakeMode;
+  /** Delivery mode. */
+  deliveryMode: "none" | "announce" | "webhook";
   /**
-   * Target channel id for "announce" mode (e.g. "openclaw-weixin", "telegram").
-   * When empty, the store auto-picks the first configured channel.
+   * Target channel for announce ("last" or channel id). "__auto__" = first configured.
    */
   deliveryChannel?: string;
-  /**
-   * Target recipient id for channels that require an explicit `to` (e.g. openclaw-weixin).
-   * For openclaw-weixin this must be the user's WeChat ID (xxx@im.wechat).
-   */
+  /** Announce: recipient id; Webhook: POST URL. */
   deliveryTo?: string;
+  /** Optional channel account id for multi-account setups (announce). */
+  deliveryAccountId?: string;
+  /** Best-effort delivery when announce fails. */
+  deliveryBestEffort: boolean;
   agentPrompt: string;
 };
 
-/** A single run-history record from cron.jobs.history. */
+export type CronRunDeliveryStatus =
+  | "delivered"
+  | "not-delivered"
+  | "unknown"
+  | "not-requested";
+
+export type CronRunUsage = {
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+  cache_read_tokens?: number;
+  cache_write_tokens?: number;
+};
+
+/** A single run-history record from cron.runs. */
 export type CronRunRecord = {
   id: string;
   jobId: string;
   jobName: string;
   status: "running" | "success" | "failed";
-  /** Unix timestamp (ms) when the run started. */
+  /** Gateway run status when the run has finished. */
+  runStatus?: "ok" | "error" | "skipped";
+  /** Unix timestamp (ms) when the run finished. */
   executionTime: number;
   durationMs?: number;
   error?: string;
   /** Brief summary of the run result (assistant's last answer). */
   summary?: string;
+  deliveryStatus?: CronRunDeliveryStatus;
+  deliveryError?: string;
+  model?: string;
+  provider?: string;
+  usage?: CronRunUsage;
+  /** Scheduled run time (ms), when recorded separately from finish time. */
+  runAtMs?: number;
+  nextRunAtMs?: number;
   /** Session ID produced by this run (if available). */
   sessionId?: string;
   /** Session key produced by this run (if available). */

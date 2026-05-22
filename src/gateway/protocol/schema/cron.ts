@@ -423,6 +423,8 @@ export const CronRunsParamsSchema = Type.Object(
     deliveryStatus: Type.Optional(CronDeliveryStatusSchema),
     query: Type.Optional(Type.String()),
     sortDir: Type.Optional(CronSortDirSchema),
+    /** Only return runs with ts >= sinceMs (epoch ms). */
+    sinceMs: Type.Optional(Type.Integer({ minimum: 0 })),
   },
   { additionalProperties: false },
 );

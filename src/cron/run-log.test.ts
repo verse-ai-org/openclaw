@@ -255,6 +255,33 @@ describe("cron run log", () => {
     });
   });
 
+  it("filters run log pages by sinceMs", async () => {
+    await withRunLogDir("openclaw-cron-log-since-", async (dir) => {
+      const logPath = path.join(dir, "runs", "job-1.jsonl");
+      await appendCronRunLog(logPath, {
+        ts: 1_000,
+        jobId: "job-1",
+        action: "finished",
+        status: "ok",
+      });
+      await appendCronRunLog(logPath, {
+        ts: 5_000,
+        jobId: "job-1",
+        action: "finished",
+        status: "error",
+      });
+
+      const page = await readCronRunLogEntriesPage(logPath, {
+        sinceMs: 2_000,
+        limit: 10,
+      });
+
+      expect(page.total).toBe(1);
+      expect(page.entries).toHaveLength(1);
+      expect(page.entries[0]?.ts).toBe(5_000);
+    });
+  });
+
   it("ignores invalid and non-finished lines while preserving delivery fields", async () => {
     await withRunLogDir("openclaw-cron-log-filter-", async (dir) => {
       const logPath = path.join(dir, "runs", "job-1.jsonl");

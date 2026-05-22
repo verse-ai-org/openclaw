@@ -18,7 +18,13 @@ import type {
   ChannelRecipientEntry,
 } from "@/types/agents";
 import type { ChannelsStatusSnapshot } from "@/types/channels";
+import {
+  buildCronJobCreateBody,
+  buildCronJobUpdatePatch,
+} from "@/lib/cron-job-form";
+import { mapGatewayCronRunEntry, type GatewayCronRunEntry } from "@/lib/cron-run-detail";
 import { useGatewayStore } from "./gateway.store";
+import { useChannelsStore } from "./channels.store";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -37,71 +43,15 @@ function getErrorMessage(err: unknown): string {
   return String(err);
 }
 
+/** Prefer Channels page snapshot; fall back to agents slice for legacy callers. */
+function resolveChannelsSnapshot(
+  agentsSnapshot: ChannelsStatusSnapshot | null,
+): ChannelsStatusSnapshot | null {
+  return useChannelsStore.getState().snapshot ?? agentsSnapshot;
+}
+
 function isConfigBaseHashConflict(err: unknown): boolean {
   return getErrorMessage(err).includes("config changed since last load");
-}
-
-/**
- * Find the first usable channel ID from the channels snapshot.
- * Returns null if no channels are configured/connected.
- */
-function getDefaultChannelId(snapshot: ChannelsStatusSnapshot | null): string | null {
-  if (!snapshot) { return null; }
-  // channelOrder lists channels in priority order; pick first one that has at least one account
-  for (const channelId of snapshot.channelOrder) {
-    const accounts = snapshot.channelAccounts[channelId];
-    if (Array.isArray(accounts) && accounts.length > 0) {
-      return channelId;
-    }
-  }
-  return null;
-}
-
-/** Convert a ScheduledTaskFormData to a CronSchedule suitable for the Gateway. */
-function formDataToCronSchedule(
-  form: ScheduledTaskFormData,
-): import("@/types/agents").CronSchedule {
-  // scheduleKind === "one-time": run once at a specific datetime
-  if (form.scheduleKind === "one-time") {
-    // TaskFormModal.buildLocalIso already produces a timezone-aware ISO string
-    // (e.g. "2026-04-12T21:12:00+08:00"). Use it directly if it parses as a
-    // valid date — no further offset appending needed.
-    // Fallback: treat as bare datetime-local "YYYY-MM-DDTHH:mm" and append offset.
-    let at: string;
-    if (form.scheduleAt) {
-      const d = new Date(form.scheduleAt);
-      if (!isNaN(d.getTime())) {
-        // Already a valid ISO string (with or without offset) — use as-is.
-        at = form.scheduleAt;
-      } else {
-        at = new Date(Date.now() + 60_000).toISOString();
-      }
-    } else {
-      at = new Date(Date.now() + 60_000).toISOString();
-    }
-    return { kind: "at", at };
-  }
-  // scheduleKind === "every": interval-based
-  if (form.scheduleKind === "every") {
-    const amount = Math.max(1, parseInt(form.everyAmount, 10) || 1);
-    const unit = form.everyUnit;
-    const mult = unit === "minutes" ? 60_000 : unit === "hours" ? 3_600_000 : 86_400_000;
-    return { kind: "every", everyMs: amount * mult };
-  }
-  // shortcut: daily / weekly / monthly
-  const [h, m] = form.preferredTime.split(":").map(Number);
-  const hh = isNaN(h) ? 8 : h;
-  const mm = isNaN(m) ? 0 : m;
-  switch (form.scheduleKind) {
-    case "daily":
-      return { kind: "cron", expr: `${mm} ${hh} * * *` };
-    case "weekly":
-      return { kind: "cron", expr: `${mm} ${hh} * * 1` }; // Every Monday
-    case "monthly":
-      return { kind: "cron", expr: `${mm} ${hh} 1 * *` }; // 1st of month
-    default:
-      return { kind: "cron", expr: `${mm} ${hh} * * *` };
-  }
 }
 
 function applyPatch(
@@ -178,6 +128,7 @@ interface AgentsState {
   channelsLastSuccess: number | null;
   channelRecipients: ChannelRecipientEntry[];
   channelRecipientsLoading: boolean;
+  channelRecipientsError: string | null;
 
   cronLoading: boolean;
   cronError: string | null;
@@ -239,7 +190,8 @@ interface AgentsState {
   clearAgentSkills: (agentId: string) => void;
   disableAllAgentSkills: (agentId: string) => void;
   loadChannelsStatus: () => Promise<void>;
-  loadChannelRecipients: (channel?: string) => Promise<void>;
+  /** Load all session recipients once; filter by channel in UI. */
+  loadChannelRecipients: (options?: { force?: boolean }) => Promise<boolean>;
   loadCronStatus: () => Promise<void>;
   /** Load only the jobs list (faster than loadCronStatus). */
   loadCronJobs: () => Promise<void>;
@@ -259,7 +211,11 @@ interface AgentsState {
 
   // Scheduled Tasks actions
   setScheduledTasksTab: (tab: "my-tasks" | "run-history") => void;
-  loadCronRunHistory: (params?: { page?: number; status?: string; timeRange?: "day" | "week" | "month" }) => Promise<void>;
+  loadCronRunHistory: (params?: {
+    page?: number;
+    timeFilter?: "day" | "week" | "month";
+    statusFilter?: "all" | "success" | "failed";
+  }) => Promise<void>;
   createCronJob: (form: ScheduledTaskFormData) => Promise<CronJob | null>;
   updateCronJob: (jobId: string, form: ScheduledTaskFormData) => Promise<CronJob | null>;
   deleteCronJob: (jobId: string) => Promise<void>;
@@ -268,6 +224,8 @@ interface AgentsState {
 }
 
 // ── Store initial state ───────────────────────────────────────────────────────
+
+let channelRecipientsInflight: Promise<boolean> | null = null;
 
 export const useAgentsStore = create<AgentsState>()((set, get) => ({
   loading: false,
@@ -305,6 +263,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   channelsLastSuccess: null,
   channelRecipients: [],
   channelRecipientsLoading: false,
+  channelRecipientsError: null,
   cronLoading: false,
   cronError: null,
   cronStatus: null,
@@ -864,23 +823,48 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
   },
 
-  loadChannelRecipients: async (channel?: string) => {
+  loadChannelRecipients: async (options?: { force?: boolean }) => {
+    const force = options?.force === true;
+    const state = get();
+    if (
+      !force &&
+      state.channelRecipients.length > 0 &&
+      !state.channelRecipientsError
+    ) {
+      return true;
+    }
+    if (channelRecipientsInflight) {
+      return channelRecipientsInflight;
+    }
     const client = getClient();
     if (!client || !isConnected()) {
-      return;
+      set({ channelRecipientsError: "Not connected to gateway." });
+      return false;
     }
-    set({ channelRecipientsLoading: true });
-    try {
-      const res = await client.request<{ recipients: ChannelRecipientEntry[] }>(
-        "channels.recipients",
-        channel ? { channel } : {},
-      );
-      set({ channelRecipients: res?.recipients ?? [] });
-    } catch {
-      set({ channelRecipients: [] });
-    } finally {
-      set({ channelRecipientsLoading: false });
-    }
+    set({ channelRecipientsLoading: true, channelRecipientsError: null });
+    channelRecipientsInflight = (async () => {
+      try {
+        const res = await client.request<{ recipients: ChannelRecipientEntry[] }>(
+          "channels.recipients",
+          {},
+        );
+        set({
+          channelRecipients: res?.recipients ?? [],
+          channelRecipientsError: null,
+        });
+        return true;
+      } catch (err) {
+        set({
+          channelRecipients: [],
+          channelRecipientsError: getErrorMessage(err),
+        });
+        return false;
+      } finally {
+        set({ channelRecipientsLoading: false });
+        channelRecipientsInflight = null;
+      }
+    })();
+    return channelRecipientsInflight;
   },
 
   loadCronStatus: async () => {
@@ -981,46 +965,42 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     if (!client || !isConnected()) {
       return;
     }
+    const page = Math.max(1, params?.page ?? 1);
+    const limit = 10;
+    const offset = (page - 1) * limit;
+    const timeFilter = params?.timeFilter ?? "week";
+    const statusFilter = params?.statusFilter ?? "all";
+    const now = Date.now();
+    const sinceMs =
+      timeFilter === "day"
+        ? now - 24 * 60 * 60 * 1000
+        : timeFilter === "week"
+          ? now - 7 * 24 * 60 * 60 * 1000
+          : now - 30 * 24 * 60 * 60 * 1000;
+    const statuses =
+      statusFilter === "success"
+        ? (["ok"] as const)
+        : statusFilter === "failed"
+          ? (["error", "skipped"] as const)
+          : undefined;
+
     set({ cronRunHistoryLoading: true, cronRunHistoryError: null });
     try {
-      // Fetch all entries from Gateway without server-side filtering;
-      // client-side filtering is applied in the UI (ScheduledTasksPage).
       const res = await client.request<{
-        entries?: Array<{
-          ts: number;
-          jobId: string;
-          jobName?: string;
-          status?: "ok" | "error" | "skipped";
-          durationMs?: number;
-          error?: string;
-          summary?: string;
-          sessionId?: string;
-          sessionKey?: string;
-        }>;
+        entries?: GatewayCronRunEntry[];
         total?: number;
+        hasMore?: boolean;
       }>("cron.runs", {
         scope: "all",
-        limit: 200,
-        offset: ((params?.page ?? 1) - 1) * 200,
+        limit,
+        offset,
         sortDir: "desc",
+        sinceMs,
+        statuses,
       });
 
       const entries = res?.entries ?? [];
-      const records: CronRunRecord[] = entries.map((e) => ({
-        id: `${e.jobId}-${e.ts}`,
-        jobId: e.jobId,
-        // jobName may be absent when the job was deleted (e.g. deleteAfterRun tasks);
-        // fall back to a short UUID suffix so the table is still readable.
-        jobName: e.jobName && e.jobName.trim() ? e.jobName : `…${e.jobId.slice(-8)}`,
-        // Map Gateway status: ok→success, error/skipped/unknown→failed
-        status: e.status === "ok" ? "success" : e.status === "error" || e.status === "skipped" ? "failed" : "failed",
-        executionTime: e.ts,
-        durationMs: e.durationMs,
-        error: e.error,
-        summary: e.summary,
-        sessionId: e.sessionId,
-        sessionKey: e.sessionKey,
-      }));
+      const records: CronRunRecord[] = entries.map(mapGatewayCronRunEntry);
 
       set({
         cronRunHistory: records,
@@ -1040,39 +1020,8 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
     set({ cronJobSaving: true, cronJobSaveError: null });
     try {
-      // Convert ScheduledTaskFormData to CronSchedule
-      const schedule = formDataToCronSchedule(form);
-      const payload = { kind: "agentTurn" as const, message: form.agentPrompt };
-      // Resolve delivery: if announce, use explicit channel/to from form or auto-pick default.
-      let delivery: { mode: "announce" | "none"; channel?: string; to?: string };
-      if (form.deliveryMode === "announce") {
-        const channelId = form.deliveryChannel?.trim() || getDefaultChannelId(get().channelsSnapshot);
-        if (channelId) {
-          delivery = {
-            mode: "announce" as const,
-            channel: channelId,
-            ...(form.deliveryTo?.trim() ? { to: form.deliveryTo.trim() } : {}),
-          };
-        } else {
-          // No channel available — silently downgrade to none to avoid runtime error
-          delivery = { mode: "none" as const };
-        }
-      } else {
-        delivery = { mode: "none" as const };
-      }
-      const res = await client.request<CronJob>("cron.add", {
-        name: form.name,
-        description: form.agentPrompt.slice(0, 120),
-        enabled: true,
-        // Explicitly set deleteAfterRun=false for one-time tasks;
-        // Gateway defaults to true for kind="at" which would remove the job after run.
-        deleteAfterRun: false,
-        schedule,
-        payload,
-        delivery,
-        sessionTarget: "isolated",
-        wakeMode: "next-heartbeat",
-      });
+      const body = buildCronJobCreateBody(form, resolveChannelsSnapshot(get().channelsSnapshot));
+      const res = await client.request<CronJob>("cron.add", body);
       // Optimistically prepend the new job so the UI reflects it immediately,
       // then reload from server to sync authoritative state.
       if (res) {
@@ -1095,33 +1044,15 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     }
     set({ cronJobSaving: true, cronJobSaveError: null });
     try {
-      const schedule = formDataToCronSchedule(form);
-      const payload = { kind: "agentTurn" as const, message: form.agentPrompt };
-      // Resolve delivery: if announce, use explicit channel/to from form or auto-pick default.
-      let delivery: { mode: "announce" | "none"; channel?: string; to?: string };
-      if (form.deliveryMode === "announce") {
-        const channelId = form.deliveryChannel?.trim() || getDefaultChannelId(get().channelsSnapshot);
-        if (channelId) {
-          delivery = {
-            mode: "announce" as const,
-            channel: channelId,
-            ...(form.deliveryTo?.trim() ? { to: form.deliveryTo.trim() } : {}),
-          };
-        } else {
-          delivery = { mode: "none" as const };
-        }
-      } else {
-        delivery = { mode: "none" as const };
-      }
+      const existingJob = get().cronJobs.find((j) => j.id === jobId);
+      const patch = buildCronJobUpdatePatch(
+        form,
+        resolveChannelsSnapshot(get().channelsSnapshot),
+        existingJob,
+      );
       const res = await client.request<CronJob>("cron.update", {
         id: jobId,
-        patch: {
-          name: form.name,
-          description: form.agentPrompt.slice(0, 120),
-          schedule,
-          payload,
-          delivery,
-        },
+        patch,
       });
       await get().loadCronJobs();
       return res ?? null;

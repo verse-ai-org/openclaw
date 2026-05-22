@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
   PlusIcon,
   MessageSquareIcon,
-  ZapIcon,
   Loader2Icon,
   RefreshCwIcon,
 } from "lucide-react";
@@ -13,32 +12,33 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
+import { useChannelsStore } from "@/store/channels.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import { useChatStore } from "@/store/chat.store";
 import { useComposerStore } from "@/store/composer.store";
-import { useSettingsStore } from "@/store/settings.store";
 import { TaskCard } from "@/components/scheduled-tasks/TaskCard";
 import { NewTaskCard } from "@/components/scheduled-tasks/NewTaskCard";
-import { RunHistoryTable } from "@/components/scheduled-tasks/RunHistoryTable";
+import { ScheduledTasksEmptyState } from "@/components/scheduled-tasks/ScheduledTasksEmptyState";
+import {
+  TasksListToolbar,
+  type TaskSortBy,
+  type TaskStatusFilter,
+} from "@/components/scheduled-tasks/TasksListToolbar";
+import { getCronJobAgentPrompt } from "@/lib/cron-job-text";
+import {
+  RunHistoryTable,
+  type RunHistoryStatusFilter,
+  type RunHistoryTimeFilter,
+} from "@/components/scheduled-tasks/RunHistoryTable";
 import { TaskFormModal } from "@/components/scheduled-tasks/TaskFormModal";
-import type { DeliveryChannelOption } from "@/components/scheduled-tasks/TaskFormModal";
-import type { CronJob, CronRunRecord, ScheduledTaskFormData } from "@/types/agents";
+import { buildRunningDeliveryChannelOptions } from "@/lib/delivery-channel-options";
+import { cronJobToFormData } from "@/lib/cron-job-form";
+import type { CronJob, ScheduledTaskFormData } from "@/types/agents";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 type PageTab = "my-tasks" | "run-history";
-
-type SortBy = "created-desc" | "created-asc";
-
-const CHANNEL_PRIORITY: Record<string, number> = {
-  "openclaw-weixin": 0,
-  weixin: 0,
-  wechat: 0,
-  wx: 0,
-  feishu: 1,
-  lark: 1,
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -56,42 +56,27 @@ export function ScheduledTasksPage() {
   const loadCronStatus = useAgentsStore((s) => s.loadCronStatus);
 
   // ── Channels state (for delivery channel resolution) ────────────────────
-  const channelsSnapshot = useAgentsStore((s) => s.channelsSnapshot);
-  const loadChannelsStatus = useAgentsStore((s) => s.loadChannelsStatus);
+  const agentsList = useAgentsStore((s) => s.agentsList);
+  const loadAgents = useAgentsStore((s) => s.loadAgents);
+  const channelsSnapshot = useChannelsStore((s) => s.snapshot);
+  const fetchChannelsStatus = useChannelsStore((s) => s.fetchStatus);
+  const defaultAgentId = agentsList?.defaultId ?? "main";
+  const formAgents = agentsList?.agents ?? [];
   // Whether any messaging channel is available (used for announce-mode warning in modal)
-  const hasChannel = (
-    channelsSnapshot?.channelOrder.some(
-      (id) => (channelsSnapshot.channelAccounts[id]?.length ?? 0) > 0,
-    ) ?? false
-  );
-  // Build channel options list for the delivery channel selector
-  const channelOptions: DeliveryChannelOption[] = channelsSnapshot
-    ? channelsSnapshot.channelOrder
-        .filter((id) => (channelsSnapshot.channelAccounts[id]?.length ?? 0) > 0)
-        .map((id) => ({
-          id,
-          label:
-            channelsSnapshot.channelMeta?.find((m) => m.id === id)?.label ??
-            channelsSnapshot.channelLabels[id] ??
-            id,
-        }))
-        .toSorted((a, b) => {
-          const pa = CHANNEL_PRIORITY[a.id] ?? 99;
-          const pb = CHANNEL_PRIORITY[b.id] ?? 99;
-          if (pa !== pb) {
-            return pa - pb;
-          }
-          return a.label.localeCompare(b.label);
-        })
-    : [];
+  const channelOptions = buildRunningDeliveryChannelOptions(channelsSnapshot);
+  const hasChannel = channelOptions.length > 0;
 
   // ── Channel recipients (for auto-complete in modal) ─────────────────────
   const channelRecipients = useAgentsStore((s) => s.channelRecipients);
+  const channelRecipientsLoading = useAgentsStore((s) => s.channelRecipientsLoading);
+  const channelRecipientsError = useAgentsStore((s) => s.channelRecipientsError);
   const loadChannelRecipients = useAgentsStore((s) => s.loadChannelRecipients);
 
   // ── Scheduled Tasks store slice ─────────────────────────────────────────
   const cronRunHistory = useAgentsStore((s) => s.cronRunHistory);
+  const cronRunHistoryTotal = useAgentsStore((s) => s.cronRunHistoryTotal);
   const cronRunHistoryLoading = useAgentsStore((s) => s.cronRunHistoryLoading);
+  const cronRunHistoryError = useAgentsStore((s) => s.cronRunHistoryError);
   const cronJobSaving = useAgentsStore((s) => s.cronJobSaving);
   const cronJobSaveError = useAgentsStore((s) => s.cronJobSaveError);
   const loadCronRunHistory = useAgentsStore((s) => s.loadCronRunHistory);
@@ -103,12 +88,15 @@ export function ScheduledTasksPage() {
 
   // ── Local UI state ──────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<PageTab>("my-tasks");
-  const [sortBy, setSortBy] = useState<SortBy>("created-desc");
+  const [sortBy, setSortBy] = useState<TaskSortBy>("created-desc");
+  const [taskSearch, setTaskSearch] = useState("");
+  const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<CronJob | null>(null);
   // Client-side filters for Run History
-  const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "running" | "success" | "failed">("all");
-  const [historyTimeFilter, setHistoryTimeFilter] = useState<"day" | "week" | "month">("week");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<RunHistoryStatusFilter>("all");
+  const [historyTimeFilter, setHistoryTimeFilter] = useState<RunHistoryTimeFilter>("week");
+  const [historyPage, setHistoryPage] = useState(1);
 
   // ── Initial data load ───────────────────────────────────────────────────
   // Always refresh on mount so tasks created in Chat are visible immediately.
@@ -121,22 +109,62 @@ export function ScheduledTasksPage() {
 
   useEffect(() => {
     if (isConnected && activeTab === "run-history") {
-      void loadCronRunHistory();
+      void loadCronRunHistory({
+        page: historyPage,
+        timeFilter: historyTimeFilter,
+        statusFilter: historyStatusFilter,
+      });
     }
-  }, [isConnected, activeTab, loadCronRunHistory]);
+  }, [
+    isConnected,
+    activeTab,
+    historyPage,
+    historyTimeFilter,
+    historyStatusFilter,
+    loadCronRunHistory,
+  ]);
 
-  // Load channels status for delivery channel resolution
-  useEffect(() => {
-    if (isConnected && !channelsSnapshot) {
-      void loadChannelsStatus();
-    }
-  }, [isConnected, channelsSnapshot, loadChannelsStatus]);
+  function reloadRunHistory(page = historyPage) {
+    void loadCronRunHistory({
+      page,
+      timeFilter: historyTimeFilter,
+      statusFilter: historyStatusFilter,
+    });
+  }
 
-  // Load known channel recipients for auto-complete in the task form modal
   useEffect(() => {
-    if (isConnected) {
-      void loadChannelRecipients();
+    if (isConnected && !agentsList) {
+      void loadAgents();
     }
+  }, [isConnected, agentsList, loadAgents]);
+
+  // Same channels.status source as Channels page (not stale agents.store snapshot)
+  useEffect(() => {
+    if (!isConnected) {
+      return;
+    }
+    void fetchChannelsStatus(false);
+  }, [isConnected, fetchChannelsStatus]);
+
+  const channelRecipientsPrimedRef = useRef(false);
+  useEffect(() => {
+    if (!isConnected) {
+      channelRecipientsPrimedRef.current = false;
+      return;
+    }
+    if (channelRecipientsPrimedRef.current) {
+      return;
+    }
+    channelRecipientsPrimedRef.current = true;
+    void loadChannelRecipients().then((ok) => {
+      if (!ok) {
+        channelRecipientsPrimedRef.current = false;
+        toast.warning("Could not load channel recipients from sessions.", {
+          description: "You can still type a recipient manually or pick from past tasks.",
+          duration: 5000,
+        });
+      }
+    });
   }, [isConnected, loadChannelRecipients]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
@@ -200,128 +228,51 @@ export function ScheduledTasksPage() {
     const ok = await rerunCronJob(jobId);
     if (ok) {
       toast.success(`"${label}" started`, { duration: 2500 });
-      // Refresh run history so the new entry appears immediately
-      void loadCronRunHistory();
+      if (activeTab === "run-history") {
+        reloadRunHistory(1);
+        setHistoryPage(1);
+      }
     } else {
       toast.error(`Failed to start "${label}"`, { duration: 3000 });
     }
   }
 
-  function handleViewInChat(record: CronRunRecord) {
-    if (record.sessionKey) {
-      // Set the session key in both store and settings so the chat page loads
-      // the correct run's transcript on mount. useSessionManager reads
-      // sessionKey from chatStore and fires loadHistory on mount.
-      useChatStore.getState().setSessionKey(record.sessionKey);
-      useSettingsStore.getState().updateSettings({
-        sessionKey: record.sessionKey,
-        lastActiveSessionKey: record.sessionKey,
-      });
-    }
-    void navigate("/chat");
-  }
-
-  // ── Client-side filtering for run history ──────────────────────────────
-  const filteredRunHistory = cronRunHistory.filter((r) => {
-    // Time filter
-    if (historyTimeFilter) {
-      const now = Date.now();
-      let since = 0;
-      if (historyTimeFilter === "day") {
-        since = now - 24 * 60 * 60 * 1000;
-      } else if (historyTimeFilter === "week") {
-        since = now - 7 * 24 * 60 * 60 * 1000;
-      } else if (historyTimeFilter === "month") {
-        since = now - 30 * 24 * 60 * 60 * 1000;
-      }
-      if (r.executionTime < since) { return false; }
-    }
-    // Status filter
-    if (historyStatusFilter !== "all" && r.status !== historyStatusFilter) {
-      return false;
-    }
-    return true;
-  });
-
-  // ── Sort jobs ────────────────────────────────────────────────────────────
+  // ── Sort + filter jobs ───────────────────────────────────────────────────
   const sortedJobs: CronJob[] = cronJobs.toSorted((a: CronJob, b: CronJob) => {
     if (sortBy === "created-asc") {
       return (a.createdAtMs ?? 0) - (b.createdAtMs ?? 0);
     }
-    // created-desc (default)
     return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
   });
 
-  // ── Build form initial data from editing job ─────────────────────────────
-  const initialData: Partial<ScheduledTaskFormData> | undefined = (() => {
-    if (!editingJob) { return undefined; }
-    const base: Partial<ScheduledTaskFormData> = {
-      name: editingJob.name,
-      agentPrompt:
-        editingJob.payload.kind === "agentTurn" ? editingJob.payload.message : "",
-    };
-    const sched = editingJob.schedule;
-    if (sched.kind === "every") {
-      const ms = sched.everyMs;
-      if (ms % 86_400_000 === 0) {
-        base.scheduleKind = "every";
-        base.everyAmount = String(ms / 86_400_000);
-        base.everyUnit = "days";
-      } else if (ms % 3_600_000 === 0) {
-        base.scheduleKind = "every";
-        base.everyAmount = String(ms / 3_600_000);
-        base.everyUnit = "hours";
-      } else {
-        base.scheduleKind = "every";
-        base.everyAmount = String(Math.ceil(ms / 60_000));
-        base.everyUnit = "minutes";
-      }
-    } else if (sched.kind === "cron") {
-      // Parse the cron expr to restore the original scheduleKind and preferredTime.
-      // UI-created cron exprs follow the pattern: "MM HH <day> <month> <dow>"
-      // daily:   "MM HH * * *"      (day=*, month=*, dow=*)
-      // weekly:  "MM HH * * 1"      (day=*, month=*, dow=1)
-      // monthly: "MM HH 1 * *"      (day=1, month=*, dow=*)
-      const parts = sched.expr.trim().split(/\s+/);
-      if (parts.length === 5) {
-        const [cronMin, cronHour, cronDay, , cronDow] = parts;
-        const hh = String(parseInt(cronHour, 10) || 0).padStart(2, "0");
-        const mm = String(parseInt(cronMin, 10) || 0).padStart(2, "0");
-        base.preferredTime = `${hh}:${mm}`;
-        if (cronDow !== "*") {
-          base.scheduleKind = "weekly";
-        } else if (cronDay !== "*") {
-          base.scheduleKind = "monthly";
-        } else {
-          base.scheduleKind = "daily";
-        }
-      } else {
-        base.scheduleKind = "daily";
-      }
-    } else {
-      // "at" schedule → one-time
-      base.scheduleKind = "one-time";
-      // Convert ISO string to datetime-local format "YYYY-MM-DDTHH:mm"
-      const d = new Date(sched.at);
-      if (!isNaN(d.getTime())) {
-        const pad = (n: number) => String(n).padStart(2, "0");
-        base.scheduleAt = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const searchQuery = taskSearch.trim().toLowerCase();
+  const filteredJobs = sortedJobs.filter((job) => {
+    if (taskStatusFilter === "enabled" && !job.enabled) {
+      return false;
+    }
+    if (taskStatusFilter === "disabled" && job.enabled) {
+      return false;
+    }
+    if (taskStatusFilter === "failed-last" && job.state?.lastStatus !== "error") {
+      return false;
+    }
+    if (searchQuery) {
+      const prompt = getCronJobAgentPrompt(job).toLowerCase();
+      const nameMatch = job.name.toLowerCase().includes(searchQuery);
+      const promptMatch = prompt.includes(searchQuery);
+      if (!nameMatch && !promptMatch) {
+        return false;
       }
     }
-    // Restore delivery mode from job
-    base.deliveryMode = editingJob.delivery?.mode === "announce" ? "announce" : "none";
-    if (editingJob.delivery?.mode === "announce") {
-      const ch = editingJob.delivery.channel;
-      if (typeof ch === "string" && ch.trim()) {
-        base.deliveryChannel = ch.trim();
-      }
-      const to = editingJob.delivery.to;
-      if (typeof to === "string" && to.trim()) {
-        base.deliveryTo = to.trim();
-      }
-    }
-    return base;
-  })();
+    return true;
+  });
+
+  const hasActiveTaskFilters =
+    taskStatusFilter !== "all" || searchQuery.length > 0;
+
+  const initialData: Partial<ScheduledTaskFormData> | undefined = editingJob
+    ? cronJobToFormData(editingJob, defaultAgentId)
+    : undefined;
 
   // ── Render ───────────────────────────────────────────────────────────────
   if (!isConnected) {
@@ -339,8 +290,8 @@ export function ScheduledTasksPage() {
           {/* ── Header ──────────────────────────────────────────────── */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-[48px] font-extrabold leading-tight tracking-tight text-foreground">
-                Scheduled Tasks
+              <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-foreground sm:text-5xl">
+                My Tasks
               </h2>
               <div className="flex items-center gap-2 shrink-0">
                 <Button
@@ -359,7 +310,7 @@ export function ScheduledTasksPage() {
                 </Button>
                 <Button size="sm" onClick={handleOpenNew} className="gap-1.5 rounded-full">
                   <PlusIcon className="size-3.5" />
-                  New Scheduled Task
+                  New Task
                 </Button>
               </div>
             </div>
@@ -369,9 +320,9 @@ export function ScheduledTasksPage() {
           </div>
 
           {/* ── Error banner ─────────────────────────────────────────────── */}
-          {(cronError ?? cronJobSaveError) && (
+          {(cronError ?? cronJobSaveError ?? cronRunHistoryError) && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              {cronJobSaveError ?? cronError}
+              {cronJobSaveError ?? cronError ?? cronRunHistoryError}
             </div>
           )}
 
@@ -383,7 +334,7 @@ export function ScheduledTasksPage() {
                   value="my-tasks"
                   className="rounded-[14px] px-6 py-2 text-[13px] font-semibold text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                 >
-                  My Scheduled Task
+                  My Tasks
                 </TabsTrigger>
                 <TabsTrigger
                   value="run-history"
@@ -393,55 +344,71 @@ export function ScheduledTasksPage() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Sort control */}
-              {activeTab === "my-tasks" && cronJobs.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Sort by</span>
-                  <select
-                    className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground"
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as SortBy)}
-                  >
-                    <option value="created-desc">Newest First</option>
-                    <option value="created-asc">Oldest First</option>
-                  </select>
-                </div>
-              )}
             </div>
 
-            <TabsContent value="my-tasks" className="mt-2">
+            <TabsContent value="my-tasks" className="mt-2 flex flex-col gap-4">
               {cronLoading && cronJobs.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
                   <Loader2Icon className="size-4 animate-spin" />
                   <span className="text-sm">Loading tasks…</span>
                 </div>
+              ) : cronJobs.length === 0 ? (
+                <ScheduledTasksEmptyState
+                  onCreate={handleOpenNew}
+                  onCreateWithChat={handleCreateWithChat}
+                />
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {sortedJobs.map((job) => (
-                    <TaskCard
-                      key={job.id}
-                      job={job}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      onToggleEnabled={toggleCronJobEnabled}
-                      onRunNow={handleRerun}
-                    />
-                  ))}
-                  <NewTaskCard onClick={handleOpenNew} />
-                </div>
+                <>
+                  <TasksListToolbar
+                    searchQuery={taskSearch}
+                    statusFilter={taskStatusFilter}
+                    sortBy={sortBy}
+                    onSearchChange={setTaskSearch}
+                    onStatusFilterChange={setTaskStatusFilter}
+                    onSortChange={setSortBy}
+                  />
+                  {filteredJobs.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+                      {hasActiveTaskFilters
+                        ? "No tasks match your search or filters."
+                        : "No tasks to show."}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredJobs.map((job) => (
+                      <TaskCard
+                        key={job.id}
+                        job={job}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onToggleEnabled={toggleCronJobEnabled}
+                        onRunNow={handleRerun}
+                      />
+                    ))}
+                    {taskStatusFilter === "all" && (
+                      <NewTaskCard onClick={handleOpenNew} />
+                    )}
+                  </div>
+                </>
               )}
             </TabsContent>
 
             <TabsContent value="run-history" className="mt-2">
               <RunHistoryTable
-                records={filteredRunHistory}
-                total={filteredRunHistory.length}
+                records={cronRunHistory}
+                total={cronRunHistoryTotal}
+                page={historyPage}
+                timeFilter={historyTimeFilter}
+                statusFilter={historyStatusFilter}
                 loading={cronRunHistoryLoading}
+                refreshing={cronRunHistoryLoading}
+                onRefresh={() => reloadRunHistory()}
                 onRerun={handleRerun}
-                onViewInChat={handleViewInChat}
+                onPageChange={setHistoryPage}
                 onFilterChange={(p) => {
                   setHistoryStatusFilter(p.statusFilter);
                   setHistoryTimeFilter(p.timeFilter);
+                  setHistoryPage(1);
                 }}
               />
             </TabsContent>
@@ -449,26 +416,21 @@ export function ScheduledTasksPage() {
         </div>
       </ScrollArea>
 
-      {/* ── Floating action button ────────────────────────────────────── */}
-      <button
-        type="button"
-        onClick={handleOpenNew}
-        title="New Scheduled Task"
-        className="fixed bottom-6 right-6 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ZapIcon className="size-5" />
-        <span className="sr-only">New Scheduled Task</span>
-      </button>
-
       {/* ── Task form modal ───────────────────────────────────────────── */}
       <TaskFormModal
         open={modalOpen}
         mode={editingJob ? "edit" : "new"}
         initialData={initialData}
         saving={cronJobSaving}
+        defaultAgentId={defaultAgentId}
+        agents={formAgents}
         hasChannel={hasChannel}
         channelOptions={channelOptions}
         channelRecipients={channelRecipients}
+        channelRecipientsLoading={channelRecipientsLoading}
+        channelRecipientsError={channelRecipientsError}
+        cronJobs={cronJobs}
+        onReloadChannelRecipients={loadChannelRecipients}
         onSave={(form) => void handleSave(form)}
         onClose={handleModalClose}
       />
