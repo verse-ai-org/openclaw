@@ -5,7 +5,7 @@
 import type { Client } from "@larksuiteoapi/node-sdk";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 import { getFeishuUserAgent } from "./client.js";
-import { resolveFeishuCardTemplate, type CardHeaderConfig } from "./send.js";
+import { resolveFeishuCardTemplate, buildFeishuCardStreamingConfig, type CardHeaderConfig } from "./send.js";
 import type { FeishuDomain } from "./types.js";
 
 type Credentials = { appId: string; appSecret: string; domain?: FeishuDomain };
@@ -130,16 +130,6 @@ function shouldPushStreamingUpdate(previousText: string, nextText: string): bool
   return nextText.length - previousText.length >= STREAMING_SIGNIFICANT_DELTA_CHARS;
 }
 
-function resolveStreamingCardAppendContent(previousText: string, nextText: string): string {
-  if (!nextText || nextText === previousText) {
-    return "";
-  }
-  if (!previousText) {
-    return nextText;
-  }
-  return nextText.startsWith(previousText) ? nextText.slice(previousText.length) : nextText;
-}
-
 export function mergeStreamingText(
   previousText: string | undefined,
   nextText: string | undefined,
@@ -228,11 +218,7 @@ export class FeishuStreamingSession {
     }
     const cardJson: Record<string, unknown> = {
       schema: "2.0",
-      config: {
-        streaming_mode: true,
-        summary: { content: "[Generating...]" },
-        streaming_config: { print_frequency_ms: { default: 50 }, print_step: { default: 1 } },
-      },
+      config: buildFeishuCardStreamingConfig(),
       body: { elements },
     };
     if (options?.header) {
@@ -324,7 +310,7 @@ export class FeishuStreamingSession {
   }
 
   private async updateCardContent(
-    text: string,
+    fullText: string,
     onError?: (error: unknown) => void,
   ): Promise<boolean> {
     if (!this.state) {
@@ -343,7 +329,9 @@ export class FeishuStreamingSession {
             "User-Agent": getFeishuUserAgent(),
           },
           body: JSON.stringify({
-            content: text,
+            // CardKit streaming text API expects full content each call; Feishu diffs
+            // against the previous body and appends only the new suffix client-side.
+            content: fullText,
             sequence: this.state.sequence,
             uuid: `s_${this.state.cardId}_${this.state.sequence}`,
           }),
@@ -453,13 +441,14 @@ export class FeishuStreamingSession {
       if (!mergedText || mergedText === this.state.currentText) {
         return;
       }
-      const appendContent = resolveStreamingCardAppendContent(this.state.sentText, mergedText);
-      if (!appendContent) {
+      if (mergedText === this.state.sentText) {
+        this.pendingText = null;
+        this.state.currentText = mergedText;
         return;
       }
       this.pendingText = null;
       this.state.currentText = mergedText;
-      const sent = await this.updateCardContent(appendContent, (e) =>
+      const sent = await this.updateCardContent(mergedText, (e) =>
         this.log?.(`Update failed: ${String(e)}`),
       );
       if (sent && this.state) {
@@ -499,31 +488,47 @@ export class FeishuStreamingSession {
       .catch((e) => this.log?.(`Note update failed: ${String(e)}`));
   }
 
-  async close(finalText?: string, options?: { note?: string }): Promise<void> {
+  async close(
+    finalText?: string,
+    options?: { note?: string },
+  ): Promise<{ contentSynced: boolean }> {
     if (!this.state || this.closed) {
-      return;
+      return { contentSynced: true };
     }
     this.closed = true;
     this.clearFlushTimer();
     await this.queue;
 
-    const pendingMerged = mergeStreamingText(this.state.currentText, this.pendingText ?? undefined);
-    const text = finalText ?? pendingMerged;
-    const apiBase = resolveApiBase(this.creds.domain);
+    // Merge throttled pending text before the final CardKit sync.
+    if (this.pendingText) {
+      this.state.currentText = mergeStreamingText(this.state.currentText, this.pendingText);
+      this.pendingText = null;
+    }
 
-    // Only send final update if content differs from what's already displayed
+    const text = finalText ?? this.state.currentText;
+    const apiBase = resolveApiBase(this.creds.domain);
+    let contentSynced = !text || text === this.state.sentText;
+
+    // Always replace the full body on close. Incremental append can leave the card
+    // stuck at the last streamed delta when CardKit rejects the final suffix update.
     if (text && text !== this.state.sentText) {
-      const sent = text.startsWith(this.state.sentText)
-        ? await this.updateCardContent(
-            resolveStreamingCardAppendContent(this.state.sentText, text),
-            (e) => this.log?.(`Final update failed: ${String(e)}`),
-          )
-        : await this.replaceCardContent(text, (e) =>
-            this.log?.(`Final replace failed: ${String(e)}`),
-          );
+      const maxAttempts = 3;
+      let sent = false;
+      for (let attempt = 0; attempt < maxAttempts && !sent; attempt += 1) {
+        if (attempt > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+        }
+        sent = await this.replaceCardContent(text, (error) =>
+          this.log?.(`Final replace failed (attempt ${attempt + 1}): ${String(error)}`),
+        );
+      }
       this.state.currentText = text;
       if (sent) {
         this.state.sentText = text;
+        contentSynced = true;
+      } else {
+        this.log?.(`Final content sync failed after ${maxAttempts} replace attempts`);
+        contentSynced = false;
       }
     }
 
@@ -563,6 +568,7 @@ export class FeishuStreamingSession {
     this.pendingText = null;
 
     this.log?.(`Closed streaming: cardId=${finalState.cardId}`);
+    return { contentSynced };
   }
 
   isActive(): boolean {

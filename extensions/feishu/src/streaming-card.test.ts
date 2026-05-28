@@ -140,10 +140,40 @@ describe("FeishuStreamingSession", () => {
 
     expect(updateBodies).toHaveLength(1);
     expect(JSON.parse(updateBodies[0] ?? "{}")).toEqual({
-      content: " small",
+      content: "hello small",
       sequence: 2,
       uuid: "s_card_1_2",
     });
+  });
+
+  it("sends full text on each CardKit streaming update (not delta suffix)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_500);
+    const updateBodies: string[] = [];
+    mockFetches(updateBodies);
+
+    const session = new FeishuStreamingSession({} as never, {
+      appId: "app_full_text_update",
+      appSecret: "secret",
+    });
+    setStreamingSessionInternals(session, {
+      state: {
+        cardId: "card_full",
+        messageId: "om_full",
+        sequence: 1,
+        currentText: "",
+        sentText: "",
+        hasNote: false,
+      },
+      lastUpdateTime: 1_500,
+    });
+
+    await session.update("北面");
+    await session.update("北面（The North Face）吧。");
+
+    expect(updateBodies).toHaveLength(2);
+    expect(JSON.parse(updateBodies[0] ?? "{}").content).toBe("北面");
+    expect(JSON.parse(updateBodies[1] ?? "{}").content).toBe("北面（The North Face）吧。");
   });
 
   it("pushes natural-boundary updates immediately inside the throttle window", async () => {
@@ -172,7 +202,7 @@ describe("FeishuStreamingSession", () => {
 
     expect(updateBodies).toHaveLength(1);
     expect(JSON.parse(updateBodies[0] ?? "{}")).toEqual({
-      content: "!",
+      content: "hello!",
       sequence: 2,
       uuid: "s_card_2_2",
     });
@@ -205,12 +235,12 @@ describe("FeishuStreamingSession", () => {
 
     expect(updateBodies).toHaveLength(2);
     expect(JSON.parse(updateBodies[0] ?? "{}")).toEqual({
-      content: " world",
+      content: "hello world",
       sequence: 2,
       uuid: "s_card_3_2",
     });
     expect(JSON.parse(updateBodies[1] ?? "{}")).toEqual({
-      content: " world!",
+      content: "hello world!",
       sequence: 3,
       uuid: "s_card_3_3",
     });
@@ -243,12 +273,12 @@ describe("FeishuStreamingSession", () => {
 
     expect(updateBodies).toHaveLength(2);
     expect(JSON.parse(updateBodies[0] ?? "{}")).toEqual({
-      content: " world",
+      content: "hello world",
       sequence: 2,
       uuid: "s_card_5_2",
     });
     expect(JSON.parse(updateBodies[1] ?? "{}")).toEqual({
-      content: " world!",
+      content: "hello world!",
       sequence: 3,
       uuid: "s_card_5_3",
     });
@@ -277,8 +307,9 @@ describe("FeishuStreamingSession", () => {
       lastUpdateTime: 3_000,
     });
 
-    await session.close("final answer");
+    const closeResult = await session.close("final answer");
 
+    expect(closeResult).toEqual({ contentSynced: true });
     expect(updateBodies).toHaveLength(0);
     expect(replaceBodies).toHaveLength(1);
     const replacePayload = JSON.parse(replaceBodies[0] ?? "{}") as {
@@ -300,6 +331,44 @@ describe("FeishuStreamingSession", () => {
     });
   });
 
+  it("replaces the full body on close when streamed text only partially synced", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(5_000);
+    const updateBodies: string[] = [];
+    const replaceBodies: string[] = [];
+    mockFetches(updateBodies, new Set<number>(), replaceBodies);
+
+    const session = new FeishuStreamingSession({} as never, {
+      appId: "app_partial_close",
+      appSecret: "secret",
+    });
+    setStreamingSessionInternals(session, {
+      state: {
+        cardId: "card_7",
+        messageId: "om_7",
+        sequence: 1,
+        currentText: "挑",
+        sentText: "挑",
+        hasNote: false,
+      },
+      lastUpdateTime: 4_000,
+    });
+
+    const closeResult = await session.close(
+      "北面（The North Face）吧。\n\n经典、耐穿、覆盖场景广。",
+    );
+
+    expect(closeResult).toEqual({ contentSynced: true });
+    expect(updateBodies).toHaveLength(0);
+    expect(replaceBodies).toHaveLength(1);
+    const replacePayload = JSON.parse(replaceBodies[0] ?? "{}") as { element?: string };
+    expect(JSON.parse(replacePayload.element ?? "{}")).toEqual({
+      tag: "markdown",
+      content: "北面（The North Face）吧。\n\n经典、耐穿、覆盖场景广。",
+      element_id: "content",
+    });
+  });
+
   it("logs a final replacement failure when CardKit returns non-OK", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(4_500);
@@ -310,7 +379,7 @@ describe("FeishuStreamingSession", () => {
       new Set<number>(),
       replaceBodies,
       new Map<number, number>(),
-      new Map([[0, 500]]),
+      new Map([[0, 500], [1, 500], [2, 500]]),
     );
     const log = vi.fn();
 
@@ -334,13 +403,17 @@ describe("FeishuStreamingSession", () => {
       lastUpdateTime: 3_000,
     });
 
-    await session.close("final answer");
+    const closePromise = session.close("final answer");
+    await vi.advanceTimersByTimeAsync(500);
+    const closeResult = await closePromise;
 
+    expect(closeResult).toEqual({ contentSynced: false });
     expect(updateBodies).toHaveLength(0);
-    expect(replaceBodies).toHaveLength(1);
+    expect(replaceBodies).toHaveLength(3);
     expect(log).toHaveBeenCalledWith(
-      "Final replace failed: Error: Replace card content failed with HTTP 500",
+      "Final replace failed (attempt 1): Error: Replace card content failed with HTTP 500",
     );
+    expect(log).toHaveBeenCalledWith("Final content sync failed after 3 replace attempts");
   });
 });
 

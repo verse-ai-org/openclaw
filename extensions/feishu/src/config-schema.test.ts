@@ -20,6 +20,8 @@ describe("FeishuConfigSchema webhook validation", () => {
     expect(result.dmPolicy).toBe("open");
     expect(result.allowFrom).toEqual(["*"]);
     expect(result.groupPolicy).toBe("open");
+    expect(result.renderMode).toBe("card");
+    expect(result.streaming).toBe(true);
     // requireMention has no schema-level default now — it is resolved at runtime
     // through shared channel group-policy resolution, with an open-group override
     // that defaults to false only when requireMention is otherwise unset.

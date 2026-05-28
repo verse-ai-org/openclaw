@@ -385,13 +385,35 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
         statusLine = "";
         const text = buildCombinedStreamText(reasoningText, streamText);
         const finalNote = resolveCardNote(agentId, identity, prefixContext.prefixContext);
-        await streaming.close(text, { note: finalNote });
+        const closeResult = await streaming.close(text, { note: finalNote });
+        if (!closeResult.contentSynced && text.trim()) {
+          streamingCloseErroredForReply = true;
+          params.runtime.error?.(
+            `feishu[${account.accountId}]: streaming card final sync failed; sending fallback card`,
+          );
+          const cardHeader = resolveCardHeader(agentId, identity);
+          await sendStructuredCardFeishu({
+            cfg,
+            to: chatId,
+            text,
+            replyToMessageId: sendReplyToMessageId,
+            replyInThread: effectiveReplyInThread,
+            allowTopLevelReplyFallback,
+            accountId,
+            header: cardHeader,
+            note: finalNote,
+          });
+        }
         // Track the raw streamed text so the duplicate-final check in deliver()
         // can skip the redundant text delivery that arrives after onIdle closes
         // the streaming card.
         if (streamText) {
           deliveredFinalTexts.add(streamText);
-          if (options?.markClosedForReply !== false && !streamingCloseErroredForReply) {
+          if (
+            options?.markClosedForReply !== false &&
+            !streamingCloseErroredForReply &&
+            closeResult.contentSynced
+          ) {
             streamingClosedForReply = true;
           }
         }

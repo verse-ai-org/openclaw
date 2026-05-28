@@ -38,6 +38,21 @@ const FEISHU_CARD_TEMPLATES = new Set([
   "lime",
 ]);
 
+/** Shared CardKit config for group-visible card updates (CardKit error 300302 when false). */
+export const FEISHU_CARD_SHARED_CONFIG = {
+  update_multi: true,
+  width_mode: "fill",
+} as const;
+
+export function buildFeishuCardStreamingConfig(): Record<string, unknown> {
+  return {
+    ...FEISHU_CARD_SHARED_CONFIG,
+    streaming_mode: true,
+    summary: { content: "[Generating...]" },
+    streaming_config: { print_frequency_ms: { default: 50 }, print_step: { default: 1 } },
+  };
+}
+
 function shouldFallbackFromReplyTarget(response: { code?: number; msg?: string }): boolean {
   if (response.code !== undefined && WITHDRAWN_REPLY_ERROR_CODES.has(response.code)) {
     return true;
@@ -715,7 +730,7 @@ export function buildMarkdownCard(text: string): Record<string, unknown> {
   return {
     schema: "2.0",
     config: {
-      width_mode: "fill",
+      ...FEISHU_CARD_SHARED_CONFIG,
     },
     body: {
       elements: [
@@ -762,7 +777,7 @@ export function buildStructuredCard(
   }
   const card: Record<string, unknown> = {
     schema: "2.0",
-    config: { width_mode: "fill" },
+    config: { ...FEISHU_CARD_SHARED_CONFIG },
     body: { elements },
   };
   if (options?.header) {

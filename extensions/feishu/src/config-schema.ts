@@ -62,7 +62,7 @@ const MarkdownConfigSchema = z
   .strict()
   .optional();
 
-// Message render mode: auto (default) = detect markdown, raw = plain text, card = always card
+// Message render mode: auto = detect markdown, raw = plain text, card = always card
 const RenderModeSchema = z.enum(["auto", "raw", "card"]).optional();
 
 // Streaming card mode: when enabled, card replies use Feishu's Card Kit streaming API
@@ -251,6 +251,9 @@ export const FeishuConfigSchema = z
     // Optimization flags
     typingIndicator: z.boolean().optional().default(true),
     resolveSenderNames: z.boolean().optional().default(true),
+    // Card rendering defaults (top-level only; accounts inherit at runtime when unset)
+    renderMode: RenderModeSchema.default("card"),
+    streaming: StreamingModeSchema.default(true),
     // Multi-account configuration
     accounts: z.record(z.string(), FeishuAccountConfigSchema.optional()).optional(),
   })

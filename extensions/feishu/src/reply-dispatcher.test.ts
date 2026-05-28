@@ -83,6 +83,7 @@ vi.mock("./streaming-card.js", () => {
       update = vi.fn(async () => {});
       close = vi.fn(async () => {
         this.active = false;
+        return { contentSynced: true };
       });
       isActive = vi.fn(() => this.active);
 
@@ -609,6 +610,39 @@ describe("createFeishuReplyDispatcher streaming behavior", () => {
     expect(sendMessageFeishuMock).not.toHaveBeenCalled();
     expect(sendMarkdownCardFeishuMock).not.toHaveBeenCalled();
     expect(sendStructuredCardFeishuMock).not.toHaveBeenCalled();
+  });
+
+  it("sends fallback structured card when streaming close fails to sync final body", async () => {
+    resolveFeishuAccountMock.mockReturnValue({
+      accountId: "main",
+      appId: "app_id",
+      appSecret: "app_secret",
+      domain: "feishu",
+      config: {
+        renderMode: "card",
+        streaming: true,
+      },
+    });
+
+    const { result, options } = createDispatcherHarness({
+      runtime: createRuntimeLogger(),
+    });
+
+    await options.onReplyStart?.();
+    result.replyOptions.onPartialReply?.({ text: "北面（The North Face）吧。" });
+    streamingInstances[0].close.mockResolvedValueOnce({ contentSynced: false });
+    await options.deliver(
+      { text: "北面（The North Face）吧。\n\n经典、耐穿。" },
+      { kind: "final" },
+    );
+    await options.onIdle?.();
+
+    expect(streamingInstances[0].close).toHaveBeenCalledTimes(1);
+    expect(sendStructuredCardFeishuMock).toHaveBeenCalledTimes(1);
+    expectLastMockArgFields(sendStructuredCardFeishuMock, "fallback card send params", {
+      text: "北面（The North Face）吧。\n\n经典、耐穿。",
+      to: "oc_chat",
+    });
   });
 
   it("skips distinct late final text after streaming card close", async () => {

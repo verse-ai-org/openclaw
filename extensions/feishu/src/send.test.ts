@@ -580,6 +580,7 @@ function expectSchema2WidthConfig(card: unknown) {
   };
 
   expect(typedCard.config.width_mode).toBe("fill");
+  expect(typedCard.config.update_multi).toBe(true);
   expect(typedCard.config.enable_forward).toBeUndefined();
   expect(typedCard.config.wide_screen_mode).toBeUndefined();
 }
@@ -599,6 +600,19 @@ describe("Feishu card schema config", () => {
   });
 });
 
+describe("buildFeishuCardStreamingConfig", () => {
+  it("includes shared multi-user card defaults for group streaming", async () => {
+    const { buildFeishuCardStreamingConfig } = await import("./send.js");
+    expect(buildFeishuCardStreamingConfig()).toEqual({
+      update_multi: true,
+      width_mode: "fill",
+      streaming_mode: true,
+      summary: { content: "[Generating...]" },
+      streaming_config: { print_frequency_ms: { default: 50 }, print_step: { default: 1 } },
+    });
+  });
+});
+
 describe("buildStructuredCard", () => {
   it("falls back to blue when the header template is unsupported", () => {
     const card = buildStructuredCard("hello", {
@@ -610,7 +624,7 @@ describe("buildStructuredCard", () => {
 
     expect(card).toEqual({
       schema: "2.0",
-      config: { width_mode: "fill" },
+      config: { update_multi: true, width_mode: "fill" },
       body: { elements: [{ tag: "markdown", content: "hello" }] },
       header: {
         title: { tag: "plain_text", content: "Agent" },

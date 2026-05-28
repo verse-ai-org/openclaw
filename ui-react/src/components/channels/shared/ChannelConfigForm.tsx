@@ -35,6 +35,7 @@ const FEISHU_DEFAULT_VALUES: Record<string, unknown> = {
   domain: "feishu",
   groupPolicy: "open",
   renderMode: "card",
+  streaming: true,
   requireMention: true,
 };
 
