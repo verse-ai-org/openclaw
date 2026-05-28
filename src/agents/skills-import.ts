@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import JSZip from "jszip";
+import { downloadClawHubSkillArchive } from "../infra/clawhub.js";
 import { assertCanonicalPathWithinBase } from "../infra/install-safe-path.js";
 import { runCommandWithTimeout } from "../process/exec.js";
 import { scanDirectoryWithSummary } from "../security/skill-scanner.js";
 import { ensureDir, CONFIG_DIR } from "../utils.js";
+import { validateRequestedSkillSlug } from "./skills-archive-install.js";
 import type { DownloadUrlResult } from "./skills-install-download.js";
 import { downloadUrlToFile } from "./skills-install-download.js";
 import { extractArchive } from "./skills-install-extract.js";
@@ -200,6 +202,123 @@ function deriveSkillNameFromFilename(filename: string): string {
   return sanitizeSkillName(base) || "skill";
 }
 
+/**
+ * ClawHub page or download URLs → slug. Uses the same registry API as
+ * `skills.install` (unguarded fetch) so `skills.import` avoids SSRF-blocked hosts.
+ */
+export function parseClawHubSlugFromImportUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return null;
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const isClawHubHost = host === "clawhub.ai" || host.endsWith(".clawhub.ai");
+  const isLegacyConvexDownload =
+    host.endsWith(".convex.site") &&
+    parsed.pathname.replace(/\/+$/, "").endsWith("/api/v1/download");
+  if (!isClawHubHost && !isLegacyConvexDownload) {
+    return null;
+  }
+
+  const slugParam = parsed.searchParams.get("slug")?.trim();
+  if (slugParam) {
+    try {
+      return validateRequestedSkillSlug(slugParam);
+    } catch {
+      return null;
+    }
+  }
+
+  const pageMatch = parsed.pathname.match(/^\/[^/]+\/([^/?#]+)\/?$/);
+  if (!pageMatch?.[1]) {
+    return null;
+  }
+  try {
+    return validateRequestedSkillSlug(pageMatch[1]);
+  } catch {
+    return null;
+  }
+}
+
+async function importManagedSkillFromClawHub(params: {
+  slug: string;
+  skillName?: string;
+  skillsBaseDir: string;
+  timeoutMs: number;
+}): Promise<SkillImportResult> {
+  const slug = validateRequestedSkillSlug(params.slug);
+  const rawSkillName = params.skillName?.trim() || slug;
+  const skillName = sanitizeSkillName(rawSkillName);
+  if (!skillName) {
+    return { ok: false, message: "Could not determine a valid skill name" };
+  }
+
+  const destDir = path.join(params.skillsBaseDir, skillName);
+  try {
+    await ensureDir(params.skillsBaseDir);
+    await assertCanonicalPathWithinBase({
+      baseDir: params.skillsBaseDir,
+      candidatePath: destDir,
+      boundaryLabel: "skills directory",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, message };
+  }
+
+  const archive = await downloadClawHubSkillArchive({
+    slug,
+    timeoutMs: params.timeoutMs,
+  });
+  const archiveType = "zip";
+
+  try {
+    await fs.promises.rm(destDir, { recursive: true, force: true });
+    await ensureDir(destDir);
+
+    const stripComponents = await resolveStripComponents(
+      archive.archivePath,
+      archiveType,
+      params.timeoutMs,
+    );
+    const extractResult = await extractArchive({
+      archivePath: archive.archivePath,
+      archiveType,
+      targetDir: destDir,
+      stripComponents,
+      timeoutMs: params.timeoutMs,
+    });
+
+    if (extractResult.code !== 0) {
+      await fs.promises.rm(destDir, { recursive: true, force: true }).catch(() => undefined);
+      return {
+        ok: false,
+        message: extractResult.stderr.trim() || "Extraction failed",
+      };
+    }
+
+    const warnings = await scanAndWarn(destDir, skillName);
+    return {
+      ok: true,
+      message: `Skill "${skillName}" imported from ClawHub`,
+      skillName,
+      destDir,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, message };
+  } finally {
+    await archive.cleanup?.().catch(() => undefined);
+  }
+}
+
 async function scanAndWarn(destDir: string, skillName: string): Promise<string[]> {
   const warnings: string[] = [];
   try {
@@ -242,6 +361,18 @@ export async function importSkill(params: SkillImportRequest): Promise<SkillImpo
   } else {
     if (!params.data?.trim()) {
       return { ok: false, message: "data is required for kind=upload" };
+    }
+  }
+
+  if (params.kind === "url") {
+    const clawhubSlug = parseClawHubSlugFromImportUrl(params.url!.trim());
+    if (clawhubSlug) {
+      return await importManagedSkillFromClawHub({
+        slug: clawhubSlug,
+        skillName: params.skillName,
+        skillsBaseDir,
+        timeoutMs,
+      });
     }
   }
 

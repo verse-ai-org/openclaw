@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { Loader2Icon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -45,6 +46,7 @@ function AddSkillsDialog({
   boundSkillIds: string[];
   onSubmit: (addedSkillIds: string[]) => Promise<void>;
 }) {
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<SkillsSourceFilter>("all");
   const [selected, setSelected] = useState<string[]>([]);
@@ -154,12 +156,34 @@ function AddSkillsDialog({
           </div>
         </ScrollArea>
 
-        <div className="border-t px-6 py-4 shrink-0 flex items-center justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button disabled={selected.length === 0 || saving} onClick={() => void handleAdd()}>
-            {saving && <Loader2Icon className="size-4 animate-spin" />}
-            Add {selected.length > 0 ? selected.length : ""}
-          </Button>
+        <div className="border-t px-6 py-4 shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <p className="text-[11px] text-muted-foreground">
+              Skill missing from the list? Install it globally first, then return here to bind it.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-[11px] font-semibold"
+              disabled={saving}
+              onClick={() => {
+                onClose();
+                void navigate("/skills");
+              }}
+            >
+              Install on Skills page
+            </Button>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button disabled={selected.length === 0 || saving} onClick={() => void handleAdd()}>
+              {saving && <Loader2Icon className="size-4 animate-spin" />}
+              Add {selected.length > 0 ? selected.length : ""}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

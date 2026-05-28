@@ -66,7 +66,7 @@ export function AddSkillDialog({ trigger }: Props) {
     setLoading(true);
     try {
       if (mode === "url") {
-        const trimmedUrl = resolveClawhubUrl(url.trim());
+        const trimmedUrl = url.trim();
         if (!trimmedUrl) {
           setResult({ ok: false, message: "Please enter a URL" });
           return;
@@ -276,18 +276,6 @@ export function AddSkillDialog({ trigger }: Props) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * If the user pastes a Clawhub skill page URL (https://clawhub.ai/{author}/{slug}),
- * convert it to the direct download URL. All other URLs are returned unchanged.
- */
-function resolveClawhubUrl(input: string): string {
-  const match = input.match(/^https?:\/\/clawhub\.ai\/[^/]+\/([^/?#]+)\/?$/);
-  if (match) {
-    return `https://wry-manatee-359.convex.site/api/v1/download?slug=${match[1]}`;
-  }
-  return input;
-}
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
