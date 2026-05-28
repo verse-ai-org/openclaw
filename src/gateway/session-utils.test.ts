@@ -1907,7 +1907,7 @@ describe("deriveSessionTitle", () => {
     expect(deriveSessionTitle(undefined)).toBeUndefined();
   });
 
-  test("prefers displayName when set", () => {
+  test("prefers displayName when set and transcript has no first user line", () => {
     const entry = {
       sessionId: "abc123",
       updatedAt: Date.now(),
@@ -1915,6 +1915,25 @@ describe("deriveSessionTitle", () => {
       subject: "Group Chat",
     } as SessionEntry;
     expect(deriveSessionTitle(entry)).toBe("My Custom Session");
+  });
+
+  test("prefers first user message over channel routing displayName", () => {
+    const entry = {
+      sessionId: "abc123",
+      updatedAt: Date.now(),
+      displayName: "feishu:g-ocdd2cc5098d",
+      subject: "Feishu Group",
+    } as SessionEntry;
+    expect(deriveSessionTitle(entry, "查询一下成都明天的天气")).toBe("查询一下成都明天的天气");
+  });
+
+  test("prefers first user message over discord guild displayName", () => {
+    const entry = {
+      sessionId: "abc123",
+      updatedAt: Date.now(),
+      displayName: "discord:friends-of-openclaw#general",
+    } as SessionEntry;
+    expect(deriveSessionTitle(entry, "Schedule a team sync")).toBe("Schedule a team sync");
   });
 
   test("falls back to subject when displayName is missing", () => {

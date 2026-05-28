@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { StringDecoder } from "node:string_decoder";
-import { stripInboundMetadata } from "../auto-reply/reply/strip-inbound-meta.js";
+import { stripUserEnvelopeForDisplay } from "../auto-reply/reply/display-text-sanitize.js";
 import { deriveSessionTotalTokens, hasNonzeroUsage, normalizeUsage } from "../agents/usage.js";
 import { jsonUtf8Bytes } from "../infra/json-utf8-bytes.js";
 import { hasInterSessionUserProvenance } from "../sessions/input-provenance.js";
@@ -926,9 +926,36 @@ export async function readSessionTitleFieldsFromTranscriptAsync(
   }
 }
 
+function stripTrailingSystemHintLines(text: string): string {
+  const lines = text.split(/\r?\n/);
+  while (lines.length > 0 && lines.at(-1)?.trim() === "") {
+    lines.pop();
+  }
+  while (lines.length > 0 && /^\[System:/i.test(lines.at(-1)?.trim() ?? "")) {
+    lines.pop();
+    while (lines.length > 0 && lines.at(-1)?.trim() === "") {
+      lines.pop();
+    }
+  }
+  return lines.join("\n").trim();
+}
+
+/** Strip Feishu-style open_id speaker prefixes from the first line (group chats). */
+function stripLeadingFeishuSpeakerPrefix(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const first = lines[0]?.trim() ?? "";
+  const stripped = first.replace(/^(ou_[a-z0-9]+):\s+/i, "");
+  if (stripped === first) {
+    return text.trim();
+  }
+  lines[0] = stripped;
+  return lines.join("\n").trim();
+}
+
 function cleanTranscriptText(raw: string): string {
-  let text = stripInboundMetadata(raw);
-  text = stripEnvelope(text);
+  let text = stripUserEnvelopeForDisplay(raw);
+  text = stripTrailingSystemHintLines(text);
+  text = stripLeadingFeishuSpeakerPrefix(text);
   const fenceIdx = text.indexOf("<<<EXTERNAL_UNTRUSTED_CONTENT");
   if (fenceIdx >= 0) {
     text = text.slice(0, fenceIdx);

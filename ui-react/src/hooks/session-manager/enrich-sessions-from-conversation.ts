@@ -1,9 +1,13 @@
 import { selectChatMessages } from "@/store/conversation-selectors";
 import { useConversationStore } from "@/store/conversation.store";
+import { cleanSessionText } from "./display-name";
 import type { SessionEntry } from "./types";
 
 /** Matches gateway `formatSessionIdPrefix` fallback when transcript has no first user line yet. */
 const SESSION_LIST_ID_DATE_FALLBACK = /^[0-9a-f]{8} \(\d{4}-\d{2}-\d{2}\)$/i;
+
+/** Matches channel routing titles from gateway `buildGroupDisplayName` id fallback. */
+const ROUTING_CHANNEL_DERIVED_TITLE = /^[a-z0-9-]+:g-[a-z0-9]/i;
 
 const DERIVED_TITLE_MAX_LEN = 60;
 
@@ -42,10 +46,7 @@ function shouldPatchDerivedTitleFromLocal(s: SessionEntry, localFirst: string): 
   if (derived && SESSION_LIST_ID_DATE_FALLBACK.test(derived)) {
     return true;
   }
-  if (derived) {
-    return false;
-  }
-  if (s.displayName?.trim()) {
+  if (derived && !ROUTING_CHANNEL_DERIVED_TITLE.test(derived)) {
     return false;
   }
   const lab = s.label?.trim();
@@ -68,7 +69,7 @@ export function enrichSessionsFromLocalConversation(sessions: SessionEntry[]): S
     }
     return {
       ...s,
-      derivedTitle: truncateSessionTitle(localFirst, DERIVED_TITLE_MAX_LEN),
+      derivedTitle: truncateSessionTitle(cleanSessionText(localFirst), DERIVED_TITLE_MAX_LEN),
     };
   });
 }

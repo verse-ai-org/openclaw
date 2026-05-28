@@ -72,9 +72,25 @@ describe("enrichSessionsFromLocalConversation", () => {
     ]);
 
     const sessions: SessionEntry[] = [
-      { key: threadKey, displayName: "Channel name", derivedTitle: undefined },
+      { key: threadKey, displayName: "Channel name", derivedTitle: "Already from server" },
     ];
     const out = enrichSessionsFromLocalConversation(sessions);
-    expect(out[0]?.derivedTitle).toBeUndefined();
+    expect(out[0]?.derivedTitle).toBe("Already from server");
+  });
+
+  it("replaces routing channel derivedTitle with first local user line", () => {
+    useConversationStore.getState().setHistorySnapshot(threadKey, [
+      { id: "u1", role: "user", content: "通过微信发一条消息", ts: 1 },
+    ]);
+
+    const sessions: SessionEntry[] = [
+      {
+        key: threadKey,
+        displayName: "openclaw-weixin:g-o9cabc",
+        derivedTitle: "openclaw-weixin:g-o9cabc",
+      },
+    ];
+    const out = enrichSessionsFromLocalConversation(sessions);
+    expect(out[0]?.derivedTitle).toBe("通过微信发一条消息");
   });
 });

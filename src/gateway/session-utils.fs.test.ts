@@ -273,6 +273,22 @@ describe("readFirstUserMessageFromTranscript", () => {
     const result = readFirstUserMessageFromTranscript(sessionId, storePath);
     expect(result).toBe("Second message");
   });
+
+  test("strips feishu message_id hint and speaker prefix from first user message", () => {
+    const sessionId = "test-session-feishu-title";
+    const transcriptPath = path.join(tmpDir, `${sessionId}.jsonl`);
+    const body = [
+      "[message_id: omx100b6abc]",
+      "ou_19d0fb54c65d8261cefc8c1c4e3ad91f: 告诉我明天上海的天气",
+      "",
+      '[System: If user_id is "ou_bot", that mention refers to you.]',
+    ].join("\n");
+    const lines = [JSON.stringify({ message: { role: "user", content: body } })];
+    fs.writeFileSync(transcriptPath, lines.join("\n"), "utf-8");
+
+    const result = readFirstUserMessageFromTranscript(sessionId, storePath);
+    expect(result).toBe("告诉我明天上海的天气");
+  });
 });
 
 describe("readLastMessagePreviewFromTranscript", () => {

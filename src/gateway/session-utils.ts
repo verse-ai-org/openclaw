@@ -226,17 +226,17 @@ export function deriveSessionTitle(
     return undefined;
   }
 
+  if (firstUserMessage?.trim()) {
+    const normalized = firstUserMessage.replace(/\s+/g, " ").trim();
+    return truncateTitle(normalized, DERIVED_TITLE_MAX_LEN);
+  }
+
   if (normalizeOptionalString(entry.displayName)) {
     return normalizeOptionalString(entry.displayName);
   }
 
   if (normalizeOptionalString(entry.subject)) {
     return normalizeOptionalString(entry.subject);
-  }
-
-  if (firstUserMessage?.trim()) {
-    const normalized = firstUserMessage.replace(/\s+/g, " ").trim();
-    return truncateTitle(normalized, DERIVED_TITLE_MAX_LEN);
   }
 
   if (entry.sessionId) {
