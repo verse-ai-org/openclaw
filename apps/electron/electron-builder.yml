@@ -90,7 +90,10 @@ extraResources:
   # 内置 Skills（Built-in Skills 页面数据来源）
   - from: "../../skills"
     to: "openclaw/skills"
-    filter: ["**/*"]
+    filter:
+      - "**/*"
+      - "!**/.tmp-test/**"
+      - "!**/venv/**"
 
   # workspace 模板文件（AGENTS.md, SOUL.md, TOOLS.md 等）
   - from: "../../docs/reference/templates"

@@ -33,35 +33,71 @@ load_env() {
     set +a
   fi
 
-  # 若设置了 KEY_PATH，读取文件内容到 APP_STORE_CONNECT_API_KEY_P8
+  # 若设置了 KEY_PATH，读取文件内容到 APP_STORE_CONNECT_API_KEY_P8（afterSign hook 备用）
   if [ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" ] && [ -z "${APP_STORE_CONNECT_API_KEY_P8:-}" ]; then
     if [ -f "$APP_STORE_CONNECT_API_KEY_PATH" ]; then
       APP_STORE_CONNECT_API_KEY_P8="$(cat "$APP_STORE_CONNECT_API_KEY_PATH")"
       export APP_STORE_CONNECT_API_KEY_P8
-      echo "🔑 已从文件加载 API Key: $APP_STORE_CONNECT_API_KEY_PATH"
-    else
-      echo "⚠️  APP_STORE_CONNECT_API_KEY_PATH 指定的文件不存在: $APP_STORE_CONNECT_API_KEY_PATH"
     fi
   fi
 
   # electron-builder 26.8.1 内置公证使用不同的变量名，映射过去
   # APPLE_API_KEY = p8 文件路径, APPLE_API_KEY_ID = Key ID, APPLE_API_ISSUER = Issuer ID
-  if [ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" ]; then
-    # 本地：直接用文件路径
-    export APPLE_API_KEY="$APP_STORE_CONNECT_API_KEY_PATH"
+  unset APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER
+
+  local resolved_p8_path=""
+  if [ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" ] && [ -f "$APP_STORE_CONNECT_API_KEY_PATH" ]; then
+    resolved_p8_path="$APP_STORE_CONNECT_API_KEY_PATH"
   elif [ -n "${APP_STORE_CONNECT_API_KEY_P8:-}" ]; then
-    # CI：p8 内容写入临时文件，再指向该路径
     _TMP_P8="$(mktemp /tmp/AuthKey_XXXXXX.p8)"
     printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" > "$_TMP_P8"
     chmod 600 "$_TMP_P8"
-    export APPLE_API_KEY="$_TMP_P8"
+    resolved_p8_path="$_TMP_P8"
     echo "🔑 CI：已将 p8 内容写入临时文件: $_TMP_P8"
+  fi
+
+  if [ -n "$resolved_p8_path" ]; then
+    export APPLE_API_KEY="$resolved_p8_path"
+    echo "🔑 公证 API Key: $resolved_p8_path"
   fi
   if [ -n "${APP_STORE_CONNECT_KEY_ID:-}" ]; then
     export APPLE_API_KEY_ID="$APP_STORE_CONNECT_KEY_ID"
   fi
   if [ -n "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
     export APPLE_API_ISSUER="$APP_STORE_CONNECT_ISSUER_ID"
+  fi
+}
+
+validate_notarization_config() {
+  if [ "$LOCAL_FAST" = "1" ]; then
+    return 0
+  fi
+
+  local missing=0
+  if [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
+    echo "❌ 缺少 APP_STORE_CONNECT_ISSUER_ID（App Store Connect → Integrations → API Keys）"
+    missing=1
+  fi
+  if [ -z "${APP_STORE_CONNECT_KEY_ID:-}" ]; then
+    echo "❌ 缺少 APP_STORE_CONNECT_KEY_ID"
+    missing=1
+  fi
+
+  local p8_path="${APP_STORE_CONNECT_API_KEY_PATH:-}"
+  if [ -n "$p8_path" ] && [ ! -f "$p8_path" ]; then
+    echo "❌ APP_STORE_CONNECT_API_KEY_PATH 文件不存在: $p8_path"
+    echo "   请编辑 apps/electron/.env，填入真实的 AuthKey_<KEY_ID>.p8 绝对路径"
+    missing=1
+  elif [ -z "$p8_path" ] && [ -z "${APP_STORE_CONNECT_API_KEY_P8:-}" ]; then
+    echo "❌ 缺少公证 API Key：设置 APP_STORE_CONNECT_API_KEY_PATH 或 APP_STORE_CONNECT_API_KEY_P8"
+    missing=1
+  fi
+
+  if [ "$missing" -ne 0 ]; then
+    echo ""
+    echo "正式打包（make package / package-arm64）需要完整公证配置。"
+    echo "本地无公证测试请使用: make package-fast"
+    exit 1
   fi
 }
 
@@ -302,6 +338,7 @@ verify_code_signature() {
 
 main() {
   load_env
+  validate_notarization_config
   print_banner
   build_artifacts_if_needed
   check_runtime_externals
