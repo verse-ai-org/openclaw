@@ -49,6 +49,8 @@ export const safeParseSerializableApprovalCard: (
   SerializableApprovalCardSchemaContract.safeParse;
 export interface ApprovalCardProps extends SerializableApprovalCard {
   className?: string;
+  /** When true, approve/deny actions are disabled (e.g. assistant turn still running). */
+  disabled?: boolean;
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
 }

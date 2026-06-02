@@ -29,7 +29,19 @@ type HandlerContext<TPayload> = {
   payload: TPayload;
   sendMessage: SendMessageFn;
   setInteractiveSummary: (pairs: InteractiveSummaryPair[], payload?: unknown) => void;
+  /** When true, UI is read-only and submit callbacks must not run (assistant turn in progress). */
+  interactionLocked?: boolean;
 };
+
+function withOptionsLocked<T extends { disabled?: boolean }>(
+  options: T[],
+  interactionLocked: boolean | undefined,
+): T[] {
+  if (!interactionLocked) {
+    return options;
+  }
+  return options.map((option) => ({ ...option, disabled: true }));
+}
 
 export interface UiInteractionHandler<TPayload = unknown> {
   kind: "question_flow" | "option_list" | "approval_card";
@@ -134,15 +146,27 @@ const questionFlowHandler: UiInteractionHandler<SerializableQuestionFlow> = {
     }
     return null;
   },
-  renderPending: ({ interactiveId, payload, sendMessage, setInteractiveSummary }) => {
+  renderPending: ({
+    interactiveId,
+    payload,
+    sendMessage,
+    setInteractiveSummary,
+    interactionLocked,
+  }) => {
     if ("steps" in payload) {
       const upfrontConfig = payload as SerializableUpfrontMode;
       return (
         <QuestionFlow
           key={interactiveId}
           id={upfrontConfig.id}
-          steps={upfrontConfig.steps}
+          steps={upfrontConfig.steps.map((step) => ({
+            ...step,
+            options: withOptionsLocked(step.options, interactionLocked),
+          }))}
           onComplete={async (answers) => {
+            if (interactionLocked) {
+              return;
+            }
             const pairs = buildUpfrontSummary(upfrontConfig, answers);
             setInteractiveSummary(pairs, { answers });
             await sendMessage(formatQaDisplayText(pairs), {
@@ -164,10 +188,13 @@ const questionFlowHandler: UiInteractionHandler<SerializableQuestionFlow> = {
           id={payload.id}
           step={payload.step}
           title={payload.title}
-          options={payload.options}
+          options={withOptionsLocked(payload.options as QuestionFlowOption[], interactionLocked)}
           description={payload.description}
           selectionMode={payload.selectionMode}
           onSelect={async (optionIds) => {
+            if (interactionLocked) {
+              return;
+            }
             const labels = (payload.options as QuestionFlowOption[])
               .filter((o: QuestionFlowOption) => optionIds.includes(o.id))
               .map((o: QuestionFlowOption) => o.label);
@@ -203,12 +230,20 @@ const optionListHandler: UiInteractionHandler<SerializableOptionList> = {
     }
     return [{ question, answer: nextUserMessage.content || "—" }];
   },
-  renderPending: ({ interactiveId, payload, sendMessage, setInteractiveSummary }) => (
+  renderPending: ({
+    interactiveId,
+    payload,
+    sendMessage,
+    setInteractiveSummary,
+    interactionLocked,
+  }) => (
     <OptionList
       key={interactiveId}
       {...payload}
+      options={withOptionsLocked(payload.options, interactionLocked)}
+      onBeforeAction={() => !interactionLocked}
       onAction={async (actionId, selection) => {
-        if (actionId !== "confirm" || selection == null) {
+        if (interactionLocked || actionId !== "confirm" || selection == null) {
           return;
         }
         const ids =
@@ -249,11 +284,21 @@ const approvalCardHandler: UiInteractionHandler<SerializableApprovalCard> = {
     }
     return [{ question: config.title, answer: nextUserMessage.content || "—" }];
   },
-  renderPending: ({ interactiveId, payload, sendMessage, setInteractiveSummary }) => (
+  renderPending: ({
+    interactiveId,
+    payload,
+    sendMessage,
+    setInteractiveSummary,
+    interactionLocked,
+  }) => (
     <ApprovalCard
       key={interactiveId}
       {...payload}
+      disabled={interactionLocked}
       onConfirm={async () => {
+        if (interactionLocked) {
+          return;
+        }
         const pairs: InteractiveSummaryPair[] = [{ question: payload.title, answer: "Approved" }];
         setInteractiveSummary(pairs, { decision: "approved" });
         await sendMessage(formatQaDisplayText(pairs), {
@@ -265,6 +310,9 @@ const approvalCardHandler: UiInteractionHandler<SerializableApprovalCard> = {
         });
       }}
       onCancel={async () => {
+        if (interactionLocked) {
+          return;
+        }
         const pairs: InteractiveSummaryPair[] = [{ question: payload.title, answer: "Denied" }];
         setInteractiveSummary(pairs, { decision: "denied" });
         await sendMessage(formatQaDisplayText(pairs), {

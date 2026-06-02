@@ -38,3 +38,4 @@
 
 - 交互式 tool-ui 的“提交动作”最终会走 `sendMessage`（`chat.send`），并在本地先写入 canonical user message（乐观）
 - 为避免对话重复展示：该 user message（Q/A echo）在 UI 上默认不渲染，但会作为 history 的持久化来源用于 hydrate
+- 当线程 `sending` 或 `selectIsRunning`（`ui-interaction-lock.ts`）为真时，Interactive 卡片只读：不可提交，已提交回执不可 Edit（与 Composer 的 `isRunning` 一致）

@@ -1,6 +1,7 @@
 import { type FC, useMemo } from "react";
 import type { AssistantUiToolPart, InteractiveSummaryPair } from "@/components/chat/types";
 import { UI_INTERACTION_REGISTRY } from "@/components/chat/ui-tool/ui-interaction-registry";
+import { isInteractionLocked } from "@/components/chat/ui-tool/ui-interaction-lock";
 import { useAuiState } from "@assistant-ui/react";
 import { useChatSend } from "@/components/chat/ChatSendContext";
 import { useInteractionStore } from "@/store/interaction.store";
@@ -50,7 +51,8 @@ type UiToolPartRowProps = {
 const SubmittedReceiptActions: FC<{
   summary: InteractiveSummaryPair[] | undefined;
   onEdit: () => void;
-}> = ({ summary, onEdit }) => {
+  editDisabled?: boolean;
+}> = ({ summary, onEdit, editDisabled }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard();
   const textToCopy = useMemo(() => formatQaDisplayText(summary ?? []), [summary]);
   return (
@@ -63,11 +65,13 @@ const SubmittedReceiptActions: FC<{
       <button
         type="button"
         title="Edit choice"
+        disabled={editDisabled}
         onClick={onEdit}
         className={cn(
           "flex size-7 items-center justify-center rounded-lg",
           "text-muted-foreground",
           "hover:bg-muted hover:text-foreground",
+          "disabled:pointer-events-none disabled:opacity-30",
         )}
       >
         <PencilIcon className="size-3.5" />
@@ -184,6 +188,9 @@ const UiToolPartRow: FC<UiToolPartRowProps> = ({ part }) => {
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
   const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
   const truncateAfter = useConversationStore((s) => s.truncateAfter);
+  const sending = useChatStore((s) => s.sending);
+  const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const interactionLocked = isInteractionLocked({ sending, conversation });
 
   const uiStateById = useInteractionStore((s) => s.uiStateById);
   const setSubmitted = useInteractionStore((s) => s.setSubmitted);
@@ -207,13 +214,25 @@ const UiToolPartRow: FC<UiToolPartRowProps> = ({ part }) => {
   if (handler) {
     const state = uiStateById[uiId];
     if (state?.status === "submitted") {
-      const onEdit = () => setEditing(uiId);
+      const onEdit = () => {
+        if (interactionLocked) {
+          return;
+        }
+        setEditing(uiId);
+      };
+      const receiptActions = (
+        <SubmittedReceiptActions
+          summary={state.summary}
+          onEdit={onEdit}
+          editDisabled={interactionLocked}
+        />
+      );
       if (component === "option_list") {
         const choice = toOptionListChoice(state.lastPayload);
         return (
           <div className="group/tool-receipt flex w-full flex-col items-stretch gap-1">
             <OptionList {...(parsedPayload as SerializableOptionList)} choice={choice} />
-            <SubmittedReceiptActions summary={state.summary} onEdit={onEdit} />
+            {receiptActions}
           </div>
         );
       }
@@ -222,7 +241,7 @@ const UiToolPartRow: FC<UiToolPartRowProps> = ({ part }) => {
         return (
           <div className="group/tool-receipt flex w-full flex-col items-stretch gap-1">
             <ApprovalCard {...(parsedPayload as SerializableApprovalCard)} choice={choice} />
-            <SubmittedReceiptActions summary={state.summary} onEdit={onEdit} />
+            {receiptActions}
           </div>
         );
       }
@@ -235,7 +254,7 @@ const UiToolPartRow: FC<UiToolPartRowProps> = ({ part }) => {
           return (
             <div className="group/tool-receipt flex w-full flex-col items-stretch gap-1">
               <QuestionFlow {...receipt} />
-              <SubmittedReceiptActions summary={state.summary} onEdit={onEdit} />
+              {receiptActions}
             </div>
           );
         }
@@ -275,7 +294,11 @@ const UiToolPartRow: FC<UiToolPartRowProps> = ({ part }) => {
       interactiveId: uiId,
       payload: payloadForRender,
       sendMessage,
+      interactionLocked,
       setInteractiveSummary: (pairs, payload) => {
+        if (interactionLocked) {
+          return;
+        }
         // Defer truncation until the user actually re-submits.
         if (state?.status === "editing") {
           truncateAfter(activeSessionKey, messageId);

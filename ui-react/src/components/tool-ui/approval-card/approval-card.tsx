@@ -85,6 +85,7 @@ export function ApprovalCard({
   cancelLabel,
   className,
   choice,
+  disabled = false,
   onConfirm,
   onCancel,
 }: ApprovalCardProps) {
@@ -95,23 +96,28 @@ export function ApprovalCard({
 
   const handleAction = React.useCallback(
     async (actionId: string) => {
+      if (disabled) {
+        return;
+      }
       if (actionId === "confirm") {
         await onConfirm?.();
       } else if (actionId === "cancel") {
         await onCancel?.();
       }
     },
-    [onConfirm, onCancel],
+    [disabled, onConfirm, onCancel],
   );
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onCancel?.();
+        if (!disabled) {
+          onCancel?.();
+        }
       }
     },
-    [onCancel],
+    [disabled, onCancel],
   );
 
   const isDestructive = resolvedVariant === "destructive";
@@ -121,11 +127,13 @@ export function ApprovalCard({
       id: "cancel",
       label: resolvedCancelLabel,
       variant: "ghost",
+      disabled,
     },
     {
       id: "confirm",
       label: resolvedConfirmLabel,
       variant: isDestructive ? "destructive" : "default",
+      disabled,
     },
   ];
 
