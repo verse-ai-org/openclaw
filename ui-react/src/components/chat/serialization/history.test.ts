@@ -276,6 +276,46 @@ describe("serialization/history", () => {
     expect(assistant?.parts.some((p) => p.type === "tool")).toBe(false);
   });
 
+  it("hydrates tool args from mixed assistant text + toolCall history rows", () => {
+    const runId = "run-mixed-args";
+    const messages: RawMessage[] = [
+      {
+        id: "m1",
+        role: "assistant",
+        runId,
+        timestamp: 1,
+        content: [
+          { type: "text", text: "checking prefs" },
+          {
+            type: "toolCall",
+            id: "call_exec",
+            name: "exec",
+            arguments: { command: "echo hi", workdir: "/tmp/agent" },
+          },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { role: "toolResult", runId, timestamp: 2 } as any,
+    ];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).toolCallId = "call_exec";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).toolName = "exec";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (messages[1] as any).content = [{ type: "text", text: "ok" }];
+
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:test",
+      messages,
+    });
+    const assistant = snapshot.find((m) => m.role === "assistant" && m.runId === runId);
+    const toolPart = assistant?.parts.find((p) => p.type === "tool" && p.id === "call_exec");
+    expect(toolPart?.type === "tool" ? toolPart.args : undefined).toEqual({
+      command: "echo hi",
+      workdir: "/tmp/agent",
+    });
+  });
+
   it("folds runtime tools (exec/read) to the last assistant message in the run", () => {
     const runId = "run-7";
     const messages: RawMessage[] = [

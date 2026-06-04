@@ -1,12 +1,15 @@
+import { useAuiState } from "@assistant-ui/react";
 import { AlertTriangleIcon, LoaderIcon, Minimize2Icon } from "lucide-react";
 import { type FC, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   contextNoticeTitle,
   getContextNoticeViewModel,
+  type ContextNoticeViewModel,
 } from "@/components/chat/context-notice";
 import { useChatSend } from "@/components/chat/ChatSendContext";
 import { resolveActiveChatSessionKey } from "@/components/chat/session/active-session";
+import { ThreadRunningIndicator } from "@/components/chat/ThreadRunningIndicator";
 import { useChatStore } from "@/store/chat.store";
 import { useGatewayStore } from "@/store/gateway.store";
 import {
@@ -15,31 +18,11 @@ import {
 } from "@/store/sessions.store";
 import { useSettingsStore } from "@/store/settings.store";
 
-export const ContextNotice: FC = () => {
-  const sessionKey = useChatStore((s) => s.sessionKey);
+const ContextUsageNotice: FC<{ model: ContextNoticeViewModel }> = ({ model }) => {
   const sending = useChatStore((s) => s.sending);
-  const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
-  const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
-  const sessions = useSessionsStore((s) => s.sessions);
-  const defaults = useSessionsStore((s) => s.defaults);
   const connected = useGatewayStore((s) => s.status === "connected");
-  const activeSession = resolveActiveSessionEntry(sessions, activeSessionKey);
-  const defaultContextTokens =
-    typeof defaults?.contextTokens === "number" && defaults.contextTokens > 0
-      ? defaults.contextTokens
-      : null;
-
-  const model = useMemo(
-    () => getContextNoticeViewModel(activeSession, defaultContextTokens),
-    [activeSession, defaultContextTokens],
-  );
-
   const [compactBusy, setCompactBusy] = useState(false);
   const { sendMessage } = useChatSend();
-
-  if (!model) {
-    return null;
-  }
 
   const showCompact = model.compactRecommended;
   const compactDisabled = !connected || sending || compactBusy;
@@ -59,7 +42,7 @@ export const ContextNotice: FC = () => {
   return (
     <div
       className={cn(
-        "mx-auto flex flex-wrap items-center justify-center gap-2 backdrop-blur-md",
+        "inline-flex flex-wrap items-center gap-2 backdrop-blur-md",
         "rounded-full border px-3.5 py-1.5 text-[13px] leading-tight select-none",
         "animate-in fade-in duration-200",
         model.warning
@@ -107,6 +90,37 @@ export const ContextNotice: FC = () => {
           <span>{compactBusy ? "Compacting" : "Compact"}</span>
         </button>
       )}
+    </div>
+  );
+};
+
+/** Sticky footer: running indicator (always visible while generating) + context usage. */
+export const ContextNotice: FC = () => {
+  const isRunning = useAuiState((s) => s.thread.isRunning);
+  const sessionKey = useChatStore((s) => s.sessionKey);
+  const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
+  const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
+  const sessions = useSessionsStore((s) => s.sessions);
+  const defaults = useSessionsStore((s) => s.defaults);
+  const activeSession = resolveActiveSessionEntry(sessions, activeSessionKey);
+  const defaultContextTokens =
+    typeof defaults?.contextTokens === "number" && defaults.contextTokens > 0
+      ? defaults.contextTokens
+      : null;
+
+  const model = useMemo(
+    () => getContextNoticeViewModel(activeSession, defaultContextTokens),
+    [activeSession, defaultContextTokens],
+  );
+
+  if (!isRunning && !model) {
+    return null;
+  }
+
+  return (
+    <div className="mx-auto flex flex-wrap items-center justify-center gap-2">
+      <ThreadRunningIndicator visible={isRunning} />
+      {model ? <ContextUsageNotice model={model} /> : null}
     </div>
   );
 };

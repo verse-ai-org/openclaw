@@ -62,6 +62,20 @@ export function isToolHistoryBlockType(type: unknown): boolean {
   );
 }
 
+/** Tool invocation blocks on assistant rows (not toolResult). */
+function isToolCallHistoryBlockType(type: unknown): boolean {
+  if (typeof type !== "string") {
+    return false;
+  }
+  const normalized = type.trim().toLowerCase();
+  return (
+    normalized === "toolcall" ||
+    normalized === "tool_call" ||
+    normalized === "tooluse" ||
+    normalized === "tool_use"
+  );
+}
+
 function sanitizeChatHistoryContentBlock(
   block: unknown,
   opts?: { preserveExactToolPayload?: boolean; maxChars?: number },
@@ -169,37 +183,58 @@ function sanitizeAssistantPhasedContentBlocks(content: unknown[]): {
   };
 }
 
+/**
+ * Assistant rows often interleave visible progress text with toolCall blocks.
+ * Keep both for chat.history (Control UI tool cards need arguments). Drop thinking
+ * and other non-display blocks; toolResult rows stay on role=toolResult messages.
+ */
 function projectAssistantTextFromMixedToolContent(
   content: unknown[],
   maxChars: number,
 ): { content: unknown[]; changed: boolean } | null {
-  const hasToolHistoryBlock = content.some((block) => {
+  const hasToolCallBlock = content.some((block) => {
     if (!block || typeof block !== "object") {
       return false;
     }
-    return isToolHistoryBlockType((block as { type?: unknown }).type);
+    return isToolCallHistoryBlockType((block as { type?: unknown }).type);
   });
-  if (!hasToolHistoryBlock) {
+  if (!hasToolCallBlock) {
     return null;
   }
 
-  const textBlocks: unknown[] = [];
+  const projected: unknown[] = [];
+  let changed = false;
   for (const block of content) {
     if (!block || typeof block !== "object") {
+      changed = true;
       continue;
     }
-    const entry = block as { type?: unknown; text?: unknown };
-    if (entry.type !== "text" || typeof entry.text !== "string" || !entry.text.trim()) {
+    const entry = block as { type?: unknown; text?: unknown; thinking?: unknown };
+    const type = entry.type;
+    if (type === "thinking") {
+      changed = true;
       continue;
     }
-    const stripped = stripInlineDirectiveTagsForDisplay(entry.text);
-    const truncated = truncateChatHistoryText(stripped.text, maxChars);
-    if (truncated.text.trim()) {
-      textBlocks.push({ type: "text", text: truncated.text });
+    if (type === "text" && typeof entry.text === "string" && entry.text.trim()) {
+      const stripped = stripInlineDirectiveTagsForDisplay(entry.text);
+      const truncated = truncateChatHistoryText(stripped.text, maxChars);
+      if (truncated.text.trim()) {
+        projected.push({ type: "text", text: truncated.text });
+        changed ||= truncated.truncated || stripped.changed;
+      }
+      continue;
     }
+    if (isToolCallHistoryBlockType(type)) {
+      projected.push(block);
+      continue;
+    }
+    changed = true;
   }
 
-  return textBlocks.length > 0 ? { content: textBlocks, changed: true } : null;
+  if (projected.length === 0) {
+    return null;
+  }
+  return { content: projected, changed: changed || projected.length !== content.length };
 }
 
 function toFiniteNumber(x: unknown): number | undefined {

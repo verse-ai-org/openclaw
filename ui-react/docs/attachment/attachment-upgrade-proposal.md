@@ -1,5 +1,7 @@
 # Chat 附件上传改造升级方案（最终版）
 
+> **协议化长期方向**：见 [`../chat/artifacts-protocol-design.md`](../chat/artifacts-protocol-design.md)（`ArtifactSummary` + `ArtifactRef`，与 Gateway `artifacts.*` 对齐）。本文档侧重 ingest 路由与 adapter 改造；落地时以协议设计为准。
+
 ## 一、设计决策总结
 
 | 决策项 | 结论 |

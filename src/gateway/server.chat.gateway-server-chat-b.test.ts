@@ -1156,6 +1156,12 @@ describe("gateway server chat", () => {
       expect(assistantMessage.role).toBe("assistant");
       expect(assistantMessage.content).toEqual([
         { type: "text", text: "I will clean that up now." },
+        {
+          type: "toolCall",
+          id: "call-read",
+          name: "read",
+          arguments: { path: "AGENTS.md" },
+        },
       ]);
       expect(assistantMessage.timestamp).toBe(2);
     });

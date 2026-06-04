@@ -28,6 +28,7 @@ const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({
 
   const cfg = TOOL_CATEGORY_CONFIG[category];
   const Icon = cfg.Icon;
+  const inlineDetail = argsFields[0]?.value ?? summaryPreview?.trim();
 
   return (
     <>
@@ -57,9 +58,9 @@ const ToolFallbackImpl: FC<ToolFallbackPartProps> = ({
             <span className="shrink-0 text-sm text-muted-foreground">
               {cfg.actionLabel}
             </span>
-            {!!argsFields?.[0]?.value && (
+            {!!inlineDetail && (
               <span className="truncate text-xs text-muted-foreground">
-                - {argsFields?.[0]?.value}
+                - {inlineDetail}
               </span>
             )}
           </span>

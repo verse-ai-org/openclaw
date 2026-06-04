@@ -62,3 +62,8 @@
 - RPC：`chat.status({ sessionKey })` → `{ activeRunId, startedAtMs }`
 - `conversationStore.setActiveRunSnapshot(threadId, activeRunId, startedAtMs)`
 - 可选：订阅 tool stream（`chat.tools.subscribe`）
+
+## 7) 长会话中的进行中反馈
+
+- **列表内**：`ToolCallGroup` header 的 running badge（随消息滚动，长线程时可能不在视口内）。
+- **Sticky footer**：`ContextNotice` 在 context used 左侧渲染 `ThreadRunningIndicator`（`thread.isRunning`，与 Composer Cancel 同源）；无 context 数据时仍可单独显示 Running pill。

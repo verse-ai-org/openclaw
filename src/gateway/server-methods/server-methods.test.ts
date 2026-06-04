@@ -548,7 +548,15 @@ describe("projectRecentChatDisplayMessages", () => {
 
     expect(result[1]).toEqual({
       role: "assistant",
-      content: [{ type: "text", text: "I will clean that up now." }],
+      content: [
+        { type: "text", text: "I will clean that up now." },
+        {
+          type: "toolCall",
+          id: "call-read",
+          name: "read",
+          arguments: { path: "AGENTS.md" },
+        },
+      ],
       timestamp: 2,
       __openclaw: { seq: 2 },
     });

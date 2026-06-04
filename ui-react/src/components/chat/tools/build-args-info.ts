@@ -54,7 +54,10 @@ export function buildArgsInfo(
     const category = classifyTool(toolName);
     if (category === "exec") {
       pushField("Command", readString("command") ?? readString("cmd"));
-      pushField("Directory", readString("cwd") ?? readString("working_directory"));
+      pushField(
+        "Directory",
+        readString("cwd") ?? readString("working_directory") ?? readString("workdir"),
+      );
     }
 
     if (category === "read" || category === "write" || category === "file") {
