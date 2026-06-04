@@ -310,6 +310,40 @@ describe("serialization/history", () => {
     expect(merged?.parts.some((p) => p.type === "text" && p.text.includes("tail"))).toBe(true);
   });
 
+  it("infers runId from user idempotencyKey when assistant rows omit runId (JSONL transcript)", () => {
+    const clientRunId = "5e7ddd4a-d630-4d7b-8081-2e28998a68ae";
+    const messages: RawMessage[] = [
+      {
+        role: "user",
+        timestamp: 1,
+        content: "制定一个新疆9日游",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        idempotencyKey: `${clientRunId}:user`,
+      } as any,
+      {
+        role: "assistant",
+        timestamp: 2,
+        content: [
+          { type: "toolCall", id: "call_1", name: "exec", arguments: {} },
+          { type: "text", text: "这是行程草案" },
+        ],
+      },
+    ];
+
+    const { messages: snapshot } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:travel-planner:2bf8a1f7",
+      messages,
+    });
+
+    const assistant = snapshot.find(
+      (m) => m.role === "assistant" && m.runId === clientRunId,
+    );
+    expect(assistant).toBeTruthy();
+    expect(assistant?.parts.some((p) => p.type === "text" && p.text.includes("行程"))).toBe(
+      true,
+    );
+  });
+
   it("keeps user messages when gateway uses role=human", () => {
     const messages: RawMessage[] = [
       {

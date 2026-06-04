@@ -124,6 +124,52 @@ function toTs(m: RawMessage): number {
   return (typeof m.ts === "number" ? m.ts : undefined) ?? (typeof m.timestamp === "number" ? m.timestamp : undefined) ?? Date.now();
 }
 
+function explicitHistoryRunId(raw: RawMessage): string | undefined {
+  return typeof raw.runId === "string" && raw.runId.trim() ? raw.runId.trim() : undefined;
+}
+
+/** Webchat user rows persist `chat.send` idempotencyKey as `<clientRunId>:user`. */
+function runIdFromUserIdempotencyKey(raw: RawMessage): string | undefined {
+  const key =
+    typeof (raw as Record<string, unknown>).idempotencyKey === "string"
+      ? String((raw as Record<string, unknown>).idempotencyKey).trim()
+      : "";
+  const match = /^([^:]+):user$/i.exec(key);
+  return match?.[1]?.trim() || undefined;
+}
+
+function syntheticTurnRunId(raw: RawMessage, ts: number): string {
+  const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : undefined;
+  return id ? `turn:${id}` : `turn:${ts}`;
+}
+
+/**
+ * Gateway `chat.history` rows from JSONL transcripts usually omit `runId` on assistant/tool
+ * messages. Infer a stable per-turn id from the preceding user idempotencyKey so history
+ * serialization matches the live `run:${clientRunId}` pipeline.
+ */
+export function annotateGatewayHistoryRunIds(messages: RawMessage[]): RawMessage[] {
+  let activeRunId: string | undefined;
+  return messages.map((raw) => {
+    const ts = toTs(raw);
+    const role = normalizeHistoryRole(raw.role);
+    const explicit = explicitHistoryRunId(raw);
+
+    if (role === "user") {
+      const runId =
+        explicit ?? runIdFromUserIdempotencyKey(raw) ?? syntheticTurnRunId(raw, ts);
+      activeRunId = runId;
+      return explicit === runId ? raw : { ...raw, runId };
+    }
+
+    const runId = explicit ?? activeRunId;
+    if (!runId || explicit === runId) {
+      return raw;
+    }
+    return { ...raw, runId };
+  });
+}
+
 /**
  * Merge run summaries when paging in older gateway history (union by run id; widen time bounds).
  */
@@ -307,7 +353,8 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
   messages: RawMessage[];
   contextWindow?: number | null;
 }): { messages: CanonicalMessage[]; runs: CanonicalRun[] } {
-  const { threadId, messages, contextWindow = null } = params;
+  const { threadId, contextWindow = null } = params;
+  const messages = annotateGatewayHistoryRunIds(params.messages);
 
   const usageByRunId = new Map<string, TurnUsageMeta>();
   const toolById = new Map<string, HistoryToolRecord>();

@@ -247,7 +247,7 @@ export function AgentsPage() {
         onOpenChange={(open) => {
           setDrawerOpen(open);
           if (!open) {
-            selectAgent("");
+            selectAgent(null);
           }
         }}
         agentId={selectedId}

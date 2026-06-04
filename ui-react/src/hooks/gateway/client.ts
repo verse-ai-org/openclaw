@@ -2,7 +2,7 @@ import type { GatewayEventFrame, GatewayHelloOk, GatewayErrorInfo } from "@/type
 import {
   MIN_CLIENT_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
-} from "@gateway/protocol/version.js";
+} from "@gateway-protocol/version.js";
 import {
   buildDevicePayload,
   loadOrCreateDeviceIdentity,

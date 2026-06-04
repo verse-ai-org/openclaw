@@ -250,6 +250,26 @@ export const useGatewayStore = create<GatewayState>()((set, get) => ({
       _chatDispatch?.(evt.event, evt.payload);
       return;
     }
+
+    if (evt.event === "session.message") {
+      const payload = evt.payload as { sessionKey?: string } | undefined;
+      const sessionKey = payload?.sessionKey?.trim();
+      if (!sessionKey) {
+        return;
+      }
+      import("./chat.store")
+        .then(({ useChatStore }) => {
+          const st = useChatStore.getState();
+          const activeKey = st.sessionKey?.trim();
+          if (activeKey && activeKey !== sessionKey) {
+            return;
+          }
+          st.setPendingHistoryReloadKey(sessionKey);
+          st.triggerSessionsReload();
+        })
+        .catch(() => {});
+      return;
+    }
   },
 
   reset: () =>

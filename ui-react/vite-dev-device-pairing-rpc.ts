@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION } from "../src/gateway/protocol/version.js";
+import { PROTOCOL_VERSION } from "../packages/gateway-protocol/src/version.js";
 
 const LOCAL_PAIRING_CLIENT_ID = "gateway-client";
 const LOCAL_PAIRING_CLIENT_MODE = "backend";

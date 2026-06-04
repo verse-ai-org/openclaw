@@ -146,7 +146,7 @@ interface AgentsState {
 
   // Actions
   loadAgents: () => Promise<void>;
-  selectAgent: (agentId: string) => void;
+  selectAgent: (agentId: string | null) => void;
   selectPanel: (panel: AgentsPanel) => void;
   loadAgentIdentity: (agentId: string) => Promise<void>;
   loadConfig: () => Promise<void>;
@@ -298,9 +298,26 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   },
 
   selectAgent: (agentId) => {
-    if (get().selectedAgentId === agentId) { return; }
+    const normalized = agentId?.trim() || null;
+    if (get().selectedAgentId === normalized) {
+      return;
+    }
+    if (!normalized) {
+      set({
+        selectedAgentId: null,
+        activePanel: "overview",
+        agentFilesList: null,
+        agentFileActive: null,
+        agentFileContents: {},
+        agentFileDrafts: {},
+        toolsCatalogResult: null,
+        agentSkillsReport: null,
+        agentSkillsAgentId: null,
+      });
+      return;
+    }
     set({
-      selectedAgentId: agentId,
+      selectedAgentId: normalized,
       activePanel: "overview",
       agentFilesList: null,
       agentFileActive: null,
@@ -310,7 +327,7 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
       agentSkillsReport: null,
       agentSkillsAgentId: null,
     });
-    void get().loadAgentIdentity(agentId);
+    void get().loadAgentIdentity(normalized);
     void get().loadConfig();
   },
 
@@ -338,6 +355,10 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
   },
 
   loadAgentIdentity: async (agentId) => {
+    const normalized = agentId.trim();
+    if (!normalized) {
+      return;
+    }
     const client = getClient();
     if (!client || !isConnected()) {
       return;
@@ -345,12 +366,12 @@ export const useAgentsStore = create<AgentsState>()((set, get) => ({
     set({ agentIdentityLoading: true, agentIdentityError: null });
     try {
       const res = await client.request<AgentIdentityResult>("agent.identity.get", {
-        agentId,
+        agentId: normalized,
       });
       if (res)
         {
           set((s) => ({
-            agentIdentityById: { ...s.agentIdentityById, [agentId]: res },
+            agentIdentityById: { ...s.agentIdentityById, [normalized]: res },
           }));
         }
     } catch (err) {

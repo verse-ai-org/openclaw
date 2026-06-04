@@ -36,9 +36,8 @@ export function useGatewayEventBridge(): void {
             const st = useChatStore.getState();
             st.setSending(false);
             st.triggerSessionsReload();
-            if (sessionKey.trim()) {
-              st.setPendingHistoryReloadKey(sessionKey);
-            }
+            // History reload is driven by `session.message` after the transcript persists.
+            // Reloading immediately on `chat.final` races SessionManager and can wipe streamed text.
           }
 
           const error = canonical.find((e) => e.type === EventType.RunError);

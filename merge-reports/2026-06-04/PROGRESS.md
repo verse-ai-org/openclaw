@@ -1,6 +1,6 @@
 # 合并进度（2026-06-04）
 
-> **状态：** **M8 完成** — merge commit 待执行（`pnpm build` 已通过）。  
+> **状态：** **Merge 已提交**（`d90e26c184`）；`pnpm build` ✅。  
 > 实施时每完成一个 M* 模块，更新本表并勾选 [SRC_MERGE_QUEUE.md](./SRC_MERGE_QUEUE.md)。
 
 ---
@@ -13,7 +13,7 @@
 | 建议安全点 tag | `fork-pre-official-merge-20260604` → `7624806f93`（✅ 已打） |
 | Official tip | `50c3995894` |
 | Merge-base | `a002c416c7` |
-| Merge 状态 | **待 commit**（冲突已清，`pnpm build` ✅） |
+| Merge 状态 | **已 commit** `d90e26c184` |
 | 未合并 UU | **0** |
 | DU/UD | **0** |
 

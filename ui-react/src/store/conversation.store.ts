@@ -11,6 +11,7 @@ import { EventType } from "@/components/chat/conversation";
 import { applyCanonicalEvent, emptyConversationState } from "@/components/chat/conversation";
 import { beginOutboundRunForThread } from "@/components/chat/conversation/run-lifecycle";
 import { chatMessagesToCanonicalSnapshot } from "@/components/chat/conversation/interop";
+import { mergeSilentHistorySnapshotWithLiveAssistantTurns } from "@/components/chat/conversation/history-snapshot-merge";
 import type { RunId } from "@/components/chat/conversation";
 
 export type HistoryPagingState = {
@@ -89,11 +90,14 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
   setHistoryCanonicalSnapshot: (threadId, messages, ts = Date.now(), runs, options) =>
     set((state) => {
       const prev = state.byThread[threadId] ?? emptyConversationState(threadId);
+      const snapshotMessages = options?.skipGenerationBump
+        ? mergeSilentHistorySnapshotWithLiveAssistantTurns(prev, messages)
+        : messages;
       const next = applyCanonicalEvent(prev, {
         type: EventType.MessagesSnapshot,
         threadId,
         ts,
-        messages,
+        messages: snapshotMessages,
         ...(runs !== undefined ? { runs } : {}),
       });
       return {

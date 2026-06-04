@@ -35,6 +35,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(here, "./src"),
+        "@gateway-protocol": path.resolve(here, "../packages/gateway-protocol/src"),
         "@gateway": path.resolve(here, "../src/gateway"),
       },
     },

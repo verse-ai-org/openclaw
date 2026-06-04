@@ -5,6 +5,7 @@ import { useSessionsStore } from "@/store/sessions.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { resolveSessionDisplayName } from "./display-name";
 import { getSessionKeyFromHash, setSessionKeyInHash } from "./url-session";
+import { resolveManagedSessionKey } from "./session-key";
 import {
   deleteSessionAction,
   newSessionAction,
@@ -15,6 +16,8 @@ import {
   loadSessionsFromGateway,
   syncSessionRunStatusFromGateway,
 } from "./loaders";
+import { useConversationStore } from "@/store/conversation.store";
+import { selectIsRunning } from "@/store/conversation-selectors";
 // import type { SessionEntry } from "./types";
 
 export function useSessionManager() {
@@ -27,13 +30,24 @@ export function useSessionManager() {
   const settings = useSettingsStore((s) => s.settings);
   const hashSessionKey = getSessionKeyFromHash();
   const storeSessionKey = useChatStore((s) => s.sessionKey);
-  const sessionKey =
-    hashSessionKey ?? storeSessionKey ?? settings.sessionKey ?? "main";
+  const sessionKey = resolveManagedSessionKey({
+    hashSessionKey,
+    storeSessionKey,
+    settingsSessionKey: settings.sessionKey,
+    lastActiveSessionKey: settings.lastActiveSessionKey,
+  });
 
   const pendingReloadKey = useChatStore((s) => s.pendingHistoryReloadKey);
   const pendingSessionsReloadSeq = useChatStore(
     (s) => s.pendingSessionsReloadSeq,
   );
+  const pendingReloadThreadRunning = useConversationStore((s) => {
+    if (!pendingReloadKey) {
+      return false;
+    }
+    const conv = s.byThread[pendingReloadKey];
+    return conv ? selectIsRunning(conv) : false;
+  });
 
   const historyRequestSeqRef = useRef(0);
 
@@ -61,12 +75,12 @@ export function useSessionManager() {
   );
 
   useEffect(() => {
-    if (!pendingReloadKey) {
+    if (!pendingReloadKey || pendingReloadThreadRunning) {
       return;
     }
     void loadHistory(pendingReloadKey, true);
     useChatStore.getState().setPendingHistoryReloadKey(null);
-  }, [pendingReloadKey, loadHistory]);
+  }, [pendingReloadKey, pendingReloadThreadRunning, loadHistory]);
 
   const switchSession = useCallback(
     async (key: string) => {
@@ -110,12 +124,9 @@ export function useSessionManager() {
     }
     setSessionKeyInHash(sessionKey);
     void loadSessions();
-    void (async () => {
-      await loadHistory(sessionKey);
-      await syncRunStatus(sessionKey);
-    })();
+    // History hydration runs from `useChatHistoryBootstrap` on ChatPage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gatewayStatus]);
+  }, [gatewayStatus, sessionKey]);
 
   const activeSession = sessions.find((s) => s.key === sessionKey);
   const activeLabel = activeSession
