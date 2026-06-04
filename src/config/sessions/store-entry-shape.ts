@@ -1,10 +1,8 @@
+import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { validateSessionId } from "./paths.js";
 import type { SessionEntry } from "./types.js";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
+// Persisted stores may contain old or malformed ids; reject path-like ids before use.
 function isSafeSessionId(value: unknown): value is string {
   if (typeof value !== "string") {
     return false;
@@ -34,6 +32,7 @@ function normalizeOptionalTimestamp(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
+/** Normalizes persisted session store entries before they reach runtime callers. */
 export function normalizePersistedSessionEntryShape(value: unknown): SessionEntry | undefined {
   if (!isRecord(value)) {
     return undefined;

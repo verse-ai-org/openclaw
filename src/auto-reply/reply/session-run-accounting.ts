@@ -18,21 +18,24 @@ type IncrementRunCompactionCountParams = Omit<
   newSessionFile?: string;
 };
 
-function resolvePositiveTokenCount(value: number | undefined): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
+function resolveNonNegativeTokenCount(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : undefined;
 }
 
+/** Persists usage accounting for a completed reply run. */
 export async function persistRunSessionUsage(params: PersistRunSessionUsageParams): Promise<void> {
   await persistSessionUsageUpdate(params);
 }
 
+/** Increments compaction count and records the best known post-compaction token total. */
 export async function incrementRunCompactionCount(
   params: IncrementRunCompactionCountParams,
 ): Promise<number | undefined> {
+  // Prefer explicit compaction totals; derive from last usage only when absent.
   const tokensAfterCompaction =
-    resolvePositiveTokenCount(params.compactionTokensAfter) ??
+    resolveNonNegativeTokenCount(params.compactionTokensAfter) ??
     (params.lastCallUsage
       ? deriveSessionTotalTokens({
           usage: params.lastCallUsage,

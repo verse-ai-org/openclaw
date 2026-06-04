@@ -1,4 +1,4 @@
-import { loadConfig, writeConfigFile } from "../../config/config.js";
+import { loadConfig, writeConfigFile } from "../../config/io.js";
 import { enablePluginInConfig } from "../../plugins/enable.js";
 import { setPluginEnabledInConfig } from "../../plugins/toggle-config.js";
 import { installPluginFromNpmSpec, installPluginFromPath } from "../../plugins/install.js";
@@ -10,7 +10,7 @@ import {
   validatePluginsEnableParams,
   validatePluginsInstallParams,
   validatePluginsStatusParams,
-} from "../protocol/index.js";
+} from "../../../packages/gateway-protocol/src/index.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 export const pluginsHandlers: GatewayRequestHandlers = {

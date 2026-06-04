@@ -1,7 +1,9 @@
-import { normalizeStringEntries } from "../../shared/string-normalization.js";
+import { normalizeStringEntries } from "@openclaw/normalization-core/string-normalization";
 import type { ChannelId } from "../plugins/types.public.js";
 import { readChannelIngressStoreAllowFromForDmPolicy } from "./runtime.js";
 
+// Builds the normalized DM allowlist state used by audits and setup prompts.
+// Config and persisted ingress-store entries are merged before counting users.
 export async function resolveDmAllowAuditState(params: {
   provider: ChannelId;
   accountId: string;
@@ -26,15 +28,12 @@ export async function resolveDmAllowAuditState(params: {
     readStore: params.readStore,
   });
   const normalizeEntry = params.normalizeEntry ?? ((value: string) => value);
-  const normalizedCfg = configAllowFrom
-    .filter((value) => value !== "*")
-    .map((value) => normalizeEntry(value))
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const normalizedStore = storeAllowFrom
-    .map((value) => normalizeEntry(value))
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const normalizedCfg = normalizeStringEntries(
+    configAllowFrom.filter((value) => value !== "*").map((value) => normalizeEntry(value)),
+  );
+  const normalizedStore = normalizeStringEntries(
+    storeAllowFrom.map((value) => normalizeEntry(value)),
+  );
   const allowCount = new Set([...normalizedCfg, ...normalizedStore]).size;
   return {
     configAllowFrom,

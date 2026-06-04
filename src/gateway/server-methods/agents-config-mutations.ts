@@ -17,6 +17,7 @@ export type AgentDeleteMutationResult = {
   removedBindings: number;
 };
 
+/** Typed precondition failure surfaced by agent mutation handlers as gateway errors. */
 export class AgentConfigPreconditionError extends Error {
   constructor(
     readonly kind: "already-exists" | "not-found",
@@ -31,16 +32,19 @@ export class AgentConfigPreconditionError extends Error {
   }
 }
 
+/** Checks the current config snapshot for a concrete agent entry. */
 export function isConfiguredAgent(cfg: OpenClawConfig, agentId: string): boolean {
   return findAgentEntryIndex(listAgentEntries(cfg), agentId) >= 0;
 }
 
+/** Adds a new agent entry through the retrying config mutation path. */
 export async function createAgentConfigEntry(params: {
   agentId: string;
   name: string;
   workspace: string;
   model?: string;
   identity?: IdentityConfig;
+  skills?: string[];
   agentDir: string;
 }): Promise<void> {
   await mutateConfigFileWithRetry({
@@ -55,6 +59,7 @@ export async function createAgentConfigEntry(params: {
         workspace: params.workspace,
         model: params.model,
         identity: params.identity,
+        skills: params.skills,
         agentDir: params.agentDir,
       });
       Object.assign(draft, latestNextConfig);
@@ -62,12 +67,14 @@ export async function createAgentConfigEntry(params: {
   });
 }
 
+/** Updates an existing agent entry while preserving omitted fields. */
 export async function updateAgentConfigEntry(params: {
   agentId: string;
   name?: string;
   workspace?: string;
   model?: string;
   identity?: IdentityConfig;
+  skills?: string[];
 }): Promise<void> {
   await mutateConfigFileWithRetry({
     afterWrite: { mode: "auto" },
@@ -81,12 +88,14 @@ export async function updateAgentConfigEntry(params: {
         ...(params.workspace ? { workspace: params.workspace } : {}),
         ...(params.model ? { model: params.model } : {}),
         ...(params.identity ? { identity: params.identity } : {}),
+        ...(params.skills !== undefined ? { skills: params.skills } : {}),
       });
       Object.assign(draft, latestNextConfig);
     },
   });
 }
 
+/** Removes an agent entry and returns filesystem roots the caller should clean up. */
 export async function deleteAgentConfigEntry(params: { agentId: string }): Promise<{
   nextConfig: OpenClawConfig;
   result: AgentDeleteMutationResult | undefined;

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readStringValue } from "@openclaw/normalization-core/string-coerce";
 import { resolveStateDir } from "../config/paths.js";
 import type {
   AgentContextLimitsConfig,
@@ -6,8 +7,8 @@ import type {
 } from "../config/types.agent-defaults.js";
 import type { OpenClawConfig } from "../config/types.js";
 import { DEFAULT_AGENT_ID, normalizeAgentId } from "../routing/session-key.js";
-import { readStringValue } from "../shared/string-coerce.js";
 import { resolveUserPath } from "../utils.js";
+import { registerResolvedAgentDir } from "./agent-dir-registry.js";
 import { resolveDefaultAgentWorkspaceDir } from "./workspace-default.js";
 
 type AgentEntry = NonNullable<NonNullable<OpenClawConfig["agents"]>["list"]>[number];
@@ -16,7 +17,6 @@ export type ResolvedAgentConfig = {
   name?: string;
   workspace?: string;
   agentDir?: string;
-  systemPromptOverride?: AgentEntry["systemPromptOverride"];
   model?: AgentEntry["model"];
   thinkingDefault?: AgentEntry["thinkingDefault"];
   verboseDefault?: AgentDefaultsConfig["verboseDefault"];
@@ -36,7 +36,7 @@ export type ResolvedAgentConfig = {
   groupChat?: AgentEntry["groupChat"];
   subagents?: AgentEntry["subagents"];
   runRetries?: AgentEntry["runRetries"];
-  embeddedPi?: AgentEntry["embeddedPi"];
+  embeddedAgent?: AgentEntry["embeddedAgent"];
   sandbox?: AgentEntry["sandbox"];
   tools?: AgentEntry["tools"];
 };
@@ -117,7 +117,6 @@ export function resolveAgentConfig(
     name: readStringValue(entry.name),
     workspace: readStringValue(entry.workspace),
     agentDir: readStringValue(entry.agentDir),
-    systemPromptOverride: readStringValue(entry.systemPromptOverride),
     model:
       typeof entry.model === "string" || (entry.model && typeof entry.model === "object")
         ? entry.model
@@ -149,8 +148,10 @@ export function resolveAgentConfig(
       typeof entry.runRetries === "object" && entry.runRetries
         ? { ...agentDefaults?.runRetries, ...entry.runRetries }
         : agentDefaults?.runRetries,
-    embeddedPi:
-      typeof entry.embeddedPi === "object" && entry.embeddedPi ? entry.embeddedPi : undefined,
+    embeddedAgent:
+      typeof entry.embeddedAgent === "object" && entry.embeddedAgent
+        ? entry.embeddedAgent
+        : undefined,
     sandbox: entry.sandbox,
     tools: entry.tools,
   };
@@ -200,10 +201,14 @@ export function resolveAgentDir(
   const id = normalizeAgentId(agentId);
   const configured = resolveAgentConfig(cfg, id)?.agentDir?.trim();
   if (configured) {
-    return resolveUserPath(configured, env);
+    const agentDir = resolveUserPath(configured, env);
+    registerResolvedAgentDir({ agentId: id, agentDir, env });
+    return agentDir;
   }
   const root = resolveStateDir(env);
-  return path.join(root, "agents", id, "agent");
+  const agentDir = path.join(root, "agents", id, "agent");
+  registerResolvedAgentDir({ agentId: id, agentDir, env });
+  return agentDir;
 }
 
 export function resolveDefaultAgentDir(

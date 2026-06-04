@@ -11,11 +11,11 @@ import {
   createPluginRuntimeLoaderLogger,
 } from "./runtime/load-context.js";
 
+/** Shared options for resolving plugin-backed web providers. */
 export type ResolvePluginWebProvidersParams = {
   config?: PluginLoadOptions["config"];
   workspaceDir?: string;
   env?: PluginLoadOptions["env"];
-  bundledAllowlistCompat?: boolean;
   onlyPluginIds?: readonly string[];
   activate?: boolean;
   cache?: boolean;
@@ -28,7 +28,6 @@ type ResolveWebProviderRuntimeDeps<TEntry> = {
     config?: PluginLoadOptions["config"];
     workspaceDir?: string;
     env?: PluginLoadOptions["env"];
-    bundledAllowlistCompat?: boolean;
   }) => {
     config: PluginLoadOptions["config"];
     activationSourceConfig?: PluginLoadOptions["config"];
@@ -49,7 +48,6 @@ type ResolveWebProviderRuntimeDeps<TEntry> = {
     config?: PluginLoadOptions["config"];
     workspaceDir?: string;
     env?: PluginLoadOptions["env"];
-    bundledAllowlistCompat?: boolean;
     onlyPluginIds?: readonly string[];
   }) => TEntry[] | null;
 };
@@ -78,8 +76,7 @@ function resolveWebProviderRuntimeContext<TEntry>(
   const shouldFilterProviders =
     params.config !== undefined ||
     params.onlyPluginIds !== undefined ||
-    params.origin !== undefined ||
-    params.bundledAllowlistCompat === true;
+    params.origin !== undefined;
   const { config, activationSourceConfig, autoEnabledReasons } =
     deps.resolveBundledResolutionConfig({
       ...params,
@@ -95,14 +92,13 @@ function resolveWebProviderRuntimeContext<TEntry>(
       origin: params.origin,
     }),
   );
-  const onlyPluginIds = shouldFilterProviders ? candidatePluginIds : undefined;
   return {
     activationSourceConfig,
     autoEnabledReasons,
     config,
     env,
     loadPluginIds: candidatePluginIds,
-    onlyPluginIds,
+    onlyPluginIds: shouldFilterProviders ? candidatePluginIds : undefined,
     workspaceDir,
   };
 }
@@ -149,6 +145,7 @@ function resolveRuntimeRegistryWebProviders<TEntry>(params: {
   };
 }
 
+/** Resolves plugin web providers from setup, active runtime, or a scoped load. */
 export function resolvePluginWebProviders<TEntry>(
   params: ResolvePluginWebProvidersParams,
   deps: ResolveWebProviderRuntimeDeps<TEntry>,
@@ -172,7 +169,6 @@ export function resolvePluginWebProviders<TEntry>(
         config: params.config,
         workspaceDir,
         env,
-        bundledAllowlistCompat: params.bundledAllowlistCompat,
         onlyPluginIds: pluginIds,
       });
       if (bundledArtifactProviders) {
@@ -242,6 +238,7 @@ export function resolvePluginWebProviders<TEntry>(
   });
 }
 
+/** Resolves web providers from the active runtime registry before falling back to plugin loading. */
 export function resolveRuntimeWebProviders<TEntry>(
   params: Omit<ResolvePluginWebProvidersParams, "activate" | "cache" | "mode">,
   deps: ResolveWebProviderRuntimeDeps<TEntry>,

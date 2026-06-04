@@ -1,5 +1,6 @@
 import type { OpenClawApp } from "./app.ts";
-import { defaultInviteCodeClient, InviteCodeRedeemResponse } from "./invite-code-client.ts";
+import { defaultInviteCodeClient } from "./invite-code-client.ts";
+import type { InviteCodeRedeemResponse } from "./invite-code-client.ts";
 
 // ============================================================================
 // Types

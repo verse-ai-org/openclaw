@@ -1,6 +1,6 @@
+import { renderTable } from "../../../packages/terminal-core/src/table.js";
+import { isRich, theme } from "../../../packages/terminal-core/src/theme.js";
 import type { ProgressReporter } from "../../cli/progress.js";
-import { renderTable } from "../../terminal/table.js";
-import { isRich, theme } from "../../terminal/theme.js";
 import { appendStatusAllDiagnosis } from "./diagnosis.js";
 import {
   buildStatusAgentsSection,

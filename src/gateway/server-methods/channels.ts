@@ -1,5 +1,21 @@
-import { buildChannelUiCatalog, listChannelPluginCatalogEntries } from "../../channels/plugins/catalog.js";
-import { getActivePluginRegistry } from "../../plugins/runtime.js";
+// Gateway RPC handlers for channel lifecycle, status, and account operations.
+import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
+import {
+  ErrorCodes,
+  errorShape,
+  formatValidationErrors,
+  validateChannelsCatalogParams,
+  validateChannelsEnableParams,
+  validateChannelsRecipientsParams,
+  validateChannelsStartParams,
+  validateChannelsStopParams,
+  validateChannelsLogoutParams,
+  validateChannelsStatusParams,
+} from "../../../packages/gateway-protocol/src/index.js";
+import {
+  buildChannelUiCatalog,
+  listChannelPluginCatalogEntries,
+} from "../../channels/plugins/catalog.js";
 import { resolveChannelDefaultAccountId } from "../../channels/plugins/helpers.js";
 import {
   type ChannelId,
@@ -10,37 +26,26 @@ import {
 import { buildChannelAccountSnapshot } from "../../channels/plugins/status.js";
 import type { ChannelPlugin } from "../../channels/plugins/types.plugin.js";
 import type { ChannelAccountSnapshot } from "../../channels/plugins/types.public.js";
-import { loadConfig, readConfigFileSnapshot, writeConfigFile } from "../../config/config.js";
-import { applyPluginAutoEnable } from "../../config/plugin-auto-enable.js";
+import { loadConfig, readConfigFileSnapshot, writeConfigFile } from "../../config/io.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { enableChannelInConfig } from "../../plugins/enable.js";
+import { getActivePluginRegistry } from "../../plugins/runtime.js";
 import { setPluginEnabledInConfig as setChannelEnabledInConfig } from "../../plugins/toggle-config.js";
 import { getChannelActivity } from "../../infra/channel-activity.js";
+import { collectAllChannelRecipients } from "../../infra/outbound/recipient-resolver.js";
 import { DEFAULT_ACCOUNT_ID } from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
-import { normalizeOptionalString } from "../../shared/string-coerce.js";
 import { runTasksWithConcurrency } from "../../utils/run-with-concurrency.js";
 import {
   DEFAULT_CHANNEL_CONNECT_GRACE_MS,
   DEFAULT_CHANNEL_STALE_EVENT_THRESHOLD_MS,
   evaluateChannelHealth,
 } from "../channel-health-policy.js";
-import {
-  ErrorCodes,
-  errorShape,
-  formatValidationErrors,
-  validateChannelsCatalogParams,
-  validateChannelsEnableParams,
-  validateChannelsStartParams,
-  validateChannelsStopParams,
-  validateChannelsLogoutParams,
-  validateChannelsRecipientsParams,
-  validateChannelsStatusParams,
-} from "../protocol/index.js";
-import { collectAllChannelRecipients } from "../../infra/outbound/recipient-resolver.js";
+import { resolveGatewayPluginConfig } from "../runtime-plugin-config.js";
 import type { ChannelRuntimeSnapshot } from "../server-channel-runtime.types.js";
 import { formatForLog } from "../ws-log.js";
-import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
+import type { GatewayRequestContext, GatewayRequestHandlers, RespondFn } from "./types.js";
+import { assertValidParams, type Validator } from "./validation.js";
 
 type ChannelLogoutPayload = {
   channel: ChannelId;
@@ -60,6 +65,45 @@ type ChannelStopPayload = {
   accountId: string;
   stopped: boolean;
 };
+
+type ChannelOperationParams = {
+  channel?: unknown;
+  accountId?: unknown;
+};
+
+function resolveChannelOperationParams<TParams extends ChannelOperationParams>(params: {
+  method: string;
+  rawParams: unknown;
+  respond: RespondFn;
+  validate: Validator<TParams>;
+}): { params: TParams; rawChannel: unknown; channelId: ChannelId } | null {
+  const rawParams = params.rawParams;
+  if (!assertValidParams(rawParams, params.validate, params.method, params.respond)) {
+    return null;
+  }
+  const rawChannel = rawParams.channel;
+  const channelId = typeof rawChannel === "string" ? normalizeChannelId(rawChannel) : null;
+  if (!channelId) {
+    params.respond(
+      false,
+      undefined,
+      errorShape(ErrorCodes.INVALID_REQUEST, `invalid ${params.method} channel`),
+    );
+    return null;
+  }
+  return { params: rawParams, rawChannel, channelId };
+}
+
+async function respondWithChannelOperationPayload<TPayload>(params: {
+  respond: RespondFn;
+  run: () => Promise<TPayload>;
+}): Promise<void> {
+  try {
+    params.respond(true, await params.run(), undefined);
+  } catch (error) {
+    params.respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(error)));
+  }
+}
 
 const CHANNEL_STATUS_MAX_TIMEOUT_MS = 30_000;
 const CHANNEL_STATUS_PROBE_CONCURRENCY = 5;
@@ -94,7 +138,7 @@ async function raceWithTimeout<T>(params: {
       .then(params.run)
       .then(
         (value) => ({ kind: "value" as const, value }),
-        (error) => ({ kind: "error" as const, error }),
+        (error: unknown) => ({ kind: "error" as const, error }),
       ),
     timeout,
   ]);
@@ -113,6 +157,8 @@ async function runChannelStatusHook(params: {
   run: () => Promise<unknown>;
 }): Promise<unknown> {
   const timeoutMs = Math.max(1, params.timeoutMs);
+  // Channel probes come from plugin code and external services. Convert slow or
+  // failing hooks into partial status data so one channel cannot block the UI.
   const result = await raceWithTimeout({
     timeoutMs,
     run: params.run,
@@ -200,6 +246,8 @@ function resolveChannelGatewayAccountId(params: {
   cfg: OpenClawConfig;
   accountId?: string | null;
 }): string {
+  // Runtime operations use the same account precedence as channel setup:
+  // explicit request, plugin default, first configured account, then fallback.
   return (
     normalizeOptionalString(params.accountId) ||
     params.plugin.config.defaultAccountId?.(params.cfg) ||
@@ -208,6 +256,7 @@ function resolveChannelGatewayAccountId(params: {
   );
 }
 
+/** Log out one channel account through its owning channel plugin. */
 export async function logoutChannelAccount(params: {
   channelId: ChannelId;
   accountId?: string | null;
@@ -217,6 +266,8 @@ export async function logoutChannelAccount(params: {
 }): Promise<ChannelLogoutPayload> {
   const resolvedAccountId = resolveChannelGatewayAccountId(params);
   const account = params.plugin.config.resolveAccount(params.cfg, resolvedAccountId);
+  // Stop the runtime before clearing channel-owned auth so no active watcher can
+  // immediately reconnect with credentials the user is trying to remove.
   await params.context.stopChannel(params.channelId, resolvedAccountId);
   const result = await params.plugin.gateway?.logoutAccount?.({
     cfg: params.cfg,
@@ -240,6 +291,7 @@ export async function logoutChannelAccount(params: {
   };
 }
 
+/** Start one channel account through its owning channel plugin. */
 export async function startChannelAccount(params: {
   channelId: ChannelId;
   accountId?: string | null;
@@ -266,6 +318,7 @@ export async function startChannelAccount(params: {
   };
 }
 
+/** Stop one channel account through its owning channel plugin. */
 export async function stopChannelAccount(params: {
   channelId: ChannelId;
   accountId?: string | null;
@@ -289,6 +342,7 @@ export async function stopChannelAccount(params: {
   };
 }
 
+/** Gateway request handlers for channel list, status, start, stop, and logout. */
 export const channelsHandlers: GatewayRequestHandlers = {
   "channels.status": async ({ params, respond, context }) => {
     if (!validateChannelsStatusParams(params)) {
@@ -308,10 +362,10 @@ export const channelsHandlers: GatewayRequestHandlers = {
     const rawChannel = (params as { channel?: unknown }).channel;
     const requestedChannel =
       typeof rawChannel === "string" ? normalizeChannelId(rawChannel) : undefined;
-    const cfg = applyPluginAutoEnable({
-      config: context.getRuntimeConfig(),
-      env: process.env,
-    }).config;
+    const runtimeConfig = context.getRuntimeConfig();
+    const cfg = resolveGatewayPluginConfig({
+      config: runtimeConfig,
+    });
     const runtime = context.getRuntimeSnapshot();
     const plugins = listChannelPlugins();
     const selectedPlugins = requestedChannel
@@ -336,9 +390,9 @@ export const channelsHandlers: GatewayRequestHandlers = {
       defaultAccountId: string,
     ): ChannelAccountSnapshot | undefined => {
       const accounts = runtime.channelAccounts[channelId];
-      const defaultRuntime = runtime.channels[channelId];
+      const defaultRuntimeLocal = runtime.channels[channelId];
       const raw =
-        accounts?.[accountId] ?? (accountId === defaultAccountId ? defaultRuntime : undefined);
+        accounts?.[accountId] ?? (accountId === defaultAccountId ? defaultRuntimeLocal : undefined);
       if (!raw) {
         return undefined;
       }
@@ -363,6 +417,8 @@ export const channelsHandlers: GatewayRequestHandlers = {
       let probeResult: unknown;
       let lastProbeAt: number | null = null;
       if (probe && enabled && plugin.status?.probeAccount) {
+        // Skip expensive probes for accounts that are not configured; the
+        // snapshot builder still reports the config state below.
         let configured = true;
         if (plugin.config.isConfigured) {
           configured = await plugin.config.isConfigured(account, cfg);
@@ -443,7 +499,7 @@ export const channelsHandlers: GatewayRequestHandlers = {
       if (!health.healthy) {
         snapshot.healthState = health.reason;
       }
-      return { accountId: accountId, account, snapshot };
+      return { accountId, account, snapshot };
     };
 
     const buildChannelAccounts = async (channelId: ChannelId) => {
@@ -547,27 +603,16 @@ export const channelsHandlers: GatewayRequestHandlers = {
     respond(true, payload, undefined);
   },
   "channels.start": async ({ params, respond, context }) => {
-    if (!validateChannelsStartParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid channels.start params: ${formatValidationErrors(validateChannelsStartParams.errors)}`,
-        ),
-      );
+    const resolved = resolveChannelOperationParams({
+      method: "channels.start",
+      rawParams: params,
+      respond,
+      validate: validateChannelsStartParams,
+    });
+    if (!resolved) {
       return;
     }
-    const rawChannel = (params as { channel?: unknown }).channel;
-    const channelId = typeof rawChannel === "string" ? normalizeChannelId(rawChannel) : null;
-    if (!channelId) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "invalid channels.start channel"),
-      );
-      return;
-    }
+    const { params: parsedParams, rawChannel, channelId } = resolved;
     const plugin = getChannelPlugin(channelId);
     if (!plugin) {
       respond(
@@ -585,45 +630,31 @@ export const channelsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    try {
-      const cfg = applyPluginAutoEnable({
-        config: context.getRuntimeConfig(),
-        env: process.env,
-      }).config;
-      const payload = await startChannelAccount({
-        channelId,
-        accountId: (params as { accountId?: string | null }).accountId,
-        cfg,
-        context,
-        plugin,
-      });
-      respond(true, payload, undefined);
-    } catch (error) {
-      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(error)));
-    }
+    await respondWithChannelOperationPayload({
+      respond,
+      run: () =>
+        startChannelAccount({
+          channelId,
+          accountId: parsedParams.accountId,
+          cfg: resolveGatewayPluginConfig({
+            config: context.getRuntimeConfig(),
+          }),
+          context,
+          plugin,
+        }),
+    });
   },
   "channels.stop": async ({ params, respond, context }) => {
-    if (!validateChannelsStopParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid channels.stop params: ${formatValidationErrors(validateChannelsStopParams.errors)}`,
-        ),
-      );
+    const resolved = resolveChannelOperationParams({
+      method: "channels.stop",
+      rawParams: params,
+      respond,
+      validate: validateChannelsStopParams,
+    });
+    if (!resolved) {
       return;
     }
-    const rawChannel = (params as { channel?: unknown }).channel;
-    const channelId = typeof rawChannel === "string" ? normalizeChannelId(rawChannel) : null;
-    if (!channelId) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "invalid channels.stop channel"),
-      );
-      return;
-    }
+    const { params: parsedParams, channelId } = resolved;
     const plugin = getChannelPlugin(channelId);
     if (!plugin) {
       respond(
@@ -633,43 +664,30 @@ export const channelsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const accountIdRaw = (params as { accountId?: unknown }).accountId;
-    const accountId = normalizeOptionalString(accountIdRaw);
-    try {
-      const payload = await stopChannelAccount({
-        channelId,
-        accountId,
-        cfg: context.getRuntimeConfig(),
-        context,
-        plugin,
-      });
-      respond(true, payload, undefined);
-    } catch (error) {
-      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(error)));
-    }
+    const accountId = normalizeOptionalString(parsedParams.accountId);
+    await respondWithChannelOperationPayload({
+      respond,
+      run: () =>
+        stopChannelAccount({
+          channelId,
+          accountId,
+          cfg: context.getRuntimeConfig(),
+          context,
+          plugin,
+        }),
+    });
   },
   "channels.logout": async ({ params, respond, context }) => {
-    if (!validateChannelsLogoutParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid channels.logout params: ${formatValidationErrors(validateChannelsLogoutParams.errors)}`,
-        ),
-      );
+    const resolved = resolveChannelOperationParams({
+      method: "channels.logout",
+      rawParams: params,
+      respond,
+      validate: validateChannelsLogoutParams,
+    });
+    if (!resolved) {
       return;
     }
-    const rawChannel = (params as { channel?: unknown }).channel;
-    const channelId = typeof rawChannel === "string" ? normalizeChannelId(rawChannel) : null;
-    if (!channelId) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "invalid channels.logout channel"),
-      );
-      return;
-    }
+    const { params: parsedParams, channelId } = resolved;
     const plugin = getChannelPlugin(channelId);
     if (!plugin?.gateway?.logoutAccount) {
       respond(
@@ -679,8 +697,7 @@ export const channelsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const accountIdRaw = (params as { accountId?: unknown }).accountId;
-    const accountId = normalizeOptionalString(accountIdRaw);
+    const accountId = normalizeOptionalString(parsedParams.accountId);
     const snapshot = await readConfigFileSnapshot();
     if (!snapshot.valid) {
       respond(
@@ -690,42 +707,26 @@ export const channelsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    try {
-      const payload = await logoutChannelAccount({
-        channelId,
-        accountId,
-        cfg: context.getRuntimeConfig(),
-        context,
-        plugin,
-      });
-      respond(true, payload, undefined);
-    } catch (err) {
-      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(err)));
-    }
+    await respondWithChannelOperationPayload({
+      respond,
+      run: () =>
+        logoutChannelAccount({
+          channelId,
+          accountId,
+          cfg: context.getRuntimeConfig(),
+          context,
+          plugin,
+        }),
+    });
   },
 
-  // ── channels.catalog ───────────────────────────────────────────────────────
   "channels.catalog": async ({ params, respond }) => {
-    if (!validateChannelsCatalogParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid channels.catalog params: ${formatValidationErrors(validateChannelsCatalogParams.errors)}`,
-        ),
-      );
+    if (!assertValidParams(params, validateChannelsCatalogParams, "channels.catalog", respond)) {
       return;
     }
-    // Installed channel plugins (registered in the runtime registry)
     const installedPlugins = listChannelPlugins();
-    const installedIds = new Set(installedPlugins.map((p) => p.id));
-
-    // Full catalog: includes installable-but-not-yet-installed extensions
+    const installedIds = new Set(installedPlugins.map((plugin) => plugin.id));
     const catalogEntries = listChannelPluginCatalogEntries();
-
-    // Build a merged list: installed first (preserving runtime order), then
-    // catalog-only entries that are not yet installed.
     type CatalogEntry = {
       id: string;
       label: string;
@@ -736,28 +737,17 @@ export const channelsHandlers: GatewayRequestHandlers = {
       installed: boolean;
       npmSpec?: string;
       order?: number;
-      // Plugin-level metadata: allows the UI to distinguish between
-      // "channel plugin disabled" and "channel plugin not installed".
       pluginId?: string;
       pluginEnabled?: boolean;
     };
-
     const result: CatalogEntry[] = [];
-
-    // Look up plugin records to determine enabled state per channel.
     const pluginRegistry = getActivePluginRegistry();
     const pluginRecords = pluginRegistry?.plugins ?? [];
 
-    // console.log(
-    //   `[channels.catalog] installedPlugins=${installedPlugins.map((p) => p.id).join(",")} pluginRecords=${pluginRecords.map((p) => `${p.id}(channelIds=[${p.channelIds.join(",")}],enabled=${p.enabled})`).join(" ")}`
-    // );
-
-    // 1. Installed channels from runtime registry
     for (const plugin of installedPlugins) {
-      const catalogMatch = catalogEntries.find((e) => e.id === plugin.id);
+      const catalogMatch = catalogEntries.find((entry) => entry.id === plugin.id);
       const detailLabel = plugin.meta.detailLabel ?? plugin.meta.selectionLabel ?? plugin.meta.label;
-      // Find the plugin record that registered this channel id.
-      const pluginRecord = pluginRecords.find((p) => p.channelIds.includes(plugin.id));
+      const pluginRecord = pluginRecords.find((record) => record.channelIds.includes(plugin.id));
       result.push({
         id: plugin.id,
         label: plugin.meta.label,
@@ -773,15 +763,15 @@ export const channelsHandlers: GatewayRequestHandlers = {
       });
     }
 
-    // 1.5. Plugin-registered but disabled channel plugins
-    // These are bundled plugins that are installed but have enabled=false in config.
-    // They should appear as installed+disabled in the catalog so the UI can show them
-    // in the "Installed — needs enabling" group rather than "Not installed".
     for (const pluginRecord of pluginRecords) {
-      if (pluginRecord.enabled) continue; // already handled in loop 1 (or will be)
+      if (pluginRecord.enabled) {
+        continue;
+      }
       for (const channelId of pluginRecord.channelIds) {
-        if (installedIds.has(channelId)) continue; // already added
-        const catalogMatch = catalogEntries.find((e) => e.id === channelId);
+        if (installedIds.has(channelId)) {
+          continue;
+        }
+        const catalogMatch = catalogEntries.find((entry) => entry.id === channelId);
         const label = catalogMatch?.meta.label ?? channelId;
         const detailLabel =
           catalogMatch?.meta.detailLabel ??
@@ -805,10 +795,9 @@ export const channelsHandlers: GatewayRequestHandlers = {
       }
     }
 
-    // 2. Catalog-only channels (not yet installed)
     for (const entry of catalogEntries) {
       if (installedIds.has(entry.id)) {
-        continue; // already included above
+        continue;
       }
       const detailLabel = entry.meta.detailLabel ?? entry.meta.selectionLabel ?? entry.meta.label;
       result.push({
@@ -824,62 +813,48 @@ export const channelsHandlers: GatewayRequestHandlers = {
       });
     }
 
-    // Sort: by order field, then alphabetically by label
-    result.sort((a, b) => {
-      const orderA = a.order ?? 999;
-      const orderB = b.order ?? 999;
-      if (orderA !== orderB) return orderA - orderB;
-      return a.label.localeCompare(b.label);
+    result.sort((left, right) => {
+      const orderLeft = left.order ?? 999;
+      const orderRight = right.order ?? 999;
+      if (orderLeft !== orderRight) {
+        return orderLeft - orderRight;
+      }
+      return left.label.localeCompare(right.label);
     });
 
     respond(true, { channels: result }, undefined);
   },
 
-  // ── channels.enable ────────────────────────────────────────────────────────
   "channels.enable": async ({ params, respond }) => {
-    if (!validateChannelsEnableParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid channels.enable params: ${formatValidationErrors(validateChannelsEnableParams.errors)}`,
-        ),
-      );
+    if (!assertValidParams(params, validateChannelsEnableParams, "channels.enable", respond)) {
       return;
     }
     const { channelId, enabled } = params as { channelId: string; enabled: boolean };
     try {
       const cfg = loadConfig();
-      let nextCfg: import("../../config/config.js").OpenClawConfig;
+      let nextCfg: OpenClawConfig;
       let actualEnabled: boolean;
       let reason: string | undefined;
       if (enabled) {
-        const result = enableChannelInConfig(cfg, channelId);
-        nextCfg = result.config;
-        actualEnabled = result.enabled;
-        reason = result.reason;
+        const enableResult = enableChannelInConfig(cfg, channelId);
+        nextCfg = enableResult.config;
+        actualEnabled = enableResult.enabled;
+        reason = enableResult.reason;
       } else {
         nextCfg = setChannelEnabledInConfig(cfg, channelId, false);
         actualEnabled = false;
       }
       await writeConfigFile(nextCfg);
-      respond(true, { channelId, enabled: actualEnabled, reason });
+      respond(true, { channelId, enabled: actualEnabled, reason }, undefined);
     } catch (err) {
       respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(err)));
     }
   },
 
   "channels.recipients": ({ params, respond }) => {
-    if (!validateChannelsRecipientsParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid channels.recipients params: ${formatValidationErrors(validateChannelsRecipientsParams.errors)}`,
-        ),
-      );
+    if (
+      !assertValidParams(params, validateChannelsRecipientsParams, "channels.recipients", respond)
+    ) {
       return;
     }
     const cfg = loadConfig();

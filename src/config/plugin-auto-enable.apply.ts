@@ -1,3 +1,4 @@
+import type { PluginDiscoveryResult } from "../plugins/discovery.js";
 import type { PluginManifestRegistry } from "../plugins/manifest-registry.js";
 import { detectPluginAutoEnableCandidates } from "./plugin-auto-enable.detect.js";
 import {
@@ -10,6 +11,7 @@ import type {
 } from "./plugin-auto-enable.types.js";
 import type { OpenClawConfig } from "./types.openclaw.js";
 
+/** Applies already detected plugin auto-enable candidates to config. */
 export function materializePluginAutoEnableCandidates(params: {
   config?: OpenClawConfig;
   candidates: readonly PluginAutoEnableCandidate[];
@@ -44,6 +46,7 @@ export function applyPluginAutoEnable(params: {
   config?: OpenClawConfig;
   env?: NodeJS.ProcessEnv;
   manifestRegistry?: PluginManifestRegistry;
+  discovery?: PluginDiscoveryResult;
 }): PluginAutoEnableResult {
   const candidates = detectPluginAutoEnableCandidates(params);
   return materializePluginAutoEnableCandidates({

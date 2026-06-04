@@ -8,6 +8,7 @@ type GatewayMethodChannelPlugin = {
   gatewayMethodDescriptors?: readonly { name: string }[];
 };
 
+/** Lists core methods intentionally advertised to gateway clients. */
 export function listCoreGatewayMethods(): string[] {
   return listCoreAdvertisedGatewayMethodNames();
 }
@@ -15,6 +16,8 @@ export function listCoreGatewayMethods(): string[] {
 function listChannelGatewayMethods(): string[] {
   const methods: string[] = [];
   for (const plugin of listLoadedChannelPlugins() as GatewayMethodChannelPlugin[]) {
+    // Plugins may still expose legacy names while newer plugins expose descriptors.
+    // Merge both so method discovery stays compatible during descriptor adoption.
     methods.push(...(plugin.gatewayMethods ?? []));
     for (const descriptor of plugin.gatewayMethodDescriptors ?? []) {
       methods.push(descriptor.name);
@@ -23,6 +26,7 @@ function listChannelGatewayMethods(): string[] {
   return methods;
 }
 
+/** Returns the de-duplicated gateway method catalog advertised through method-list APIs. */
 export function listGatewayMethods(): string[] {
   return Array.from(
     new Set([
@@ -33,6 +37,7 @@ export function listGatewayMethods(): string[] {
   );
 }
 
+/** Gateway event names that clients can subscribe to or receive over the wire. */
 export const GATEWAY_EVENTS = [
   "connect.challenge",
   "agent",

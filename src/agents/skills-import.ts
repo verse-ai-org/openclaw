@@ -5,12 +5,12 @@ import JSZip from "jszip";
 import { downloadClawHubSkillArchive } from "../infra/clawhub.js";
 import { assertCanonicalPathWithinBase } from "../infra/install-safe-path.js";
 import { runCommandWithTimeout } from "../process/exec.js";
-import { scanDirectoryWithSummary } from "../security/skill-scanner.js";
+import { scanDirectoryWithSummary } from "../skills/security/scanner.js";
 import { ensureDir, CONFIG_DIR } from "../utils.js";
-import { validateRequestedSkillSlug } from "./skills-archive-install.js";
-import type { DownloadUrlResult } from "./skills-install-download.js";
-import { downloadUrlToFile } from "./skills-install-download.js";
-import { extractArchive } from "./skills-install-extract.js";
+import { validateRequestedSkillSlug } from "../skills/lifecycle/archive-install.js";
+import type { DownloadUrlResult } from "../skills/lifecycle/install-download.js";
+import { downloadUrlToFile } from "../skills/lifecycle/install-download.js";
+import { extractArchive } from "../skills/lifecycle/install-extract.js";
 
 export type SkillImportRequest = {
   kind: "url" | "upload";

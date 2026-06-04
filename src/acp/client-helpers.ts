@@ -1,6 +1,11 @@
 import * as readline from "node:readline";
 import type { RequestPermissionRequest, RequestPermissionResponse } from "@agentclientprotocol/sdk";
 import {
+  normalizeLowercaseStringOrEmpty,
+  normalizeOptionalString,
+} from "@openclaw/normalization-core/string-coerce";
+import { sanitizeTerminalText } from "../../packages/terminal-core/src/safe-text.js";
+import {
   materializeWindowsSpawnProgram,
   resolveWindowsSpawnProgram,
 } from "../plugin-sdk/windows-spawn.js";
@@ -8,15 +13,11 @@ import {
   listKnownProviderAuthEnvVarNames,
   omitEnvKeysCaseInsensitive,
 } from "../secrets/provider-env-vars.js";
-import {
-  normalizeLowercaseStringOrEmpty,
-  normalizeOptionalString,
-} from "../shared/string-coerce.js";
-import { sanitizeTerminalText } from "../terminal/safe-text.js";
 import { classifyAcpToolApproval, type AcpApprovalClass } from "./approval-classifier.js";
 
 type PermissionOption = RequestPermissionRequest["options"][number];
 
+// ACP permission resolution keeps readonly tool classes noninteractive and prompts for risky tools.
 type PermissionResolverDeps = {
   prompt?: (toolName: string | undefined, toolTitle?: string) => Promise<boolean>;
   log?: (line: string) => void;
@@ -123,13 +124,12 @@ export async function resolvePermissionRequest(
   const promptRequired = !classification.autoApprove;
 
   if (!promptRequired) {
-    const option = allowOption ?? options[0];
-    if (!option) {
-      log(`[permission cancelled] ${toolName}: no selectable options`);
+    if (!allowOption) {
+      log(`[permission cancelled] ${toolName ?? "unknown"}: missing allow option`);
       return cancelledPermission();
     }
     log(`[permission auto-approved] ${toolName} (${toolKind ?? "unknown"})`);
-    return selectedPermission(option.optionId);
+    return selectedPermission(allowOption.optionId);
   }
 
   log(
@@ -154,6 +154,7 @@ type AcpClientSpawnEnvOptions = {
   stripKeys?: Iterable<string>;
 };
 
+/** Builds the sanitized environment used when spawning an ACP client process. */
 export function resolveAcpClientSpawnEnv(
   baseEnv: NodeJS.ProcessEnv = process.env,
   options: AcpClientSpawnEnvOptions = {},

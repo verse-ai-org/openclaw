@@ -9,10 +9,10 @@ import { completeSimple } from "@earendil-works/pi-ai";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import { getApiKeyForModel, requireApiKey } from "../../agents/model-auth.js";
-import { resolveModel } from "../../agents/pi-embedded-runner/model.js";
+import { resolveModel } from "../../agents/embedded-agent-runner/model.js";
 import { resolveDefaultModelRef } from "../../agents/tools/model-config.helpers.js";
-import { loadConfig } from "../../config/config.js";
-import { ErrorCodes, errorShape } from "../protocol/index.js";
+import { loadConfig } from "../../config/io.js";
+import { ErrorCodes, errorShape } from "../../../packages/gateway-protocol/src/index.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 const URL_FETCH_TIMEOUT_MS = 15_000;

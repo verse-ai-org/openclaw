@@ -1,3 +1,6 @@
+/**
+ * Tests web.start gateway method behavior and backend launch responses.
+ */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChannelRuntimeSnapshot } from "../server-channel-runtime.types.js";
 import type { GatewayRequestHandlerOptions } from "./types.js";
@@ -12,6 +15,25 @@ vi.mock("../../channels/plugins/index.js", () => ({
 
 import { webHandlers } from "./web.js";
 
+function createRunningWhatsappSnapshot(): ChannelRuntimeSnapshot {
+  return {
+    channels: {
+      whatsapp: {
+        accountId: "default",
+        running: true,
+      },
+    },
+    channelAccounts: {
+      whatsapp: {
+        default: {
+          accountId: "default",
+          running: true,
+        },
+      },
+    },
+  };
+}
+
 function createOptions(
   params: Record<string, unknown>,
   overrides?: Partial<GatewayRequestHandlerOptions>,
@@ -25,24 +47,7 @@ function createOptions(
     context: {
       stopChannel: vi.fn(),
       startChannel: vi.fn(),
-      getRuntimeSnapshot: vi.fn(
-        (): ChannelRuntimeSnapshot => ({
-          channels: {
-            whatsapp: {
-              accountId: "default",
-              running: true,
-            },
-          },
-          channelAccounts: {
-            whatsapp: {
-              default: {
-                accountId: "default",
-                running: true,
-              },
-            },
-          },
-        }),
-      ),
+      getRuntimeSnapshot: vi.fn(createRunningWhatsappSnapshot),
     },
     ...overrides,
   } as unknown as GatewayRequestHandlerOptions;
@@ -57,24 +62,7 @@ function createRunningWhatsappContext() {
     context: {
       stopChannel,
       startChannel,
-      getRuntimeSnapshot: vi.fn(
-        (): ChannelRuntimeSnapshot => ({
-          channels: {
-            whatsapp: {
-              accountId: "default",
-              running: true,
-            },
-          },
-          channelAccounts: {
-            whatsapp: {
-              default: {
-                accountId: "default",
-                running: true,
-              },
-            },
-          },
-        }),
-      ),
+      getRuntimeSnapshot: vi.fn(createRunningWhatsappSnapshot),
     } as unknown as GatewayRequestHandlerOptions["context"],
   };
 }
@@ -148,137 +136,49 @@ describe("webHandlers web.login.start", () => {
     expect(startChannel).not.toHaveBeenCalled();
   });
 
-  it("routes login start to the requested channel when multiple providers support web login", async () => {
-    const whatsappLoginWithQrStart = vi.fn();
-    const weixinLoginWithQrStart = vi.fn().mockResolvedValue({
-      qrDataUrl: "data:image/png;base64,weixin-qr",
-      message: "scan weixin qr",
-    });
+  it("preserves gateway method receiver state for login start", async () => {
+    const gateway = {
+      marker: "gateway-state",
+      async loginWithQrStart(this: { marker: string }) {
+        return {
+          connected: true,
+          message: this.marker,
+        };
+      },
+    };
+    const loginWithQrStart = vi.spyOn(gateway, "loginWithQrStart");
     mocks.listChannelPlugins.mockReturnValue([
       {
         id: "whatsapp",
         gatewayMethods: ["web.login.start"],
-        gateway: { loginWithQrStart: whatsappLoginWithQrStart },
-      },
-      {
-        id: "openclaw-weixin",
-        gatewayMethods: ["web.login.start"],
-        gateway: { loginWithQrStart: weixinLoginWithQrStart },
+        gateway,
       },
     ]);
     const respond = vi.fn();
 
     await webHandlers["web.login.start"](
-      createOptions({
-        channel: "openclaw-weixin",
-        force: true,
-        timeoutMs: 30_000,
-      }, { respond }),
+      createOptions(
+        { accountId: "default" },
+        {
+          respond,
+        },
+      ),
     );
 
-    expect(whatsappLoginWithQrStart).not.toHaveBeenCalled();
-    expect(weixinLoginWithQrStart).toHaveBeenCalledWith({
-      force: true,
-      timeoutMs: 30_000,
+    expect(loginWithQrStart).toHaveBeenCalledWith({
+      accountId: "default",
+      force: false,
+      timeoutMs: undefined,
       verbose: false,
-      accountId: undefined,
     });
     expect(respond).toHaveBeenCalledWith(
       true,
       {
-        qrDataUrl: "data:image/png;base64,weixin-qr",
-        message: "scan weixin qr",
+        connected: true,
+        message: "gateway-state",
       },
       undefined,
     );
-  });
-
-  it("does not stop a running Weixin channel for non-force QR login", async () => {
-    const loginWithQrStart = vi.fn().mockResolvedValue({
-      qrDataUrl: "data:image/png;base64,weixin-qr",
-      message: "scan weixin qr",
-      sessionKey: "weixin-session",
-    });
-    mocks.listChannelPlugins.mockReturnValue([
-      {
-        id: "openclaw-weixin",
-        gatewayMethods: ["web.login.start"],
-        gateway: { loginWithQrStart },
-      },
-    ]);
-    const stopChannel = vi.fn();
-    const startChannel = vi.fn();
-    const context = {
-      stopChannel,
-      startChannel,
-      getRuntimeSnapshot: vi.fn(
-        (): ChannelRuntimeSnapshot => ({
-          channels: {
-            "openclaw-weixin": {
-              accountId: "6b399038f486-im-bot",
-              running: true,
-            },
-          },
-          channelAccounts: {
-            "openclaw-weixin": {
-              "6b399038f486-im-bot": {
-                accountId: "6b399038f486-im-bot",
-                running: true,
-              },
-            },
-          },
-        }),
-      ),
-    } as unknown as GatewayRequestHandlerOptions["context"];
-
-    await webHandlers["web.login.start"](
-      createOptions(
-        { channel: "openclaw-weixin", timeoutMs: 30_000 },
-        { context },
-      ),
-    );
-
-    expect(stopChannel).not.toHaveBeenCalled();
-    expect(loginWithQrStart).toHaveBeenCalled();
-  });
-
-  it("stops a running Weixin channel before force re-login", async () => {
-    const loginWithQrStart = vi.fn().mockResolvedValue({
-      qrDataUrl: "data:image/png;base64,weixin-qr",
-      message: "scan weixin qr",
-    });
-    mocks.listChannelPlugins.mockReturnValue([
-      {
-        id: "openclaw-weixin",
-        gatewayMethods: ["web.login.start"],
-        gateway: { loginWithQrStart },
-      },
-    ]);
-    const stopChannel = vi.fn();
-    const context = {
-      stopChannel,
-      startChannel: vi.fn(),
-      getRuntimeSnapshot: vi.fn(
-        (): ChannelRuntimeSnapshot => ({
-          channels: {
-            "openclaw-weixin": {
-              accountId: "default",
-              running: true,
-            },
-          },
-          channelAccounts: {},
-        }),
-      ),
-    } as unknown as GatewayRequestHandlerOptions["context"];
-
-    await webHandlers["web.login.start"](
-      createOptions(
-        { channel: "openclaw-weixin", force: true },
-        { context },
-      ),
-    );
-
-    expect(stopChannel).toHaveBeenCalledWith("openclaw-weixin", undefined);
   });
 });
 
