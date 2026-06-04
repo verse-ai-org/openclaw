@@ -6,6 +6,7 @@ import { resolveActiveChatSessionKey } from "../../session/active-session";
 import type { ChatMessage } from "@/components/chat/types";
 import { selectChatMessages, selectIsRunning } from "@/store/conversation-selectors";
 import { useHydrateUiStateFromHistory } from "@/components/chat/ui-tool/use-hydrate-ui-state";
+import { useArtifactCacheStore } from "@/store/artifact-cache.store";
 
 export type GatewayThreadRuntime = {
   messages: ChatMessage[];
@@ -17,6 +18,15 @@ export type GatewayThreadRuntime = {
  * Shallow-compare two ChatMessage arrays by id + content + contentBlocks length + status.
  * Returns true when assistant-ui does NOT need to re-render.
  */
+function attachmentSignature(message: ChatMessage): string {
+  const refs = (message.artifactRefs ?? []).map((r) => r.artifactId).join(",");
+  const atts = (message.attachments ?? [])
+    .map((a) => `${a.fileName}:${a.mediaRef ?? ""}:${a.previewUrl ?? ""}`)
+    .join("|");
+  const arts = (message.artifacts ?? []).map((a) => `${a.id}:${a.mediaRef ?? ""}`).join("|");
+  return `${refs}#${atts}#${arts}`;
+}
+
 function messagesStructurallyEqual(a: ChatMessage[], b: ChatMessage[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
@@ -26,6 +36,7 @@ function messagesStructurallyEqual(a: ChatMessage[], b: ChatMessage[]): boolean 
     if (ma.content !== mb.content) return false;
     if (ma.role !== mb.role) return false;
     if ((ma.contentBlocks?.length ?? 0) !== (mb.contentBlocks?.length ?? 0)) return false;
+    if (attachmentSignature(ma) !== attachmentSignature(mb)) return false;
   }
   return true;
 }
@@ -49,6 +60,9 @@ export function useGatewayThreadRuntime(
   );
 
   const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
+  const artifactCacheVersion = useArtifactCacheStore(
+    (s) => s.versionBySession[activeSessionKey] ?? 0,
+  );
 
   const prevMessagesRef = useRef<ChatMessage[]>([]);
   const messages = useMemo(() => {
@@ -58,7 +72,7 @@ export function useGatewayThreadRuntime(
     }
     prevMessagesRef.current = next;
     return next;
-  }, [conversation]);
+  }, [conversation, artifactCacheVersion]);
   const isRunning = sending || (conversation ? selectIsRunning(conversation) : false);
 
   useHydrateUiStateFromHistory({ activeThreadId: activeSessionKey, messages });

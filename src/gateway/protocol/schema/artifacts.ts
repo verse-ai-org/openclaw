@@ -20,6 +20,28 @@ export const ArtifactGetParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ArtifactRefSchema = Type.Object(
+  {
+    artifactId: NonEmptyString,
+    role: Type.Optional(Type.Union([Type.Literal("input"), Type.Literal("output")])),
+  },
+  { additionalProperties: false },
+);
+
+export const ArtifactSummarySourceSchema = Type.Union([
+  Type.Literal("user-upload"),
+  Type.Literal("assistant-output"),
+  Type.Literal("tool-output"),
+  Type.Literal("offload"),
+]);
+
+export const ArtifactIngestChannelSchema = Type.Union([
+  Type.Literal("inline-base64"),
+  Type.Literal("path-ref"),
+  Type.Literal("managed-image"),
+  Type.Literal("transcript-block"),
+]);
+
 export const ArtifactSummarySchema = Type.Object(
   {
     id: NonEmptyString,
@@ -31,7 +53,12 @@ export const ArtifactSummarySchema = Type.Object(
     runId: Type.Optional(NonEmptyString),
     taskId: Type.Optional(NonEmptyString),
     messageSeq: Type.Optional(Type.Integer({ minimum: 1 })),
-    source: Type.Optional(NonEmptyString),
+    contentIndex: Type.Optional(Type.Integer({ minimum: 0 })),
+    source: Type.Optional(ArtifactSummarySourceSchema),
+    role: Type.Optional(Type.Union([Type.Literal("input"), Type.Literal("output")])),
+    ingestChannel: Type.Optional(ArtifactIngestChannelSchema),
+    /** Inbound preview ref for webchat (`media://inbound/<id>`). */
+    mediaRef: Type.Optional(NonEmptyString),
     download: Type.Object(
       {
         mode: Type.Union([Type.Literal("bytes"), Type.Literal("url"), Type.Literal("unsupported")]),
@@ -40,6 +67,23 @@ export const ArtifactSummarySchema = Type.Object(
     ),
   },
   { additionalProperties: false },
+);
+
+export const ChatSendAckSchema = Type.Object(
+  {
+    runId: NonEmptyString,
+    status: Type.Union([Type.Literal("started"), Type.Literal("in_flight")]),
+    artifacts: Type.Optional(Type.Array(ArtifactSummarySchema)),
+  },
+  { additionalProperties: false },
+);
+
+export const ChatHistoryMessageArtifactProjectionSchema = Type.Object(
+  {
+    artifactRefs: Type.Optional(Type.Array(ArtifactRefSchema)),
+    attachments: Type.Optional(Type.Array(Type.Unknown())),
+  },
+  { additionalProperties: true },
 );
 
 export const ArtifactsListParamsSchema = ArtifactQueryParamsSchema;

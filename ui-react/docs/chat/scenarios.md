@@ -8,8 +8,10 @@
 
 - RPC：`client.request("chat.history", { sessionKey })`
 - 归一化历史：`consolidateHistoryMessages(raw, sessionKey)`
-- 写入 canonical：`conversationStore.setHistorySnapshot(sessionKey, consolidated)`
-- UI：selectors 投影为 `messages`
+- 写入 canonical：`conversationStore.setHistoryCanonicalSnapshot(...)`
+- 每条 user/assistant 行可带 `artifactRefs`（Gateway `projectChatHistoryMessagesWithArtifacts`）
+- 侧载：`artifacts.list` 预取 → `artifact-cache.store`（chip 标题 / `download.mode`）
+- UI：`MessageArtifactRefs` + 可点击 `ArtifactRefChip`（`download.mode=bytes` 图片 → `artifacts.download` 预览）
 
 ## 2) 发送消息（onNew）
 
@@ -21,7 +23,9 @@
   - `message.appendText`
   - `message.end`
 - `chat.store.sending = true`（让 UI 立刻进入 running）
-- RPC：`chat.send`
+- RPC：`chat.send`（图片 → `attachments` base64；Electron 文档 → `attachmentRefs`；Web 文档 → base64 `attachments`）
+- `chat.send` ack 可带 `artifacts[]` → `message.bindArtifacts` 绑定到乐观 user 消息
+- Gateway transcript user 行：文本 + 结构化 `file` 块（path-ref），供 `artifacts.list` / `chat.history` `artifactRefs`
 - 后续 WS event 进入 canonical pipeline
 
 ## 3) 流式生成（WS delta / tools / tool-ui surface）
@@ -31,7 +35,7 @@
 - **文本流**：
   - `agent.assistant.data.delta` → `message.appendText`（流式正文）
   - `chat.delta` → wire 上仍为 `text.delta`，**不**再进入 `message.setLiveText`（避免与 append 双源 mid-run 冲突）
-  - `chat.final`（`run.finished` + `text`）→ **一次** `message.setLiveText`（终态全文对齐）
+  - `chat.final`（`run.finished` + `text`，可选 `artifacts` / `artifactRefs`）→ `message.setLiveText` + `message.bindArtifacts`（助手产出图 chip）
 - `agent.tool.start` → `tool.start`（在 parts 时间线 append tool part）
 - `agent.tool.update/result/error` → 对应更新 tool part
 - `tool.ui` → 更新对应 tool part 的 UI presentation（UiToolParts 渲染）

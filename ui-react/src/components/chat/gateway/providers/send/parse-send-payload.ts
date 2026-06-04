@@ -1,5 +1,6 @@
 import type { AppendMessage, CompleteAttachment } from "@assistant-ui/react";
 import type { MessageAttachment } from "@/components/chat/types";
+import { stripDataUrlPrefix } from "@/utils/file-to-base64";
 
 type GatewayAttachment = { content: string; mimeType: string; fileName: string };
 
@@ -8,6 +9,28 @@ export type ParsedGatewaySendPayload = {
   gatewayAttachments: GatewayAttachment[];
   displayAttachments: MessageAttachment[];
 };
+
+function imagePreviewUrl(params: {
+  image: string;
+  mimeType: string;
+  file?: File;
+}): string | undefined {
+  if (params.file instanceof Blob && params.mimeType.startsWith("image/")) {
+    return URL.createObjectURL(params.file);
+  }
+  if (!params.mimeType.startsWith("image/")) {
+    return undefined;
+  }
+  const raw = params.image.trim();
+  if (!raw) {
+    return undefined;
+  }
+  if (raw.startsWith("data:")) {
+    return raw;
+  }
+  const base64 = stripDataUrlPrefix(raw);
+  return `data:${params.mimeType};base64,${base64}`;
+}
 
 export function parseGatewaySendPayload(message: AppendMessage): ParsedGatewaySendPayload {
   const textChunks: string[] = [];
@@ -33,15 +56,29 @@ export function parseGatewaySendPayload(message: AppendMessage): ParsedGatewaySe
         mimeType,
         fileName,
       });
+      const previewUrl = imagePreviewUrl({
+        image: part.image,
+        mimeType,
+        file: meta?.file,
+      });
       displayAttachments.push({
         fileName,
         mimeType,
         size: meta?.file?.size ?? 0,
+        ...(previewUrl ? { previewUrl } : {}),
       });
       return;
     }
     const fileName = part.filename ?? meta?.name ?? "file";
     const mimeType = part.mimeType || meta?.contentType || "application/octet-stream";
+    const base64 = typeof part.data === "string" ? part.data.trim() : "";
+    if (base64.length > 0 && !mimeType.startsWith("image/")) {
+      gatewayAttachments.push({
+        content: base64,
+        mimeType,
+        fileName,
+      });
+    }
     displayAttachments.push({
       fileName,
       mimeType,

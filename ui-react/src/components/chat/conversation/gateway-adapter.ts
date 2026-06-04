@@ -1,3 +1,4 @@
+import { artifactRefsFromSummaries } from "@/components/chat/artifact-helpers";
 import type { RunEvent } from "@/run-stream/run-event";
 import type { CanonicalChatEvent, RunId, ThreadId } from "./types";
 import { EventType } from "./types";
@@ -115,7 +116,7 @@ export function runEventsToCanonical(
         });
         break;
 
-      case "run.finished":
+      case "run.finished": {
         // `chat.final` frames can carry the full assistant text. If the page refreshes mid-run,
         // the client may miss prior deltas and only receive the final snapshot; preserve it.
         if (e.text) {
@@ -127,8 +128,24 @@ export function runEventsToCanonical(
             fullText: e.text,
           });
         }
-        out.push({ type: EventType.RunFinished, threadId, runId: rid as RunId, ts });
+        const artifactRefs =
+          e.artifactRefs ??
+          (e.artifacts && e.artifacts.length > 0
+            ? artifactRefsFromSummaries(e.artifacts)
+            : undefined);
+        if (artifactRefs && artifactRefs.length > 0) {
+          out.push({
+            type: EventType.MessageBindArtifacts,
+            threadId,
+            ts: ts + 1,
+            messageId: `run:${rid}`,
+            artifactRefs,
+            ...(e.artifacts && e.artifacts.length > 0 ? { artifacts: e.artifacts } : {}),
+          });
+        }
+        out.push({ type: EventType.RunFinished, threadId, runId: rid as RunId, ts: ts + 2 });
         break;
+      }
 
       case "run.error":
         out.push({

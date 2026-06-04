@@ -13,7 +13,12 @@ import {
   checkGatewayAgentAssistantData,
   checkGatewayAgentToolData,
 } from "./gateway-ws-check";
-import { extractGatewayChatMessageText } from "@/components/chat/adapters/gateway/message-normalize";
+import { artifactRefsFromSummaries } from "@/components/chat/artifact-helpers";
+import {
+  extractGatewayChatMessageText,
+  normalizeArtifactSummaries,
+  normalizeHistoryArtifactRefs,
+} from "@/components/chat/adapters/gateway/message-normalize";
 import type { RunEvent } from "@/run-stream/run-event";
 
 // ---------------------------------------------------------------------------
@@ -67,8 +72,23 @@ export function gatewayToRunEvents(
       }
       case "final": {
         const text = extractGatewayChatMessageText(chat.message);
+        const artifacts = normalizeArtifactSummaries(chat.artifacts);
+        const messageRecord =
+          chat.message && typeof chat.message === "object" && !Array.isArray(chat.message)
+            ? (chat.message as Record<string, unknown>)
+            : undefined;
+        const artifactRefs =
+          normalizeHistoryArtifactRefs(messageRecord?.artifactRefs) ??
+          (artifacts ? artifactRefsFromSummaries(artifacts) : undefined);
         return {
-          events: [{ type: "run.finished", text: text || undefined }],
+          events: [
+            {
+              type: "run.finished",
+              text: text || undefined,
+              ...(artifactRefs && artifactRefs.length > 0 ? { artifactRefs } : {}),
+              ...(artifacts && artifacts.length > 0 ? { artifacts } : {}),
+            },
+          ],
           sessionKey,
           runId,
         };

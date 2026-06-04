@@ -473,4 +473,39 @@ describe("serialization/history", () => {
     const toolPart = assistant?.parts.find((p) => p.type === "tool" && p.id === "call_fetch");
     expect(toolPart && toolPart.type === "tool" ? toolPart.status : "").toBe("error");
   });
+
+  it("strips injectTimestamp prefix from user message display text", () => {
+    const { messages } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:main:main",
+      messages: [
+        {
+          role: "user",
+          content: "[Thu 2026-06-04 21:57 GMT+8] 分析一下这张图片的尺寸和格式信息",
+        },
+      ],
+    });
+    const user = messages.find((m) => m.role === "user");
+    expect(user?.parts[0]).toEqual({
+      type: "text",
+      id: expect.any(String),
+      text: "分析一下这张图片的尺寸和格式信息",
+    });
+  });
+
+  it("preserves gateway artifactRefs on user messages without strip fallback", () => {
+    const { messages } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:main:main",
+      messages: [
+        {
+          role: "user",
+          content: "summarize this",
+          artifactRefs: [{ artifactId: "artifact_abc123", role: "input" }],
+          attachments: [{ fileName: "report.pdf", mimeType: "application/pdf", size: 0 }],
+        },
+      ],
+    });
+    const user = messages.find((m) => m.role === "user");
+    expect(user?.parts[0]).toEqual({ type: "text", id: expect.any(String), text: "summarize this" });
+    expect(user?.artifactRefs).toEqual([{ artifactId: "artifact_abc123", role: "input" }]);
+  });
 });

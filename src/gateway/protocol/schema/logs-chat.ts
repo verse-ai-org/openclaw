@@ -1,4 +1,5 @@
 import { Type } from "typebox";
+import { ArtifactSummarySchema } from "./artifacts.js";
 import { ChatSendSessionKeyString, InputProvenanceSchema, NonEmptyString } from "./primitives.js";
 
 export const LogsTailParamsSchema = Type.Object(
@@ -112,6 +113,7 @@ export const ChatFinalEventSchema = Type.Object(
     ...ChatEventBaseSchema,
     state: Type.Literal("final"),
     message: Type.Optional(Type.Unknown()),
+    artifacts: Type.Optional(Type.Array(ArtifactSummarySchema)),
     usage: Type.Optional(Type.Unknown()),
     stopReason: Type.Optional(Type.String()),
   },

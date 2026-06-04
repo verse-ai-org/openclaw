@@ -10,7 +10,9 @@ export type CanonicalMessage = {
   runId?: RunId;
   status: CanonicalMessageStatus;
   parts: ChatPart[];
-  /** Optional display-only metadata preserved from UI messages (e.g. attachments). */
+  artifactRefs?: import("@/components/chat/types").ArtifactRef[];
+  artifacts?: import("@/components/chat/types").ArtifactSummary[];
+  /** @deprecated Prefer `artifactRefs`. */
   attachments?: import("@/components/chat/types").MessageAttachment[];
   metadata?: import("@/components/chat/types").ChatMessageMetadata;
 };

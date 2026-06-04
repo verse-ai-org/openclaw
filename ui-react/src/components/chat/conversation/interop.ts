@@ -79,6 +79,8 @@ export function canonicalMessagesToChatMessages(messages: CanonicalMessage[]): C
         content: text,
         ts: m.createdAt,
         runId: m.runId,
+        ...(m.artifactRefs && m.artifactRefs.length > 0 ? { artifactRefs: m.artifactRefs } : {}),
+        ...(m.artifacts && m.artifacts.length > 0 ? { artifacts: m.artifacts } : {}),
         attachments: m.attachments,
         metadata: m.metadata,
         contentBlocks: contentBlocksFromParts(m.parts),
@@ -118,6 +120,8 @@ export function chatMessagesToCanonicalSnapshot(messages: ChatMessage[]): Canoni
       runId: m.runId,
       status: "complete",
       parts,
+      ...(m.artifactRefs && m.artifactRefs.length > 0 ? { artifactRefs: m.artifactRefs } : {}),
+      ...(m.artifacts && m.artifacts.length > 0 ? { artifacts: m.artifacts } : {}),
       attachments: m.attachments,
       metadata: m.metadata,
     };

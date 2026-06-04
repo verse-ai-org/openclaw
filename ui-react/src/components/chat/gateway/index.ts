@@ -7,7 +7,9 @@ export {
 export { resolveActiveChatSessionKey } from "../session/active-session";
 
 export {
+  normalizeArtifactSummaries,
   normalizeContent,
+  normalizeHistoryArtifactRefs,
   normalizeHistoryAttachmentHints,
   normalizeRole,
 } from "../adapters/gateway/message-normalize";

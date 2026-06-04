@@ -8,11 +8,16 @@ import type {
   RunId,
   ThreadId,
 } from "@/components/chat/conversation";
-import { normalizeContent, normalizeHistoryAttachmentHints } from "@/components/chat/gateway";
+import {
+  normalizeContent,
+  normalizeHistoryArtifactRefs,
+  normalizeHistoryAttachmentHints,
+} from "@/components/chat/gateway";
 import {
   mergeTurnUsageMeta,
   type TurnUsageMeta,
 } from "@/components/chat/usage/turn-usage-meta";
+import { stripGatewayUserDisplayText } from "@/components/chat/artifacts/strip-gateway-user-display-text";
 import { stripAttachmentContent } from "./_internal/history-attachment-strip";
 import { resolveToolUiComponent, safeParseToolUiPayload } from "@/components/chat/ui-tool/ui-tool-registry";
 
@@ -75,6 +80,8 @@ type HistoryMessageRecord = {
   role: "user" | "assistant";
   createdAt: number;
   runId?: string;
+  artifactRefs?: import("@/components/chat/types").ArtifactRef[];
+  artifacts?: import("@/components/chat/types").ArtifactSummary[];
   attachments?: import("@/components/chat/types").MessageAttachment[];
   metadata?: import("@/components/chat/types").ChatMessageMetadata;
   parts: ChatPart[];
@@ -323,10 +330,15 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
 
     // User rows: preserve as plain text + attachments metadata.
     if (role === "user") {
+      const rawRecord = raw as Record<string, unknown>;
       const rawText = normalizeContent(raw.content ?? raw.text ?? "");
+      const artifactRefs = normalizeHistoryArtifactRefs(rawRecord.artifactRefs);
       const stripped = stripAttachmentContent(rawText);
+      const rawPrompt =
+        artifactRefs && artifactRefs.length > 0 ? rawText.trim() : stripped.prompt.trim();
+      const prompt = stripGatewayUserDisplayText(rawPrompt);
       const attachments =
-        normalizeHistoryAttachmentHints(raw.attachments) ??
+        normalizeHistoryAttachmentHints(rawRecord.attachments) ??
         (stripped.attachments.length > 0 ? stripped.attachments : undefined);
 
       userMessages.push({
@@ -334,11 +346,10 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
         role: "user",
         createdAt: ts,
         runId,
+        ...(artifactRefs && artifactRefs.length > 0 ? { artifactRefs } : {}),
         attachments,
         metadata: raw.metadata && typeof raw.metadata === "object" ? (raw.metadata as HistoryMessageRecord["metadata"]) : undefined,
-        parts: stripped.prompt.trim()
-          ? [{ type: "text", id: `text:${ts}` as PartId, text: stripped.prompt }]
-          : [],
+        parts: prompt ? [{ type: "text", id: `text:${ts}` as PartId, text: prompt }] : [],
       });
       continue;
     }
@@ -655,11 +666,20 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
       attachments: m.attachments,
       metadata: m.metadata,
     };
+    if (m.artifactRefs && m.artifactRefs.length > 0) {
+      canonical.artifactRefs = m.artifactRefs;
+    }
+    if (m.artifacts && m.artifacts.length > 0) {
+      canonical.artifacts = m.artifacts;
+    }
     return canonical;
   });
   const runs = deriveCanonicalRunsFromGatewayHistoryRaw({ threadId, messages }).map((run) => {
     const usageMeta = usageByRunId.get(run.id);
-    return usageMeta ? { ...run, usageMeta } : run;
+    if (usageMeta) {
+      run.usageMeta = usageMeta;
+    }
+    return run;
   });
   return { messages: messagesOut, runs };
 }

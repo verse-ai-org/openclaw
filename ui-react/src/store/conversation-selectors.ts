@@ -1,6 +1,7 @@
 import type { ChatMessage } from "@/components/chat/types";
 import type { ConversationState, CanonicalMessage } from "@/components/chat/conversation";
 import { canonicalMessagesToChatMessages } from "@/components/chat/conversation";
+import { enrichChatMessagesWithArtifactCache } from "@/components/chat/artifacts/resolve-message-artifacts";
 
 export function selectCanonicalMessages(state: ConversationState): CanonicalMessage[] {
   return state.messageOrder
@@ -9,7 +10,10 @@ export function selectCanonicalMessages(state: ConversationState): CanonicalMess
 }
 
 export function selectChatMessages(state: ConversationState): ChatMessage[] {
-  return canonicalMessagesToChatMessages(selectCanonicalMessages(state));
+  return enrichChatMessagesWithArtifactCache(
+    state.threadId,
+    canonicalMessagesToChatMessages(selectCanonicalMessages(state)),
+  );
 }
 
 export function selectIsRunning(state: ConversationState): boolean {

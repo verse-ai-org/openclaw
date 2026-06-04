@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { extractGatewayChatMessageText, extractMessageText } from "./message-normalize";
+import {
+  extractGatewayChatMessageText,
+  extractMessageText,
+  normalizeHistoryArtifactRefs,
+} from "./message-normalize";
 
 describe("extractGatewayChatMessageText", () => {
   it("returns empty for non-objects", () => {
@@ -52,6 +56,20 @@ describe("extractMessageText", () => {
         ],
       }),
     ).toBe("a\nb");
+  });
+});
+
+describe("normalizeHistoryArtifactRefs", () => {
+  it("normalizes artifactId and role", () => {
+    expect(
+      normalizeHistoryArtifactRefs([
+        { artifactId: "artifact_x", role: "input" },
+        { id: "artifact_y", role: "output" },
+      ]),
+    ).toEqual([
+      { artifactId: "artifact_x", role: "input" },
+      { artifactId: "artifact_y", role: "output" },
+    ]);
   });
 });
 

@@ -35,5 +35,37 @@ describe("conversation/gateway-adapter", () => {
     expect(msg?.parts.map((p) => p.type)).toEqual(["text"]);
     expect(msg?.parts[0]).toMatchObject({ type: "text", text: full });
   });
+
+  it("binds assistant artifacts from run.finished (chat.final)", () => {
+    const threadId = "main";
+    const runId = "r1";
+    const canonical = runEventsToCanonical(
+      [
+        { type: "run.started", sessionKey: threadId, runId },
+        {
+          type: "run.finished",
+          text: "here is the chart",
+          artifactRefs: [{ artifactId: "artifact_img", role: "output" }],
+          artifacts: [
+            {
+              id: "artifact_img",
+              type: "image",
+              title: "chart.png",
+              mimeType: "image/png",
+              download: { mode: "bytes" },
+            },
+          ],
+        },
+      ],
+      threadId,
+      runId,
+      200,
+    );
+
+    const state = replayConversation(canonical, threadId);
+    const msg = state.messagesById.get(`run:${runId}`);
+    expect(msg?.artifactRefs).toEqual([{ artifactId: "artifact_img", role: "output" }]);
+    expect(msg?.artifacts?.[0]?.title).toBe("chart.png");
+  });
 });
 

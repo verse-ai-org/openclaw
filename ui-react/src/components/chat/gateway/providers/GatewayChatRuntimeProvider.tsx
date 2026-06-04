@@ -5,7 +5,15 @@ import {
 } from "@assistant-ui/react";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import type { ChatMessage, ChatMessageMetadata, MessageAttachment } from "@/components/chat/types";
+import { artifactRefsFromSummaries } from "@/components/chat/artifact-helpers";
+import { useArtifactCacheStore } from "@/store/artifact-cache.store";
+import { EventType } from "@/components/chat/conversation/types/event-type";
+import type {
+  ArtifactSummary,
+  ChatMessage,
+  ChatMessageMetadata,
+  MessageAttachment,
+} from "@/components/chat/types";
 import { buildAttachmentRefsFromMessage, createGatewayCompositeAttachmentAdapter, MAX_ATTACHMENT_COUNT, type ChatAttachmentRef, parseGatewaySendPayload } from "./send";
 import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
@@ -95,7 +103,11 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       st.setSending(true);
 
       try {
-        const resp = await client?.request<{ runId?: string; status?: string }>("chat.send", {
+        const resp = await client?.request<{
+          runId?: string;
+          status?: string;
+          artifacts?: ArtifactSummary[];
+        }>("chat.send", {
           message: text,
           sessionKey: activeSession,
           idempotencyKey: runId,
@@ -111,6 +123,20 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         const ackRunId = typeof resp?.runId === "string" && resp.runId.trim() ? resp.runId.trim() : runId;
         if (ackRunId !== runId) {
           useConversationStore.getState().beginOutboundRun(activeSession, ackRunId);
+        }
+        const ackArtifacts = Array.isArray(resp?.artifacts) ? resp.artifacts : [];
+        if (ackArtifacts.length > 0) {
+          useArtifactCacheStore.getState().mergeSummaries(activeSession, ackArtifacts);
+          useConversationStore.getState().applyEvents(activeSession, [
+            {
+              type: EventType.MessageBindArtifacts,
+              threadId: activeSession,
+              ts: Date.now(),
+              messageId: userMsg.id,
+              artifactRefs: artifactRefsFromSummaries(ackArtifacts),
+              artifacts: ackArtifacts,
+            },
+          ]);
         }
         // Re-fetch sessions.list so the sidebar shows the session (and titles) right after send ack.
         useChatStore.getState().triggerSessionsReload();
@@ -143,9 +169,10 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
       // For non-image files: Electron has refs, Web environment falls back to base64 (not yet wired)
       // missingPathFiles means Web environment — currently no base64 fallback for documents,
       // so we only warn for non-image files that lack a path.
+      const documentBase64 = gatewayAttachments.filter((att) => !att.mimeType.startsWith("image/"));
       const nonImageMissingPaths = missingPathFiles.filter((name) => {
-        const ext = name.split(".").pop()?.toLowerCase() ?? "";
-        return !["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext);
+        const coveredByBase64 = documentBase64.some((att) => att.fileName === name);
+        return !coveredByBase64;
       });
       if (nonImageMissingPaths.length > 0) {
         toast.error(

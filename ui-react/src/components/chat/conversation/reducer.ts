@@ -9,6 +9,7 @@ import type {
   ThreadId,
 } from "./types";
 import { EventType } from "./types";
+import { mergeInboundArtifactMediaIntoAttachments } from "../artifact-helpers";
 import { formatLiveTextSnapshotForLog, logChatDebug } from "../utils/chat-debug";
 
 /**
@@ -409,9 +410,28 @@ export function applyCanonicalEvent(s: ConversationState, event: CanonicalChatEv
         status: "running",
         parts: [],
         attachments: event.message.attachments,
+        artifactRefs: event.message.artifactRefs,
+        artifacts: event.message.artifacts,
         metadata: event.message.metadata,
       };
       return upsertMessage(next, msg);
+    }
+
+    case EventType.MessageBindArtifacts: {
+      const existing = next.messagesById.get(event.messageId);
+      if (!existing) {
+        return next;
+      }
+      const mergedAttachments =
+        event.artifacts && event.artifacts.length > 0
+          ? mergeInboundArtifactMediaIntoAttachments(existing.attachments, event.artifacts)
+          : existing.attachments;
+      return upsertMessage(next, {
+        ...existing,
+        artifactRefs: event.artifactRefs,
+        ...(event.artifacts && event.artifacts.length > 0 ? { artifacts: event.artifacts } : {}),
+        ...(mergedAttachments ? { attachments: mergedAttachments } : {}),
+      });
     }
 
     case EventType.MessageAppendText: {

@@ -12,6 +12,7 @@ export const EventType = {
   MessageAppendText: "message.appendText",
   MessageSetLiveText: "message.setLiveText",
   MessageEnd: "message.end",
+  MessageBindArtifacts: "message.bindArtifacts",
 
   // Tool lifecycle
   ToolStart: "tool.start",

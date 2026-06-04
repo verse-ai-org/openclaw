@@ -69,6 +69,17 @@ describe("buildAttachmentRefsFromMessage", () => {
     expect(refs[0]?.path).toBe("/legacy/doc.txt");
   });
 
+  it("skips image attachments (handled via base64 attachments)", async () => {
+    const file = new File(["pixels"], "photo.png", { type: "image/png" });
+    Object.defineProperty(file, "path", { value: "/tmp/photo.png" });
+    getElectronBridgeMock.mockReturnValue(undefined);
+
+    const { refs, missingPathFiles } = await buildAttachmentRefsFromMessage(makeMessage(file, "photo.png"));
+
+    expect(refs).toEqual([]);
+    expect(missingPathFiles).toEqual([]);
+  });
+
   it("reports missing paths when neither bridge nor File.path is available", async () => {
     const file = new File(["hello"], "test.csv", { type: "text/csv" });
     getElectronBridgeMock.mockReturnValue(undefined);

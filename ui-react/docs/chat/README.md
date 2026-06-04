@@ -20,6 +20,7 @@
 - **Tool UI surfaces（含 HITL）渲染与提交**：`./tools-and-interactive.md`
 - **场景手册（send/stream/cancel/edit/history/status）**：`./scenarios.md`
 - **Artifacts 协议化设计（草案）**：`./artifacts-protocol-design.md`
+- **Artifacts 实施计划（PR/任务拆分）**：`./artifacts-protocol-implementation-plan.md`
 - **测试与调试**：`./testing-and-debugging.md`
 
 ## 相关源码入口（repo-root 相对路径）

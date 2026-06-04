@@ -13,6 +13,7 @@ import {
 import {
   loadHistoryFromGateway,
   loadSessionsFromGateway,
+  SILENT_HISTORY_RELOAD_DELAY_MS,
   syncSessionRunStatusFromGateway,
 } from "./loaders";
 // import type { SessionEntry } from "./types";
@@ -64,8 +65,12 @@ export function useSessionManager() {
     if (!pendingReloadKey) {
       return;
     }
-    void loadHistory(pendingReloadKey, true);
-    useChatStore.getState().setPendingHistoryReloadKey(null);
+    const key = pendingReloadKey;
+    const timer = window.setTimeout(() => {
+      void loadHistory(key, true);
+      useChatStore.getState().setPendingHistoryReloadKey(null);
+    }, SILENT_HISTORY_RELOAD_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [pendingReloadKey, loadHistory]);
 
   const switchSession = useCallback(

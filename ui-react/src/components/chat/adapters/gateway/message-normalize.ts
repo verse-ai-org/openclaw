@@ -1,4 +1,82 @@
-import type { ChatMessageRole, MessageAttachment } from "@/components/chat/types";
+import type { ArtifactRef, ArtifactSummary, ChatMessageRole, MessageAttachment } from "@/components/chat/types";
+
+/** Gateway `artifactRefs` on chat.history messages. */
+export function normalizeHistoryArtifactRefs(raw: unknown): ArtifactRef[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return undefined;
+  }
+  const out: ArtifactRef[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const o = item as Record<string, unknown>;
+    const artifactId =
+      typeof o.artifactId === "string"
+        ? o.artifactId.trim()
+        : typeof o.id === "string"
+          ? o.id.trim()
+          : "";
+    if (!artifactId) {
+      continue;
+    }
+    const role = o.role === "input" || o.role === "output" ? o.role : undefined;
+    out.push({ artifactId, ...(role ? { role } : {}) });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function normalizeArtifactSummary(item: unknown): ArtifactSummary | null {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+  const o = item as Record<string, unknown>;
+  const id = typeof o.id === "string" ? o.id.trim() : "";
+  const type = typeof o.type === "string" ? o.type.trim() : "";
+  const title = typeof o.title === "string" ? o.title.trim() : "";
+  if (!id || !type || !title) {
+    return null;
+  }
+  const download = o.download;
+  const mode =
+    download &&
+    typeof download === "object" &&
+    ((download as { mode?: unknown }).mode === "bytes" ||
+      (download as { mode?: unknown }).mode === "url" ||
+      (download as { mode?: unknown }).mode === "unsupported")
+      ? (download as { mode: ArtifactSummary["download"]["mode"] }).mode
+      : "unsupported";
+  const role = o.role === "input" || o.role === "output" ? o.role : undefined;
+  return {
+    id,
+    type,
+    title,
+    ...(typeof o.mimeType === "string" && o.mimeType.trim() ? { mimeType: o.mimeType.trim() } : {}),
+    ...(typeof o.sizeBytes === "number" && Number.isFinite(o.sizeBytes) && o.sizeBytes >= 0
+      ? { sizeBytes: Math.floor(o.sizeBytes) }
+      : {}),
+    ...(role ? { role } : {}),
+    ...(typeof o.mediaRef === "string" && o.mediaRef.trim().startsWith("media://")
+      ? { mediaRef: o.mediaRef.trim() }
+      : {}),
+    download: { mode },
+  };
+}
+
+/** Optional inline summaries on history rows (future) or send ack payloads. */
+export function normalizeArtifactSummaries(raw: unknown): ArtifactSummary[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return undefined;
+  }
+  const out: ArtifactSummary[] = [];
+  for (const item of raw) {
+    const summary = normalizeArtifactSummary(item);
+    if (summary) {
+      out.push(summary);
+    }
+  }
+  return out.length > 0 ? out : undefined;
+}
 
 /** Prefer gateway-provided attachment hints (after server-side content shortening). */
 export function normalizeHistoryAttachmentHints(raw: unknown): MessageAttachment[] | undefined {
@@ -23,7 +101,11 @@ export function normalizeHistoryAttachmentHints(raw: unknown): MessageAttachment
     const mimeType =
       typeof o.mimeType === "string" && o.mimeType.trim() ? o.mimeType : "application/octet-stream";
     const size = typeof o.size === "number" && Number.isFinite(o.size) ? o.size : 0;
-    out.push({ fileName: fileName.trim(), mimeType, size });
+    const mediaRef =
+      typeof o.mediaRef === "string" && o.mediaRef.trim().startsWith("media://")
+        ? o.mediaRef.trim()
+        : undefined;
+    out.push({ fileName: fileName.trim(), mimeType, size, ...(mediaRef ? { mediaRef } : {}) });
   }
   return out.length > 0 ? out : undefined;
 }

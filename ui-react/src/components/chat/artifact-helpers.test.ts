@@ -1,0 +1,35 @@
+import { describe, expect, it } from "vitest";
+import { mergeInboundArtifactMediaIntoAttachments } from "./artifact-helpers";
+import type { ArtifactSummary } from "./types";
+
+describe("mergeInboundArtifactMediaIntoAttachments", () => {
+  it("binds mediaRef and drops blob preview when ack artifact matches upload fileName", () => {
+    const artifacts: ArtifactSummary[] = [
+      {
+        id: "artifact_abc",
+        type: "image",
+        title: "ScreenShot_2026-06-03_203549_149---uuid.png",
+        mimeType: "image/png",
+        mediaRef:
+          "media://inbound/ScreenShot_2026-06-03_203549_149---3adb8169-2b63-45f1-8459-9fe71673d5e2.png",
+        download: { mode: "bytes" },
+      },
+    ];
+    const merged = mergeInboundArtifactMediaIntoAttachments(
+      [
+        {
+          fileName: "ScreenShot_2026-06-03_203549_149.png",
+          mimeType: "image/png",
+          size: 0,
+          previewUrl: "blob:local",
+        },
+      ],
+      artifacts,
+    );
+    expect(merged?.[0]).toMatchObject({
+      fileName: "ScreenShot_2026-06-03_203549_149.png",
+      mediaRef: artifacts[0]?.mediaRef,
+    });
+    expect(merged?.[0]?.previewUrl).toBe("blob:local");
+  });
+});

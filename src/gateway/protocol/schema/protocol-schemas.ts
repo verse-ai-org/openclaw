@@ -62,6 +62,7 @@ import {
   ToolsInvokeResultSchema,
 } from "./agents-models-skills.js";
 import {
+  ArtifactRefSchema,
   ArtifactSummarySchema,
   ArtifactsDownloadParamsSchema,
   ArtifactsDownloadResultSchema,
@@ -69,6 +70,8 @@ import {
   ArtifactsGetResultSchema,
   ArtifactsListParamsSchema,
   ArtifactsListResultSchema,
+  ChatHistoryMessageArtifactProjectionSchema,
+  ChatSendAckSchema,
 } from "./artifacts.js";
 import {
   ChannelsStartParamsSchema,
@@ -445,7 +448,10 @@ export const ProtocolSchemas = {
   AgentsFilesGetResult: AgentsFilesGetResultSchema,
   AgentsFilesSetParams: AgentsFilesSetParamsSchema,
   AgentsFilesSetResult: AgentsFilesSetResultSchema,
+  ArtifactRef: ArtifactRefSchema,
   ArtifactSummary: ArtifactSummarySchema,
+  ChatSendAck: ChatSendAckSchema,
+  ChatHistoryMessageArtifactProjection: ChatHistoryMessageArtifactProjectionSchema,
   ArtifactsListParams: ArtifactsListParamsSchema,
   ArtifactsListResult: ArtifactsListResultSchema,
   ArtifactsGetParams: ArtifactsGetParamsSchema,

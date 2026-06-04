@@ -75,7 +75,13 @@ export interface InteractiveSummaryPair {
   answer: string;
 }
 
-/** A sent file attachment stored with the message for display. */
+import type { ArtifactRef, ArtifactSummary } from "./artifact";
+
+/**
+ * A sent file attachment stored with the message for display.
+ *
+ * @deprecated Prefer `artifactRefs` + `artifacts` from the gateway artifact protocol.
+ */
 export interface MessageAttachment {
   /** Original file name */
   fileName: string;
@@ -83,6 +89,10 @@ export interface MessageAttachment {
   mimeType: string;
   /** File size in bytes */
   size: number;
+  /** Inbound media ref for gateway assistant-media preview (`media://inbound/...`). */
+  mediaRef?: string;
+  /** Optimistic local preview (`blob:`) before history reload. */
+  previewUrl?: string;
 }
 
 export interface InteractionMessageMetadata {
@@ -105,7 +115,13 @@ export interface ChatMessage {
   ts: number;
   runId?: string;
   sessionKey?: string;
-  /** File attachments sent with this user message (for display only) */
+  /** Gateway artifact bindings (preferred). */
+  artifactRefs?: ArtifactRef[];
+  /** Resolved summaries when available (send ack or client cache). */
+  artifacts?: ArtifactSummary[];
+  /**
+   * @deprecated Prefer `artifactRefs` + `artifacts`. Legacy display hints from history.
+   */
   attachments?: MessageAttachment[];
   /** Optional structured metadata attached to this message. */
   metadata?: ChatMessageMetadata;

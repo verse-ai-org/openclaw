@@ -3,11 +3,11 @@ import {
   ActionBarPrimitive,
   useAuiState,
 } from "@assistant-ui/react";
-import { CheckIcon, CopyIcon, FileText, Image, PencilIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, PencilIcon } from "lucide-react";
 import { type FC, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/hooks/common/use-copy-to-clipboard.ts";
-import type { MessageAttachment } from "@/components/chat/types";
+import { MessageArtifactRefs } from "@/components/chat/artifacts/MessageArtifactRefs";
 import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
 import { useSettingsStore } from "@/store/settings.store";
@@ -68,7 +68,6 @@ export const UserMessage: FC = () => {
     interaction.id.length > 0 &&
     parseQaPairsFromMessage(message?.content ?? "").length > 0;
 
-  // Hide the Q/A echo message completely (it's for model-driving only).
   if (isInteractionEcho) {
     return null;
   }
@@ -76,11 +75,16 @@ export const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root className="group/msg mx-auto w-full max-w-(--thread-max-width) py-2" data-role="user">
       <div className="flex flex-col items-end gap-1.5">
-        {/* File attachment tags — above the bubble, right-aligned */}
-        <UserAttachments />
+        <MessageArtifactRefs
+          messageId={messageId}
+          sessionKey={activeSessionKey}
+          artifactRefs={message?.artifactRefs}
+          artifacts={message?.artifacts}
+          legacyAttachments={message?.attachments}
+          align="end"
+        />
 
         <div className="flex max-w-[80%] flex-col items-stretch gap-1 self-end">
-          {/* Message bubble — text only */}
           <div
             className={cn(
               "rounded-3xl px-4 py-2.5 text-sm",
@@ -90,7 +94,6 @@ export const UserMessage: FC = () => {
             <MessagePrimitive.Parts components={{ Text: UserText }} />
           </div>
 
-          {/* Edit + copy — below bubble, fades in on hover */}
           <div
             className={cn(
               "flex justify-end gap-2",
@@ -143,46 +146,3 @@ const UserText: FC<{ text: string }> = ({ text }) => (
   <p className="whitespace-pre-wrap wrap-break-word">{text}</p>
 );
 
-// Stable empty array to avoid creating a new reference on every render
-const EMPTY_ATTACHMENTS: MessageAttachment[] = [];
-
-// Reads attachments from the Zustand store by matching the current message id,
-// bypassing assistant-ui's attachment system (which has complex type requirements).
-const UserAttachments: FC = () => {
-  const messageId = useAuiState((s) => s.message.id);
-  const sessionKey = useChatStore((s) => s.sessionKey);
-  const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
-  const activeSessionKey = resolveActiveChatSessionKey(sessionKey, settingsSessionKey);
-  const conversation = useConversationStore((s) => s.byThread[activeSessionKey]);
-  const attachments = (() => {
-    const messages = conversation ? selectChatMessages(conversation) : [];
-    const msg = messages.find((m) => m.id === messageId);
-    return msg?.attachments ?? EMPTY_ATTACHMENTS;
-  })();
-
-  if (attachments.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-wrap justify-end gap-1.5">
-      {attachments.map((att) => (
-        <UserAttachmentTag key={att.fileName} attachment={att} />
-      ))}
-    </div>
-  );
-};
-
-const UserAttachmentTag: FC<{ attachment: MessageAttachment }> = ({ attachment }) => {
-  const isImage = attachment.mimeType.startsWith("image/");
-  return (
-    <div className="flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground">
-      {isImage ? (
-        <Image className="size-3.5 shrink-0" />
-      ) : (
-        <FileText className="size-3.5 shrink-0" />
-      )}
-      <span className="truncate font-medium">{attachment.fileName}</span>
-    </div>
-  );
-};

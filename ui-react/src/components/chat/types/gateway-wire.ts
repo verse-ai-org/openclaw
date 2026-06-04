@@ -2,12 +2,16 @@
 // Gateway wire payload types (ingress boundary)
 // ---------------------------------------------------------------------------
 
+import type { ArtifactRef } from "./artifact";
+
 /** Raw gateway message shape before normalization (e.g. chat.history). */
 export type RawMessage = {
   id?: string;
   role?: string;
   content?: unknown;
   text?: string;
+  /** Indexed artifact refs from gateway history projection (`chat.history`). */
+  artifactRefs?: ArtifactRef[];
   /** Gateway may attach file display hints when user content is shortened for history. */
   attachments?: unknown;
   metadata?: unknown;

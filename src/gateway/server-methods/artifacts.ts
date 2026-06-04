@@ -1,5 +1,10 @@
-import { createHash } from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { resolveInboundMediaRefFromAbsolutePath } from "../chat-attachments.js";
+import { buildArtifactId } from "../chat-artifact-id.js";
+import { resolveMediaReferenceLocalPath } from "../../media/media-reference.js";
 import { resolveDefaultAgentId } from "../../agents/agent-scope.js";
+import { formatErrorMessage } from "../../infra/errors.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import {
   normalizeAgentId,
@@ -184,22 +189,6 @@ function isSafeDownloadUrl(value: string): boolean {
   }
 }
 
-function artifactId(parts: {
-  sessionKey: string;
-  messageSeq: number;
-  contentIndex: number;
-  title: string;
-  type: string;
-}): string {
-  const hash = createHash("sha256")
-    .update(
-      `${parts.sessionKey}\0${parts.messageSeq}\0${parts.contentIndex}\0${parts.type}\0${parts.title}`,
-    )
-    .digest("base64url")
-    .slice(0, 18);
-  return `artifact_${hash}`;
-}
-
 function resolveMessageSeq(message: Record<string, unknown>, fallback: number): number {
   const meta = asRecord(message["__openclaw"]);
   const seq = meta?.seq;
@@ -300,7 +289,7 @@ export function collectArtifactsFromMessages(params: {
   return artifacts;
 }
 
-function collectArtifactsFromMessage(params: {
+export function collectArtifactsFromMessage(params: {
   message: unknown;
   messageFallbackSeq: number;
   artifacts: ArtifactRecord[];
@@ -335,8 +324,15 @@ function collectArtifactsFromMessage(params: {
       asNonEmptyString(block.alt) ??
       `${type} ${params.artifacts.length + 1}`;
     const download = resolveBlockDownload(block);
+    const role = msg.role === "user" ? "input" : msg.role === "assistant" ? "output" : undefined;
+    const source =
+      msg.role === "user"
+        ? "user-upload"
+        : msg.role === "assistant"
+          ? "assistant-output"
+          : undefined;
     const summary: ArtifactRecord = {
-      id: artifactId({
+      id: buildArtifactId({
         sessionKey: params.sessionKey,
         messageSeq,
         contentIndex,
@@ -351,12 +347,82 @@ function collectArtifactsFromMessage(params: {
       ...(messageRunId ? { runId: messageRunId } : {}),
       ...(messageTaskId ? { taskId: messageTaskId } : {}),
       messageSeq,
-      source: "session-transcript",
+      contentIndex,
+      ...(source ? { source } : {}),
+      ...(role ? { role } : {}),
+      ingestChannel: "transcript-block",
       download: { mode: download.mode },
       ...(download.data ? { data: download.data } : {}),
       ...(download.url ? { url: download.url } : {}),
     };
     params.artifacts.push(summary);
+  }
+
+  if (msg.role === "user") {
+    collectUserMediaPathArtifacts({
+      message: msg,
+      messageSeq,
+      messageRunId,
+      messageTaskId,
+      sessionKey: params.sessionKey,
+      contentStartIndex: content.length,
+      artifacts: params.artifacts,
+    });
+  }
+}
+
+function collectUserMediaPathArtifacts(params: {
+  message: Record<string, unknown>;
+  messageSeq: number;
+  messageRunId?: string;
+  messageTaskId?: string;
+  sessionKey: string;
+  contentStartIndex: number;
+  artifacts: ArtifactRecord[];
+}): void {
+  const mediaPaths = Array.isArray(params.message.MediaPaths)
+    ? params.message.MediaPaths.filter((p): p is string => typeof p === "string" && p.trim().length > 0)
+    : typeof params.message.MediaPath === "string" && params.message.MediaPath.trim()
+      ? [params.message.MediaPath.trim()]
+      : [];
+  const mediaTypes = Array.isArray(params.message.MediaTypes)
+    ? params.message.MediaTypes.filter((t): t is string => typeof t === "string")
+    : typeof params.message.MediaType === "string"
+      ? [params.message.MediaType]
+      : [];
+  for (let i = 0; i < mediaPaths.length; i += 1) {
+    const mediaPath = mediaPaths[i];
+    const mimeType = mediaTypes[i] ?? "application/octet-stream";
+    const type = mimeType.startsWith("image/")
+      ? "image"
+      : mimeType.startsWith("audio/")
+        ? "audio"
+        : "file";
+    const title = path.basename(mediaPath) || `${type} ${i + 1}`;
+    const contentIndex = params.contentStartIndex + i;
+    const mediaRef = resolveInboundMediaRefFromAbsolutePath(mediaPath);
+    params.artifacts.push({
+      id: buildArtifactId({
+        sessionKey: params.sessionKey,
+        messageSeq: params.messageSeq,
+        contentIndex,
+        title,
+        type,
+      }),
+      type,
+      title,
+      mimeType,
+      sessionKey: params.sessionKey,
+      ...(params.messageRunId ? { runId: params.messageRunId } : {}),
+      ...(params.messageTaskId ? { taskId: params.messageTaskId } : {}),
+      messageSeq: params.messageSeq,
+      contentIndex,
+      source: "user-upload",
+      role: "input",
+      ingestChannel: mediaRef ? "path-ref" : "inline-base64",
+      download: { mode: mediaRef ? "bytes" : "unsupported" },
+      ...(mediaRef ? { url: mediaRef, mediaRef } : {}),
+    });
   }
 }
 
@@ -476,8 +542,17 @@ async function findArtifact(
 }
 
 function toSummary(artifact: ArtifactRecord): ArtifactSummary {
-  const { data: dataValue, url: _url, ...summary } = artifact;
-  return summary;
+  const { data: dataValue, url, ...summary } = artifact;
+  const mediaRef =
+    typeof summary.mediaRef === "string" && summary.mediaRef.trim()
+      ? summary.mediaRef
+      : typeof url === "string" && url.startsWith("media://")
+        ? url
+        : undefined;
+  return {
+    ...summary,
+    ...(mediaRef ? { mediaRef } : {}),
+  };
 }
 
 export const artifactsHandlers: GatewayRequestHandlers = {
@@ -539,7 +614,7 @@ export const artifactsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    if (artifact.download.mode === "unsupported") {
+    if (artifact.download.mode === "unsupported" && !artifact.url) {
       respond(
         false,
         undefined,
@@ -549,12 +624,32 @@ export const artifactsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+    let data = artifact.data;
+    if (!data && artifact.url?.startsWith("media://")) {
+      try {
+        const localPath = await resolveMediaReferenceLocalPath(artifact.url);
+        const buffer = await fs.readFile(localPath);
+        data = buffer.toString("base64");
+      } catch (err) {
+        respond(
+          false,
+          undefined,
+          artifactError("artifact_download_failed", "failed to read inbound media", {
+            artifactId: artifact.id,
+            error: formatErrorMessage(err),
+          }),
+        );
+        return;
+      }
+    }
     respond(true, {
       artifact: toSummary(artifact),
-      ...(artifact.download.mode === "bytes"
-        ? { encoding: "base64" as const, data: artifact.data }
+      ...(artifact.download.mode === "bytes" || data
+        ? { encoding: "base64" as const, data }
         : {}),
-      ...(artifact.download.mode === "url" ? { url: artifact.url } : {}),
+      ...(artifact.download.mode === "url" && artifact.url && isSafeDownloadUrl(artifact.url)
+        ? { url: artifact.url }
+        : {}),
     });
   },
 };

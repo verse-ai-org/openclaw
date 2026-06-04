@@ -24,6 +24,7 @@ describe("parseGatewaySendPayload", () => {
     });
     expect(parsed.displayAttachments).toHaveLength(1);
     expect(parsed.displayAttachments[0].mimeType).toBe("image/png");
+    expect(parsed.displayAttachments[0].previewUrl).toBe("data:image/png;base64,AAA111");
   });
 
   it("extracts image attachments from thread attachments", () => {
@@ -81,7 +82,9 @@ describe("parseGatewaySendPayload", () => {
     const parsed = parseGatewaySendPayload(message);
 
     expect(parsed.text).toBe("with file");
-    expect(parsed.gatewayAttachments).toEqual([]);
+    expect(parsed.gatewayAttachments).toEqual([
+      { content: "QkFTRTY0", mimeType: "text/plain", fileName: "doc.txt" },
+    ]);
     expect(parsed.displayAttachments).toEqual([{ fileName: "doc.txt", mimeType: "text/plain", size: 42 }]);
   });
 });

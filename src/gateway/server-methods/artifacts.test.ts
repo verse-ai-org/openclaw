@@ -117,7 +117,8 @@ describe("artifacts RPC handlers", () => {
       sizeBytes: 5,
       sessionKey: "agent:main:main",
       messageSeq: 2,
-      source: "session-transcript",
+      source: "assistant-output",
+      ingestChannel: "transcript-block",
     });
     expectFields(artifact?.download, { mode: "bytes" });
     expect(artifact?.id).toMatch(/^artifact_/);

@@ -1,5 +1,6 @@
 import type { OpenClawConfig } from "../../config/config.js";
 import { loadSessionStore, resolveSessionStoreEntry, resolveStorePath } from "../../config/sessions.js";
+import type { SessionEntry } from "../../config/sessions/types.js";
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { listAgentIds } from "../../agents/agent-scope-config.js";
 
@@ -224,7 +225,7 @@ function resolveFromIdentityLinksUniqueChannel(params: {
  */
 function collectHitsFromStore(params: {
   adapter: RecipientAdapter;
-  store: Record<string, { identityHints?: { recipientsByChannel?: Record<string, string>; feishuDirectUserId?: string }; origin?: { from?: string } }>;
+  store: Record<string, SessionEntry>;
   sessionKey?: string;
 }): Set<string> {
   const hits = new Set<string>();
@@ -329,7 +330,7 @@ function resolveFromAllAgentSessionHints(params: {
       continue;
     }
     const storePath = resolveStorePath(params.cfg.session?.store, { agentId });
-    let store: Record<string, { identityHints?: { recipientsByChannel?: Record<string, string>; feishuDirectUserId?: string }; origin?: { from?: string } }>;
+    let store: Record<string, SessionEntry>;
     try {
       store = loadSessionStore(storePath);
     } catch {
@@ -430,7 +431,7 @@ export function collectAllChannelRecipients(params: {
     : RECIPIENT_ADAPTERS;
   for (const agentId of allAgentIds) {
     const storePath = resolveStorePath(params.cfg.session?.store, { agentId });
-    let store: Record<string, { identityHints?: { recipientsByChannel?: Record<string, string>; feishuDirectUserId?: string }; origin?: { from?: string } }>;
+    let store: Record<string, SessionEntry>;
     try {
       store = loadSessionStore(storePath);
     } catch {

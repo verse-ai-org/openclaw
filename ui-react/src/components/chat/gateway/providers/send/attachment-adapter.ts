@@ -2,6 +2,7 @@ import type { AttachmentAdapter, CompleteAttachment, PendingAttachment } from "@
 import { CompositeAttachmentAdapter } from "@assistant-ui/react";
 import { toast } from "sonner";
 import { fileToBase64 } from "@/utils/file-to-base64";
+import { getElectronBridge } from "@/utils/electron-env";
 
 export const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -111,13 +112,17 @@ class GatewayBinaryAttachmentAdapter implements AttachmentAdapter {
   }
 
   async send(attachment: PendingAttachment): Promise<CompleteAttachment> {
+    const hasPath =
+      Boolean(getElectronBridge()?.getPathForFile?.(attachment.file)) ||
+      Boolean((attachment.file as File & { path?: string }).path?.trim());
+    const base64 = hasPath ? "" : await fileToBase64(attachment.file);
     return {
       ...attachment,
       status: { type: "complete" },
       content: [
         {
           type: "file",
-          data: "",
+          data: base64,
           mimeType: attachment.file.type,
           filename: attachment.name,
         },

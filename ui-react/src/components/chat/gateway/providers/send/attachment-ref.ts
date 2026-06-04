@@ -60,6 +60,10 @@ export async function buildAttachmentRefsFromMessage(
     if (!file) {
       continue;
     }
+    const mimeType = att.contentType || file.type || "application/octet-stream";
+    if (mimeType.startsWith("image/")) {
+      continue;
+    }
     const path = getElectronFilePath(file);
     const name = att.name?.trim() || file.name || "file";
     if (!path) {
@@ -71,7 +75,7 @@ export async function buildAttachmentRefsFromMessage(
       fileId: sha256.slice(0, 24),
       path,
       fileName: name,
-      mimeType: att.contentType || file.type || "application/octet-stream",
+      mimeType,
       size: file.size,
       sha256,
     });

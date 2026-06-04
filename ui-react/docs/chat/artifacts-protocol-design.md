@@ -301,6 +301,8 @@ artifactRefs?: { artifactId: string; role?: "input" | "output" }[];
 
 ## 10. 分阶段落地
 
+> **可执行任务、PR 拆分、验证命令**：见 [`artifacts-protocol-implementation-plan.md`](./artifacts-protocol-implementation-plan.md)。
+
 ### Phase 1 — 协议与投影（最小可行）
 
 - [ ] 扩展 `ArtifactSummarySchema`（`source`, `role`, `ingestChannel` 等可选字段）

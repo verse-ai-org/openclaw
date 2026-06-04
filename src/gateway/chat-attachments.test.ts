@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildMessageWithAttachments,
   type ChatAttachment,
+  extractMediaAttachedLineHints,
   parseMessageWithAttachments,
   splitUserMessageForChatHistoryDisplay,
   stripExtractedFileContentAppendix,
+  stripMediaAttachedLines,
 } from "./chat-attachments.js";
 
 const PNG_1x1 =
@@ -183,18 +185,47 @@ describe("shared attachment validation", () => {
 describe("stripExtractedFileContentAppendix", () => {
   it("removes content after the \\n\\n marker when user text exists", () => {
     const prompt = "summarize this";
-    const appendix = "\n\n以下是上传文件的内容：\n\n[文件: a.pdf]\nlong text";
+    const appendix = "\n\nUploaded file contents:\n\n[File: a.pdf]\nlong text";
     expect(stripExtractedFileContentAppendix(prompt + appendix)).toBe(prompt);
   });
 
   it("clears to empty when only extracted heading and blocks", () => {
-    expect(stripExtractedFileContentAppendix("以下是上传文件的内容：\n\n[文件: x.pdf]\nx")).toBe("");
+    expect(stripExtractedFileContentAppendix("Uploaded file contents:\n\n[File: x.pdf]\nx")).toBe("");
+  });
+});
+
+describe("stripMediaAttachedLines", () => {
+  it("removes standalone media attached lines", () => {
+    const raw = [
+      "hello",
+      "[media attached: media://inbound/a.png (image/png) | media://inbound/a.png]",
+      "world",
+    ].join("\n");
+    expect(stripMediaAttachedLines(raw)).toBe("hello\nworld");
+  });
+});
+
+describe("extractMediaAttachedLineHints", () => {
+  it("parses inbound media refs from transcript user text", () => {
+    const raw = [
+      "[media attached: media://inbound/川西5天小环线完美结束_1_十一_来自小红书网页版---e0967595-2063-4b90-9f1e-77e72daf10c5.jpg (image/jpeg) | media://inbound/川西5天小环线完美结束_1_十一_来自小红书网页版---e0967595-2063-4b90-9f1e-77e72daf10c5.jpg]",
+      "[Thu 2026-06-04 21:16 GMT+8] 查看一下这张图片的尺寸和格式信息",
+    ].join("\n");
+    expect(extractMediaAttachedLineHints(raw)).toEqual([
+      {
+        fileName: "川西5天小环线完美结束_1_十一_来自小红书网页版---e0967595-2063-4b90-9f1e-77e72daf10c5.jpg",
+        mimeType: "image/jpeg",
+        size: 0,
+        mediaRef:
+          "media://inbound/川西5天小环线完美结束_1_十一_来自小红书网页版---e0967595-2063-4b90-9f1e-77e72daf10c5.jpg",
+      },
+    ]);
   });
 });
 
 describe("splitUserMessageForChatHistoryDisplay", () => {
   it("returns attachment hints from the appendix region", () => {
-    const raw = ["hello", "", "以下是上传文件的内容：", "", "[文件: doc.pdf]", "body"].join("\n");
+    const raw = ["hello", "", "Uploaded file contents:", "", "[File: doc.pdf]", "body"].join("\n");
     const { displayText, attachmentHints } = splitUserMessageForChatHistoryDisplay(raw);
     expect(displayText).toBe("hello");
     expect(attachmentHints).toEqual([

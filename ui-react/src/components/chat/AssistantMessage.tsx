@@ -11,6 +11,7 @@ import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { AgentAvatar } from "../assistant-ui/agent-avatar.tsx";
+import { MessageArtifactRefs } from "@/components/chat/artifacts/MessageArtifactRefs";
 import { splitAssistantContentParts } from "@/components/chat/adapters/assistant-ui";
 import { isFirstAssistantInTurn } from "@/components/chat/utils/turn-boundaries";
 import { selectChatMessages } from "@/store/conversation-selectors";
@@ -101,6 +102,14 @@ export const AssistantMessage: FC = () => {
 
       {/* Content column — indented to align with avatar */}
       <div className="pl-2 w-full min-w-0">
+        <MessageArtifactRefs
+          messageId={messageId}
+          sessionKey={activeSessionKey}
+          artifactRefs={conversation?.messagesById.get(messageId)?.artifactRefs}
+          artifacts={conversation?.messagesById.get(messageId)?.artifacts}
+          align="start"
+          roleFilter="output"
+        />
         <div className="wrap-break-word text-foreground leading-relaxed">
           <AssistantToolGroup
             toolParts={toolParts}
@@ -117,3 +126,4 @@ export const AssistantMessage: FC = () => {
     </MessagePrimitive.Root>
   );
 };
+

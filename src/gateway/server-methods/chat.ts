@@ -85,6 +85,13 @@ import {
   resolveChatAttachmentMaxBytes,
   UnsupportedAttachmentError,
 } from "../chat-attachments.js";
+import { enrichChatFinalBroadcastPayload } from "../chat-final-artifacts.js";
+import { projectChatHistoryMessagesWithArtifacts } from "../chat-history-artifacts.js";
+import {
+  attachmentRefArtifactContentIndexOffset,
+  buildChatSendAckArtifacts,
+  buildUserTranscriptContentWithAttachmentRefs,
+} from "../chat-send-artifacts.js";
 import {
   isToolHistoryBlockType,
   projectChatDisplayMessage,
@@ -812,17 +819,9 @@ function buildAttachmentRefsAppendix(refs: ChatAttachmentRef[]): string {
   if (refs.length === 0) {
     return "";
   }
-  const lines = refs.map((ref) =>
-    [
-      `[文件: ${ref.fileName || "file"}]`,
-      `fileId=${ref.fileId}`,
-      `path=${ref.path}`,
-      `mime=${ref.mimeType || "unknown"}`,
-      `size=${ref.size}`,
-      `sha256=${ref.sha256 || "unknown"}`,
-    ].join("\n"),
-  );
-  return `${CHAT_UPLOADED_FILES_CONTENT_HEADING}\n\n${lines.join("\n\n")}`;
+  // Display/history uses structured transcript blocks; keep appendix markers only for agent-compat fallbacks.
+  const lines = refs.map((ref) => `[File: ${ref.fileName || "file"}]`);
+  return `${CHAT_UPLOADED_FILES_CONTENT_HEADING}\n\n${lines.join("\n")}`;
 }
 
 type AttachmentIntent = "read-extract" | "edit-convert" | "unknown";
@@ -1004,15 +1003,20 @@ async function persistChatSendImages(params: {
 
 function buildChatSendTranscriptMessage(params: {
   message: string;
+  attachmentRefs?: ChatAttachmentRef[];
   savedImages: SavedMedia[];
   timestamp: number;
   metadata?: Record<string, unknown>;
   idempotencyKey?: string;
 }) {
   const mediaFields = resolveChatSendTranscriptMediaFields(params.savedImages);
+  const content =
+    params.attachmentRefs && params.attachmentRefs.length > 0
+      ? buildUserTranscriptContentWithAttachmentRefs(params.message, params.attachmentRefs)
+      : params.message;
   return {
     role: "user" as const,
-    content: params.message,
+    content,
     timestamp: params.timestamp,
     ...mediaFields,
     ...(params.metadata ? { metadata: params.metadata } : {}),
@@ -1028,7 +1032,10 @@ function stripTrailingOffloadedMediaMarkers(message: string, refs: OffloadedRef[
   const lines = message.split(/\r?\n/);
   while (lines.length > 0) {
     const last = lines[lines.length - 1]?.trim() ?? "";
-    const match = /^\[media attached:\s*(media:\/\/inbound\/[^\]\s]+)\]$/.exec(last);
+    const match =
+      /^\[media attached(?:\s+\d+\/\d+)?:\s*(media:\/\/inbound\/[^\]\s]+)(?:\s*\([^)]*\))?(?:\s*\|[^\]]*)?\]$/.exec(
+        last,
+      );
     if (!match?.[1] || !removableRefs.delete(match[1])) {
       break;
     }
@@ -1838,12 +1845,22 @@ function broadcastChatFinal(params: {
   message?: Record<string, unknown>;
 }) {
   const seq = nextChatSeq({ agentRunSeq: params.context.agentRunSeq }, params.runId);
+  const enriched = enrichChatFinalBroadcastPayload({
+    sessionKey: params.sessionKey,
+    runId: params.runId,
+    message: params.message,
+  });
   const payload = {
     runId: params.runId,
     sessionKey: params.sessionKey,
     seq,
     state: "final" as const,
-    message: projectChatDisplayMessage(params.message),
+    ...(enriched.message
+      ? { message: projectChatDisplayMessage(enriched.message) }
+      : {}),
+    ...(enriched.artifacts && enriched.artifacts.length > 0
+      ? { artifacts: enriched.artifacts }
+      : {}),
   };
   params.context.broadcast("chat", payload);
   params.context.nodeSendToSession(params.sessionKey, "chat", payload);
@@ -1975,10 +1992,14 @@ export const chatHandlers: GatewayRequestHandlers = {
       });
     }
     const verboseLevel = entry?.verboseLevel ?? cfg.agents?.defaults?.verboseDefault;
+    const messagesWithArtifacts = projectChatHistoryMessagesWithArtifacts(
+      bounded.messages as Array<Record<string, unknown>>,
+      sessionKey,
+    );
     respond(true, {
       sessionKey,
       sessionId,
-      messages: bounded.messages,
+      messages: messagesWithArtifacts,
       thinkingLevel,
       fastMode: entry?.fastMode,
       verboseLevel,
@@ -2535,9 +2556,27 @@ export const chatHandlers: GatewayRequestHandlers = {
         sessionKey,
         clientRunId,
       });
+      const sendAckArtifacts = buildChatSendAckArtifacts({
+        sessionKey,
+        runId: clientRunId,
+        attachments: normalizedAttachments
+          .filter((att) => typeof att.content === "string" && att.content.trim().length > 0)
+          .map((att, index) => ({
+            mimeType: att.mimeType ?? "application/octet-stream",
+            fileName: att.fileName ?? att.type ?? `attachment-${index + 1}`,
+            content: String(att.content),
+          })),
+        offloadedRefs,
+        attachmentRefs,
+        attachmentRefContentIndexOffset:
+          attachmentRefs.length > 0
+            ? attachmentRefArtifactContentIndexOffset(parsedMessage)
+            : undefined,
+      });
       const ackPayload = {
         runId: clientRunId,
         status: "started" as const,
+        ...(sendAckArtifacts.length > 0 ? { artifacts: sendAckArtifacts } : {}),
       };
       respond(true, ackPayload, undefined, { runId: clientRunId });
       const persistedImagesPromise = persistChatSendImages({
@@ -2693,6 +2732,7 @@ export const chatHandlers: GatewayRequestHandlers = {
                 sessionKey,
                 message: buildChatSendTranscriptMessage({
                   message: parsedMessage,
+                  attachmentRefs: attachmentRefs.length > 0 ? attachmentRefs : undefined,
                   savedImages: persistedImages,
                   timestamp: now,
                   ...(p.metadata ? { metadata: p.metadata } : {}),

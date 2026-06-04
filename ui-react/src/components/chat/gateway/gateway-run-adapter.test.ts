@@ -19,6 +19,48 @@ describe("gatewayToRunEvents", () => {
     expect(events).toEqual([{ type: "run.finished", text }]);
   });
 
+  it("maps chat final artifacts to run.finished bindings", () => {
+    const { events } = gatewayToRunEvents("chat", {
+      runId: "r1",
+      sessionKey: "agent:default:main",
+      seq: 1,
+      state: "final",
+      artifacts: [
+        {
+          id: "artifact_abc",
+          type: "image",
+          title: "out.png",
+          mimeType: "image/png",
+          role: "output",
+          download: { mode: "bytes" },
+        },
+      ],
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "done" }],
+        artifactRefs: [{ artifactId: "artifact_abc", role: "output" }],
+        timestamp: 1,
+      },
+    });
+    expect(events).toEqual([
+      {
+        type: "run.finished",
+        text: "done",
+        artifactRefs: [{ artifactId: "artifact_abc", role: "output" }],
+        artifacts: [
+          {
+            id: "artifact_abc",
+            type: "image",
+            title: "out.png",
+            mimeType: "image/png",
+            role: "output",
+            download: { mode: "bytes" },
+          },
+        ],
+      },
+    ]);
+  });
+
   it("maps chat error to run.error", () => {
     const { events } = gatewayToRunEvents("chat", {
       runId: "r1",

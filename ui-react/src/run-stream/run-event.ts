@@ -1,3 +1,5 @@
+import { ArtifactRef, ArtifactSummary } from "@/components/chat/types";
+
 /**
  * Protocol-agnostic normalized run events.
  * The Gateway adapter (gateway-run-adapter.ts) translates raw WS payloads into
@@ -23,8 +25,16 @@ export type RunEvent =
   | { type: "tool.result"; id: string; output?: unknown }
   /** Tool call failed. */
   | { type: "tool.error"; id: string; error?: string }
-  /** Run finished. `text` is the final assistant message text when provided by the gateway. */
-  | { type: "run.finished"; text?: string }
+  /**
+   * Run finished. `text` is the final assistant message text when provided by the gateway.
+   * Optional artifact bindings mirror `chat.final` (`artifacts` + message `artifactRefs`).
+   */
+  | {
+      type: "run.finished";
+      text?: string;
+      artifactRefs?: ArtifactRef[];
+      artifacts?: ArtifactSummary[];
+    }
   /** Run ended with an error. */
   | { type: "run.error"; message?: string }
   /** Run was aborted by user or gateway. */

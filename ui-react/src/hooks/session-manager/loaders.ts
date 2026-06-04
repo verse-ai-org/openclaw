@@ -3,13 +3,84 @@ import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
 import type { IGatewayClient } from "@/store/gateway.store";
 import type { RawMessage } from "@/components/chat/gateway";
+import { prefetchArtifactsForSession } from "@/components/chat/artifacts/artifact-gateway-client";
+import type { CanonicalMessage } from "@/components/chat/conversation";
+import { mergeInboundArtifactMediaIntoAttachments } from "@/components/chat/artifact-helpers";
+import { stripGatewayUserDisplayText } from "@/components/chat/artifacts/strip-gateway-user-display-text";
 import {
   mergeHistoryRuns,
   serializeGatewayHistoryToCanonicalSnapshot,
 } from "@/components/chat/serialization";
+import { selectCanonicalMessages } from "@/store/conversation-selectors";
 import { useSessionsStore } from "@/store/sessions.store";
 import { enrichSessionsFromLocalConversation } from "./enrich-sessions-from-conversation";
 import type { SessionEntry, SessionsListDefaults } from "./types";
+
+/** Post-run silent reload can race transcript MediaPaths; keep prior attachment metadata when text matches. */
+export const SILENT_HISTORY_RELOAD_DELAY_MS = 400;
+
+function userPromptFromCanonical(message: CanonicalMessage): string {
+  return message.parts
+    .filter((part): part is Extract<typeof part, { type: "text" }> => part.type === "text")
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
+}
+
+function normalizeUserPromptKey(text: string): string {
+  return stripGatewayUserDisplayText(text).trim();
+}
+
+export function preserveUserAttachmentMetadataOnSilentReload(
+  previous: CanonicalMessage[],
+  incoming: CanonicalMessage[],
+): CanonicalMessage[] {
+  const priorByPrompt = new Map<string, CanonicalMessage>();
+  for (const message of previous) {
+    if (message.role !== "user") {
+      continue;
+    }
+    const key = normalizeUserPromptKey(userPromptFromCanonical(message));
+    if (key) {
+      priorByPrompt.set(key, message);
+    }
+  }
+  return incoming.map((message) => {
+    if (message.role !== "user") {
+      return message;
+    }
+    const key = normalizeUserPromptKey(userPromptFromCanonical(message));
+    const prior = key ? priorByPrompt.get(key) : undefined;
+    if (!prior) {
+      return message;
+    }
+    const incomingHasRefs =
+      (message.artifactRefs?.length ?? 0) > 0 ||
+      (message.attachments?.length ?? 0) > 0 ||
+      (message.artifacts?.length ?? 0) > 0;
+    if (incomingHasRefs) {
+      return message;
+    }
+    const priorHasRefs =
+      (prior.artifactRefs?.length ?? 0) > 0 ||
+      (prior.attachments?.length ?? 0) > 0 ||
+      (prior.artifacts?.length ?? 0) > 0;
+    if (!priorHasRefs) {
+      return message;
+    }
+    const artifacts = prior.artifacts?.length ? prior.artifacts : undefined;
+    const attachments = prior.attachments?.length
+      ? mergeInboundArtifactMediaIntoAttachments(prior.attachments, artifacts ?? []) ??
+        prior.attachments
+      : undefined;
+    return {
+      ...message,
+      ...(prior.artifactRefs?.length ? { artifactRefs: prior.artifactRefs } : {}),
+      ...(artifacts ? { artifacts } : {}),
+      ...(attachments ? { attachments } : {}),
+    };
+  });
+}
 
 type ChatHistoryResponse = {
   messages?: unknown[];
@@ -155,11 +226,21 @@ export async function loadHistoryFromGateway(params: {
         ? activeSession.contextTokens
         : null) ??
       (typeof defaultCtx === "number" && defaultCtx > 0 ? defaultCtx : null);
-    const { messages: canonicalMessages, runs: historyRuns } = serializeGatewayHistoryToCanonicalSnapshot({
+    let { messages: canonicalMessages, runs: historyRuns } = serializeGatewayHistoryToCanonicalSnapshot({
       threadId: key,
       messages: rawMessages,
       contextWindow,
     });
+    if (silent) {
+      const prevConv = useConversationStore.getState().byThread[key];
+      const previous = prevConv ? selectCanonicalMessages(prevConv) : [];
+      if (previous.length > 0) {
+        canonicalMessages = preserveUserAttachmentMetadataOnSilentReload(
+          previous,
+          canonicalMessages,
+        );
+      }
+    }
     const isLatest = requestSeq === historyRequestSeqRef.current;
     const activeSessionKey = useChatStore.getState().sessionKey;
     const isCurrentSession = !activeSessionKey || activeSessionKey === key;
@@ -173,6 +254,9 @@ export async function loadHistoryFromGateway(params: {
       );
       return;
     }
+
+    // Prefetch artifact summaries before snapshot so history rows can resolve mediaRef immediately.
+    await prefetchArtifactsForSession(client, key);
 
     // Feed canonical conversation snapshot (thread-level reducer).
     // Silent reloads (post-run refresh) skip the generation bump to avoid a full message list

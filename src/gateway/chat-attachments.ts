@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import { estimateBase64DecodedBytes } from "../media/base64.js";
@@ -5,7 +6,7 @@ import { MAX_IMAGE_BYTES } from "../media/constants.js";
 import { extensionForMime, mimeTypeFromFilePath } from "../media/mime.js";
 import type { PromptImageOrderEntry } from "../media/prompt-image-order.js";
 import { sniffMimeFromBase64 } from "../media/sniff-mime-from-base64.js";
-import { deleteMediaBuffer, saveMediaBuffer } from "../media/store.js";
+import { deleteMediaBuffer, getMediaDir, saveMediaBuffer } from "../media/store.js";
 import { normalizeOptionalLowercaseString } from "../shared/string-coerce.js";
 
 export type ChatAttachment = {
@@ -95,16 +96,66 @@ export class MediaOffloadError extends Error {
  * Heading before extracted document text in inline document-append flows.
  * Used to trim gateway-injected file content from Control UI / chat.history display.
  */
-export const CHAT_UPLOADED_FILES_CONTENT_HEADING = "以下是上传文件的内容：";
+export const CHAT_UPLOADED_FILES_CONTENT_HEADING = "Uploaded file contents:";
 
-const GATEWAY_DOCUMENT_FILE_MARKER = /\[文件:\s*([^\]]+?)(?:\s*\([^)]*\))?\s*\]/g;
+const GATEWAY_DOCUMENT_FILE_MARKER =
+  /\[(?:File|文件):\s*([^\]]+?)(?:\s*\([^)]*\))?\s*\]/gi;
+
+/** Lines injected for agent media context; strip from chat.history display text. */
+const MEDIA_ATTACHED_LINE =
+  /^\[media attached(?:\s+\d+\/\d+)?:\s*[^\]]+\]$/i;
 
 /** Display metadata for uploaded files, aligned with Control UI `MessageAttachment`. */
 export type ChatHistoryAttachmentHint = {
   fileName: string;
   mimeType: string;
   size: number;
+  /** Canonical inbound ref for Control UI / webchat image preview (`media://inbound/<id>`). */
+  mediaRef?: string;
 };
+
+export function resolveInboundMediaRefFromAbsolutePath(absolutePath: string): string | undefined {
+  const trimmed = absolutePath.trim();
+  if (!trimmed || !path.isAbsolute(trimmed)) {
+    return undefined;
+  }
+  const inboundDir = path.join(path.resolve(getMediaDir()), "inbound");
+  const candidate = path.resolve(trimmed);
+  const relative = path.relative(inboundDir, candidate);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    return undefined;
+  }
+  return `media://inbound/${relative.split(path.sep).join("/")}`;
+}
+
+export function extractMediaPathAttachmentHints(
+  message: Record<string, unknown>,
+): ChatHistoryAttachmentHint[] {
+  const mediaPaths = Array.isArray(message.MediaPaths)
+    ? message.MediaPaths.filter((p): p is string => typeof p === "string" && p.trim().length > 0)
+    : typeof message.MediaPath === "string" && message.MediaPath.trim()
+      ? [message.MediaPath.trim()]
+      : [];
+  const mediaTypes = Array.isArray(message.MediaTypes)
+    ? message.MediaTypes.filter((t): t is string => typeof t === "string")
+    : typeof message.MediaType === "string"
+      ? [message.MediaType]
+      : [];
+  const hints: ChatHistoryAttachmentHint[] = [];
+  for (let i = 0; i < mediaPaths.length; i += 1) {
+    const mediaPath = mediaPaths[i];
+    const mimeType = mediaTypes[i]?.trim() || mimeTypeFromFilePath(mediaPath) || "application/octet-stream";
+    const fileName = path.basename(mediaPath) || `file-${i + 1}`;
+    const mediaRef = resolveInboundMediaRefFromAbsolutePath(mediaPath);
+    hints.push({
+      fileName,
+      mimeType,
+      size: 0,
+      ...(mediaRef ? { mediaRef } : {}),
+    });
+  }
+  return hints;
+}
 
 function inferMimeFromFileNameForHistory(fileName: string): string {
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
@@ -179,7 +230,44 @@ export function splitUserMessageForChatHistoryDisplay(message: string): {
 }
 
 export function stripExtractedFileContentAppendix(message: string): string {
-  return splitUserMessageAndAppendixRegion(message).displayText;
+  return stripMediaAttachedLines(splitUserMessageAndAppendixRegion(message).displayText);
+}
+
+export function stripMediaAttachedLines(message: string): string {
+  const lines = message.split(/\r?\n/);
+  const kept = lines.filter((line) => !MEDIA_ATTACHED_LINE.test(line.trim()));
+  return kept.join("\n").trimEnd();
+}
+
+const MEDIA_ATTACHED_LINE_WITH_REF =
+  /^\[media attached(?:\s+\d+\/\d+)?:\s*(media:\/\/inbound\/[^\]\s]+)(?:\s*\(([^)]*)\))?(?:\s*\|[^\]]*)?\]$/i;
+
+/** Parse `[media attached: media://inbound/...]` lines from transcript user text (no MediaPaths). */
+export function extractMediaAttachedLineHints(message: string): ChatHistoryAttachmentHint[] {
+  const hints: ChatHistoryAttachmentHint[] = [];
+  const seenRefs = new Set<string>();
+  for (const line of message.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    const match = MEDIA_ATTACHED_LINE_WITH_REF.exec(trimmed);
+    if (!match?.[1]) {
+      continue;
+    }
+    const mediaRef = match[1].trim();
+    if (!mediaRef.startsWith("media://inbound/") || seenRefs.has(mediaRef)) {
+      continue;
+    }
+    seenRefs.add(mediaRef);
+    const inboundPath = mediaRef.slice("media://inbound/".length);
+    const fileName = path.basename(inboundPath) || inboundPath || "attachment";
+    const mimeFromParen = match[2]?.trim();
+    hints.push({
+      fileName,
+      mimeType: mimeFromParen || mimeTypeFromFilePath(fileName) || "application/octet-stream",
+      size: 0,
+      mediaRef,
+    });
+  }
+  return hints;
 }
 
 function normalizeMime(mime?: string): string | undefined {

@@ -5,8 +5,13 @@ import { useSessionsStore } from "@/store/sessions.store";
 import {
   loadHistoryFromGateway,
   loadSessionsFromGateway,
+  preserveUserAttachmentMetadataOnSilentReload,
   syncSessionRunStatusFromGateway,
 } from "./loaders";
+
+vi.mock("@/components/chat/artifacts/artifact-gateway-client", () => ({
+  prefetchArtifactsForSession: vi.fn(async () => undefined),
+}));
 
 vi.mock("@/components/chat/serialization", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/components/chat/serialization")>();
@@ -135,7 +140,7 @@ describe("session-manager/loaders", () => {
     expect(useChatStore.getState().messagesLoading).toBe(false);
     expect(
       useConversationStore.getState().threadListGenerationByThread["agent:travel:main"],
-    ).toBe(genBefore + 1);
+    ).toBe(genBefore);
   });
 
   it("loadHistoryFromGateway drops stale response for switched session", async () => {
@@ -199,5 +204,39 @@ describe("session-manager/loaders", () => {
     });
 
     expect(useConversationStore.getState().byThread["agent:travel:main"]?.activeRunId).toBeUndefined();
+  });
+});
+
+describe("preserveUserAttachmentMetadataOnSilentReload", () => {
+  it("keeps prior attachment metadata when history row matches prompt but drops refs", () => {
+    const previous = [
+      {
+        id: "u1",
+        role: "user" as const,
+        createdAt: 1,
+        status: "complete" as const,
+        parts: [{ type: "text" as const, id: "t1", text: "check image" }],
+        artifactRefs: [{ artifactId: "artifact_abc", role: "input" as const }],
+        attachments: [{ fileName: "photo.png", mimeType: "image/png", size: 0, previewUrl: "blob:x" }],
+      },
+    ];
+    const incoming = [
+      {
+        id: "u2",
+        role: "user" as const,
+        createdAt: 2,
+        status: "complete" as const,
+        parts: [
+          {
+            type: "text" as const,
+            id: "t2",
+            text: "[Thu 2026-06-04 21:16 GMT+8] check image",
+          },
+        ],
+      },
+    ];
+    const merged = preserveUserAttachmentMetadataOnSilentReload(previous, incoming);
+    expect(merged[0]?.artifactRefs).toEqual(previous[0]?.artifactRefs);
+    expect(merged[0]?.attachments).toEqual(previous[0]?.attachments);
   });
 });

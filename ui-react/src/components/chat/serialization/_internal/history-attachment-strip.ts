@@ -3,21 +3,34 @@ import type { MessageAttachment } from "@/components/chat/types";
 /**
  * History-only compatibility: the gateway may append a file-content section to user messages.
  * We strip that injected block and extract attachment display metadata from the markers.
+ *
+ * @deprecated Prefer gateway `artifactRefs` on history rows; kept for legacy appendix-only rows.
  */
 export function stripAttachmentContent(raw: string): {
   prompt: string;
   attachments: MessageAttachment[];
 } {
-  const SEPARATOR = "\n\n以下是上传文件的内容：";
-  const idx = raw.indexOf(SEPARATOR);
+  const separators = [
+    "\n\nUploaded file contents:",
+    "\n\nthe content of the uploaded files:",
+  ];
+  let idx = -1;
+  let sepLen = 0;
+  for (const sep of separators) {
+    const found = raw.indexOf(sep);
+    if (found !== -1 && (idx === -1 || found < idx)) {
+      idx = found;
+      sepLen = sep.length;
+    }
+  }
   if (idx === -1) {
     return { prompt: raw, attachments: [] };
   }
 
   const prompt = raw.slice(0, idx);
-  const attachmentBlock = raw.slice(idx + SEPARATOR.length);
+  const attachmentBlock = raw.slice(idx + sepLen);
 
-  const fileNameRegex = /\[文件:\s*([^\]]+?)(?:\s*\([^)]*\))?\s*\]/g;
+  const fileNameRegex = /\[(?:File|文件):\s*([^\]]+?)(?:\s*\([^)]*\))?\s*\]/gi;
   const attachments: MessageAttachment[] = [];
   const seen = new Set<string>();
   let match: RegExpExecArray | null;

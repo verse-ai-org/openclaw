@@ -43,9 +43,19 @@ export type MessageEvent =
         role: ChatRole;
         createdAt: number;
         runId?: RunId;
+        artifactRefs?: import("@/components/chat/types").ArtifactRef[];
+        artifacts?: import("@/components/chat/types").ArtifactSummary[];
         attachments?: import("@/components/chat/types").MessageAttachment[];
         metadata?: import("@/components/chat/types").ChatMessageMetadata;
       };
+    }
+  | {
+      type: typeof EventType.MessageBindArtifacts;
+      threadId: ThreadId;
+      ts: number;
+      messageId: MessageId;
+      artifactRefs: import("@/components/chat/types").ArtifactRef[];
+      artifacts?: import("@/components/chat/types").ArtifactSummary[];
     }
   | {
       type: typeof EventType.MessageAppendText;
