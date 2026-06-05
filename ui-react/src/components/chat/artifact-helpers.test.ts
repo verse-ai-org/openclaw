@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mergeInboundArtifactMediaIntoAttachments } from "./artifact-helpers";
+import {
+  attachmentHintForArtifactRef,
+  mergeInboundArtifactMediaIntoAttachments,
+} from "./artifact-helpers";
 import type { ArtifactSummary } from "./types";
 
 describe("mergeInboundArtifactMediaIntoAttachments", () => {
@@ -31,5 +34,27 @@ describe("mergeInboundArtifactMediaIntoAttachments", () => {
       mediaRef: artifacts[0]?.mediaRef,
     });
     expect(merged?.[0]?.previewUrl).toBe("blob:local");
+  });
+});
+
+describe("attachmentHintForArtifactRef", () => {
+  it("falls back to summary title when positional hints are missing", () => {
+    const hint = attachmentHintForArtifactRef(
+      { artifactId: "artifact_b" },
+      [{ artifactId: "artifact_a" }, { artifactId: "artifact_b" }],
+      [{ fileName: "report.pdf", mimeType: "application/pdf", size: 0 }],
+      [{ id: "artifact_b", type: "file", title: "report.pdf", download: { mode: "unsupported" } }],
+    );
+    expect(hint?.fileName).toBe("report.pdf");
+  });
+
+  it("matches attachment hints by summary title", () => {
+    const hint = attachmentHintForArtifactRef(
+      { artifactId: "artifact_b" },
+      [{ artifactId: "artifact_b" }],
+      [{ fileName: "report.pdf", mimeType: "application/pdf", size: 0 }],
+      [{ id: "artifact_b", type: "file", title: "report.pdf", download: { mode: "unsupported" } }],
+    );
+    expect(hint?.fileName).toBe("report.pdf");
   });
 });

@@ -26,6 +26,43 @@ export function normalizeHistoryArtifactRefs(raw: unknown): ArtifactRef[] | unde
   return out.length > 0 ? out : undefined;
 }
 
+function normalizeArtifactSource(value: unknown): ArtifactSummary["source"] | undefined {
+  if (value === "user-upload" || value === "assistant-output" || value === "tool-output" || value === "offload") {
+    return value;
+  }
+  return undefined;
+}
+
+function normalizeArtifactIngestChannel(
+  value: unknown,
+): ArtifactSummary["ingestChannel"] | undefined {
+  if (
+    value === "inline-base64" ||
+    value === "path-ref" ||
+    value === "managed-image" ||
+    value === "transcript-block"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function optionalNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function optionalPositiveInt(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function optionalNonNegativeInt(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+    ? value
+    : undefined;
+}
+
 function normalizeArtifactSummary(item: unknown): ArtifactSummary | null {
   if (!item || typeof item !== "object") {
     return null;
@@ -47,15 +84,28 @@ function normalizeArtifactSummary(item: unknown): ArtifactSummary | null {
       ? (download as { mode: ArtifactSummary["download"]["mode"] }).mode
       : "unsupported";
   const role = o.role === "input" || o.role === "output" ? o.role : undefined;
+  const source = normalizeArtifactSource(o.source);
+  const ingestChannel = normalizeArtifactIngestChannel(o.ingestChannel);
   return {
     id,
     type,
     title,
-    ...(typeof o.mimeType === "string" && o.mimeType.trim() ? { mimeType: o.mimeType.trim() } : {}),
-    ...(typeof o.sizeBytes === "number" && Number.isFinite(o.sizeBytes) && o.sizeBytes >= 0
-      ? { sizeBytes: Math.floor(o.sizeBytes) }
+    ...(optionalNonEmptyString(o.mimeType) ? { mimeType: optionalNonEmptyString(o.mimeType) } : {}),
+    ...(optionalNonNegativeInt(o.sizeBytes) != null
+      ? { sizeBytes: optionalNonNegativeInt(o.sizeBytes) }
       : {}),
+    ...(optionalNonEmptyString(o.sessionKey) ? { sessionKey: optionalNonEmptyString(o.sessionKey) } : {}),
+    ...(optionalNonEmptyString(o.runId) ? { runId: optionalNonEmptyString(o.runId) } : {}),
+    ...(optionalNonEmptyString(o.taskId) ? { taskId: optionalNonEmptyString(o.taskId) } : {}),
+    ...(optionalPositiveInt(o.messageSeq) != null
+      ? { messageSeq: optionalPositiveInt(o.messageSeq) }
+      : {}),
+    ...(optionalNonNegativeInt(o.contentIndex) != null
+      ? { contentIndex: optionalNonNegativeInt(o.contentIndex) }
+      : {}),
+    ...(source ? { source } : {}),
     ...(role ? { role } : {}),
+    ...(ingestChannel ? { ingestChannel } : {}),
     ...(typeof o.mediaRef === "string" && o.mediaRef.trim().startsWith("media://")
       ? { mediaRef: o.mediaRef.trim() }
       : {}),

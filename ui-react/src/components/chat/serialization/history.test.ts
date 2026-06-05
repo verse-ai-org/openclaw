@@ -508,4 +508,94 @@ describe("serialization/history", () => {
     expect(user?.parts[0]).toEqual({ type: "text", id: expect.any(String), text: "summarize this" });
     expect(user?.artifactRefs).toEqual([{ artifactId: "artifact_abc123", role: "input" }]);
   });
+
+  it("preserves gateway artifactRefs on assistant messages after history reload", () => {
+    const runId = "run-artifact";
+    const { messages } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:main:main",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          runId,
+          timestamp: 10,
+          content: [{ type: "text", text: "Here is the chart." }],
+          artifactRefs: [{ artifactId: "artifact_chart", role: "output" }],
+          artifacts: [
+            {
+              id: "artifact_chart",
+              type: "image",
+              title: "chart.png",
+              mimeType: "image/png",
+              source: "assistant-output",
+              role: "output",
+              mediaRef: "media://inbound/chart.png",
+              download: { mode: "bytes" },
+            },
+          ],
+          attachments: [{ fileName: "chart.png", mimeType: "image/png", size: 0, mediaRef: "media://inbound/chart.png" }],
+        },
+      ],
+    });
+    const assistant = messages.find((m) => m.role === "assistant");
+    expect(assistant?.id).toBe(`run:${runId}`);
+    expect(assistant?.artifactRefs).toEqual([{ artifactId: "artifact_chart", role: "output" }]);
+    expect(assistant?.artifacts?.[0]).toMatchObject({
+      id: "artifact_chart",
+      title: "chart.png",
+      source: "assistant-output",
+      mediaRef: "media://inbound/chart.png",
+    });
+    expect(assistant?.attachments?.[0]).toMatchObject({
+      fileName: "chart.png",
+      mediaRef: "media://inbound/chart.png",
+    });
+  });
+
+  it("synthesizes legacy artifactRefs from appendix-only user history rows", () => {
+    const { messages } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:main:main",
+      messages: [
+        {
+          role: "user",
+          content:
+            "summarize this\n\nUploaded file contents:\n\n[File: legacy-report.pdf (application/pdf)]",
+        },
+      ],
+    });
+    const user = messages.find((m) => m.role === "user");
+    expect(user?.parts[0]).toEqual({ type: "text", id: expect.any(String), text: "summarize this" });
+    expect(user?.artifactRefs).toEqual([{ artifactId: "legacy:legacy-report.pdf", role: "input" }]);
+    expect(user?.attachments?.[0]?.fileName).toBe("legacy-report.pdf");
+  });
+
+  it("merges artifactRefs when folding adjacent assistant rows in the same run", () => {
+    const runId = "run-merge";
+    const { messages } = serializeGatewayHistoryToCanonicalSnapshot({
+      threadId: "agent:main:main",
+      messages: [
+        {
+          id: "assistant-a",
+          role: "assistant",
+          runId,
+          timestamp: 10,
+          content: [{ type: "text", text: "Part one." }],
+          artifactRefs: [{ artifactId: "artifact_a", role: "output" }],
+        },
+        {
+          id: "assistant-b",
+          role: "assistant",
+          runId,
+          timestamp: 11,
+          content: [{ type: "text", text: "Part two." }],
+          artifactRefs: [{ artifactId: "artifact_b", role: "output" }],
+        },
+      ],
+    });
+    const assistant = messages.find((m) => m.role === "assistant");
+    expect(assistant?.artifactRefs).toEqual([
+      { artifactId: "artifact_a", role: "output" },
+      { artifactId: "artifact_b", role: "output" },
+    ]);
+  });
 });

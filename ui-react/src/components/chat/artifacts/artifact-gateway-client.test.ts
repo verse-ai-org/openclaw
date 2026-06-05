@@ -1,10 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { useArtifactCacheStore } from "@/store/artifact-cache.store";
-import { fetchArtifactsList, prefetchArtifactsForSession } from "./artifact-gateway-client";
+import {
+  downloadArtifact,
+  fetchArtifactsList,
+  prefetchArtifactsForSession,
+} from "./artifact-gateway-client";
 
 describe("artifact-gateway-client", () => {
   beforeEach(() => {
-    useArtifactCacheStore.setState({ bySession: {} });
+    useArtifactCacheStore.setState({ bySession: {}, downloadsBySession: {}, versionBySession: {} });
   });
 
   it("fetchArtifactsList normalizes gateway payloads", async () => {
@@ -46,5 +50,43 @@ describe("artifact-gateway-client", () => {
     expect(useArtifactCacheStore.getState().getSummary("agent:main:main", "artifact_y")?.title).toBe(
       "y.pdf",
     );
+  });
+
+  it("downloadArtifact reuses cached bytes without a second RPC", async () => {
+    useArtifactCacheStore.getState().mergeSummaries("agent:main:main", [
+      {
+        id: "artifact_cached",
+        type: "image",
+        title: "cached.png",
+        mimeType: "image/png",
+        download: { mode: "bytes" },
+      },
+    ]);
+    useArtifactCacheStore.getState().setDownload("agent:main:main", "artifact_cached", {
+      encoding: "base64",
+      data: "aGVsbG8=",
+      mimeType: "image/png",
+    });
+    const client = {
+      connected: true,
+      request: vi.fn(),
+    };
+    const result = await downloadArtifact(client as never, {
+      sessionKey: "agent:main:main",
+      artifactId: "artifact_cached",
+    });
+    expect(result.data).toBe("aGVsbG8=");
+    expect(client.request).not.toHaveBeenCalled();
+  });
+
+  it("rejects download for legacy synthetic artifact ids", async () => {
+    const client = { connected: true, request: vi.fn() };
+    await expect(
+      downloadArtifact(client as never, {
+        sessionKey: "agent:main:main",
+        artifactId: "legacy:report.pdf",
+      }),
+    ).rejects.toThrow(/legacy synthetic artifacts cannot be downloaded/i);
+    expect(client.request).not.toHaveBeenCalled();
   });
 });

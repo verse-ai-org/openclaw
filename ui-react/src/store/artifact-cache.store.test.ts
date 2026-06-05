@@ -3,7 +3,7 @@ import { useArtifactCacheStore } from "./artifact-cache.store";
 
 describe("artifact-cache.store", () => {
   beforeEach(() => {
-    useArtifactCacheStore.setState({ bySession: {}, versionBySession: {} });
+    useArtifactCacheStore.setState({ bySession: {}, downloadsBySession: {}, versionBySession: {} });
   });
 
   it("merges summaries by session and id", () => {
@@ -44,5 +44,18 @@ describe("artifact-cache.store", () => {
     ]);
     useArtifactCacheStore.getState().clearSession("agent:main:main");
     expect(useArtifactCacheStore.getState().getSummary("agent:main:main", "artifact_a")).toBeUndefined();
+  });
+
+  it("stores and retrieves downloaded artifact bytes", () => {
+    useArtifactCacheStore.getState().setDownload("agent:main:main", "artifact_a", {
+      encoding: "base64",
+      data: "aGVsbG8=",
+      mimeType: "image/png",
+    });
+    expect(useArtifactCacheStore.getState().getDownload("agent:main:main", "artifact_a")).toEqual({
+      encoding: "base64",
+      data: "aGVsbG8=",
+      mimeType: "image/png",
+    });
   });
 });

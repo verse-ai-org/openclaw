@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractGatewayChatMessageText,
   extractMessageText,
+  normalizeArtifactSummaries,
   normalizeHistoryArtifactRefs,
 } from "./message-normalize";
 
@@ -69,6 +70,72 @@ describe("normalizeHistoryArtifactRefs", () => {
     ).toEqual([
       { artifactId: "artifact_x", role: "input" },
       { artifactId: "artifact_y", role: "output" },
+    ]);
+  });
+});
+
+describe("normalizeArtifactSummaries", () => {
+  it("preserves gateway artifact metadata fields", () => {
+    expect(
+      normalizeArtifactSummaries([
+        {
+          id: "artifact_chart",
+          type: "image",
+          title: "chart.png",
+          mimeType: "image/png",
+          sizeBytes: 4096,
+          sessionKey: "agent:main:main",
+          runId: "run-1",
+          taskId: "task-1",
+          messageSeq: 3,
+          contentIndex: 1,
+          source: "assistant-output",
+          role: "output",
+          ingestChannel: "transcript-block",
+          mediaRef: "media://inbound/chart.png",
+          download: { mode: "bytes" },
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "artifact_chart",
+        type: "image",
+        title: "chart.png",
+        mimeType: "image/png",
+        sizeBytes: 4096,
+        sessionKey: "agent:main:main",
+        runId: "run-1",
+        taskId: "task-1",
+        messageSeq: 3,
+        contentIndex: 1,
+        source: "assistant-output",
+        role: "output",
+        ingestChannel: "transcript-block",
+        mediaRef: "media://inbound/chart.png",
+        download: { mode: "bytes" },
+      },
+    ]);
+  });
+
+  it("drops unknown source and ingestChannel values", () => {
+    expect(
+      normalizeArtifactSummaries([
+        {
+          id: "artifact_x",
+          type: "file",
+          title: "doc.pdf",
+          source: "legacy",
+          ingestChannel: "unknown",
+          download: { mode: "unsupported" },
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "artifact_x",
+        type: "file",
+        title: "doc.pdf",
+        download: { mode: "unsupported" },
+      },
     ]);
   });
 });

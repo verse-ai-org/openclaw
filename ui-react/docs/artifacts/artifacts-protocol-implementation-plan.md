@@ -135,7 +135,8 @@ pnpm test ui-react/src/components/chat/conversation
 
 - [x] Electron `attachmentRefs` 发送 PDF 后，`artifacts.list` 能列出（`download.mode` 可能为 `unsupported`，但 **id/title/mime** 正确）。
 - [x] `chat.history` 的 user 消息 `artifactRefs` 含该文档。
-- [x] 用户可见 transcript / history **不含** path 附录（仅 `[文件: name]` 标记留给 agent Body 兼容；路径在 `formatAttachmentRefsForAgent`）。
+- [x] 用户可见 transcript / history **display 正文不含** path 附录（路径在 `formatAttachmentRefsForAgent` 当轮给 agent）。
+- [ ] transcript `file` 块 + `ArtifactSummary` 含 **`localRevealPath`**（path-ref）；刷新后 Electron reveal（Interaction Phase I3）。
 
 | ID | 任务 | 文件 | 依赖 | AC |
 |----|------|------|------|-----|
@@ -144,8 +145,11 @@ pnpm test ui-react/src/components/chat/conversation
 | 2.3 | Web 文档 base64 fallback | `GatewayChatRuntimeProvider` + `attachment-adapter` | 2.1 | Web 非图可走 `attachments`；ack artifacts 一致 |
 | 2.4 | `buildArtifactSummariesFromChatSend` 覆盖 refs | `chat-artifact-summaries.ts` | 2.1 | send ack `artifacts` 含 document |
 | 2.5 | 测试 | `chat.directive-tags.test.ts`, electron e2e（若有） | 2.1–2.4 | PDF roundtrip list + history |
+| 2.6 | **`localRevealPath` schema + 持久化** | `artifacts.ts`, `chat-send-artifacts.ts`, `artifacts.ts` collect | 2.1 | transcript `file.localRevealPath`；ack/history 投影；见交互 doc I3 |
+| 2.7 | capability 门控 | `chat-history-artifacts.ts` | 2.6 | Web history 无 `localRevealPath` |
+| 2.8 | ui-react 类型 + history 测试 | `types/artifact.ts`, `history.test.ts` | 2.6 | roundtrip 字段 |
 
-**PR 建议**：2A = 2.1+2.2+2.4+测试；2B = 2.3 Web
+**PR 建议**：2A = 2.1+2.2+2.4+测试；2B = 2.3 Web；**2C = 2.6+2.7+2.8**（`localRevealPath`，可与 Interaction I3 同 PR）
 
 **DECISION（Phase 2 前）**：opaque `artifactId` vs 保持 hash — 默认 **保持 hash**。
 
@@ -178,13 +182,27 @@ pnpm test src/gateway/server-methods/artifacts.test.ts
 
 ---
 
+## Interaction Phase（chip 预览 / reveal，与协议 Phase 正交）
+
+> 交互规范与分阶段任务：**[`artifact-chip-interaction.md`](./artifact-chip-interaction.md)**（Phase I1–I3）。  
+> 建议在协议 Phase 1–2 完成后优先 **I1**（助手预览 + chip 主点击），再 **I3 + I2**（`localRevealPath` 持久化 + Electron reveal，可同 PR）。
+
+| Phase | 概要 | 协议改动 |
+|-------|------|----------|
+| I1 | 扩展 Preview Dialog；`source`/`role` 驱动 chip 主点击 | 无 |
+| I2 | `showItemInFolder` IPC；读 `summary.localRevealPath` | 无（消费 I3 字段） |
+| I3 | Gateway 持久化 **`localRevealPath`**（**默认，已决 D1**） | additive schema + transcript |
+| I4 | 编辑 staging / 默认副本编辑（产品） | Gateway + UI；见交互 doc §Phase I4 |
+
+---
+
 ## 跨阶段任务（随时）
 
 | ID | 任务 | 说明 |
 |----|------|------|
 | X.1 | SDK 类型同步 | `docs/concepts/openclaw-sdk.md` 示例用 `artifacts.list` + 新 ack 字段 |
 | X.2 | 性能 | `artifacts.list` 对大 session 做 limit（若尚无） |
-| X.3 | 安全审计 | 确认 send ack 不泄漏 path 到 `ArtifactSummary`（仅 `unsupported` + title） |
+| X.3 | 安全审计 | `localRevealPath` 仅 path-ref + Electron capability；`artifacts.download` 仍不读本地 path；远程 Gateway 部署说明 |
 
 ---
 

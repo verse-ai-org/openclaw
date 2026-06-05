@@ -1,10 +1,15 @@
-import type { FC } from "react";
+import { type FC, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { ArtifactRef, ArtifactSummary } from "@/components/chat/types";
-import { ArtifactRefChip, LegacyAttachmentChip } from "@/components/chat/ArtifactChip";
+import { ArtifactRefChip } from "@/components/chat/ArtifactChip";
 import type { MessageAttachment } from "@/components/chat/types";
 import { attachmentHintForArtifactRef } from "@/components/chat/artifact-helpers";
-import { hasInlineImageForRef } from "./resolve-message-artifacts";
+import { syntheticArtifactRefsFromLegacyAttachments } from "./legacy-artifact-refs";
+import {
+  hasInlineImageForRef,
+  isLegacyInlineAttachment,
+  messageHasInlineArtifactImages,
+} from "./artifact-renderer-registry";
 import { InlineInboundImages } from "./InlineInboundImages";
 
 const EMPTY_ARTIFACT_REFS: ArtifactRef[] = [];
@@ -33,23 +38,27 @@ export const MessageArtifactRefs: FC<{
     ? artifactRefs.filter((ref) => ref.role !== (roleFilter === "input" ? "output" : "input"))
     : artifactRefs;
 
-  const chipRefs = refs.filter(
+  const displayRefs = useMemo(() => {
+    if (refs.length > 0) {
+      return refs;
+    }
+    const nonInline = legacyAttachments.filter((att) => !isLegacyInlineAttachment(att));
+    return syntheticArtifactRefsFromLegacyAttachments(
+      nonInline,
+      roleFilter === "output" ? "output" : "input",
+    );
+  }, [legacyAttachments, refs, roleFilter]);
+
+  const chipRefs = displayRefs.filter(
     (ref) => !hasInlineImageForRef({ artifactRef: ref, summaries: artifacts, attachments: legacyAttachments }),
   );
 
-  const showArtifactRefs = chipRefs.length > 0;
-  const legacyNonInlineAttachments = legacyAttachments.filter(
-    (att) => !(att.mimeType.startsWith("image/") && (att.mediaRef || att.previewUrl)),
-  );
-  const showLegacy = !showArtifactRefs && legacyNonInlineAttachments.length > 0;
+  const hasInlineImages = messageHasInlineArtifactImages({
+    attachments: legacyAttachments,
+    artifacts,
+  });
 
-  const hasInlineImages =
-    legacyAttachments.some(
-      (att) => att.mimeType.startsWith("image/") && (att.mediaRef || att.previewUrl),
-    ) ||
-    (artifacts?.some((a) => a.type === "image" && a.mediaRef?.startsWith("media://")) ?? false);
-
-  if (!showArtifactRefs && !showLegacy && !hasInlineImages) {
+  if (chipRefs.length === 0 && !hasInlineImages) {
     return null;
   }
 
@@ -72,19 +81,20 @@ export const MessageArtifactRefs: FC<{
           align === "end" ? "justify-end" : "justify-start",
         )}
       >
-      {showArtifactRefs
-        ? chipRefs.map((ref) => (
-            <ArtifactRefChip
-              key={`${messageId}:${ref.artifactId}`}
-              sessionKey={sessionKey}
-              artifactRef={ref}
-              artifacts={artifacts}
-              attachmentHint={attachmentHintForArtifactRef(ref, artifactRefs, legacyAttachments)}
-            />
-          ))
-        : legacyNonInlineAttachments.map((att) => (
-            <LegacyAttachmentChip key={att.fileName} attachment={att} />
-          ))}
+      {chipRefs.map((ref) => (
+        <ArtifactRefChip
+          key={`${messageId}:${ref.artifactId}`}
+          sessionKey={sessionKey}
+          artifactRef={ref}
+          artifacts={artifacts}
+          attachmentHint={attachmentHintForArtifactRef(
+            ref,
+            displayRefs,
+            legacyAttachments,
+            artifacts,
+          )}
+        />
+      ))}
       </div>
     </div>
   );

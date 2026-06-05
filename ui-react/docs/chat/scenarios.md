@@ -11,7 +11,7 @@
 - 写入 canonical：`conversationStore.setHistoryCanonicalSnapshot(...)`
 - 每条 user/assistant 行可带 `artifactRefs`（Gateway `projectChatHistoryMessagesWithArtifacts`）
 - 侧载：`artifacts.list` 预取 → `artifact-cache.store`（chip 标题 / `download.mode`）
-- UI：`MessageArtifactRefs` + 可点击 `ArtifactRefChip`（`download.mode=bytes` 图片 → `artifacts.download` 预览）
+- UI：`MessageArtifactRefs` + `ArtifactRefChip`（交互矩阵见 [`artifacts/artifact-chip-interaction.md`](../artifacts/artifact-chip-interaction.md)：图片预览；助手文件 chip 主点击预览；Electron path-ref 用 `ArtifactSummary.localRevealPath` 在文件夹中显示，刷新后由 history 恢复）
 
 ## 2) 发送消息（onNew）
 
@@ -25,7 +25,7 @@
 - `chat.store.sending = true`（让 UI 立刻进入 running）
 - RPC：`chat.send`（图片 → `attachments` base64；Electron 文档 → `attachmentRefs`；Web 文档 → base64 `attachments`）
 - `chat.send` ack 可带 `artifacts[]` → `message.bindArtifacts` 绑定到乐观 user 消息
-- Gateway transcript user 行：文本 + 结构化 `file` 块（path-ref），供 `artifacts.list` / `chat.history` `artifactRefs`
+- Gateway transcript user 行：文本 + 结构化 `file` 块（path-ref，含 `localRevealPath`），供 `artifacts.list` / `chat.history` `artifactRefs` + reveal
 - 后续 WS event 进入 canonical pipeline
 
 ## 3) 流式生成（WS delta / tools / tool-ui surface）

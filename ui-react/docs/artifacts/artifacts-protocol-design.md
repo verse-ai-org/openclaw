@@ -2,7 +2,7 @@
 
 > **状态**：草案，可行落地路径；暂不绑定 `PROTOCOL_VERSION` 升级。  
 > **受众**：Gateway、`ui-react`、Control UI (`ui/`)、SDK / 第三方客户端。  
-> **相关**：`src/gateway/protocol/schema/artifacts.ts`、`docs/gateway/protocol.md`、`ui-react/docs/attachment/attachment-upgrade-proposal.md`
+> **相关**：`src/gateway/protocol/schema/artifacts.ts`、`docs/gateway/protocol.md`、`ui-react/docs/chat/scenarios.md`
 
 ## 1. 背景与问题
 
@@ -25,7 +25,7 @@
 1. **协议优先**：持久化与读路径的类型定义在 `src/gateway/protocol/schema/`，经 `pnpm protocol:gen` 生成共享产物；客户端禁止长期维护平行的 hand-written 摘要类型。
 2. **分层，不合一**：Ingest（写）、Persisted（存）、Binding（挂消息）、Download（取字节）分开建模。
 3. **Additive 演进**：新字段、新方法优先；旧 `attachments` / `attachmentRefs` / 正文附录在兼容窗口内保留。
-4. **安全默认**：`artifacts.download` 不代拉本地 path / 任意 URL；与现有 `collectArtifactsFromMessages` 行为一致。
+4. **安全默认**：`artifacts.download` 不代拉本地 path / 任意 URL；path-ref 的桌面定位走 additive **`localRevealPath`**（transcript 持久化，与 download 分离；见 §6.1、§12）。
 5. **能力协商**：Web / Electron / 节点客户端通过 ingest channel 声明能发什么，不靠 UI 猜。
 
 ## 3. 术语
@@ -122,8 +122,22 @@
   role?: "input" | "output";     // 相对消息的方向
   contentIndex?: number;         // 在 message.content[] 中的下标（与现有 id 哈希对齐）
   ingestChannel?: "inline-base64" | "path-ref" | "managed-image" | "transcript-block";
+
+  // --- path-ref 专用（Interaction Phase I3）---
+  /** 用户选择的原始绝对路径；仅 ingestChannel === "path-ref"。供 Electron reveal；不经 artifacts.download。 */
+  localRevealPath?: string;
 }
 ```
+
+**`localRevealPath` 语义**
+
+| 规则 | 说明 |
+|------|------|
+| 何时写入 | `chat.send` 含 `attachmentRefs` 时，写入 transcript `file` 块同名字段 |
+| 何时读出 | `collectArtifactsFromMessages` / send ack → `ArtifactSummary.localRevealPath` |
+| 谁可见 | 声明 **Electron capability** 的客户端在 `chat.history` / send ack 中收到；Web 默认 **省略** |
+| 谁不可见 | 不得用于 `artifacts.download` 拉字节；display 正文仍不嵌 path 附录 |
+| 与 agent | 当轮 agent 仍用 `formatAttachmentRefsForAgent`；`localRevealPath` 供 **事后 UI reveal** |
 
 **`artifactId` 生成（短期）**：保持现有确定性哈希（`sessionKey + messageSeq + contentIndex + type + title`），避免破坏 `artifacts.get`。
 
@@ -250,11 +264,13 @@ UI **不应**再依赖 `stripAttachmentContent` 作为主路径；保留为 **le
 
 统一：`artifacts.download(artifactId, { sessionKey | runId })`
 
-| download.mode | UI 行为 |
-|---------------|---------|
-| `bytes` | 解码 `data` base64，图片预览 / 文件另存 |
+| download.mode | UI 行为（wire 层） |
+|---------------|-------------------|
+| `bytes` | 解码 `data` base64，供预览或另存 |
 | `url` | 受控 fetch（同源 `/api/...` 或 https） |
-| `unsupported` | 仅显示 chip + title，无下载按钮 |
+| `unsupported` | 不通过 `artifacts.download` 取字节 |
+
+**Chip 主/次交互**（按 `source`、`ingestChannel`、运行环境分支）见 **[`artifact-chip-interaction.md`](./artifact-chip-interaction.md)**。摘要：用户 Electron path-ref → `localRevealPath` + 在文件夹中显示；助手 / Web 用户文档 `bytes` → chip 主点击预览；图片保持内联或 Dialog 预览。同文档另述：**path-ref 与 inbound 双 ingest 不合并**、agent **编辑 staging 默认副本**（Phase I4 草案）、LLM 投递方式摘要。
 
 ### 7.4 助手产出媒体
 
@@ -295,7 +311,7 @@ artifactRefs?: { artifactId: string; role?: "input" | "output" }[];
 ## 9. Gateway 实现要点
 
 1. **Ingest 后建摘要**：在 `chat.send` 成功路径（`parseMessageWithAttachments` / ref staging 之后）构造 `ArtifactSummary[]`，与 transcript 将写入的块一致。
-2. **用户 ref 进索引**：ingest `attachmentRefs` 时写入 transcript **结构化块**（或 internal block + `artifactRefs`），使 `collectArtifactsFromMessages` 可列出；逐步缩短 `buildAttachmentRefsAppendix` 明文。
+2. **用户 ref 进索引**：ingest `attachmentRefs` 时写入 transcript **结构化 `file` 块**（含 `localRevealPath`，见 §6.1），使 `collectArtifactsFromMessages` 可列出并支持刷新后 reveal；逐步缩短 `buildAttachmentRefsAppendix` 明文。
 3. **History 投影**：在 `chat.history` 输出前调用 `splitUserMessageForChatHistoryDisplay` + 附加 `artifactRefs`（已有函数在 `src/gateway/chat-attachments.ts`）。
 4. **ID 稳定**：Phase 1 不改变 `artifactId` 算法；`contentIndex` 与 `messageSeq` 写入 summary 便于 UI 关联。
 
@@ -317,7 +333,8 @@ artifactRefs?: { artifactId: string; role?: "input" | "output" }[];
 
 ### Phase 2 — Electron 文档纳入 artifact
 
-- [ ] ref ingest 写 transcript 可索引块
+- [ ] ref ingest 写 transcript 可索引 `file` 块（含 **`localRevealPath`**）
+- [ ] `ArtifactSummarySchema` + 投影：`localRevealPath` 在 send ack / history（Electron capability 门控）
 - [ ] 缩短/关闭用户可见附录（Agent `BodyForAgent` 可保留结构化 refs）
 - [ ] Web base64 文档 fallback 与 artifact 对齐
 
@@ -339,9 +356,10 @@ artifactRefs?: { artifactId: string; role?: "input" | "output" }[];
 ## 12. 安全与限制
 
 - Path ref ingest：仅受信客户端（Electron）；Gateway 校验 path 在 allowlist roots。
+- **`localRevealPath`**：path-ref 专用；写入 transcript 与 `ArtifactSummary`；**不**作为 `artifacts.download` 输入。Web 客户端默认不投影。风险是 **元数据暴露**（目录结构、用户名），非远程任意读文件；本机 Electron + 本机 Gateway 为可接受产品取舍。远程 Gateway 时 path 落在服务端 transcript，部署需知情。
 - `artifacts.download`：禁止 `file://`、非白名单 URL（与现测试一致）。
 - 大小：继续 `resolveChatAttachmentMaxBytes` / `MAX_IMAGE_BYTES`；summary 只报告 `sizeBytes`。
-- 日志：协议文档要求不记录 attachment 内容（`docs/gateway/protocol.md`）。
+- 日志：协议文档要求不记录 attachment 内容（`docs/gateway/protocol.md`）；`localRevealPath` 视同敏感元数据，避免 debug 日志全文打印 history。
 
 ## 13. 开放问题
 
@@ -350,6 +368,7 @@ artifactRefs?: { artifactId: string; role?: "input" | "output" }[];
 3. **多附件排序**：`artifactRefs` 是否需显式 `order` 字段？
 4. **跨 session 引用**：是否允许 artifact 绑定多个 message（默认否）？
 5. **Control UI 与 ui-react**：registry 放 shared package 还是各端复制类型、共享 renderer 契约文档？
+6. **`localRevealPath` capability 名**：`electron` / `desktop` / 客户端 id 白名单 — 默认 **Electron 握手声明才返回**（见交互 doc I3.4）。
 
 ## 14. 相关源码索引
 
@@ -364,7 +383,7 @@ artifactRefs?: { artifactId: string; role?: "input" | "output" }[];
 | ui-react send | `ui-react/src/components/chat/gateway/providers/GatewayChatRuntimeProvider.tsx` |
 | ui-react 展示 | `ui-react/src/components/chat/UserMessage.tsx` |
 | History strip（legacy） | `ui-react/src/components/chat/serialization/_internal/history-attachment-strip.ts` |
-| 既有改造方案 | `ui-react/docs/attachment/attachment-upgrade-proposal.md` |
+| Chip 交互规范 | `ui-react/docs/artifacts/artifact-chip-interaction.md` |
 
 ## 15. 文档维护
 

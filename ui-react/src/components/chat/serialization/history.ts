@@ -8,7 +8,9 @@ import type {
   RunId,
   ThreadId,
 } from "@/components/chat/conversation";
+import type { ArtifactRef, ArtifactSummary, MessageAttachment } from "@/components/chat/types";
 import {
+  normalizeArtifactSummaries,
   normalizeContent,
   normalizeHistoryArtifactRefs,
   normalizeHistoryAttachmentHints,
@@ -17,6 +19,10 @@ import {
   mergeTurnUsageMeta,
   type TurnUsageMeta,
 } from "@/components/chat/usage/turn-usage-meta";
+import {
+  syntheticArtifactRefsFromLegacyAttachments,
+  warnLegacyAttachmentStripOnce,
+} from "@/components/chat/artifacts/legacy-artifact-refs";
 import { stripGatewayUserDisplayText } from "@/components/chat/artifacts/strip-gateway-user-display-text";
 import { stripAttachmentContent } from "./_internal/history-attachment-strip";
 import { resolveToolUiComponent, safeParseToolUiPayload } from "@/components/chat/ui-tool/ui-tool-registry";
@@ -94,6 +100,59 @@ type HistoryMessageRecord = {
  * tool groups. Merge adjacent assistant rows that share the same `runId` so history matches
  * the live layout.
  */
+function mergeArtifactRefsDedupe(
+  existing: ArtifactRef[] | undefined,
+  incoming: ArtifactRef[] | undefined,
+): ArtifactRef[] | undefined {
+  if (!incoming?.length) {
+    return existing;
+  }
+  const byId = new Map<string, ArtifactRef>();
+  for (const ref of existing ?? []) {
+    byId.set(ref.artifactId, ref);
+  }
+  for (const ref of incoming) {
+    byId.set(ref.artifactId, ref);
+  }
+  return byId.size > 0 ? [...byId.values()] : undefined;
+}
+
+function mergeArtifactSummariesDedupe(
+  existing: ArtifactSummary[] | undefined,
+  incoming: ArtifactSummary[] | undefined,
+): ArtifactSummary[] | undefined {
+  if (!incoming?.length) {
+    return existing;
+  }
+  const byId = new Map<string, ArtifactSummary>();
+  for (const summary of existing ?? []) {
+    byId.set(summary.id, summary);
+  }
+  for (const summary of incoming) {
+    byId.set(summary.id, summary);
+  }
+  return byId.size > 0 ? [...byId.values()] : undefined;
+}
+
+function mergeAttachmentHintsDedupe(
+  existing: MessageAttachment[] | undefined,
+  incoming: MessageAttachment[] | undefined,
+): MessageAttachment[] | undefined {
+  if (!incoming?.length) {
+    return existing;
+  }
+  const byKey = new Map<string, MessageAttachment>();
+  for (const att of existing ?? []) {
+    const key = `${att.fileName}:${att.mediaRef ?? ""}`;
+    byKey.set(key, att);
+  }
+  for (const att of incoming) {
+    const key = `${att.fileName}:${att.mediaRef ?? ""}`;
+    byKey.set(key, att);
+  }
+  return byKey.size > 0 ? [...byKey.values()] : undefined;
+}
+
 function mergeAdjacentAssistantMessagesSameRun(records: HistoryMessageRecord[]): HistoryMessageRecord[] {
   const out: HistoryMessageRecord[] = [];
   for (const m of records) {
@@ -115,6 +174,9 @@ function mergeAdjacentAssistantMessagesSameRun(records: HistoryMessageRecord[]):
       if (m.metadata && !prev.metadata) {
         prev.metadata = m.metadata;
       }
+      prev.artifactRefs = mergeArtifactRefsDedupe(prev.artifactRefs, m.artifactRefs);
+      prev.artifacts = mergeArtifactSummariesDedupe(prev.artifacts, m.artifacts);
+      prev.attachments = mergeAttachmentHintsDedupe(prev.attachments, m.attachments);
       continue;
     }
     out.push({
@@ -254,7 +316,23 @@ type AssistantMessageAssembly = {
   runId: string;
   createdAt: number;
   timeline: RunTimelineItem[];
+  artifactRefs?: ArtifactRef[];
+  artifacts?: ArtifactSummary[];
+  attachments?: MessageAttachment[];
 };
+
+function applyArtifactBindingsToAssembly(
+  assembly: AssistantMessageAssembly,
+  bindings: {
+    artifactRefs?: ArtifactRef[];
+    artifacts?: ArtifactSummary[];
+    attachments?: MessageAttachment[];
+  },
+): void {
+  assembly.artifactRefs = mergeArtifactRefsDedupe(assembly.artifactRefs, bindings.artifactRefs);
+  assembly.artifacts = mergeArtifactSummariesDedupe(assembly.artifacts, bindings.artifacts);
+  assembly.attachments = mergeAttachmentHintsDedupe(assembly.attachments, bindings.attachments);
+}
 
 function parseAssistantTimelineFromContent(params: {
   ts: number;
@@ -333,20 +411,36 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
       const rawRecord = raw as Record<string, unknown>;
       const rawText = normalizeContent(raw.content ?? raw.text ?? "");
       const artifactRefs = normalizeHistoryArtifactRefs(rawRecord.artifactRefs);
-      const stripped = stripAttachmentContent(rawText);
-      const rawPrompt =
-        artifactRefs && artifactRefs.length > 0 ? rawText.trim() : stripped.prompt.trim();
-      const prompt = stripGatewayUserDisplayText(rawPrompt);
-      const attachments =
-        normalizeHistoryAttachmentHints(rawRecord.attachments) ??
-        (stripped.attachments.length > 0 ? stripped.attachments : undefined);
+      const gatewayAttachments = normalizeHistoryAttachmentHints(rawRecord.attachments);
+      const hasGatewayArtifactBinding =
+        (artifactRefs?.length ?? 0) > 0 || (gatewayAttachments?.length ?? 0) > 0;
+
+      let prompt = "";
+      let attachments: MessageAttachment[] | undefined;
+      if (hasGatewayArtifactBinding) {
+        prompt = stripGatewayUserDisplayText(rawText.trim());
+        attachments = gatewayAttachments;
+      } else {
+        const stripped = stripAttachmentContent(rawText);
+        if (stripped.attachments.length > 0) {
+          warnLegacyAttachmentStripOnce();
+        }
+        prompt = stripGatewayUserDisplayText(stripped.prompt.trim());
+        attachments = stripped.attachments.length > 0 ? stripped.attachments : undefined;
+      }
+
+      const resolvedArtifactRefs =
+        artifactRefs ??
+        (attachments?.length ? syntheticArtifactRefsFromLegacyAttachments(attachments) : undefined);
 
       userMessages.push({
         id: raw.id ?? crypto.randomUUID(),
         role: "user",
         createdAt: ts,
         runId,
-        ...(artifactRefs && artifactRefs.length > 0 ? { artifactRefs } : {}),
+        ...(resolvedArtifactRefs && resolvedArtifactRefs.length > 0
+          ? { artifactRefs: resolvedArtifactRefs }
+          : {}),
         attachments,
         metadata: raw.metadata && typeof raw.metadata === "object" ? (raw.metadata as HistoryMessageRecord["metadata"]) : undefined,
         parts: prompt ? [{ type: "text", id: `text:${ts}` as PartId, text: prompt }] : [],
@@ -394,11 +488,19 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
         usageByRunId.set(runId, mergedUsage);
       }
       const messageId = raw.id ?? (`run:${runId}:${ts}` as const);
+      const rawRecord = raw as Record<string, unknown>;
+      const artifactRefs = normalizeHistoryArtifactRefs(rawRecord.artifactRefs);
+      const artifacts = normalizeArtifactSummaries(rawRecord.artifacts);
+      const attachments = normalizeHistoryAttachmentHints(rawRecord.attachments);
+      const hasArtifactBinding =
+        (artifactRefs?.length ?? 0) > 0 ||
+        (artifacts?.length ?? 0) > 0 ||
+        (attachments?.length ?? 0) > 0;
       const items = parseAssistantTimelineFromContent({
         ts,
         content: raw.content ?? raw.text ?? "",
       });
-      if (items.length === 0) continue;
+      if (items.length === 0 && !hasArtifactBinding) continue;
 
       const assembly =
         assistantById.get(messageId) ??
@@ -418,6 +520,7 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
 
       // Keep earliest createdAt for stable ordering.
       assembly.createdAt = Math.min(assembly.createdAt, ts);
+      applyArtifactBindingsToAssembly(assembly, { artifactRefs, artifacts, attachments });
 
       const seen = toolTimelineSeenByMessage.get(messageId) ?? new Set<string>();
       for (const item of items) {
@@ -544,6 +647,9 @@ export function serializeGatewayHistoryToCanonicalSnapshot(params: {
       createdAt,
       runId,
       parts,
+      ...(assembly.artifactRefs?.length ? { artifactRefs: assembly.artifactRefs } : {}),
+      ...(assembly.artifacts?.length ? { artifacts: assembly.artifacts } : {}),
+      ...(assembly.attachments?.length ? { attachments: assembly.attachments } : {}),
     });
   }
 

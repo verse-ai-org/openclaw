@@ -1,4 +1,7 @@
-/** Aligned with `src/gateway/protocol/schema/artifacts.ts` (ArtifactRefSchema). */
+/**
+ * Hand-maintained mirror of `src/gateway/protocol/schema/artifacts.ts`.
+ * Contract checked in `artifact-wire-contract.test.ts` (run `pnpm protocol:gen` first).
+ */
 export type ArtifactRef = {
   artifactId: string;
   role?: "input" | "output";

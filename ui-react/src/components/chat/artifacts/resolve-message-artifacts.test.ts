@@ -4,7 +4,7 @@ import { enrichChatMessageWithArtifactCache } from "./resolve-message-artifacts"
 
 describe("enrichChatMessageWithArtifactCache", () => {
   beforeEach(() => {
-    useArtifactCacheStore.setState({ bySession: {}, versionBySession: {} });
+    useArtifactCacheStore.setState({ bySession: {}, downloadsBySession: {}, versionBySession: {} });
   });
 
   it("hydrates artifacts and attachment mediaRef from cache after history reload", () => {
