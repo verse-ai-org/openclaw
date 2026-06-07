@@ -59,6 +59,10 @@ export const ArtifactSummarySchema = Type.Object(
     ingestChannel: Type.Optional(ArtifactIngestChannelSchema),
     /** Inbound preview ref for webchat (`media://inbound/<id>`). */
     mediaRef: Type.Optional(NonEmptyString),
+    /** Original absolute path for Electron path-ref reveal; not used by artifacts.download. */
+    localRevealPath: Type.Optional(NonEmptyString),
+    /** Workspace staging copy path when edit intent copied path-ref files; Electron reveal only. */
+    stagingRevealPath: Type.Optional(NonEmptyString),
     download: Type.Object(
       {
         mode: Type.Union([Type.Literal("bytes"), Type.Literal("url"), Type.Literal("unsupported")]),

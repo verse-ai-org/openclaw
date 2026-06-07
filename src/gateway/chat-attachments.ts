@@ -114,6 +114,54 @@ export type ChatHistoryAttachmentHint = {
   mediaRef?: string;
 };
 
+/** Parsed from agent-facing `Uploaded File References:` blocks in legacy user transcript rows. */
+export type PathRefAttachmentHint = {
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  localRevealPath: string;
+  /** Workspace staging copy when the agent line includes `sourcePath=`. */
+  stagingRevealPath?: string;
+};
+
+const PATH_REF_AGENT_LINE =
+  /^- fileId=([^;]+);\s*path=([^;]+);\s*name=([^;]*);\s*mime=([^;]*);\s*size=(\d+);\s*sha256=([^;]+)(?:;\s*sourcePath=(.+))?$/;
+
+export function extractPathRefHintsFromMessageText(text: string): PathRefAttachmentHint[] {
+  const uploadedIdx = text.search(/Uploaded File References(?:\s*\([^)]*\))?:/i);
+  if (uploadedIdx < 0) {
+    return [];
+  }
+  const hints: PathRefAttachmentHint[] = [];
+  const seenPaths = new Set<string>();
+  for (const line of text.slice(uploadedIdx).split(/\r?\n/)) {
+    const trimmed = line.trim();
+    const match = PATH_REF_AGENT_LINE.exec(trimmed);
+    if (!match) {
+      continue;
+    }
+    const path = match[2]?.trim() ?? "";
+    const sourcePath = match[7]?.trim();
+    const localRevealPath = sourcePath || path;
+    const stagingRevealPath = sourcePath ? path : undefined;
+    if (!localRevealPath || seenPaths.has(localRevealPath)) {
+      continue;
+    }
+    seenPaths.add(localRevealPath);
+    const fileName = match[3]?.trim() || "file";
+    hints.push({
+      fileId: match[1]?.trim() ?? "",
+      fileName,
+      mimeType: match[4]?.trim() || inferMimeFromFileNameForHistory(fileName),
+      size: Number.parseInt(match[5] ?? "0", 10) || 0,
+      localRevealPath,
+      ...(stagingRevealPath ? { stagingRevealPath } : {}),
+    });
+  }
+  return hints;
+}
+
 export function resolveInboundMediaRefFromAbsolutePath(absolutePath: string): string | undefined {
   const trimmed = absolutePath.trim();
   if (!trimmed || !path.isAbsolute(trimmed)) {

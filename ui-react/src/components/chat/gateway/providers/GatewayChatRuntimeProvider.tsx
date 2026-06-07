@@ -14,7 +14,14 @@ import type {
   ChatMessageMetadata,
   MessageAttachment,
 } from "@/components/chat/types";
-import { buildAttachmentRefsFromMessage, createGatewayCompositeAttachmentAdapter, MAX_ATTACHMENT_COUNT, type ChatAttachmentRef, parseGatewaySendPayload } from "./send";
+import {
+  buildAttachmentRefsFromMessage,
+  createGatewayCompositeAttachmentAdapter,
+  MAX_ATTACHMENT_COUNT,
+  type ChatAttachmentRef,
+  parseGatewaySendPayload,
+  resolveOutboundAttachments,
+} from "./send";
 import { useChatStore } from "@/store/chat.store";
 import { useConversationStore } from "@/store/conversation.store";
 import { useGatewayStore } from "@/store/gateway.store";
@@ -161,34 +168,34 @@ export function GatewayChatRuntimeProvider({ children }: Props) {
         return;
       }
 
-      // Route by purpose: images → base64, documents → attachmentRefs (Electron) or base64 (Web)
-      const imageAttachments = gatewayAttachments.filter((att) => att.mimeType.startsWith("image/"));
+      // Route by purpose: images → base64; documents → path refs (Electron) or base64 (Web).
       const { refs: attachmentRefs, missingPathFiles } =
         await buildAttachmentRefsFromMessage(message);
-
-      // For non-image files: Electron has refs, Web environment falls back to base64 (not yet wired)
-      // missingPathFiles means Web environment — currently no base64 fallback for documents,
-      // so we only warn for non-image files that lack a path.
-      const documentBase64 = gatewayAttachments.filter((att) => !att.mimeType.startsWith("image/"));
-      const nonImageMissingPaths = missingPathFiles.filter((name) => {
-        const coveredByBase64 = documentBase64.some((att) => att.fileName === name);
-        return !coveredByBase64;
+      const outbound = resolveOutboundAttachments({
+        gatewayAttachments,
+        attachmentRefs,
+        missingPathFiles,
       });
-      if (nonImageMissingPaths.length > 0) {
+      if (!outbound.ok) {
         toast.error(
-          `无法获取文件路径: ${nonImageMissingPaths.join(", ")}，请在桌面端重新添加文件`,
+          `Failed to get file paths: ${outbound.missingPathFiles.join(", ")}. Please add files again in the desktop client.`,
           { duration: 4000 },
         );
         return;
       }
 
-      const allBase64Attachments = imageAttachments;
-      if (!text.trim() && allBase64Attachments.length === 0 && attachmentRefs.length === 0) {
+      if (
+        !text.trim() &&
+        outbound.base64Attachments.length === 0 &&
+        outbound.attachmentRefs.length === 0
+      ) {
         return;
       }
       await sendMessage(text, {
-        attachments: allBase64Attachments.length > 0 ? allBase64Attachments : undefined,
-        attachmentRefs: attachmentRefs.length > 0 ? attachmentRefs : undefined,
+        attachments:
+          outbound.base64Attachments.length > 0 ? outbound.base64Attachments : undefined,
+        attachmentRefs:
+          outbound.attachmentRefs.length > 0 ? outbound.attachmentRefs : undefined,
         displayAttachments,
       });
     },

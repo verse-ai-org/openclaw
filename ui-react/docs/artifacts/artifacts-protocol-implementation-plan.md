@@ -184,8 +184,8 @@ pnpm test src/gateway/server-methods/artifacts.test.ts
 
 ## Interaction Phase（chip 预览 / reveal，与协议 Phase 正交）
 
-> 交互规范与分阶段任务：**[`artifact-chip-interaction.md`](./artifact-chip-interaction.md)**（Phase I1–I3）。  
-> 建议在协议 Phase 1–2 完成后优先 **I1**（助手预览 + chip 主点击），再 **I3 + I2**（`localRevealPath` 持久化 + Electron reveal，可同 PR）。
+> 交互规范：**[`artifact-chip-interaction.md`](./artifact-chip-interaction.md)**；执行路线图：**[`artifact-chip-implementation-plan.md`](./artifact-chip-implementation-plan.md)**。  
+> 建议在协议 Phase 1–2 完成后优先 **I1**，再 **I3 + I2**（`localRevealPath` + Electron reveal，可同 PR）。
 
 | Phase | 概要 | 协议改动 |
 |-------|------|----------|

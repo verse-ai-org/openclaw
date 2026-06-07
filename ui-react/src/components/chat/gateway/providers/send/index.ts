@@ -12,3 +12,9 @@ export {
 
 export { parseGatewaySendPayload, type ParsedGatewaySendPayload } from "./parse-send-payload";
 
+export {
+  resolveOutboundAttachments,
+  type GatewayOutboundAttachment,
+  type ResolveOutboundAttachmentsResult,
+} from "./resolve-outbound-attachments";
+

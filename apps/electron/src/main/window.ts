@@ -296,6 +296,7 @@ export function configureSession(port: number): void {
             // `media-src 'self' data: blob: file: http://127.0.0.1:${port} http://store.is.autonavi.com https://store.is.autonavi.com https://aos-comment.amap.com https://files.aiverser.com${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `media-src 'self' data: blob: file: http://127.0.0.1:${port} *`,
             `font-src 'self' data: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
+            `frame-src 'self' blob: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `connect-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port} wss://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin} ws://localhost:5174` : ""}`,
           ].join("; "),
         ],

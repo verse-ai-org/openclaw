@@ -26,5 +26,9 @@ export type ArtifactSummary = {
   ingestChannel?: "inline-base64" | "path-ref" | "managed-image" | "transcript-block";
   /** Gateway inbound media ref for assistant-media preview. */
   mediaRef?: string;
+  /** Electron path-ref: original absolute path for reveal-in-folder. */
+  localRevealPath?: string;
+  /** Workspace staging copy path for edit-intent path-ref attachments. */
+  stagingRevealPath?: string;
   download: { mode: ArtifactDownloadMode };
 };

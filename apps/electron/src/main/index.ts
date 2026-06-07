@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -45,6 +45,7 @@ import {
   DEFAULT_GATEWAY_PORT,
   type StartupPipelineContext,
 } from "./startup.js";
+import { copyStagingFileToPath, deleteStagingFile } from "./staging-fs.js";
 
 // Menu bar label + “About …” title use app.getName(), which otherwise comes from
 // package.json `name` (openclaw-electron). Keep in sync with electron-builder.yml `productName`.
@@ -234,6 +235,89 @@ ipcMain.handle("gateway:info", () => {
     wsUrl: `ws://127.0.0.1:${port}`,
   };
 });
+
+function isSafeAbsolutePath(filePath: string): boolean {
+  const trimmed = filePath.trim();
+  return trimmed.length > 0 && path.isAbsolute(trimmed);
+}
+
+ipcMain.handle("shell:showItemInFolder", async (_, filePath: unknown) => {
+  if (typeof filePath !== "string" || !isSafeAbsolutePath(filePath)) {
+    return { ok: false };
+  }
+  try {
+    shell.showItemInFolder(filePath);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+});
+
+ipcMain.handle("shell:openPath", async (_, filePath: unknown) => {
+  if (typeof filePath !== "string" || !isSafeAbsolutePath(filePath)) {
+    return { ok: false };
+  }
+  try {
+    const error = await shell.openPath(filePath);
+    return { ok: !error };
+  } catch {
+    return { ok: false };
+  }
+});
+
+ipcMain.handle(
+  "fs:copyStagingToPath",
+  async (_, params: unknown): Promise<{ ok: boolean; error?: string }> => {
+    if (!params || typeof params !== "object") {
+      return { ok: false, error: "invalid params" };
+    }
+    const source = (params as { source?: unknown }).source;
+    const dest = (params as { dest?: unknown }).dest;
+    if (typeof source !== "string" || typeof dest !== "string") {
+      return { ok: false, error: "source and dest required" };
+    }
+    return copyStagingFileToPath({ source, dest });
+  },
+);
+
+ipcMain.handle(
+  "fs:deleteStagingPath",
+  async (_, filePath: unknown): Promise<{ ok: boolean; error?: string }> => {
+    if (typeof filePath !== "string") {
+      return { ok: false, error: "path required" };
+    }
+    return deleteStagingFile(filePath);
+  },
+);
+
+ipcMain.handle(
+  "fs:saveStagingCopyAs",
+  async (
+    event,
+    params: unknown,
+  ): Promise<{ ok: boolean; error?: string; savedPath?: string }> => {
+    if (!params || typeof params !== "object") {
+      return { ok: false, error: "invalid params" };
+    }
+    const source = (params as { source?: unknown }).source;
+    const defaultName = (params as { defaultName?: unknown }).defaultName;
+    if (typeof source !== "string") {
+      return { ok: false, error: "source required" };
+    }
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const saveOptions = {
+      defaultPath: typeof defaultName === "string" && defaultName.trim() ? defaultName.trim() : undefined,
+    };
+    const result = win
+      ? await dialog.showSaveDialog(win, saveOptions)
+      : await dialog.showSaveDialog(saveOptions);
+    if (result.canceled || !result.filePath) {
+      return { ok: false, error: "cancelled" };
+    }
+    const copied = await copyStagingFileToPath({ source, dest: result.filePath });
+    return copied.ok ? { ok: true, savedPath: result.filePath } : copied;
+  },
+);
 
 // IPC：Electron 渲染进程请求主进程批准设备配对（loopback 桌面场景）
 ipcMain.handle("gateway:approveDevicePairing", async (_, requestId?: string) => {

@@ -109,6 +109,12 @@ function normalizeArtifactSummary(item: unknown): ArtifactSummary | null {
     ...(typeof o.mediaRef === "string" && o.mediaRef.trim().startsWith("media://")
       ? { mediaRef: o.mediaRef.trim() }
       : {}),
+    ...(optionalNonEmptyString(o.localRevealPath)
+      ? { localRevealPath: optionalNonEmptyString(o.localRevealPath) }
+      : {}),
+    ...(optionalNonEmptyString(o.stagingRevealPath)
+      ? { stagingRevealPath: optionalNonEmptyString(o.stagingRevealPath) }
+      : {}),
     download: { mode },
   };
 }

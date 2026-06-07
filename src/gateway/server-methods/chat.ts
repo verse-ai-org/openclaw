@@ -85,8 +85,18 @@ import {
   resolveChatAttachmentMaxBytes,
   UnsupportedAttachmentError,
 } from "../chat-attachments.js";
+import {
+  clientSupportsElectronReveal,
+  projectArtifactSummariesForClient,
+} from "../artifact-local-reveal-path.js";
 import { enrichChatFinalBroadcastPayload } from "../chat-final-artifacts.js";
 import { projectChatHistoryMessagesWithArtifacts } from "../chat-history-artifacts.js";
+import {
+  buildAttachmentRoutingHint,
+  buildStagedPathMaps,
+  formatAttachmentRefsForAgent,
+  stageAttachmentRefsForEditIntent,
+} from "../attachment-ref-agent.js";
 import {
   attachmentRefArtifactContentIndexOffset,
   buildChatSendAckArtifacts,
@@ -800,21 +810,6 @@ function stripDisallowedChatControlChars(message: string): string {
   return output;
 }
 
-function formatAttachmentRefsForAgent(refs: ChatAttachmentRef[]): string {
-  if (refs.length === 0) {
-    return "";
-  }
-  const lines = refs.map(
-    (ref) =>
-      `- fileId=${ref.fileId}; path=${ref.path}; name=${ref.fileName || "file"}; mime=${ref.mimeType || "unknown"}; size=${ref.size}; sha256=${ref.sha256 || "unknown"}`,
-  );
-  return [
-    "Uploaded File References:",
-    "Use these exact local file paths when invoking file tools (read/write/edit/convert).",
-    ...lines,
-  ].join("\n");
-}
-
 function buildAttachmentRefsAppendix(refs: ChatAttachmentRef[]): string {
   if (refs.length === 0) {
     return "";
@@ -822,59 +817,6 @@ function buildAttachmentRefsAppendix(refs: ChatAttachmentRef[]): string {
   // Display/history uses structured transcript blocks; keep appendix markers only for agent-compat fallbacks.
   const lines = refs.map((ref) => `[File: ${ref.fileName || "file"}]`);
   return `${CHAT_UPLOADED_FILES_CONTENT_HEADING}\n\n${lines.join("\n")}`;
-}
-
-type AttachmentIntent = "read-extract" | "edit-convert" | "unknown";
-
-function classifyAttachmentIntent(text: string): AttachmentIntent {
-  const normalized = text.toLowerCase();
-  const editConvertKeywords = [
-    "convert",
-    "transform",
-    "edit",
-    "rewrite",
-    "update",
-    "modify",
-    "export",
-    "to pdf",
-    "to docx",
-    "to pptx",
-    "to xlsx",
-  ];
-  const readExtractKeywords = [
-    "read",
-    "extract",
-    "summarize",
-    "summary",
-    "analyze",
-    "analysis",
-    "classify",
-    "identify",
-  ];
-  if (editConvertKeywords.some((kw) => normalized.includes(kw))) {
-    return "edit-convert";
-  }
-  if (readExtractKeywords.some((kw) => normalized.includes(kw))) {
-    return "read-extract";
-  }
-  return "unknown";
-}
-
-function buildAttachmentRoutingHint(params: {
-  refs: ChatAttachmentRef[];
-  userText: string;
-}): string {
-  if (params.refs.length === 0) {
-    return "";
-  }
-  const intent = classifyAttachmentIntent(params.userText);
-  if (intent === "edit-convert") {
-    return "Routing hint: this request looks like editing/conversion. Prefer file-edit/convert skills and operate on the referenced file paths directly.";
-  }
-  if (intent === "read-extract") {
-    return "Routing hint: this request looks like reading/extraction. Prefer read/extract tools on the referenced file paths.";
-  }
-  return "Routing hint: attachments are in reference mode. Prefer tools that read/modify files via the referenced local file paths.";
 }
 
 export function sanitizeChatSendMessageInput(
@@ -1004,6 +946,7 @@ async function persistChatSendImages(params: {
 function buildChatSendTranscriptMessage(params: {
   message: string;
   attachmentRefs?: ChatAttachmentRef[];
+  stagedPathsByFileId?: Map<string, string>;
   savedImages: SavedMedia[];
   timestamp: number;
   metadata?: Record<string, unknown>;
@@ -1012,7 +955,11 @@ function buildChatSendTranscriptMessage(params: {
   const mediaFields = resolveChatSendTranscriptMediaFields(params.savedImages);
   const content =
     params.attachmentRefs && params.attachmentRefs.length > 0
-      ? buildUserTranscriptContentWithAttachmentRefs(params.message, params.attachmentRefs)
+      ? buildUserTranscriptContentWithAttachmentRefs(
+          params.message,
+          params.attachmentRefs,
+          params.stagedPathsByFileId,
+        )
       : params.message;
   return {
     role: "user" as const,
@@ -2556,6 +2503,23 @@ export const chatHandlers: GatewayRequestHandlers = {
         sessionKey,
         clientRunId,
       });
+      const stagedAttachmentRefs =
+        attachmentRefs.length > 0
+          ? await stageAttachmentRefsForEditIntent({
+              refs: attachmentRefs,
+              userText: inboundMessage,
+              cfg,
+              agentId,
+              runId: clientRunId,
+            })
+          : { refs: attachmentRefs, staged: false };
+      const agentAttachmentRefs = stagedAttachmentRefs.refs;
+      const { stagingRevealPathsByFileId: stagedPathsByFileId, stagedSourcePathsByFileId } =
+        buildStagedPathMaps({
+          originalRefs: attachmentRefs,
+          agentRefs: agentAttachmentRefs,
+        });
+      const attachmentRefsStaged = stagedSourcePathsByFileId.size > 0;
       const sendAckArtifacts = buildChatSendAckArtifacts({
         sessionKey,
         runId: clientRunId,
@@ -2568,15 +2532,21 @@ export const chatHandlers: GatewayRequestHandlers = {
           })),
         offloadedRefs,
         attachmentRefs,
+        stagedPathsByFileId,
         attachmentRefContentIndexOffset:
           attachmentRefs.length > 0
             ? attachmentRefArtifactContentIndexOffset(parsedMessage)
             : undefined,
       });
+      const allowLocalRevealPath = clientSupportsElectronReveal(client?.connect?.caps);
       const ackPayload = {
         runId: clientRunId,
         status: "started" as const,
-        ...(sendAckArtifacts.length > 0 ? { artifacts: sendAckArtifacts } : {}),
+        ...(sendAckArtifacts.length > 0
+          ? {
+              artifacts: projectArtifactSummariesForClient(sendAckArtifacts, allowLocalRevealPath),
+            }
+          : {}),
       };
       respond(true, ackPayload, undefined, { runId: clientRunId });
       const persistedImagesPromise = persistChatSendImages({
@@ -2597,10 +2567,14 @@ export const chatHandlers: GatewayRequestHandlers = {
       );
       const commandBody = injectThinking ? `/think ${p.thinking} ${parsedMessage}` : parsedMessage;
       const commandSource = trimmedMessage.startsWith("/") ? "text" : undefined;
-      const attachmentRefsPrompt = formatAttachmentRefsForAgent(attachmentRefs);
+      const attachmentRefsPrompt = formatAttachmentRefsForAgent({
+        refs: agentAttachmentRefs,
+        stagedSourcePathsByFileId,
+      });
       const attachmentRoutingHint = buildAttachmentRoutingHint({
-        refs: attachmentRefs,
+        refs: agentAttachmentRefs,
         userText: inboundMessage,
+        staged: attachmentRefsStaged,
       });
       const refsAppendix = buildAttachmentRefsAppendix(attachmentRefs);
       const messageWithRefs = refsAppendix
@@ -2733,6 +2707,7 @@ export const chatHandlers: GatewayRequestHandlers = {
                 message: buildChatSendTranscriptMessage({
                   message: parsedMessage,
                   attachmentRefs: attachmentRefs.length > 0 ? attachmentRefs : undefined,
+                  stagedPathsByFileId,
                   savedImages: persistedImages,
                   timestamp: now,
                   ...(p.metadata ? { metadata: p.metadata } : {}),

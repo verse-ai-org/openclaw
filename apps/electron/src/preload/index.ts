@@ -21,6 +21,32 @@ contextBridge.exposeInMainWorld("electronBridge", {
    */
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 
+  /** Reveal a local file in the system file manager (Finder / Explorer). */
+  showItemInFolder: (absolutePath: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("shell:showItemInFolder", absolutePath),
+
+  /** Open a local file with the system default application. */
+  openPath: (absolutePath: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("shell:openPath", absolutePath),
+
+  /** Copy a workspace staging file onto the user's original path (replace). */
+  copyStagingToPath: (params: {
+    source: string;
+    dest: string;
+  }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("fs:copyStagingToPath", params),
+
+  /** Delete a workspace staging copy after discard. */
+  deleteStagingPath: (absolutePath: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("fs:deleteStagingPath", absolutePath),
+
+  /** Save a workspace staging copy to a user-chosen path. */
+  saveStagingCopyAs: (params: {
+    source: string;
+    defaultName: string;
+  }): Promise<{ ok: boolean; error?: string; savedPath?: string }> =>
+    ipcRenderer.invoke("fs:saveStagingCopyAs", params),
+
   /**
    * 向 Gateway 发起 wizard RPC 请求（通过主进程 WS 中转）。
    * 仅在 Onboarding Renderer 页面使用；主进程注册 ipc-wizard.ts handler。

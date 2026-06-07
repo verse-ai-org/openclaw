@@ -5,6 +5,17 @@ export type ElectronBridgeEnv = {
   platform?: string;
   isElectron?: boolean;
   getPathForFile?: (file: File) => string;
+  showItemInFolder?: (absolutePath: string) => Promise<{ ok: boolean }>;
+  openPath?: (absolutePath: string) => Promise<{ ok: boolean }>;
+  copyStagingToPath?: (params: {
+    source: string;
+    dest: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  deleteStagingPath?: (absolutePath: string) => Promise<{ ok: boolean; error?: string }>;
+  saveStagingCopyAs?: (params: {
+    source: string;
+    defaultName: string;
+  }) => Promise<{ ok: boolean; error?: string; savedPath?: string }>;
 };
 
 export function getElectronBridge(): ElectronBridgeEnv | undefined {

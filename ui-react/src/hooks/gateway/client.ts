@@ -8,6 +8,7 @@ import {
   loadOrCreateDeviceIdentity,
   signDevicePayload,
 } from "./device-identity";
+import { getElectronBridge } from "@/utils/electron-env";
 
 const CONNECT_FAILED_CLOSE_CODE = 4008;
 const NON_RECOVERABLE_GATEWAY_ERROR_CODES = new Set([
@@ -194,7 +195,10 @@ export class GatewayClient {
       role,
       scopes,
       device,
-      caps: ["tool-events"],
+      caps: [
+        "tool-events",
+        ...(getElectronBridge()?.isElectron ? (["electron"] as const) : []),
+      ],
       auth:
         authToken || this.opts.password
           ? { token: authToken, password: this.opts.password }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   attachmentHintForArtifactRef,
   mergeInboundArtifactMediaIntoAttachments,
+  resolveArtifactChipTitleTooltip,
 } from "./artifact-helpers";
 import type { ArtifactSummary } from "./types";
 
@@ -56,5 +57,41 @@ describe("attachmentHintForArtifactRef", () => {
       [{ id: "artifact_b", type: "file", title: "report.pdf", download: { mode: "unsupported" } }],
     );
     expect(hint?.fileName).toBe("report.pdf");
+  });
+});
+
+describe("resolveArtifactChipTitleTooltip", () => {
+  it("warns when path-ref lacks localRevealPath", () => {
+    expect(
+      resolveArtifactChipTitleTooltip({
+        title: "report.pdf",
+        summary: { ingestChannel: "path-ref" },
+      }),
+    ).toContain("cannot locate original file");
+  });
+
+  it("mentions staging menu when stagingRevealPath is present", () => {
+    expect(
+      resolveArtifactChipTitleTooltip({
+        title: "report.pdf",
+        summary: {
+          ingestChannel: "path-ref",
+          localRevealPath: "/tmp/report.pdf",
+          stagingRevealPath: "/workspace/staging/report.pdf",
+        },
+      }),
+    ).toContain("workspace copy");
+  });
+
+  it("warns that agent may modify original path-ref files", () => {
+    expect(
+      resolveArtifactChipTitleTooltip({
+        title: "report.pdf",
+        summary: {
+          ingestChannel: "path-ref",
+          localRevealPath: "/tmp/report.pdf",
+        },
+      }),
+    ).toContain("may modify this file in place");
   });
 });

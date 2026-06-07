@@ -67,7 +67,8 @@ export const InlineInboundImages: FC<{
           }}
           title={preview.fileName}
           mimeType={preview.mimeType}
-          imageSrc={preview.src}
+          previewKind="image"
+          contentSrc={preview.src}
         />
       ) : null}
     </>

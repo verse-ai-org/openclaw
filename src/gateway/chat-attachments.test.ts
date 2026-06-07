@@ -3,6 +3,7 @@ import {
   buildMessageWithAttachments,
   type ChatAttachment,
   extractMediaAttachedLineHints,
+  extractPathRefHintsFromMessageText,
   parseMessageWithAttachments,
   splitUserMessageForChatHistoryDisplay,
   stripExtractedFileContentAppendix,
@@ -218,6 +219,60 @@ describe("extractMediaAttachedLineHints", () => {
         size: 0,
         mediaRef:
           "media://inbound/川西5天小环线完美结束_1_十一_来自小红书网页版---e0967595-2063-4b90-9f1e-77e72daf10c5.jpg",
+      },
+    ]);
+  });
+});
+
+describe("extractPathRefHintsFromMessageText", () => {
+  it("parses uploaded file reference lines from legacy agent-facing transcript text", () => {
+    const text = [
+      "[Fri 2026-06-05 16:19 GMT+8] edit pdf",
+      "",
+      "Uploaded file contents:",
+      "",
+      "[File: Skill白皮书.pdf]",
+      "",
+      "Routing hint: attachments are in reference mode.",
+      "",
+      "Uploaded File References:",
+      "Use these exact local file paths when invoking file tools (read/write/edit/convert).",
+      "- fileId=abc; path=/Users/me/Documents/Skill白皮书.pdf; name=Skill白皮书.pdf; mime=application/pdf; size=807961; sha256=deadbeef",
+    ].join("\n");
+    expect(extractPathRefHintsFromMessageText(text)).toEqual([
+      {
+        fileId: "abc",
+        fileName: "Skill白皮书.pdf",
+        mimeType: "application/pdf",
+        size: 807961,
+        localRevealPath: "/Users/me/Documents/Skill白皮书.pdf",
+      },
+    ]);
+  });
+
+  it("parses staged path-ref lines with sourcePath suffix", () => {
+    const text = [
+      "[Fri 2026-06-05 17:30 GMT+8] summarize",
+      "",
+      "Uploaded file contents:",
+      "",
+      "[File: Skill白皮书(去首尾页).pdf]",
+      "",
+      "Routing hint: this request looks like editing/conversion.",
+      "",
+      "Uploaded File References (staged copies where noted):",
+      "Use staged copy paths when invoking file tools (read/write/edit/convert).",
+      "- fileId=440d02b6; path=/Users/me/.openclaw/agents/my-office-helper/attachments/staging/run/440d02b6_Skill_________.pdf; name=Skill白皮书(去首尾页).pdf; mime=application/pdf; size=492717; sha256=440d02b6b1e79dd54c4d5fad90e0ba83fff0c3a312a859aa52cbac96fb2f95e3; sourcePath=/Users/me/Documents/文档/Skill白皮书(去首尾页).pdf",
+    ].join("\n");
+    expect(extractPathRefHintsFromMessageText(text)).toEqual([
+      {
+        fileId: "440d02b6",
+        fileName: "Skill白皮书(去首尾页).pdf",
+        mimeType: "application/pdf",
+        size: 492717,
+        localRevealPath: "/Users/me/Documents/文档/Skill白皮书(去首尾页).pdf",
+        stagingRevealPath:
+          "/Users/me/.openclaw/agents/my-office-helper/attachments/staging/run/440d02b6_Skill_________.pdf",
       },
     ]);
   });

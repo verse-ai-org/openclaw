@@ -25,6 +25,22 @@ export function resolveArtifactDisplayTitle(
   return fromSummary || ref.artifactId;
 }
 
+export function resolveArtifactChipTitleTooltip(params: {
+  title: string;
+  summary?: Pick<ArtifactSummary, "ingestChannel" | "localRevealPath" | "stagingRevealPath">;
+}): string | undefined {
+  if (params.summary?.ingestChannel !== "path-ref") {
+    return undefined;
+  }
+  if (!params.summary.localRevealPath?.trim()) {
+    return `${params.title} — cannot locate original file`;
+  }
+  if (params.summary.stagingRevealPath?.trim()) {
+    return `${params.title} — agent edits a workspace copy; use the menu to replace the original or discard the copy`;
+  }
+  return `${params.title} — the agent may modify this file in place at the original path`;
+}
+
 export function resolveArtifactDisplayMime(
   ref: ArtifactRef,
   summaries: ArtifactSummary[] | undefined,

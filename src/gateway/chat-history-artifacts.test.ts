@@ -97,6 +97,37 @@ describe("projectChatHistoryMessagesWithArtifacts", () => {
     expect(attachments[0]?.mimeType).toBe("image/jpeg");
   });
 
+  it("does not duplicate appendix file markers when path-ref artifacts are indexed", () => {
+    const sessionKey = "agent:my-office-helper:main";
+    const messages = projectChatHistoryMessagesWithArtifacts(
+      [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: [
+                "[Fri 2026-06-05 17:30 GMT+8] summarize",
+                "",
+                "Uploaded file contents:",
+                "",
+                "[File: Skill白皮书(去首尾页).pdf]",
+                "",
+                "Uploaded File References (staged copies where noted):",
+                "- fileId=440d02b6; path=/workspace/staging/440d02b6_Skill.pdf; name=Skill白皮书(去首尾页).pdf; mime=application/pdf; size=492717; sha256=deadbeef; sourcePath=/Users/me/Documents/Skill白皮书(去首尾页).pdf",
+              ].join("\n"),
+            },
+          ],
+        },
+      ],
+      sessionKey,
+    );
+    const refs = messages[0]?.artifactRefs as Array<{ artifactId: string }> | undefined;
+    expect(refs).toHaveLength(1);
+    expect(refs?.[0]?.artifactId).toMatch(/^artifact_/);
+    expect(messages[0]?.attachments).toBeUndefined();
+  });
+
   it("indexes user MediaPaths as artifact refs", () => {
     const messages = projectChatHistoryMessagesWithArtifacts(
       [

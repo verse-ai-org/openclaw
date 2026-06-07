@@ -14,6 +14,7 @@ type SendAttachmentInput = {
 export function buildUserTranscriptContentWithAttachmentRefs(
   message: string,
   refs: ChatAttachmentRef[],
+  stagedPathsByFileId?: Map<string, string>,
 ): string | Array<Record<string, unknown>> {
   const blocks: Array<Record<string, unknown>> = [];
   const trimmed = message.trim();
@@ -23,11 +24,14 @@ export function buildUserTranscriptContentWithAttachmentRefs(
   for (const ref of refs) {
     const title = ref.fileName?.trim() || "file";
     const mimeType = ref.mimeType?.trim() || "application/octet-stream";
+    const stagingRevealPath = stagedPathsByFileId?.get(ref.fileId);
     blocks.push({
       type: "file",
       title,
       fileName: title,
       mimeType,
+      localRevealPath: ref.path,
+      ...(stagingRevealPath ? { stagingRevealPath } : {}),
       ...(ref.size > 0 ? { sizeBytes: ref.size } : {}),
     });
   }
@@ -50,6 +54,7 @@ export function buildChatSendAckArtifacts(params: {
   attachments: SendAttachmentInput[];
   offloadedRefs: OffloadedRef[];
   attachmentRefs: ChatAttachmentRef[];
+  stagedPathsByFileId?: Map<string, string>;
   /** content[] index of the first attachmentRef file block in the user transcript row. */
   attachmentRefContentIndexOffset?: number;
   /** Provisional seq for id stability until transcript append; use 1 for send-scoped ids. */
@@ -135,6 +140,7 @@ export function buildChatSendAckArtifacts(params: {
         ? "audio"
         : "file";
     const title = ref.fileName?.trim() || path.basename(ref.path) || `${type}-${refIdx + 1}`;
+    const stagingRevealPath = params.stagedPathsByFileId?.get(ref.fileId);
     const blockIndex = refIndexOffset + refIdx;
     artifacts.push({
       id: buildArtifactId({
@@ -155,6 +161,8 @@ export function buildChatSendAckArtifacts(params: {
       source: "user-upload",
       role: "input",
       ingestChannel: "path-ref",
+      localRevealPath: ref.path,
+      ...(stagingRevealPath ? { stagingRevealPath } : {}),
       download: { mode: "unsupported" },
     });
   }

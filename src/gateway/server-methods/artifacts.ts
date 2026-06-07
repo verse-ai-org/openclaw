@@ -1,6 +1,16 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { resolveInboundMediaRefFromAbsolutePath } from "../chat-attachments.js";
+import {
+  extractPathRefHintsFromMessageText,
+  resolveInboundMediaRefFromAbsolutePath,
+  splitUserMessageAndAppendixRegion,
+  stripMediaAttachedLines,
+} from "../chat-attachments.js";
+import { attachmentRefArtifactContentIndexOffset } from "../chat-send-artifacts.js";
+import {
+  clientSupportsElectronReveal,
+  projectArtifactSummaryForClient,
+} from "../artifact-local-reveal-path.js";
 import { buildArtifactId } from "../chat-artifact-id.js";
 import { resolveMediaReferenceLocalPath } from "../../media/media-reference.js";
 import { resolveDefaultAgentId } from "../../agents/agent-scope.js";
@@ -68,6 +78,83 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 
 function asNonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function messageTextFromRecord(msg: Record<string, unknown>): string {
+  const content = msg.content;
+  if (typeof content === "string") {
+    return content;
+  }
+  if (!Array.isArray(content)) {
+    return "";
+  }
+  const parts: string[] = [];
+  for (const block of content) {
+    const record = asRecord(block);
+    if (record?.type === "text" && typeof record.text === "string") {
+      parts.push(record.text);
+    }
+  }
+  return parts.join("\n");
+}
+
+function collectPathRefArtifactsFromLegacyUserText(params: {
+  message: Record<string, unknown>;
+  messageSeq: number;
+  messageRunId?: string;
+  messageTaskId?: string;
+  sessionKey: string;
+  artifacts: ArtifactRecord[];
+}): void {
+  if (params.message.role !== "user") {
+    return;
+  }
+  const rawText = messageTextFromRecord(params.message);
+  const hints = extractPathRefHintsFromMessageText(rawText);
+  if (hints.length === 0) {
+    return;
+  }
+  const displayText = stripMediaAttachedLines(
+    splitUserMessageAndAppendixRegion(rawText).displayText,
+  );
+  const indexOffset = attachmentRefArtifactContentIndexOffset(displayText.trim());
+  for (const [hintIndex, hint] of hints.entries()) {
+    const contentIndex = indexOffset + hintIndex;
+    const type = hint.mimeType.startsWith("image/")
+      ? "image"
+      : hint.mimeType.startsWith("audio/")
+        ? "audio"
+        : "file";
+    const title = hint.fileName.trim() || "file";
+    const artifactId = buildArtifactId({
+      sessionKey: params.sessionKey,
+      messageSeq: params.messageSeq,
+      contentIndex,
+      title,
+      type,
+    });
+    if (params.artifacts.some((artifact) => artifact.id === artifactId)) {
+      continue;
+    }
+    params.artifacts.push({
+      id: artifactId,
+      type,
+      title,
+      mimeType: hint.mimeType,
+      ...(hint.size > 0 ? { sizeBytes: hint.size } : {}),
+      sessionKey: params.sessionKey,
+      ...(params.messageRunId ? { runId: params.messageRunId } : {}),
+      ...(params.messageTaskId ? { taskId: params.messageTaskId } : {}),
+      messageSeq: params.messageSeq,
+      contentIndex,
+      source: "user-upload",
+      role: "input",
+      ingestChannel: "path-ref",
+      localRevealPath: hint.localRevealPath,
+      ...(hint.stagingRevealPath ? { stagingRevealPath: hint.stagingRevealPath } : {}),
+      download: { mode: "unsupported" },
+    });
+  }
 }
 
 function resolveRequesterSessionAgentId(
@@ -324,6 +411,8 @@ export function collectArtifactsFromMessage(params: {
       asNonEmptyString(block.alt) ??
       `${type} ${params.artifacts.length + 1}`;
     const download = resolveBlockDownload(block);
+    const localRevealPath = asNonEmptyString(block.localRevealPath);
+    const stagingRevealPath = asNonEmptyString(block.stagingRevealPath);
     const role = msg.role === "user" ? "input" : msg.role === "assistant" ? "output" : undefined;
     const source =
       msg.role === "user"
@@ -350,8 +439,10 @@ export function collectArtifactsFromMessage(params: {
       contentIndex,
       ...(source ? { source } : {}),
       ...(role ? { role } : {}),
-      ingestChannel: "transcript-block",
-      download: { mode: download.mode },
+      ingestChannel: localRevealPath ? "path-ref" : "transcript-block",
+      ...(localRevealPath ? { localRevealPath } : {}),
+      ...(stagingRevealPath ? { stagingRevealPath } : {}),
+      download: { mode: localRevealPath ? "unsupported" : download.mode },
       ...(download.data ? { data: download.data } : {}),
       ...(download.url ? { url: download.url } : {}),
     };
@@ -366,6 +457,14 @@ export function collectArtifactsFromMessage(params: {
       messageTaskId,
       sessionKey: params.sessionKey,
       contentStartIndex: content.length,
+      artifacts: params.artifacts,
+    });
+    collectPathRefArtifactsFromLegacyUserText({
+      message: msg,
+      messageSeq,
+      messageRunId,
+      messageTaskId,
+      sessionKey: params.sessionKey,
       artifacts: params.artifacts,
     });
   }
@@ -556,7 +655,7 @@ function toSummary(artifact: ArtifactRecord): ArtifactSummary {
 }
 
 export const artifactsHandlers: GatewayRequestHandlers = {
-  "artifacts.list": async ({ params, respond, context }) => {
+  "artifacts.list": async ({ params, respond, context, client }) => {
     if (!assertValidParams(params, validateArtifactsListParams, "artifacts.list", respond)) {
       return;
     }
@@ -572,9 +671,14 @@ export const artifactsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    respond(true, { artifacts: artifacts.map(toSummary) });
+    const allowLocalRevealPath = clientSupportsElectronReveal(client?.connect?.caps);
+    respond(true, {
+      artifacts: artifacts.map((artifact) =>
+        projectArtifactSummaryForClient(toSummary(artifact), allowLocalRevealPath),
+      ),
+    });
   },
-  "artifacts.get": async ({ params, respond, context }) => {
+  "artifacts.get": async ({ params, respond, context, client }) => {
     if (!assertValidParams(params, validateArtifactsGetParams, "artifacts.get", respond)) {
       return;
     }
@@ -592,9 +696,12 @@ export const artifactsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    respond(true, { artifact: toSummary(artifact) });
+    const allowLocalRevealPath = clientSupportsElectronReveal(client?.connect?.caps);
+    respond(true, {
+      artifact: projectArtifactSummaryForClient(toSummary(artifact), allowLocalRevealPath),
+    });
   },
-  "artifacts.download": async ({ params, respond, context }) => {
+  "artifacts.download": async ({ params, respond, context, client }) => {
     if (
       !assertValidParams(params, validateArtifactsDownloadParams, "artifacts.download", respond)
     ) {
@@ -642,8 +749,9 @@ export const artifactsHandlers: GatewayRequestHandlers = {
         return;
       }
     }
+    const allowLocalRevealPath = clientSupportsElectronReveal(client?.connect?.caps);
     respond(true, {
-      artifact: toSummary(artifact),
+      artifact: projectArtifactSummaryForClient(toSummary(artifact), allowLocalRevealPath),
       ...(artifact.download.mode === "bytes" || data
         ? { encoding: "base64" as const, data }
         : {}),

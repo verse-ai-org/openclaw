@@ -97,7 +97,14 @@ export function projectArtifactRefsForHistoryMessage(params: {
   const rawText = messageTextForArtifactProjection(params.message);
   const { displayText: textAfterAppendix, appendixRegion } = splitUserMessageAndAppendixRegion(rawText);
   const displayText = stripMediaAttachedLines(textAfterAppendix);
-  const fileHints = extractFileAttachmentHintsFromAppendix(appendixRegion);
+  const coveredFileTitles = new Set(
+    artifacts
+      .map((artifact) => artifact.title.trim().toLowerCase())
+      .filter((title) => title.length > 0),
+  );
+  const fileHints = extractFileAttachmentHintsFromAppendix(appendixRegion).filter(
+    (hint) => !coveredFileTitles.has(hint.fileName.trim().toLowerCase()),
+  );
   const mediaAttachedHints = extractMediaAttachedLineHints(rawText);
   const hintContentStartIndex =
     artifacts.length +

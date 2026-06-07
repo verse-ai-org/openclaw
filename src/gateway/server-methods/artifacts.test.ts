@@ -646,6 +646,84 @@ describe("artifacts RPC handlers", () => {
     expectFields(artifact?.download, { mode: "bytes" });
   });
 
+  it("collects path-ref localRevealPath from legacy user transcript text", () => {
+    const artifacts = collectArtifactsFromMessages({
+      sessionKey: "agent:my-office-helper:main",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: [
+                "[Fri 2026-06-05 16:19 GMT+8] edit pdf",
+                "",
+                "Uploaded file contents:",
+                "",
+                "[File: Skill白皮书.pdf]",
+                "",
+                "Uploaded File References:",
+                "Use these exact local file paths when invoking file tools (read/write/edit/convert).",
+                "- fileId=abc; path=/Users/me/Documents/Skill白皮书.pdf; name=Skill白皮书.pdf; mime=application/pdf; size=807961; sha256=deadbeef",
+              ].join("\n"),
+            },
+          ],
+          __openclaw: { seq: 5 },
+        },
+      ],
+    });
+
+    expect(artifacts).toHaveLength(1);
+    expectFields(artifacts[0], {
+      type: "file",
+      title: "Skill白皮书.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 807961,
+      ingestChannel: "path-ref",
+      localRevealPath: "/Users/me/Documents/Skill白皮书.pdf",
+    });
+    expectFields(artifacts[0]?.download, { mode: "unsupported" });
+  });
+
+  it("collects staged path-ref reveal paths from legacy user transcript text", () => {
+    const artifacts = collectArtifactsFromMessages({
+      sessionKey: "agent:my-office-helper:main",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: [
+                "[Fri 2026-06-05 17:30 GMT+8] summarize",
+                "",
+                "Uploaded file contents:",
+                "",
+                "[File: Skill白皮书(去首尾页).pdf]",
+                "",
+                "Uploaded File References (staged copies where noted):",
+                "- fileId=440d02b6; path=/workspace/staging/440d02b6_Skill.pdf; name=Skill白皮书(去首尾页).pdf; mime=application/pdf; size=492717; sha256=deadbeef; sourcePath=/Users/me/Documents/Skill白皮书(去首尾页).pdf",
+              ].join("\n"),
+            },
+          ],
+          __openclaw: { seq: 5 },
+        },
+      ],
+    });
+
+    expect(artifacts).toHaveLength(1);
+    expectFields(artifacts[0], {
+      type: "file",
+      title: "Skill白皮书(去首尾页).pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 492717,
+      ingestChannel: "path-ref",
+      localRevealPath: "/Users/me/Documents/Skill白皮书(去首尾页).pdf",
+      stagingRevealPath: "/workspace/staging/440d02b6_Skill.pdf",
+    });
+    expectFields(artifacts[0]?.download, { mode: "unsupported" });
+  });
+
   it("treats transcript non-base64 data URLs as unsupported downloads", () => {
     const artifacts = collectArtifactsFromMessages({
       sessionKey: "agent:main:main",

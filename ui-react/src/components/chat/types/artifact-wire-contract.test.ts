@@ -23,6 +23,8 @@ const GATEWAY_ARTIFACT_SUMMARY_FIELDS = [
   "role",
   "ingestChannel",
   "mediaRef",
+  "localRevealPath",
+  "stagingRevealPath",
   "download",
 ] as const;
 

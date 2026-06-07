@@ -3,7 +3,8 @@
 > **状态**：可执行 backlog（交互层，不绑定 `PROTOCOL_VERSION` 升级）  
 > **受众**：`ui-react`、Electron 主进程、`apps/electron`  
 > **前置**：[`artifacts-protocol-design.md`](./artifacts-protocol-design.md) Phase 1–2 已落地（`artifactRefs`、`ArtifactSummary`、`artifacts.download`）  
-> **协议实施**：[`artifacts-protocol-implementation-plan.md`](./artifacts-protocol-implementation-plan.md)
+> **协议实施**：[`artifacts-protocol-implementation-plan.md`](./artifacts-protocol-implementation-plan.md)  
+> **执行路线图**（阶段顺序、PR 拆分、逐步清单）：[`artifact-chip-implementation-plan.md`](./artifact-chip-implementation-plan.md)
 
 ## 背景与问题
 
@@ -529,8 +530,9 @@ Phase I1–I3 **不实现** staging；仅实现 reveal **原件** 与 inbound �
 
 ## 实施计划
 
-> **编号**：Interaction Phase **I1 / I2 / I3**，与协议 Phase 1–3 正交，可并行推进。  
-> **建议顺序**：I1 → **I3（Gateway）** → **I2（UI reveal）**；I3 与 I2 可同一 PR 拆分 gateway/ui。I1 无协议依赖。
+> **逐步执行清单、PR 甘特、验证命令**：见 **[`artifact-chip-implementation-plan.md`](./artifact-chip-implementation-plan.md)**。  
+> **编号**：Interaction Phase **I1 / I2 / I3**，与协议 Phase 1–3 正交。  
+> **建议顺序**：**I1 → I3（Gateway）→ I2（UI reveal）**；I3 与 I2 可同一 PR；I1 无协议依赖。
 
 ### 总览
 
@@ -727,8 +729,8 @@ pnpm test ui-react/src/components/chat/artifacts/artifact-renderer-registry.test
 | D4 | Preview Dialog 内 Markdown 渲染 | Phase I1 pre / Phase I2 MD | Phase I1 用 pre |
 | D5 | 大文件预览上限 | 例如 >20MB 仅下载 | Phase I1 用 `sizeBytes` 阈值 + toast；常量 `PREVIEW_MAX_BYTES` 放 `artifact-preview-mime.ts` |
 | D6 | path-ref 是否提供「用系统打开」 | 仅 reveal / reveal + `openPath` 次操作 | Phase I2 默认仅 reveal；`openPath` 作 I2.1 可选 |
-| D7 | 编辑类附件默认策略 | 就地（现状）/ 默认 staging / 按 MIME 分 | **建议默认 staging**；Office 可「替换原文件」；PDF/图更严 |
-| D8 | 就地编辑是否保留 | 删除 / 高级设置 opt-in / 每消息勾选 | **建议 opt-in**；默认走 I4 staging |
+| D7 | 编辑类附件默认策略 | 就地（现状）/ 默认 staging / 按 MIME 分 | **已决（I4）**：`edit-convert` 全类型 staging；`unknown` 下 PDF/图片 staging；`read-extract` 不 staging |
+| D8 | 就地编辑是否保留 | 删除 / 高级设置 opt-in / 每消息勾选 | **已决（I4）**：默认 staging；就地编辑 **无 UI opt-in**（后续设置项 backlog） |
 | D9 | path-ref 无 `localRevealPath` 时弱提示 | 仅 tooltip / chip 副文案 / 不提示 | **I3 前**常驻；I3 后仅旧消息/换机/远程 |
 | D10 | pdf.js 回退 | 永不 / iframe 失败后 / 全平台 | Phase I1 不用；iframe+CSP 失败再评 |
 

@@ -4,14 +4,38 @@ import type {
   ArtifactSummary,
   MessageAttachment,
 } from "@/components/chat/types";
+import { getElectronBridge } from "@/utils/electron-env";
+import { exceedsPreviewMaxBytes, isPreviewableMime } from "./artifact-preview-mime";
 import { inboundImageBasename } from "./inbound-image-dedupe";
 
 export type ArtifactRenderType = "image" | "audio" | "file";
 
-export type ArtifactChipInteraction = "preview-image" | "download-file" | "open-url" | "none";
+export type ArtifactChipInteraction =
+  | "preview-image"
+  | "preview-file"
+  | "reveal-in-folder"
+  | "reveal-staging-in-folder"
+  | "open-url"
+  | "download-file"
+  | "none";
+
+export type ResolveArtifactInteractionParams = {
+  summary?: ArtifactSummary;
+  renderType: ArtifactRenderType;
+  mimeType: string;
+  downloadMode?: ArtifactDownloadMode;
+  source?: ArtifactSummary["source"];
+  ingestChannel?: ArtifactSummary["ingestChannel"];
+  role?: ArtifactRef["role"];
+  isElectron?: boolean;
+};
 
 function basenameFromRef(value: string): string {
   return inboundImageBasename(value);
+}
+
+export function isElectronEnvironment(): boolean {
+  return getElectronBridge()?.isElectron === true;
 }
 
 export function resolveArtifactRenderType(
@@ -31,22 +55,78 @@ export function isImageArtifactSummary(summary: ArtifactSummary | undefined): bo
   return resolveArtifactRenderType(summary, summary?.mimeType ?? "") === "image";
 }
 
+export function resolveArtifactPrimaryInteraction(
+  params: ResolveArtifactInteractionParams,
+): ArtifactChipInteraction {
+  const {
+    summary,
+    renderType,
+    mimeType,
+    downloadMode,
+    ingestChannel,
+    isElectron = isElectronEnvironment(),
+  } = params;
+
+  if (downloadMode === "url") {
+    return "open-url";
+  }
+
+  if (downloadMode !== "bytes") {
+    if (ingestChannel === "path-ref" && isElectron && summary?.localRevealPath?.trim()) {
+      return "reveal-in-folder";
+    }
+    return "none";
+  }
+
+  if (exceedsPreviewMaxBytes(summary?.sizeBytes)) {
+    return "download-file";
+  }
+
+  if (renderType === "image" && mimeType.startsWith("image/")) {
+    return "preview-image";
+  }
+
+  if (isPreviewableMime(mimeType)) {
+    return "preview-file";
+  }
+
+  return "download-file";
+}
+
+export function resolveArtifactSecondaryInteraction(
+  primary: ArtifactChipInteraction,
+  params?: { summary?: ArtifactSummary; isElectron?: boolean },
+): ArtifactChipInteraction {
+  if (primary === "preview-image" || primary === "preview-file") {
+    return "download-file";
+  }
+  if (
+    primary === "reveal-in-folder" &&
+    (params?.isElectron ?? isElectronEnvironment()) &&
+    params?.summary?.stagingRevealPath?.trim()
+  ) {
+    return "reveal-staging-in-folder";
+  }
+  return "none";
+}
+
+/** @deprecated Use resolveArtifactPrimaryInteraction */
 export function resolveArtifactChipInteraction(params: {
   renderType: ArtifactRenderType;
   mimeType: string;
   downloadMode?: ArtifactDownloadMode;
 }): ArtifactChipInteraction {
-  const { renderType, mimeType, downloadMode } = params;
-  if (downloadMode === "url") {
-    return "open-url";
-  }
-  if (downloadMode !== "bytes") {
-    return "none";
-  }
-  if (renderType === "image" && mimeType.startsWith("image/")) {
-    return "preview-image";
-  }
-  return "download-file";
+  return resolveArtifactPrimaryInteraction(params);
+}
+
+export function isArtifactChipInteractive(interaction: ArtifactChipInteraction): boolean {
+  return interaction !== "none";
+}
+
+export function isArtifactPreviewInteraction(
+  interaction: ArtifactChipInteraction,
+): interaction is "preview-image" | "preview-file" {
+  return interaction === "preview-image" || interaction === "preview-file";
 }
 
 export function isLegacyInlineAttachment(att: MessageAttachment): boolean {
