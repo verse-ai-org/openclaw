@@ -22,6 +22,9 @@ export type RawMessage = {
   usage?: unknown;
   cost?: unknown;
   model?: string;
+  stopReason?: string;
+  display?: boolean;
+  customType?: string;
 };
 
 export type GatewayChatEventState =

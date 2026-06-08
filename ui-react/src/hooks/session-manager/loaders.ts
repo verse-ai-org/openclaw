@@ -5,15 +5,17 @@ import type { IGatewayClient } from "@/store/gateway.store";
 import type { RawMessage } from "@/components/chat/gateway";
 import { prefetchArtifactsForSession } from "@/components/chat/artifacts/artifact-gateway-client";
 import type { CanonicalMessage } from "@/components/chat/conversation";
-import { mergeInboundArtifactMediaIntoAttachments } from "@/components/chat/artifact-helpers";
+import { mergeInboundArtifactMediaIntoAttachments } from "@/components/chat/artifacts/artifact-helpers";
 import { stripGatewayUserDisplayText } from "@/components/chat/artifacts/strip-gateway-user-display-text";
 import {
+  filterGatewayDisplayHistoryMessages,
   mergeHistoryRuns,
   serializeGatewayHistoryToCanonicalSnapshot,
 } from "@/components/chat/serialization";
 import { selectCanonicalMessages } from "@/store/conversation-selectors";
 import { useSessionsStore } from "@/store/sessions.store";
 import { enrichSessionsFromLocalConversation } from "./enrich-sessions-from-conversation";
+import { filterSessionsForDisplay } from "./filter-sessions-for-display";
 import type { SessionEntry, SessionsListDefaults } from "./types";
 
 /** Post-run silent reload can race transcript MediaPaths; keep prior attachment metadata when text matches. */
@@ -167,7 +169,11 @@ export async function loadSessionsFromGateway(params: {
       includeDerivedTitles: true,
       includeLastMessage: true,
     });
-    setSessions(enrichSessionsFromLocalConversation(result?.sessions ?? []));
+    setSessions(
+      filterSessionsForDisplay(
+        enrichSessionsFromLocalConversation(result?.sessions ?? []),
+      ),
+    );
     setDefaults(result?.defaults ?? null);
   } catch {
     setSessions([{ key: sessionKey }]);
@@ -187,12 +193,19 @@ export async function loadHistoryFromGateway(params: {
   historyRequestSeqRef: MutableRefObject<number>;
 }) {
   const { client, key, silent = false, historyRequestSeqRef } = params;
+  const chatState = useChatStore.getState();
+
+  if (!silent) {
+    chatState.setMessagesLoading(true);
+  }
   if (!client?.connected) {
+    if (!silent) {
+      chatState.setMessagesLoading(false);
+    }
     return;
   }
 
   const requestSeq = ++historyRequestSeqRef.current;
-  const chatState = useChatStore.getState();
   // console.log("[session-manager] load history start", {
   //   requestSeq,
   //   silent,
@@ -200,12 +213,12 @@ export async function loadHistoryFromGateway(params: {
   // });
 
   if (!silent) {
+    useConversationStore.getState().clearHistoryHydrated(key);
     // Reset conversation thread before loading new history.
     useConversationStore.getState().resetThread(key);
     // Reset sending state when switching sessions to avoid stale running UI.
     chatState.setSending(false);
     chatState.setLastError(null);
-    chatState.setMessagesLoading(true);
   }
 
   try {
@@ -214,9 +227,9 @@ export async function loadHistoryFromGateway(params: {
       limit: DEFAULT_CHAT_HISTORY_LIMIT,
     });
     // console.log("result", result);
-    const rawMessages = (Array.isArray(result?.messages)
-      ? result.messages
-      : []) as RawMessage[];
+    const rawMessages = filterGatewayDisplayHistoryMessages(
+      (Array.isArray(result?.messages) ? result.messages : []) as RawMessage[],
+    );
     const activeSession = useSessionsStore
       .getState()
       .sessions.find((s) => s.key === key);
@@ -291,6 +304,7 @@ export async function loadHistoryFromGateway(params: {
     }
   } finally {
     if (!silent && requestSeq === historyRequestSeqRef.current) {
+      useConversationStore.getState().markHistoryHydrated(key);
       useChatStore.getState().setMessagesLoading(false);
     }
   }
@@ -316,7 +330,9 @@ export async function loadOlderHistoryFromGateway(params: {
       limit: DEFAULT_CHAT_HISTORY_LIMIT,
       beforeTs,
     });
-    const rawMessages = (Array.isArray(result?.messages) ? result.messages : []) as RawMessage[];
+    const rawMessages = filterGatewayDisplayHistoryMessages(
+      (Array.isArray(result?.messages) ? result.messages : []) as RawMessage[],
+    );
     const activeSession = useSessionsStore
       .getState()
       .sessions.find((s) => s.key === key);

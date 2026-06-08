@@ -1,3 +1,4 @@
+import { isHeartbeatSessionDisplayText } from "@/components/chat/serialization";
 import type { SessionEntry } from "./types";
 
 const MESSAGE_ID_LINE = /^\s*\[message_id:\s*[^\]]+\]\s*$/i;
@@ -78,7 +79,11 @@ export function resolveSessionDisplayName(session: SessionEntry): string {
   if (isUserSetSessionLabel(session.label)) {
     return cleanSessionText(session.label!);
   }
-  const best = session.derivedTitle ?? session.displayName;
+  const derivedTitle =
+    session.derivedTitle && !isHeartbeatSessionDisplayText(session.derivedTitle)
+      ? session.derivedTitle
+      : undefined;
+  const best = derivedTitle ?? session.displayName;
   if (best) {
     return cleanSessionText(best);
   }

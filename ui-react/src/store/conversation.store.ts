@@ -31,6 +31,8 @@ type ConversationStoreState = {
   /** Bumped on full history snapshot apply; keys assistant-ui message list remounts. */
   threadListGenerationByThread: Record<string, number>;
   historyPagingByThread: Record<string, HistoryPagingState>;
+  /** Set after the first full history fetch completes for a thread (success or failure). */
+  historyHydratedByThread: Record<string, boolean>;
   applyEvents: (threadId: ThreadId, events: CanonicalChatEvent[]) => void;
   beginOutboundRun: (threadId: ThreadId, runId: RunId) => void;
   setHistorySnapshot: (threadId: ThreadId, messages: ChatMessage[], ts?: number) => void;
@@ -45,12 +47,15 @@ type ConversationStoreState = {
   setActiveRunSnapshot: (threadId: ThreadId, runId: string | null, startedAt?: number | null) => void;
   truncateAfter: (threadId: ThreadId, parentId: string | null) => void;
   resetThread: (threadId: ThreadId) => void;
+  clearHistoryHydrated: (threadId: ThreadId) => void;
+  markHistoryHydrated: (threadId: ThreadId) => void;
 };
 
 export const useConversationStore = create<ConversationStoreState>()((set) => ({
   byThread: {},
   threadListGenerationByThread: {},
   historyPagingByThread: {},
+  historyHydratedByThread: {},
 
   applyEvents: (threadId, events) =>
     set((state) => {
@@ -86,13 +91,14 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
       };
     }),
 
-  setHistoryCanonicalSnapshot: (threadId, messages, ts = Date.now(), runs, options) =>
+  setHistoryCanonicalSnapshot: (threadId, messages, ts, runs, options) =>
     set((state) => {
+      const snapshotTs = ts ?? Date.now();
       const prev = state.byThread[threadId] ?? emptyConversationState(threadId);
       const next = applyCanonicalEvent(prev, {
         type: EventType.MessagesSnapshot,
         threadId,
-        ts,
+        ts: snapshotTs,
         messages,
         ...(runs !== undefined ? { runs } : {}),
       });
@@ -183,9 +189,33 @@ export const useConversationStore = create<ConversationStoreState>()((set) => ({
 
   resetThread: (threadId) =>
     set((state) => {
-      if (!(threadId in state.byThread)) return {};
+      const hasThread = threadId in state.byThread;
+      const hasPaging = threadId in state.historyPagingByThread;
+      const hasHydrated = threadId in state.historyHydratedByThread;
+      if (!hasThread && !hasPaging && !hasHydrated) {
+        return {};
+      }
       const { [threadId]: _removed, ...rest } = state.byThread;
       const { [threadId]: _pagingRemoved, ...pagingRest } = state.historyPagingByThread;
-      return { byThread: rest, historyPagingByThread: pagingRest };
+      const { [threadId]: _hydratedRemoved, ...hydratedRest } = state.historyHydratedByThread;
+      return {
+        byThread: rest,
+        historyPagingByThread: pagingRest,
+        historyHydratedByThread: hydratedRest,
+      };
     }),
+
+  clearHistoryHydrated: (threadId) =>
+    set((state) => {
+      if (!(threadId in state.historyHydratedByThread)) {
+        return {};
+      }
+      const { [threadId]: _removed, ...rest } = state.historyHydratedByThread;
+      return { historyHydratedByThread: rest };
+    }),
+
+  markHistoryHydrated: (threadId) =>
+    set((state) => ({
+      historyHydratedByThread: { ...state.historyHydratedByThread, [threadId]: true },
+    })),
 }));

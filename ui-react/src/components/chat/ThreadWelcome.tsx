@@ -65,7 +65,7 @@ export const ThreadWelcome: FC = () => {
       <div className="flex flex-col items-center gap-1.5 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">{displayName}</h1>
         <p className="text-muted-foreground text-sm">
-          {headline ?? "发一条消息开始对话。"}
+          {headline ?? "Send a message to start the conversation."}
         </p>
       </div>
 

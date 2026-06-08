@@ -1,3 +1,4 @@
+import { isHeartbeatSessionDisplayText } from "@/components/chat/serialization";
 import { selectChatMessages } from "@/store/conversation-selectors";
 import { useConversationStore } from "@/store/conversation.store";
 import { cleanSessionText } from "./display-name";
@@ -31,9 +32,14 @@ function firstUserPlainTextForThread(threadId: string): string | undefined {
   }
   const msgs = selectChatMessages(conv);
   for (const m of msgs) {
-    if (m.role === "user" && m.content?.trim()) {
-      return m.content.replace(/\s+/g, " ").trim();
+    if (m.role !== "user" || !m.content?.trim()) {
+      continue;
     }
+    const text = m.content.replace(/\s+/g, " ").trim();
+    if (isHeartbeatSessionDisplayText(text)) {
+      continue;
+    }
+    return text;
   }
   return undefined;
 }

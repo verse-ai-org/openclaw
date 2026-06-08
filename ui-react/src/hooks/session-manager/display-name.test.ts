@@ -29,6 +29,15 @@ describe("resolveSessionDisplayName", () => {
     expect(resolveSessionDisplayName(session)).toBe("feishu:g-ocdd2cc5098d");
   });
 
+  it("falls back past heartbeat-only derivedTitle", () => {
+    const session: SessionEntry = {
+      key: "agent:main:main",
+      derivedTitle: "[OpenClaw heartbeat poll]",
+      displayName: "Main channel",
+    };
+    expect(resolveSessionDisplayName(session)).toBe("Main channel");
+  });
+
   it("cleans feishu message_id and speaker prefix from derivedTitle", () => {
     const session: SessionEntry = {
       key: "agent:main:feishu:group:oc_group",

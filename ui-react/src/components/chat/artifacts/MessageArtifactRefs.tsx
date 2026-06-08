@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { ArtifactRef, ArtifactSummary } from "@/components/chat/types";
 import { ArtifactRefChip } from "@/components/chat/ArtifactChip";
 import type { MessageAttachment } from "@/components/chat/types";
-import { attachmentHintForArtifactRef } from "@/components/chat/artifact-helpers";
+import { attachmentHintForArtifactRef } from "@/components/chat/artifacts/artifact-helpers";
 import { syntheticArtifactRefsFromLegacyAttachments } from "./legacy-artifact-refs";
 import {
   hasInlineImageForRef,

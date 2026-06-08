@@ -114,6 +114,7 @@ export function useSessionManager() {
       useChatStore.getState().setSessionKey(sessionKey);
     }
     setSessionKeyInHash(sessionKey);
+    useChatStore.getState().setMessagesLoading(true);
     void loadSessions();
     void (async () => {
       await loadHistory(sessionKey);

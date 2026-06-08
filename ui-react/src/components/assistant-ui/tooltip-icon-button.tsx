@@ -20,7 +20,7 @@ export type TooltipIconButtonProps = ComponentPropsWithRef<typeof Button> & {
 export const TooltipIconButton = forwardRef<
   HTMLButtonElement,
   TooltipIconButtonProps
->(({ children, tooltip, tooltipContent, side = "bottom", className, ...rest }, ref) => {
+>(({ children, tooltip, tooltipContent, side = "bottom", className, onPointerDown, ...rest }, ref) => {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -30,6 +30,12 @@ export const TooltipIconButton = forwardRef<
           {...rest}
           className={cn("aui-button-icon size-6 p-1", className)}
           ref={ref}
+          onPointerDown={(event) => {
+            onPointerDown?.(event);
+            // Keep mouse clicks from focusing the trigger; Radix Tooltip opens on
+            // focus, which would flash after native dialogs (e.g. file picker).
+            event.preventDefault();
+          }}
         >
           <Slot.Slottable>{children}</Slot.Slottable>
           <span className="aui-sr-only sr-only">{tooltip}</span>

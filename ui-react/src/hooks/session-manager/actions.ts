@@ -10,6 +10,8 @@ export async function switchSessionAction(params: {
   persistSessionKey?: (key: string) => void;
 }) {
   const { key, loadHistory, syncRunStatus, persistSessionKey } = params;
+  // Set loading before session key so ThreadView never flashes welcome between switch and fetch.
+  useChatStore.getState().setMessagesLoading(true);
   useChatStore.getState().setSessionKey(key);
   useSettingsStore
     .getState()

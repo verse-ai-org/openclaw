@@ -1,4 +1,4 @@
-import { artifactRefsFromSummaries } from "@/components/chat/artifact-helpers";
+import { artifactRefsFromSummaries } from "@/components/chat/artifacts/artifact-helpers";
 import type { RunEvent } from "@/run-stream/run-event";
 import type { CanonicalChatEvent, RunId, ThreadId } from "./types";
 import { EventType } from "./types";

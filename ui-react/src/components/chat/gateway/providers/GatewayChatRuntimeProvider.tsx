@@ -5,7 +5,7 @@ import {
 } from "@assistant-ui/react";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { artifactRefsFromSummaries } from "@/components/chat/artifact-helpers";
+import { artifactRefsFromSummaries } from "@/components/chat/artifacts/artifact-helpers";
 import { useArtifactCacheStore } from "@/store/artifact-cache.store";
 import { EventType } from "@/components/chat/conversation/types/event-type";
 import type {

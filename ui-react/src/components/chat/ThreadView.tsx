@@ -1,4 +1,4 @@
-import { ThreadPrimitive, AuiIf } from "@assistant-ui/react";
+import { ThreadPrimitive } from "@assistant-ui/react";
 import { ArrowDownIcon, AlertCircleIcon, XIcon, RefreshCwIcon } from "lucide-react";
 import { type FC, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,7 @@ import { ThreadWelcome } from "./ThreadWelcome";
 // ---------------------------------------------------------------------------
 export const ThreadView: FC = () => {
   const messagesLoading = useChatStore((s) => s.messagesLoading);
+  const gatewayStatus = useGatewayStore((s) => s.status);
   const lastError = useChatStore((s) => s.lastError);
   const sessionKey = useChatStore((s) => s.sessionKey);
   const settingsSessionKey = useSettingsStore((s) => s.settings.sessionKey);
@@ -32,11 +33,18 @@ export const ThreadView: FC = () => {
   const threadListGeneration =
     useConversationStore((s) => s.threadListGenerationByThread[activeSessionKey] ?? 0);
   const paging = useConversationStore((s) => s.historyPagingByThread[activeSessionKey]);
+  const historyHydrated =
+    useConversationStore((s) => s.historyHydratedByThread[activeSessionKey] ?? false);
   const messages = conversation ? selectChatMessages(conversation) : [];
   const messageCount = messages.length;
+  // Before the first history fetch completes (page refresh / session switch), avoid welcome flash.
+  const awaitingHistory =
+    !historyHydrated && (gatewayStatus === "connecting" || gatewayStatus === "connected");
   // Hide the list while a full session history fetch is in flight (thread was reset).
   // Post-run silent reloads keep the list mounted; snapshot generation keys remount instead.
-  const showMessageList = !messagesLoading && messageCount > 0;
+  const showMessageList = !messagesLoading && !awaitingHistory && messageCount > 0;
+  const showSkeleton = messagesLoading || awaitingHistory;
+  const showWelcome = historyHydrated && !messagesLoading && messageCount === 0;
   const messageListKey = `${activeSessionKey}:${threadListGeneration}`;
 
   return (
@@ -46,10 +54,10 @@ export const ThreadView: FC = () => {
     >
       <ThreadPrimitive.Viewport className="relative flex flex-1 flex-col overflow-x-hidden overflow-y-scroll scroll-smooth px-4 pt-4">
         {/* Loading skeleton — shown while fetching session history */}
-        {messagesLoading && <MessageSkeleton />}
+        {showSkeleton && <MessageSkeleton />}
 
         {/* Load older messages (history pagination) */}
-        {!messagesLoading && paging?.hasMore && (
+        {!showSkeleton && paging?.hasMore && (
           <div className="mx-auto mb-4 flex w-full max-w-(--thread-max-width) justify-center">
             <button
               type="button"
@@ -69,12 +77,8 @@ export const ThreadView: FC = () => {
           </div>
         )}
 
-        {/* Empty state — only shown when not loading and thread is truly empty */}
-        {!messagesLoading && (
-          <AuiIf condition={(s) => s.thread.isEmpty}>
-            <ThreadWelcome />
-          </AuiIf>
-        )}
+        {/* Empty state — only after history load completes with no messages */}
+        {showWelcome && <ThreadWelcome />}
 
         {/* Message list — keyed by session + snapshot generation; omitted while cleared+loading (see showMessageList) to avoid useMessage / tapClientLookup races. */}
         {showMessageList && (

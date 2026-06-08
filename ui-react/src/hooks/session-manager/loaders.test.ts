@@ -46,6 +46,7 @@ function resetChatState() {
     byThread: {},
     threadListGenerationByThread: {},
     historyPagingByThread: {},
+    historyHydratedByThread: {},
   });
 }
 
@@ -91,6 +92,7 @@ describe("session-manager/loaders", () => {
     });
 
     expect(useConversationStore.getState().byThread["agent:travel:main"]?.messageOrder.length).toBe(1);
+    expect(useConversationStore.getState().historyHydratedByThread["agent:travel:main"]).toBe(true);
     expect(useChatStore.getState().messagesLoading).toBe(false);
   });
 
@@ -109,7 +111,21 @@ describe("session-manager/loaders", () => {
     });
 
     expect(useConversationStore.getState().byThread["agent:travel:main"]?.messageOrder.length).toBe(1);
+    expect(useConversationStore.getState().historyHydratedByThread["agent:travel:main"]).toBe(true);
     expect(useChatStore.getState().messagesLoading).toBe(false);
+  });
+
+  it("loadHistoryFromGateway clears messagesLoading when gateway is disconnected", async () => {
+    const historyRequestSeqRef = { current: 0 };
+
+    await loadHistoryFromGateway({
+      client: { connected: false, request: vi.fn() } as never,
+      key: "agent:travel:main",
+      historyRequestSeqRef,
+    });
+
+    expect(useChatStore.getState().messagesLoading).toBe(false);
+    expect(useConversationStore.getState().historyHydratedByThread["agent:travel:main"]).toBeUndefined();
   });
 
   it("loadHistoryFromGateway silent reload does not toggle messagesLoading", async () => {

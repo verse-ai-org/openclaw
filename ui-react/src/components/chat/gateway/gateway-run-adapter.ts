@@ -13,7 +13,7 @@ import {
   checkGatewayAgentAssistantData,
   checkGatewayAgentToolData,
 } from "./gateway-ws-check";
-import { artifactRefsFromSummaries } from "@/components/chat/artifact-helpers";
+import { artifactRefsFromSummaries } from "@/components/chat/artifacts/artifact-helpers";
 import {
   extractGatewayChatMessageText,
   normalizeArtifactSummaries,

@@ -9,7 +9,7 @@ import type {
   ThreadId,
 } from "./types";
 import { EventType } from "./types";
-import { mergeInboundArtifactMediaIntoAttachments } from "../artifact-helpers";
+import { mergeInboundArtifactMediaIntoAttachments } from "../artifacts/artifact-helpers";
 import { formatLiveTextSnapshotForLog, logChatDebug } from "../utils/chat-debug";
 
 /**

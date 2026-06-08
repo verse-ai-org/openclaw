@@ -27,7 +27,7 @@ import {
   resolveArtifactChipTitleTooltip,
   resolveArtifactDisplayMime,
   resolveArtifactDisplayTitle,
-} from "./artifact-helpers";
+} from "@/components/chat/artifacts/artifact-helpers";
 import {
   isArtifactChipInteractive,
   isArtifactPreviewInteraction,
@@ -89,7 +89,7 @@ export const ArtifactChip: FC<ArtifactChipProps> = ({
       className={cn(
         "flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground",
         "transition-colors",
-        interactive && "cursor-pointer ring-1 ring-border/40 hover:bg-muted hover:text-foreground hover:ring-border active:scale-[0.98]",
+        interactive && "cursor-pointer ring-1 ring-border/40 hover:bg-muted hover:text-foreground hover:ring-border",
         !interactive && "cursor-default opacity-70",
         interactive && loading && "cursor-wait opacity-60",
         className,

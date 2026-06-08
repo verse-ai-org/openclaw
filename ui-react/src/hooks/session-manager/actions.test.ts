@@ -38,6 +38,7 @@ describe("session-manager/actions", () => {
     });
 
     expect(useChatStore.getState().sessionKey).toBe("agent:travel:main");
+    expect(useChatStore.getState().messagesLoading).toBe(true);
     expect(loadHistory).toHaveBeenCalledWith("agent:travel:main");
     expect(syncRunStatus).toHaveBeenCalledWith("agent:travel:main");
     expect(persistSessionKey).toHaveBeenCalledWith("agent:travel:main");
