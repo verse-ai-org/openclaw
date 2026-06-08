@@ -225,7 +225,7 @@ function normalizeArtifactType(value: string): string {
   if (normalized === "audio" || normalized === "input_audio") {
     return "audio";
   }
-  if (normalized === "file" || normalized === "input_file") {
+  if (normalized === "file" || normalized === "input_file" || normalized === "document") {
     return "file";
   }
   return "file";
@@ -352,9 +352,15 @@ function isArtifactBlock(block: Record<string, unknown>): boolean {
     type === "input_image" ||
     type === "input_audio" ||
     type === "input_file" ||
-    type === "image_url"
+    type === "image_url" ||
+    type === "document" // Anthropic PDF/file block
   ) {
     return true;
+  }
+  // Only infer from media fields for legacy untyped blocks; typed blocks with unknown
+  // types (e.g. "thinking", "toolCall", "toolResult") must not be misidentified.
+  if (type !== undefined) {
+    return false;
   }
   return Boolean(
     block.url || block.openUrl || block.data || block.source || block.image_url || block.audio_url,
@@ -391,10 +397,15 @@ export function collectArtifactsFromMessage(params: {
   const messageSeq = resolveMessageSeq(msg, params.messageFallbackSeq);
   const messageRunId = resolveMessageRunId(msg);
   const messageTaskId = resolveMessageTaskId(msg);
-  if (params.runId && messageRunId !== params.runId) {
+  // Skip messages that don't belong to the queried run/task.
+  // User messages without a runId/taskId (Pi-written) are included when filtering by run/task:
+  // their attachments are session-scoped and relevant regardless of which run triggered them.
+  // Non-user messages (assistant outputs) without a tag are excluded — they belong to a
+  // specific run and the absence of a tag means they pre-date tagging or are unrelated.
+  if (params.runId && (messageRunId ? messageRunId !== params.runId : msg.role !== "user")) {
     return;
   }
-  if (params.taskId && messageTaskId !== params.taskId) {
+  if (params.taskId && (messageTaskId ? messageTaskId !== params.taskId : msg.role !== "user")) {
     return;
   }
   const content = Array.isArray(msg.content) ? msg.content : [];
@@ -500,14 +511,18 @@ function collectUserMediaPathArtifacts(params: {
     const title = path.basename(mediaPath) || `${type} ${i + 1}`;
     const contentIndex = params.contentStartIndex + i;
     const mediaRef = resolveInboundMediaRefFromAbsolutePath(mediaPath);
+    const artifactId = buildArtifactId({
+      sessionKey: params.sessionKey,
+      messageSeq: params.messageSeq,
+      contentIndex,
+      title,
+      type,
+    });
+    if (params.artifacts.some((a) => a.id === artifactId)) {
+      continue;
+    }
     params.artifacts.push({
-      id: buildArtifactId({
-        sessionKey: params.sessionKey,
-        messageSeq: params.messageSeq,
-        contentIndex,
-        title,
-        type,
-      }),
+      id: artifactId,
       type,
       title,
       mimeType,

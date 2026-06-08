@@ -1,6 +1,12 @@
 import { Type } from "typebox";
 import { NonEmptyString } from "./primitives.js";
 
+export const ArtifactTypeSchema = Type.Union([
+  Type.Literal("image"),
+  Type.Literal("audio"),
+  Type.Literal("file"),
+]);
+
 const ArtifactQueryParamsProperties = {
   sessionKey: Type.Optional(NonEmptyString),
   runId: Type.Optional(NonEmptyString),
@@ -45,7 +51,7 @@ export const ArtifactIngestChannelSchema = Type.Union([
 export const ArtifactSummarySchema = Type.Object(
   {
     id: NonEmptyString,
-    type: NonEmptyString,
+    type: ArtifactTypeSchema,
     title: NonEmptyString,
     mimeType: Type.Optional(NonEmptyString),
     sizeBytes: Type.Optional(Type.Integer({ minimum: 0 })),

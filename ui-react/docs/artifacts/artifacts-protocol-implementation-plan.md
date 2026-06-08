@@ -131,6 +131,9 @@ pnpm test ui-react/src/components/chat/conversation
 
 ## Phase 2 — Electron 文档纳入 artifact 索引
 
+> **JSONL 持久化缺口（Plan A）**：ack / WS 已结构化，但 Pi 仍写 string 附录 → 刷新后 reveal 失败。  
+> 可执行拆分见 **[`artifacts-transcript-canonical-plan.md`](./artifacts-transcript-canonical-plan.md)**（Gateway append + suppress Pi + LLM strip，PR A1–A4）。
+
 **Phase 退出标准**
 
 - [x] Electron `attachmentRefs` 发送 PDF 后，`artifacts.list` 能列出（`download.mode` 可能为 `unsupported`，但 **id/title/mime** 正确）。

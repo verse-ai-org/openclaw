@@ -122,7 +122,7 @@ export function buildChatSendAckArtifacts(params: {
       runId: params.runId,
       messageSeq,
       contentIndex,
-      source: "offload",
+      source: "user-upload",
       role: "input",
       ingestChannel: hasInboundRef ? "path-ref" : "inline-base64",
       ...(hasInboundRef ? { mediaRef } : {}),

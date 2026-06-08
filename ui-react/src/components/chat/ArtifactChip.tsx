@@ -89,11 +89,9 @@ export const ArtifactChip: FC<ArtifactChipProps> = ({
       className={cn(
         "flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground",
         "transition-colors",
-        interactive &&
-          !loading &&
-          "cursor-pointer ring-1 ring-border/40 hover:bg-muted hover:text-foreground hover:ring-border active:scale-[0.98]",
-        interactive && loading && "cursor-wait opacity-60",
+        interactive && "cursor-pointer ring-1 ring-border/40 hover:bg-muted hover:text-foreground hover:ring-border active:scale-[0.98]",
         !interactive && "cursor-default opacity-70",
+        interactive && loading && "cursor-wait opacity-60",
         className,
       )}
     >
@@ -442,7 +440,7 @@ export const ArtifactRefChip: FC<{
                 aria-label={`Staging actions for ${title}`}
                 disabled={loading}
                 className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-lg",
+                  "flex size-7 shrink-0 items-center justify-center rounded-lg hidden",
                   "text-muted-foreground",
                   "hover:bg-muted hover:text-foreground transition-colors",
                   "disabled:pointer-events-none disabled:opacity-50",
@@ -472,7 +470,7 @@ export const ArtifactRefChip: FC<{
             disabled={loading}
             onClick={handleSecondaryClick}
             className={cn(
-              "flex size-7 shrink-0 items-center justify-center rounded-lg",
+              "flex size-7 shrink-0 items-center justify-center rounded-lg hidden",
               "text-muted-foreground",
               "hover:bg-muted hover:text-foreground transition-colors",
               "disabled:pointer-events-none disabled:opacity-50",

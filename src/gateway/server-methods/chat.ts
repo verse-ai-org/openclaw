@@ -143,6 +143,7 @@ import {
   resolveGatewaySessionThinkingDefault,
   resolveDeletedAgentIdFromSessionKey,
   readRecentSessionMessagesAsync,
+  readSessionMessageCountAsync,
   resolveSessionModelRef,
 } from "../session-utils.js";
 import { formatForLog } from "../ws-log.js";
@@ -2520,9 +2521,23 @@ export const chatHandlers: GatewayRequestHandlers = {
           agentRefs: agentAttachmentRefs,
         });
       const attachmentRefsStaged = stagedSourcePathsByFileId.size > 0;
+      // Read the current transcript length to compute the stable messageSeq for artifactId.
+      // The next user message will be at seq = existingCount + 1, matching artifacts.list.
+      // Falls back to 1 for brand-new sessions where no transcript exists yet.
+      const existingMessageCount =
+        normalizedAttachments.length > 0 ||
+        offloadedRefs.length > 0 ||
+        attachmentRefs.length > 0
+          ? await readSessionMessageCountAsync(
+              backingSessionId ?? clientRunId,
+              storePath,
+              entry?.sessionFile,
+            ).catch(() => 0)
+          : 0;
       const sendAckArtifacts = buildChatSendAckArtifacts({
         sessionKey,
         runId: clientRunId,
+        messageSeq: existingMessageCount + 1,
         attachments: normalizedAttachments
           .filter((att) => typeof att.content === "string" && att.content.trim().length > 0)
           .map((att, index) => ({
