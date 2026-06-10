@@ -4,7 +4,7 @@ import {
   mergeInboundArtifactMediaIntoAttachments,
   resolveArtifactChipTitleTooltip,
 } from "./artifact-helpers";
-import type { ArtifactSummary } from "./types";
+import type { ArtifactSummary } from "@/components/chat/types";
 
 describe("mergeInboundArtifactMediaIntoAttachments", () => {
   it("binds mediaRef and drops blob preview when ack artifact matches upload fileName", () => {
