@@ -1,10 +1,10 @@
 import path from "node:path";
 import fs from "node:fs";
-import os from "node:os";
 import { app } from "electron";
 import { mainLogInfo, mainLogNote } from "../logger.js";
+import { BOSSIM_STATE_DIR } from "../bossim-state.js";
 import { auditBundledExtensions, auditConfigPlugins } from "./audit.js";
-import { DEFAULT_GATEWAY_PORT } from "./constants.js";
+import { DEFAULT_GATEWAY_PORT_BOSSIM } from "./constants.js";
 import {
   loadUserOpenClawConfig,
   readExistingGatewayPort,
@@ -46,13 +46,13 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
   auditBundledExtensions();
 
   const existingToken = readExistingGatewayToken();
-  const configPort = readExistingGatewayPort() ?? DEFAULT_GATEWAY_PORT;
+  const configPort = readExistingGatewayPort() ?? DEFAULT_GATEWAY_PORT_BOSSIM;
 
   const cfg = loadUserOpenClawConfig();
   if (cfg) {
     auditConfigPlugins(cfg);
   } else {
-    const cfgPath = path.join(os.homedir(), ".openclaw", "openclaw.json");
+    const cfgPath = path.join(BOSSIM_STATE_DIR, "openclaw.json");
     if (fs.existsSync(cfgPath)) {
       logEvent(
         "audit-config-plugins",
@@ -99,7 +99,7 @@ export async function startGateway(opts: GatewayStartOptions): Promise<void> {
       onProgress: report,
     });
   } else {
-    const port = opts.port ?? DEFAULT_GATEWAY_PORT;
+    const port = opts.port ?? DEFAULT_GATEWAY_PORT_BOSSIM;
     gatewayRuntime.gatewayToken = opts.token;
     gatewayRuntime.activePort = port;
     const force = shouldForceGatewaySpawn();

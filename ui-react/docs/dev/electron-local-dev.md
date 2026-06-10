@@ -7,7 +7,7 @@
 ## 前置条件
 
 - **Node** 22.19+（推荐 24），仓库根目录已 `pnpm install`
-- 首次使用需完成 onboarding，或已有 `~/.openclaw/openclaw.json`（含 `gateway.auth.token`）
+- 首次使用需完成 onboarding，或已有 `~/.bossim/openclaw.json`（含 `gateway.auth.token`）；CLI `openclaw` 用户在 `~/.openclaw/openclaw.json`
 - macOS 开发 Electron 时，首次可能需接受代码签名 / 安全提示
 
 ---
@@ -95,7 +95,7 @@ pnpm electron:dev:static
 | 服务 | 默认 | 说明 |
 |------|------|------|
 | Vite dev server | **5174** | `ui-react/vite.config.ts`，`strictPort: true` |
-| Gateway WebSocket / HTTP | **18789** | 可被 `~/.openclaw/openclaw.json` 的 `gateway.port` 覆盖 |
+| Gateway WebSocket / HTTP | **18790**（Bossim 默认；CLI `openclaw` 默认 18789） | 可被 `~/.bossim/openclaw.json` 的 `gateway.port` 覆盖 |
 | Electron 内嵌静态 UI | 随机 `127.0.0.1:<ephemeral>` | 仅打包或 `dev:static`；每次启动端口可能变化 |
 
 **ui-react 如何解析 Gateway URL**（`ui-react/src/store/settings.store.ts`）：
@@ -114,17 +114,17 @@ pnpm electron:dev:static
 用于 **Vite dev** 下浏览器直连 Gateway，以及 Electron dev 下 token 优先级覆盖。
 
 ```bash
-# 从 ~/.openclaw/openclaw.json 读取 gateway.auth.token
+# 从 ~/.bossim/openclaw.json（CLI：~/.openclaw/openclaw.json）读取 gateway.auth.token
 VITE_GATEWAY_TOKEN=<your-gateway-token>
 
 # 可选：Gateway 端口与 Electron/CLI 不一致时
 # VITE_GATEWAY_PORT=18790
 ```
 
-获取 token 示例：
+获取 token 示例（Bossim）：
 
 ```bash
-node -e "const c=require(require('os').homedir()+'/.openclaw/openclaw.json'); console.log(c.gateway?.auth?.token||'')"
+node -e "const c=require(require('os').homedir()+'/.bossim/openclaw.json'); console.log(c.gateway?.auth?.token||'')"
 ```
 
 `vite.config.ts` 在 **DEV** 时将上述变量 bake 进 `import.meta.env`；**生产 build 不会**带入 token。
@@ -134,10 +134,12 @@ node -e "const c=require(require('os').homedir()+'/.openclaw/openclaw.json'); co
 | 变量 | 设置方 | 作用 |
 |------|--------|------|
 | `VITE_UI_REACT_URL` | `electron:dev` 脚本 | 例如 `http://localhost:5174`；Electron 从 Vite 加载而非静态产物 |
-| `VITE_GATEWAY_PORT` | 启动 Vite 前 export | 与 `vite.config.ts` define 同步；默认 `18789` |
+| `VITE_GATEWAY_PORT` | 启动 Vite 前 export | 与 `vite.config.ts` define 同步；Bossim 默认 `18790`，CLI 默认 `18789` |
 | `VITE_GATEWAY_TOKEN` | `.env.local` 或 shell | 开发态 Gateway 认证 |
-| `OPENCLAW_CONFIG_DIR` | 可选 | 覆盖 `~/.openclaw` 配置目录 |
-| `BOSSIM_LOG_VERBOSE=1` | 可选 | 主进程 routine info 写入 `~/.openclaw/logs/electron-main.log` |
+| `BOSSIM_STATE_DIR` | 可选 | 覆盖 Bossim 工作空间根目录（默认 `~/.bossim`） |
+| `BOSSIM_USE_OPENCLAW_STATE=1` | 可选 | Escape hatch：让 Bossim 退回 `~/.openclaw`，并恢复 dev 复用 CLI gateway 的行为 |
+| `OPENCLAW_CONFIG_DIR` | 可选 | 覆盖配置目录（不变） |
+| `BOSSIM_LOG_VERBOSE=1` | 可选 | 主进程 routine info 写入 `~/.bossim/logs/electron-main.log` |
 | `OPENCLAW_ELECTRON_LOG_VERBOSE=1` | 可选 | 同上 |
 
 ---
@@ -184,7 +186,7 @@ Gateway 要求 Control UI 携带 device identity 并完成 pairing。本地 loop
 - 实现：`ui-react/vite-dev-device-pairing-plugin.ts` + `vite-dev-device-pairing-rpc.ts`
 - 前端：`approveDevicePairingInDev()`（`dev-device-pairing.ts`）
 
-Token 解析顺序：请求 body → `VITE_GATEWAY_TOKEN` → `~/.openclaw/openclaw.json`。
+Token 解析顺序：请求 body → `VITE_GATEWAY_TOKEN` → `~/.bossim/openclaw.json`（CLI 时 `~/.openclaw/openclaw.json`）。
 
 ---
 
@@ -218,7 +220,7 @@ lsof -nP -iTCP:5174 -sTCP:LISTEN
 [gateway] hello-ok …
 ```
 
-Electron 主进程里程碑见 `~/.openclaw/logs/electron-main.log`（`[gateway][ready]`、`startup complete` 等）。
+Electron 主进程里程碑见 `~/.bossim/logs/electron-main.log`（`[gateway][ready]`、`startup complete` 等）。
 
 ---
 
@@ -233,8 +235,8 @@ Electron 主进程里程碑见 `~/.openclaw/logs/electron-main.log`（`[gateway]
 
 | 日志 | 路径 |
 |------|------|
-| Electron 主进程 | `~/.openclaw/logs/electron-main.log` |
-| Onboarding / OAuth | `~/.openclaw/electron-onboarding.log` |
+| Electron 主进程 | `~/.bossim/logs/electron-main.log` |
+| Onboarding / OAuth | `~/.bossim/electron-onboarding.log` |
 | Gateway 子进程 | 同上 + `/tmp/openclaw/openclaw-*.log` |
 | ui-react Gateway hook | 浏览器控制台 `[gateway]` 前缀 |
 

@@ -67,7 +67,7 @@ onboarding-oauth.ts:handleOAuthProtocolCallback(url)
 
 ```
 oauthStart  → shell.openExternal(providerUrl)  // 无 redirect_uri，无 state
-oauthPoll   → 读取 ~/.openclaw/agents/main/agent/auth-profiles.json
+oauthPoll   → 读取 ~/.bossim/agents/main/agent/auth-profiles.json
               if (profile.key?.trim()) return { ok: true, token }
               else return { ok: false, error: "pending" }
 ```
@@ -256,7 +256,7 @@ cd apps/electron && pnpm dev
 open "openclaw://oauth/callback?auth_method=openai-codex&code=test&state=xxx"
 
 # 3. 检查 electron-onboarding.log
-tail -f ~/.openclaw/electron-onboarding.log | grep oauth
+tail -f ~/.bossim/electron-onboarding.log | grep oauth
 ```
 
 ### Protocol 回调未触发（macOS 打包后）

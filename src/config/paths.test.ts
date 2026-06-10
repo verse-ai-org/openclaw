@@ -7,6 +7,7 @@ import {
   resolveDefaultConfigCandidates,
   resolveConfigPathCandidate,
   resolveConfigPath,
+  resolveGatewayLockDir,
   resolveGatewayPort,
   resolveIncludeRoots,
   resolveOAuthDir,
@@ -193,6 +194,47 @@ describe("state + config path candidates", () => {
       const resolved = resolveConfigPath(env, overrideDir, () => root);
       expect(resolved).toBe(path.join(overrideDir, "openclaw.json"));
     });
+  });
+});
+
+describe("resolveGatewayLockDir", () => {
+  const tmp = () => "/tmp";
+
+  it("includes the state-dir basename and uid suffix", () => {
+    // Pin uid to make assertion deterministic regardless of host.
+    const original = process.getuid;
+    (process as { getuid?: () => number }).getuid = () => 4242;
+    try {
+      const cliEnv = { OPENCLAW_STATE_DIR: "/srv/.openclaw" } as NodeJS.ProcessEnv;
+      const bossimEnv = { OPENCLAW_STATE_DIR: "/srv/.bossim" } as NodeJS.ProcessEnv;
+      expect(resolveGatewayLockDir(tmp, cliEnv)).toBe(
+        path.join("/tmp", "openclaw-openclaw-4242"),
+      );
+      expect(resolveGatewayLockDir(tmp, bossimEnv)).toBe(
+        path.join("/tmp", "openclaw-bossim-4242"),
+      );
+    } finally {
+      if (original) {
+        (process as { getuid?: () => number }).getuid = original;
+      } else {
+        delete (process as { getuid?: () => number }).getuid;
+      }
+    }
+  });
+
+  it("omits the uid suffix when getuid is unavailable (Windows)", () => {
+    const original = process.getuid;
+    delete (process as { getuid?: () => number }).getuid;
+    try {
+      const env = { OPENCLAW_STATE_DIR: "/srv/.bossim" } as NodeJS.ProcessEnv;
+      expect(resolveGatewayLockDir(tmp, env)).toBe(
+        path.join("/tmp", "openclaw-bossim"),
+      );
+    } finally {
+      if (original) {
+        (process as { getuid?: () => number }).getuid = original;
+      }
+    }
   });
 });
 

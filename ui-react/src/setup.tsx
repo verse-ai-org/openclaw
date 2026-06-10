@@ -32,7 +32,7 @@ function SetupApp() {
           await window.electronBridge.notifyOnboardingComplete();
         },
         // Provide latest wizard state so ElectronWizardAdapter.finalizeOnboarding()
-        // can persist it to ~/.openclaw/openclaw.json via IPC.
+        // can persist it to ~/.bossim/openclaw.json via IPC.
         getConfig: () => {
           console.log("[Setup] getConfig called, state:", wizardStateRef.current);
           return wizardStateRef.current;

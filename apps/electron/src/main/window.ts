@@ -89,7 +89,9 @@ function wlogWarn(msg: string): void {
   mainLogWarn(msg);
 }
 
-const DEFAULT_GATEWAY_PORT = 18789;
+import { DEFAULT_GATEWAY_PORT_BOSSIM } from "./gateway/constants.js";
+
+const DEFAULT_GATEWAY_PORT = DEFAULT_GATEWAY_PORT_BOSSIM;
 
 /** Preferred baseline when the work area is large enough (matches prior fixed defaults). */
 const PREFERRED_WIDTH = 1280;

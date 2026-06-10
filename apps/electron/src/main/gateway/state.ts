@@ -1,12 +1,12 @@
 import type { ChildProcess } from "node:child_process";
-import { DEFAULT_GATEWAY_PORT } from "./constants.js";
+import { DEFAULT_GATEWAY_PORT_BOSSIM } from "./constants.js";
 
 /** Mutable gateway session state (CJS-safe single object). */
 export const gatewayRuntime = {
   intentionalStop: false,
   gatewayProcess: null as ChildProcess | null,
   gatewayToken: "",
-  activePort: DEFAULT_GATEWAY_PORT,
+  activePort: DEFAULT_GATEWAY_PORT_BOSSIM,
   reusingExternalGateway: false,
 };
 

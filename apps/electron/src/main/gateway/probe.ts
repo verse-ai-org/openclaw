@@ -1,4 +1,5 @@
 import { app } from "electron";
+import { isUsingOpenclawState } from "../bossim-state.js";
 import {
   CHILD_STDERR_TAIL_LINES,
   GATEWAY_PROBE_PATH,
@@ -39,9 +40,23 @@ export function resolveGatewayReadyTimeoutMs(): number {
   return GATEWAY_READY_TIMEOUT_MS;
 }
 
-/** Packaged Bossim owns the gateway port; dev mode may reuse a CLI gateway. */
+/**
+ * Packaged Bossim always owns its gateway lifecycle.
+ *
+ * In dev mode we **also** spawn an isolated gateway by default, because a
+ * locally running CLI `openclaw gateway` would be pointed at `~/.openclaw`
+ * while Bossim now lives in `~/.bossim` — reusing it would silently fan
+ * Bossim writes back into the CLI directory.
+ *
+ * The escape hatch `BOSSIM_USE_OPENCLAW_STATE=1` flips Bossim back to
+ * `~/.openclaw`, in which case reusing the CLI gateway is the desired
+ * behavior and we re-enable it.
+ */
 export function canReuseExistingGateway(): boolean {
-  return !app.isPackaged;
+  if (app.isPackaged) {
+    return false;
+  }
+  return isUsingOpenclawState();
 }
 
 export function shouldForceGatewaySpawn(): boolean {

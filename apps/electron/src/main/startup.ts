@@ -14,8 +14,10 @@ import { isFirstLaunch } from "./onboarding.js";
 import type { StartupPhasePayload, StartupPipelineResult } from "./startup-types.js";
 import { loadRendererPage, loadSplashPage } from "./window.js";
 import { mainLogInfo, mainLogNote, mainLogWarn } from "./logger.js";
+import { DEFAULT_GATEWAY_PORT_BOSSIM } from "./gateway/constants.js";
 
-const DEFAULT_GATEWAY_PORT = 18789;
+/** Re-exported under the old name so existing callers (index.ts) keep working. */
+const DEFAULT_GATEWAY_PORT = DEFAULT_GATEWAY_PORT_BOSSIM;
 
 /** Last emitted phase so splash can catch up after late subscribe. */
 let phaseBuffer: StartupPhasePayload | null = null;

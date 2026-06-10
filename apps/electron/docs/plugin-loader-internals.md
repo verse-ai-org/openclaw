@@ -74,7 +74,7 @@ cacheKey 由 `workspaceDir + plugins config JSON` 拼成。只要 gateway 进程
 
 ```
 用户在 UI 安装/启用插件
-  → 写入 ~/.openclaw/config.json（或 workspace config）
+  → 写入 ~/.bossim/openclaw.json（或 workspace config）
   → UI 通知 gateway 重新加载插件
        ↓ 需要以下任一条件才能生效
   1. gateway 进程重启（registryCache 被清空，重新 loadOpenClawPlugins）
@@ -200,5 +200,5 @@ const aliasMap = {
 | 启用插件后无效 | registryCache 命中旧缓存 | 重启 gateway |
 | `Cannot find module openclaw/plugin-sdk/xxx` | 哈希文件 fallback 失败 | 确认 `dist/plugin-sdk/` 下存在对应 `xxx-*.js` 文件，检查 `pnpm build` 是否完整运行 |
 | 插件在开发环境正常，打包后失败 | 别名指向了 src 而非 dist | 检查 `NODE_ENV` 和 `loader.ts` 路径是否在 `dist/` 下 |
-| 插件加载 `invalid config` | manifest 的 configSchema 与实际 config 不匹配 | 检查 `~/.openclaw/config.json` 中该插件的 config 字段 |
+| 插件加载 `invalid config` | manifest 的 configSchema 与实际 config 不匹配 | 检查 `~/.bossim/openclaw.json`（CLI：`~/.openclaw/openclaw.json`）中该插件的 config 字段 |
 | 多个同 id 插件 | 同一插件从 bundled 和 workspace 都发现了 | 后发现的被标记 `overridden`，以 origin 优先级为准 |

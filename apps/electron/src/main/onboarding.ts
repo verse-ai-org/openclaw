@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
 import { randomBytes } from "node:crypto";
 import {
   PROVIDER_REGISTRY,
@@ -12,28 +11,36 @@ import {
 } from "./onboarding-providers.js";
 import { mergeElectronControlUiAllowedOrigins } from "./control-ui-origins.js";
 import { getStaticServerPort } from "./window.js";
+import {
+  BOSSIM_STATE_DIR,
+  DEFAULT_AGENT_WORKSPACE_TILDE,
+} from "./bossim-state.js";
+import { DEFAULT_GATEWAY_PORT_BOSSIM } from "./gateway/constants.js";
 
 /**
  * 解析 openclaw 配置文件路径。
- * 与 CLI 保持一致：~/.openclaw/openclaw.json（或 OPENCLAW_CONFIG_DIR 覆盖）
+ * Bossim 默认：`${BOSSIM_STATE_DIR}/openclaw.json`（即 `~/.bossim/openclaw.json`）；
+ * 可由 `OPENCLAW_CONFIG_DIR` 显式覆盖。子 Gateway 通过继承的
+ * `OPENCLAW_STATE_DIR` 解析到同一路径，保持一致。
  */
 function resolveConfigPath(): string {
   const override = process.env.OPENCLAW_CONFIG_DIR?.trim();
-  const baseDir = override || path.join(os.homedir(), ".openclaw");
+  const baseDir = override || BOSSIM_STATE_DIR;
   return path.join(baseDir, "openclaw.json");
 }
 
 /**
  * 解析 auth-profiles.json 路径（CLI 存储 API Key 的标准位置）。
- * 路径：~/.openclaw/agents/main/agent/auth-profiles.json
- * 与 CLI 的 resolveOpenClawAgentDir() 保持一致。
+ * 路径：`${BOSSIM_STATE_DIR}/agents/main/agent/auth-profiles.json`
+ * 与 CLI 的 resolveOpenClawAgentDir() 保持一致——CLI 解析 STATE_DIR 时
+ * 也会读到我们注入的 `OPENCLAW_STATE_DIR`。
  */
 function resolveAuthProfilesPath(): string {
   const override =
     process.env.OPENCLAW_AGENT_DIR?.trim() ||
     process.env.PI_CODING_AGENT_DIR?.trim();
   const agentDir =
-    override ?? path.join(os.homedir(), ".openclaw", "agents", "main", "agent");
+    override ?? path.join(BOSSIM_STATE_DIR, "agents", "main", "agent");
   return path.join(agentDir, "auth-profiles.json");
 }
 
@@ -52,7 +59,7 @@ export interface OnboardingConfig {
     browser?: boolean;
     fileAccess?: boolean;
   };
-  /** Gateway port (default 18789) */
+  /** Gateway port (Bossim default 18790, CLI default 18789) */
   gatewayPort?: number;
   /** Gateway bind mode */
   gatewayBind?: "loopback" | "lan" | "custom";
@@ -77,7 +84,7 @@ export interface OnboardingConfig {
 // ─── Auth profiles store ────────────────────────────────────────────────────
 
 /**
- * Write API key to ~/.openclaw/agents/main/agent/auth-profiles.json
+ * Write API key to `${BOSSIM_STATE_DIR}/agents/main/agent/auth-profiles.json`
  * using the same format as the CLI's saveAuthProfileStore().
  * This is the primary API key storage location — matching CLI standard.
  */
@@ -139,18 +146,18 @@ async function writeAuthProfile(params: {
 
 // ─── Debug logging ───────────────────────────────────────────────────────────
 
-/** 主进程统一日志文件：~/.openclaw/electron-main.log */
+/** 主进程统一日志文件：`${BOSSIM_STATE_DIR}/logs/electron-main.log` */
 export const MAIN_LOG_PATH = path.join(
-  os.homedir(),
-  ".openclaw",
-  "logs/electron-main.log",
+  BOSSIM_STATE_DIR,
+  "logs",
+  "electron-main.log",
 );
 
 /** 日志轮转阈值：5 MB */
 const LOG_ROTATE_BYTES = 5 * 1024 * 1024;
 
 /**
- * 写日志到 ~/.openclaw/logs/electron-main.log（同步，避免异步竞态）。
+ * 写日志到 `${BOSSIM_STATE_DIR}/logs/electron-main.log`（同步，避免异步竞态）。
  * 打包后 stdout/stderr 不可见，必须落文件才能排查黑屏问题。
  * 文件超过 5 MB 时轮转：重命名为 .1（覆盖旧备份），然后写新文件。
  * 只保留最近 2 个文件，无需额外依赖。
@@ -289,7 +296,7 @@ export function buildOpenClawConfig(
     ...existingAgents,
     defaults: {
       ...existingDefaults,
-      workspace: cfg.workspace || "~/.openclaw/workspace",
+      workspace: cfg.workspace || DEFAULT_AGENT_WORKSPACE_TILDE,
       model: { primary: primaryModelId },
       // Register model alias so it shows up in the model picker
       models: {
@@ -407,7 +414,7 @@ export function buildOpenClawConfig(
     gateway: {
       ...existingGw,
       mode: "local",
-      port: cfg.gatewayPort ?? 18789,
+      port: cfg.gatewayPort ?? DEFAULT_GATEWAY_PORT_BOSSIM,
       bind: cfg.gatewayBind ?? "loopback",
       auth: { mode: "token", token: gatewayToken },
       controlUi: {
@@ -416,7 +423,7 @@ export function buildOpenClawConfig(
           existing: Array.isArray(existingAllowedOrigins)
             ? (existingAllowedOrigins as string[])
             : [],
-          gatewayPort: cfg.gatewayPort ?? 18789,
+          gatewayPort: cfg.gatewayPort ?? DEFAULT_GATEWAY_PORT_BOSSIM,
           staticServerPort: getStaticServerPort(),
           devUiUrl: process.env.VITE_UI_REACT_URL,
         }),
@@ -434,7 +441,7 @@ export function buildOpenClawConfig(
 // ─── Persist to disk ─────────────────────────────────────────────────────────
 
 /**
- * Persist onboarding parameters to ~/.openclaw/openclaw.json.
+ * Persist onboarding parameters to `${BOSSIM_STATE_DIR}/openclaw.json`.
  *
  * Config construction is handled by buildOpenClawConfig().
  * Provider metadata (baseUrl, models, env keys) lives in onboarding-providers.ts.

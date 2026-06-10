@@ -319,7 +319,7 @@ pnpm dev
 open "openclaw://oauth/callback?auth_method=notion-oauth&code=test-token-abc&state=REPLACE_WITH_REAL_STATE"
 
 # 检查日志
-tail -f ~/.openclaw/electron-onboarding.log | grep -E "oauth|OAuth"
+tail -f ~/.bossim/electron-onboarding.log | grep -E "oauth|OAuth"
 ```
 
 **预期日志输出（Simple 流程）：**

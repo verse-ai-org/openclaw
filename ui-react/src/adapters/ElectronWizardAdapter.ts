@@ -48,7 +48,7 @@ declare global {
  * 通过 IPC 与主进程通信
  *
  * getConfig 回调在向导完成时被调用，返回需要持久化的配置对象。
- * 主进程会将其写入 ~/.openclaw/openclaw.json，确保下次启动不再走 wizard。
+ * 主进程会将其写入 ~/.bossim/openclaw.json，确保下次启动不再走 wizard。
  */
 export class ElectronWizardAdapter implements WizardAdapter {
   onComplete?: () => Promise<void>;

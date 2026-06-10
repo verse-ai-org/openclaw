@@ -38,11 +38,13 @@ Bossim **不在** Electron 进程内跑 Gateway，而是通过 `child_process.sp
 | 应用入口与 quit 钩子 | `apps/electron/src/main/index.ts` |
 | 捆绑 Node | `Resources/node/node`（Windows 为 `node.exe`） |
 | OpenClaw 入口 | `Resources/openclaw/openclaw.mjs` |
-| 用户配置 | `~/.openclaw/openclaw.json`（`gateway.auth.token`、`gateway.port`） |
-| 主进程日志 | `~/.openclaw/logs/electron-main.log` |
+| 用户配置 | `~/.bossim/openclaw.json`（`gateway.auth.token`、`gateway.port`） |
+| 主进程日志 | `~/.bossim/logs/electron-main.log` |
 | Gateway 自身日志 | 子进程 stdout/stderr → 同上日志；另见 `/tmp/openclaw/openclaw-*.log` |
 
-默认 Gateway 端口：**18789**（可由配置 `gateway.port` 覆盖）。
+默认 Gateway 端口：**18790**（Bossim 默认；CLI `openclaw gateway` 默认 18789；可由配置 `gateway.port` 覆盖）。
+
+> **工作空间隔离**：Bossim 用 `~/.bossim/`，CLI `openclaw` 用 `~/.openclaw/`，两边可同机并存。详见下文 [Workspace 隔离与 `.openclaw` 兼容](#workspace-隔离与-openclaw-兼容)。
 
 ---
 
@@ -96,7 +98,7 @@ Gateway 启动失败时停留在 Splash，不进入主界面，直至用户重�
 
 ### 是否已有 `gateway.auth.token`？
 
-从 `~/.openclaw/openclaw.json`（或 `OPENCLAW_CONFIG_PATH`）读取。
+从 `~/.bossim/openclaw.json`（或 `OPENCLAW_CONFIG_PATH`）读取。
 
 #### 分支 A：已有 token（用户已完成向导）
 
@@ -363,6 +365,46 @@ netstat -ano | findstr :18789
 | `mergeElectronControlUiAllowedOrigins` | `control-ui-origins.ts` |
 | `patchConfigForElectron` | `index.ts` |
 | `before-quit` → `stopGateway` | `index.ts` |
+
+---
+
+## Workspace 隔离与 `.openclaw` 兼容
+
+Bossim（Electron 客户端）与 CLI `openclaw` 默认指向不同的工作空间，方便同机并存：
+
+| 项目 | Bossim | CLI openclaw |
+|------|--------|--------------|
+| State 根目录 | `~/.bossim/` | `~/.openclaw/` |
+| Gateway 端口 | **18790** | 18789 |
+| Tmp lock | `/tmp/openclaw-bossim-<uid>` | `/tmp/openclaw-openclaw-<uid>` |
+| 主进程日志 | `~/.bossim/logs/electron-main.log` | n/a |
+
+实现要点：
+
+1. **Env 注入**：Electron 主进程在 `app.whenReady()` 之前调用 `installBossimStateDirEnv()`（[`apps/electron/src/main/bossim-state.ts`](../src/main/bossim-state.ts)），把 `BOSSIM_STATE_DIR` 写到 `process.env.OPENCLAW_STATE_DIR`。子 Gateway spawn 后继承 env，所有派生路径（`credentials/`、`agents/`、`workspace/`、`logs/`、`media/`、`plugins/installs.json`、`oauth.json`、`auth-profiles.json`）自动落到 `.bossim`。
+2. **首次启动迁移**：若 `~/.bossim/` 不存在但 `~/.openclaw/` 存在，主进程会**选择性复制**白名单（config / agents / credentials / workspace / skills / plugins/installs.json / identity / devices / memory / flows / tasks / cron …），跳过 logs/media/npm/canvas 等缓存。复制完会改写 `~/.bossim/openclaw.json`：把 `gateway.port=18789` 改为 18790、丢掉旧 `controlUi.allowedOrigins`、把 agent 默认 workspace `~/.openclaw/workspace` 改成 `~/.bossim/workspace`，并写入标记文件 `.migrated-from-openclaw`。CLI 旧目录原样保留。代码：[`apps/electron/src/main/state-migration.ts`](../src/main/state-migration.ts)。
+3. **Tmp lock 隔离**：core 的 `resolveGatewayLockDir`（[`src/config/paths.ts`](../../../src/config/paths.ts)）按 `basename(stateDir)` 派生后缀，因此 Bossim 与 CLI 的 lock 文件天然不冲突。
+4. **Dev reuse 默认关闭**：`canReuseExistingGateway()` 在 dev 模式下默认 **不复用** 外部 `openclaw gateway`（否则会污染 `.openclaw`）。
+
+### 环境变量
+
+| 变量 | 行为 |
+|------|------|
+| `BOSSIM_STATE_DIR` | 显式覆盖 Bossim 的 state 根目录（绝对或相对路径） |
+| `BOSSIM_USE_OPENCLAW_STATE=1` | Escape hatch：让 Bossim 退回到 `~/.openclaw`（与 CLI 同目录），并恢复 dev 模式下复用 CLI gateway 的行为。仅用于本地联调 |
+| `OPENCLAW_STATE_DIR` | 由 `installBossimStateDirEnv()` 自动注入；外部直接设置时同样生效 |
+| `OPENCLAW_CONFIG_PATH` | 显式覆盖配置文件路径（不变） |
+| `OPENCLAW_GATEWAY_PORT` | 显式覆盖端口（不变） |
+
+### 联调 CLI 场景
+
+想让 dev 下的 Bossim 复用本机已跑的 `openclaw gateway`：
+
+```bash
+BOSSIM_USE_OPENCLAW_STATE=1 pnpm dev
+```
+
+效果：Bossim 改回读 `~/.openclaw/openclaw.json`、默认端口回到 18789、`canReuseExistingGateway()` 重新为 true。
 
 ---
 

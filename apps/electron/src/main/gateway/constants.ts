@@ -1,4 +1,14 @@
+/** OpenClaw CLI default gateway port (kept for reference / fallback only). */
 export const DEFAULT_GATEWAY_PORT = 18789;
+
+/**
+ * Bossim default gateway port (18790).
+ *
+ * Offset by one from the CLI default so both can coexist on the same machine
+ * without colliding. User-set `gateway.port` in config or `OPENCLAW_GATEWAY_PORT`
+ * env still wins.
+ */
+export const DEFAULT_GATEWAY_PORT_BOSSIM = 18790;
 
 export const GATEWAY_READY_TIMEOUT_MS = 15_000;
 /** Packaged Windows cold start (35+ plugins, AV scan) often exceeds 15s. */

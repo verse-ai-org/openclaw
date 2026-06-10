@@ -123,7 +123,7 @@ export interface ElectronAdapterConfig {
   onComplete?: () => Promise<void>;
   onCancel?: () => Promise<void>;
   /**
-   * 向导完成时调用，返回需要持久化到 ~/.openclaw/openclaw.json 的配置对象。
+   * 向导完成时调用，返回需要持久化到 ~/.bossim/openclaw.json 的配置对象。
    * 应从 useWizardStore().wizardState 读取。
    */
   getConfig?: () => unknown;

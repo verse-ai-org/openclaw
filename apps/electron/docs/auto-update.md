@@ -241,7 +241,7 @@ openssl pkcs12 -in /tmp/test.p12 -noout -passin pass:"$APPLE_CERTIFICATE_PASSWOR
 
 1. 确认 app 是打包版本（非开发模式）
 2. 检查 `https://files.aiverser.com/bossim/releases/latest-mac.yml` 中的版本号是否大于当前版本
-3. 查看主进程日志（`~/.openclaw/logs/electron-main.log`）中 `[updater]` 前缀的条目（更新日志默认落盘，无需 `BOSSIM_LOG_VERBOSE`）
+3. 查看主进程日志（`~/.bossim/logs/electron-main.log`）中 `[updater]` 前缀的条目（更新日志默认落盘，无需 `BOSSIM_LOG_VERBOSE`）
 
 ### Windows：退出后安装目录变空、无法启动
 

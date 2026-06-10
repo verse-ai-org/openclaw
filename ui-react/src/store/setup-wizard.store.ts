@@ -92,7 +92,7 @@ const DEFAULT_STATE: WizardState = {
   resolvedModelId: "anthropic/claude-opus-4-5",
   secretInputMode: "plaintext",
   apiKey: "",
-  workspace: "~/.openclaw/workspace",
+  workspace: "~/.bossim/workspace",
   optionalFeatures: {
     messaging: false,
     browser: true,

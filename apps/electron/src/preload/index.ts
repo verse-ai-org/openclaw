@@ -55,7 +55,7 @@ contextBridge.exposeInMainWorld("electronBridge", {
     ipcRenderer.invoke("wizard:request", method, params),
 
   /**
-   * 保存 Onboarding 配置到 ~/.openclaw/openclaw.json。
+   * 保存 Onboarding 配置到 `${BOSSIM_STATE_DIR}/openclaw.json`（默认 `~/.bossim/openclaw.json`）。
    * 必须在 notifyOnboardingComplete() 之前调用，确保下次启动不再走 wizard。
    */
   saveOnboardingConfig: (
@@ -64,7 +64,7 @@ contextBridge.exposeInMainWorld("electronBridge", {
     ipcRenderer.invoke("onboarding:saveConfig", cfg),
 
   /**
-   * 写调试日志到 ~/.openclaw/electron-onboarding.log。
+   * 写调试日志到 `${BOSSIM_STATE_DIR}/electron-onboarding.log`。
    */
   writeDebugLog: (message: string): Promise<void> =>
     ipcRenderer.invoke("onboarding:writeDebugLog", message),
@@ -87,6 +87,16 @@ contextBridge.exposeInMainWorld("electronBridge", {
   /** 获取当前 Gateway 连接信息 */
   getGatewayInfo: (): Promise<{ port: number; token: string; wsUrl: string }> =>
     ipcRenderer.invoke("gateway:info"),
+
+  /**
+   * Bossim 工作空间根路径 + 默认 agent workspace 路径。
+   * UI 不要硬编码 `~/.openclaw/workspace`；先调用此 API 拿到真实值。
+   * Bossim 与 CLI `openclaw` 隔离后默认为 `~/.bossim` / `~/.bossim/workspace`。
+   */
+  getBossimStateDir: (): Promise<{
+    stateDir: string;
+    defaultAgentWorkspace: string;
+  }> => ipcRenderer.invoke("bossim:state-dir"),
 
   /** Loopback desktop: approve a pending device pairing request */
   approveDevicePairing: (

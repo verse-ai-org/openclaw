@@ -35,9 +35,9 @@ function CreateAgentDialog({
     if (!trimName) { setErr("Name is required."); return; }
     setSubmitting(true);
     setErr(null);
-    // workspace defaults to ~/.openclaw/agents/<id>
+    // workspace defaults to ${BOSSIM_STATE_DIR}/agents/<id> (default ~/.bossim/agents/<id>)
     const workspaceName = trimName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    const workspace = `~/.openclaw/agents/${workspaceName}`;
+    const workspace = `~/.bossim/agents/${workspaceName}`;
     const res = await createAgent({
       name: trimName,
       workspace,

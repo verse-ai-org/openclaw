@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import os from "node:os";
+import { BOSSIM_STATE_DIR } from "../bossim-state.js";
 
 const CONFIG_FILENAMES = [
   "openclaw.json",
@@ -16,9 +16,9 @@ function resolveConfigPath(): string | null {
   if (explicitPath && fs.existsSync(explicitPath)) {
     return explicitPath;
   }
-  const stateDir =
-    process.env.OPENCLAW_STATE_DIR?.trim() ||
-    path.join(os.homedir(), ".openclaw");
+  // OPENCLAW_STATE_DIR is installed by bossim-state.ts to BOSSIM_STATE_DIR;
+  // fall back to BOSSIM_STATE_DIR directly to be robust against import order.
+  const stateDir = process.env.OPENCLAW_STATE_DIR?.trim() || BOSSIM_STATE_DIR;
   for (const name of CONFIG_FILENAMES) {
     const p = path.join(stateDir, name);
     if (fs.existsSync(p)) {

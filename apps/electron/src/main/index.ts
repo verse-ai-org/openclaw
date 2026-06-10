@@ -1,7 +1,16 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import fs from "node:fs";
-import os from "node:os";
+// Must run before any module reads OPENCLAW_STATE_DIR: install BOSSIM_STATE_DIR
+// into the env so the spawned Gateway and all in-process consumers point at
+// `~/.bossim` (or the BOSSIM_STATE_DIR / BOSSIM_USE_OPENCLAW_STATE override).
+import {
+  BOSSIM_STATE_DIR,
+  installBossimStateDirEnv,
+} from "./bossim-state.js";
+import { maybeMigrateOpenclawToBossim } from "./state-migration.js";
+installBossimStateDirEnv();
+maybeMigrateOpenclawToBossim();
 import {
   stopGateway,
   restartGateway,
@@ -236,6 +245,13 @@ ipcMain.handle("gateway:info", () => {
   };
 });
 
+// IPC：渲染进程获取 Bossim 工作空间根路径（用于显示 / 默认值）。
+// UI 不应硬编码 `~/.openclaw/workspace`，而是从这里读取。
+ipcMain.handle("bossim:state-dir", () => ({
+  stateDir: BOSSIM_STATE_DIR,
+  defaultAgentWorkspace: path.join(BOSSIM_STATE_DIR, "workspace"),
+}));
+
 function isSafeAbsolutePath(filePath: string): boolean {
   const trimmed = filePath.trim();
   return trimmed.length > 0 && path.isAbsolute(trimmed);
@@ -334,7 +350,7 @@ ipcMain.handle("gateway:approveDevicePairing", async (_, requestId?: string) => 
   }
 });
 
-// IPC：渲染进程写调试日志到 ~/.openclaw/electron-onboarding.log
+// IPC：渲染进程写调试日志到 ${BOSSIM_STATE_DIR}/electron-onboarding.log
 ipcMain.handle("onboarding:writeDebugLog", async (_, message: string) => {
   await writeDebugLog(`[renderer] ${message}`);
 });
@@ -450,7 +466,7 @@ ipcMain.handle("onboarding:complete", async () => {
  */
 function patchConfigForElectron(staticServerPort: number): void {
   const override = process.env.OPENCLAW_CONFIG_DIR?.trim();
-  const baseDir = override || path.join(os.homedir(), ".openclaw");
+  const baseDir = override || BOSSIM_STATE_DIR;
   const cfgPath = path.join(baseDir, "openclaw.json");
   try {
     const raw = fs.readFileSync(cfgPath, "utf8");
@@ -552,7 +568,8 @@ function patchConfigForElectron(staticServerPort: number): void {
 
     // 2. Merge controlUi.allowedOrigins — keep canonical origins, prune stale static ports
     const gw = (cfg.gateway ?? {}) as Record<string, unknown>;
-    const gatewayPort = typeof gw.port === "number" ? gw.port : 18789;
+    const gatewayPort =
+      typeof gw.port === "number" ? gw.port : DEFAULT_GATEWAY_PORT;
     const controlUi = (gw.controlUi ?? {}) as Record<string, unknown>;
     const existing = Array.isArray(controlUi.allowedOrigins)
       ? (controlUi.allowedOrigins as string[])

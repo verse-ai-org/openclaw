@@ -150,7 +150,7 @@ export function AddSkillDialog({ trigger }: Props) {
             <p className="text-xs text-muted-foreground">
               {target === "workspace"
                 ? "Installed into the current workspace's skills/ folder. Only active in this project."
-                : "Installed into ~/.openclaw/skills/. Available across all workspaces."}
+                : "Installed into ~/.bossim/skills/. Available across all workspaces."}
             </p>
           </div> */}
 

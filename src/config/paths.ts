@@ -255,13 +255,28 @@ export const DEFAULT_GATEWAY_PORT = 18789;
 
 /**
  * Gateway lock directory (ephemeral).
- * Default: os.tmpdir()/openclaw-<uid> (uid suffix when available).
+ *
+ * Includes the basename of the active state dir so different installations
+ * (e.g. CLI `~/.openclaw` vs Bossim `~/.bossim`) get disjoint locks even
+ * when running on the same machine + same uid.
+ *
+ * Default: `os.tmpdir()/openclaw-<stateDirName>[-<uid>]`
+ *   - `openclaw-openclaw-501` for the CLI default
+ *   - `openclaw-bossim-501`   for Bossim's `~/.bossim`
  */
-export function resolveGatewayLockDir(tmpdir: () => string = os.tmpdir): string {
+export function resolveGatewayLockDir(
+  tmpdir: () => string = os.tmpdir,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   const base = tmpdir();
   const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
-  const suffix = uid != null ? `openclaw-${uid}` : "openclaw";
-  return path.join(base, suffix);
+  // Drop the leading dot so the path stays human-readable.
+  const stateDirName = path.basename(resolveStateDir(env)).replace(/^\./, "") || "openclaw";
+  const parts = [stateDirName];
+  if (uid != null) {
+    parts.push(String(uid));
+  }
+  return path.join(base, `openclaw-${parts.join("-")}`);
 }
 
 const OAUTH_FILENAME = "oauth.json";
