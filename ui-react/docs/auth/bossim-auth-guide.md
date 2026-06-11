@@ -423,9 +423,16 @@ Electron 默认打开 `https://aiverser.com/auth/app`。若 bossim-client 尚未
 
 不需要。桌面登录完全通过 bossim-client BFF 的 desktop code 桥接；Electron 主进程仅在 refresh / logout 时直连 bossim-service API。
 
-### Q6：`installDevAuthMock()` 要不要删？
+### Q7：生产包登录仍跳转 localhost:3000
 
-Electron 开发不需要，mock 检测到真实 preload bridge 会自动跳过。保留它便于纯浏览器 dev 测试 AuthGate / 用户菜单 UI。
+**原因**：`apps/electron/.env` 里的 `BOSSIM_AUTH_APP_URL=http://localhost:3000/...` 被 electron-builder 打进 `app.asar`，主进程 `load-dev-env.ts` 在启动时读取并覆盖了生产默认 URL。
+
+**修复**（已合入）：
+
+1. `electron-builder.yml` 排除 `.env` 不进 asar
+2. `load-dev-env.ts` 在 `app.isPackaged` 时跳过加载
+
+改完后需重新 `make release` 并上传 R2。已安装的旧包必须更新到新版本。
 
 ---
 

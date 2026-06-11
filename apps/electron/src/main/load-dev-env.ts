@@ -1,7 +1,11 @@
 /**
- * Load apps/electron/.env into process.env before auth URLs are read.
+ * Load apps/electron/.env into process.env before auth URLs are read (dev only).
  * Only sets keys that are not already defined in the environment.
+ *
+ * Never runs in packaged apps — electron-builder can accidentally include .env in
+ * app.asar; loading it would override production Bossim auth URLs with localhost.
  */
+import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -12,7 +16,7 @@ function resolveEnvPath(): string | null {
     path.join(process.cwd(), "apps/electron/.env"),
   ];
   for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
+    if (fs.existsSync(candidate) && !candidate.includes("app.asar")) {
       return candidate;
     }
   }
@@ -20,6 +24,10 @@ function resolveEnvPath(): string | null {
 }
 
 function loadDevEnvFile(): void {
+  if (app.isPackaged) {
+    return;
+  }
+
   const envPath = resolveEnvPath();
   if (!envPath) {
     console.warn("[load-dev-env] no .env file found (checked dist-relative and cwd paths)");

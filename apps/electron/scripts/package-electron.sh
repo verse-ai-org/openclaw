@@ -239,6 +239,9 @@ prune_runtime_dependencies() {
 build_electron_main() {
   echo ""
   echo "🔨 [4/5] 构建 Electron 主进程 (tsdown)"
+  # Bossim auth URLs resolve at runtime from code defaults or OS env — never from
+  # the build machine's apps/electron/.env (which often points at localhost).
+  unset BOSSIM_BFF_URL BOSSIM_AUTH_APP_URL BOSSIM_SERVICE_URL || true
   (cd "$ELECTRON_DIR" && pnpm build)
 }
 

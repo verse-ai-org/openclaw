@@ -138,6 +138,8 @@ APP_STORE_CONNECT_API_KEY_PATH=/Users/你的用户名/Downloads/AuthKey_KEYID.p8
 
 > **注意**：.env 文件不支持 `export` 前缀和 `$(...)` 命令替换，直接写 `KEY=VALUE`。
 
+> **Bossim 登录（本地 dev）**：`BOSSIM_BFF_URL` / `BOSSIM_AUTH_APP_URL` 可写在 `.env` 里指向 `http://localhost:3000`，仅供 `pnpm electron:dev` 使用。打包脚本会排除 `.env` 不进 app，且 `load-dev-env` 在正式 `.app` 内不加载该文件。发布前仍建议确认 R2 上的包装的是**修复后**重新 `make release` 的版本。
+
 ### 第四步：确认证书在 Keychain 中
 
 ```bash

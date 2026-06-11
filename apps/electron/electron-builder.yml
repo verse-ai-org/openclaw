@@ -10,6 +10,19 @@ directories:
 # asar 打包主进程代码
 asar: true
 
+# 勿将本地 .env / 源码 / 构建产物打进 app.asar
+files:
+  - "**/*"
+  - "!**/.env"
+  - "!**/.env.*"
+  - "!.env"
+  - "!.env.*"
+  - "!src/**"
+  - "!scripts/**"
+  - "!docs/**"
+  - "!release/**"
+  - "!resources/prod-node_modules/**"
+
 # 不进 asar 的资源（需要保持文件权限的可执行文件）
 asarUnpack:
   - "**/*.node"
