@@ -1,3 +1,4 @@
+import "./load-dev-env.js";
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -23,6 +24,16 @@ import {
   clearOAuthSession,
   handleOAuthProtocolCallback,
 } from "./onboarding-oauth.js";
+import {
+  authStart,
+  authPoll,
+  authCancel,
+  authGetSession,
+  authLogout,
+  handleAuthProtocolCallback,
+  subscribeAuthSessionChanged,
+  getAuthSessionChangedChannel,
+} from "./bossim-auth.js";
 import { generateToken } from "./token.js";
 import {
   createWindow,
@@ -70,12 +81,13 @@ if (!gotLock) {
 // itself is registered as the handler, not the built app.
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient("openclaw", process.execPath, [
-      path.resolve(process.argv[1]),
-    ]);
+    const execArg = path.resolve(process.argv[1]);
+    app.setAsDefaultProtocolClient("openclaw", process.execPath, [execArg]);
+    app.setAsDefaultProtocolClient("bossim", process.execPath, [execArg]);
   }
 } else {
   app.setAsDefaultProtocolClient("openclaw");
+  app.setAsDefaultProtocolClient("bossim");
 }
 
 /** Shared handler for OAuth Protocol callbacks (macOS open-url + Windows second-instance) */
@@ -86,18 +98,36 @@ function dispatchOAuthCallback(url: string): void {
   }
 }
 
+function dispatchBossimAuthCallback(url: string): void {
+  if (url.startsWith("bossim://auth/")) {
+    mlog(`[main] Bossim auth protocol callback: ${url}`);
+    void handleAuthProtocolCallback(url);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+    }
+  }
+}
+
+function dispatchProtocolUrl(url: string): void {
+  dispatchOAuthCallback(url);
+  dispatchBossimAuthCallback(url);
+}
+
 // macOS / Linux: URL Scheme callback arrives via open-url event
 app.on("open-url", (event, url) => {
   event.preventDefault();
-  dispatchOAuthCallback(url);
+  dispatchProtocolUrl(url);
 });
 
 // Windows: second app instance receives the URL in argv
 app.on("second-instance", (_event, argv) => {
   // The protocol URL is typically the last argument when launched via URL Scheme
-  const url = argv.find((arg) => arg.startsWith("openclaw://"));
+  const url = argv.find((arg) => arg.startsWith("openclaw://") || arg.startsWith("bossim://"));
   if (url) {
-    dispatchOAuthCallback(url);
+    dispatchProtocolUrl(url);
   }
   // Bring existing window to foreground
   if (mainWindow) {
@@ -398,6 +428,13 @@ ipcMain.handle("onboarding:oauthCancel", async (_, authMethod: string) => {
   return { ok: true };
 });
 
+// IPC：Bossim user account auth
+ipcMain.handle("auth:start", async () => authStart());
+ipcMain.handle("auth:poll", async () => authPoll());
+ipcMain.handle("auth:cancel", async () => authCancel());
+ipcMain.handle("auth:getSession", async () => authGetSession());
+ipcMain.handle("auth:logout", async () => authLogout());
+
 // IPC：验证邀请码 — 调用后端 API 返回关联的 apiKey 和 model
 ipcMain.handle("onboarding:validateInviteCode", async (_, code: string) => {
   await writeDebugLog(
@@ -587,6 +624,11 @@ function patchConfigForElectron(staticServerPort: number): void {
 
 async function main() {
   await app.whenReady();
+  subscribeAuthSessionChanged((user) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(getAuthSessionChangedChannel(), { user });
+    }
+  });
   mainLogInfo(
     `[main] ready platform=${process.platform} packaged=${app.isPackaged}`,
   );

@@ -158,7 +158,9 @@ mac:
     - name: OpenClaw OAuth
       schemes:
         - openclaw
-  # 架构由打包脚本通过 --arch 参数指定（arm64 或 x64），每次只打单架构
+    - name: Bossim Auth
+      schemes:
+        - bossim
   target:
     - target: dmg
     - target: zip
@@ -193,6 +195,9 @@ win:
     - name: OpenClaw OAuth
       schemes:
         - openclaw
+    - name: Bossim Auth
+      schemes:
+        - bossim
   # Electron 42+ 内嵌 Node 24，Windows 不再需要独立 node.exe
   target:
     - target: nsis

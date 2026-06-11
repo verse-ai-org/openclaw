@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface AgentCardProps {
@@ -22,19 +22,31 @@ export function AgentCard({
   onClick,
 }: AgentCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoMounted, setVideoMounted] = useState(false);
 
-  const handleMouseEnter = () => {
-    if (!videoRef.current) { return; }
-    videoRef.current.currentTime = 0;
-    void videoRef.current.play().catch(() => {
+  useEffect(() => {
+    if (!videoMounted || !videoRef.current) {
+      return;
+    }
+    const el = videoRef.current;
+    el.currentTime = 0;
+    void el.play().catch(() => {
       // Ignore autoplay errors and keep image fallback visible.
     });
+    return () => {
+      el.pause();
+      el.currentTime = 0;
+    };
+  }, [videoMounted, video]);
+
+  const handleMouseEnter = () => {
+    if (video) {
+      setVideoMounted(true);
+    }
   };
 
   const handleMouseLeave = () => {
-    if (!videoRef.current) { return; }
-    videoRef.current.pause();
-    videoRef.current.currentTime = 0;
+    setVideoMounted(false);
   };
 
   return (
@@ -69,17 +81,17 @@ export function AgentCard({
             {emoji ?? "🤖"}
           </span>
         )}
-        {video && (
+        {video && videoMounted ? (
           <video
             ref={videoRef}
             src={video}
             muted
             playsInline
             loop
-            preload="metadata"
+            preload="auto"
             className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           />
-        )}
+        ) : null}
       </div>
 
       {/* Name */}
@@ -87,13 +99,6 @@ export function AgentCard({
         <h3 className="truncate text-sm font-medium text-white drop-shadow-sm">{bioName}</h3>
         <p className="truncate text-xs text-white/75 drop-shadow-sm">{name}</p>
       </div>
-
-      {/* Selected indicator */}
-      {/* {isSelected && (
-        <div className="absolute top-4 right-4">
-          <div className="size-2 rounded-full bg-[#BA0034]" />
-        </div>
-      )} */}
     </button>
   );
 }

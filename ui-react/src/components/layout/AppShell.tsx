@@ -1,5 +1,6 @@
 import { BellIcon, RefreshCwIcon, UserIcon } from "lucide-react";
 import { Outlet, useLocation } from "react-router";
+import { AuthGate } from "@/components/auth/AuthGate";
 import { GatewayStatusIndicator } from "@/components/gateway/GatewayStatusIndicator";
 import { GatewayRestartingOverlay } from "@/components/gateway/GatewayRestartingOverlay";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -99,18 +100,22 @@ export function AppShell() {
   useGateway();
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex">
-      <SidebarProvider className="h-full w-full overflow-hidden">
-        <AppSidebar />
-        <SidebarInset className="flex h-full m-0! min-h-0 flex-col overflow-hidden dark:bg-background/60 rounded-r-none!">
-          <TopNav />
-          <main className="flex-1 m-0! min-h-0 overflow-auto">
-            <Outlet />
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
+    <>
+      <AuthGate>
+        <div className="h-screen w-screen overflow-hidden flex">
+          <SidebarProvider className="h-full w-full overflow-hidden">
+            <AppSidebar />
+            <SidebarInset className="flex h-full m-0! min-h-0 flex-col overflow-hidden dark:bg-background/60 rounded-r-none!">
+              <TopNav />
+              <main className="flex-1 m-0! min-h-0 overflow-auto">
+                <Outlet />
+              </main>
+            </SidebarInset>
+          </SidebarProvider>
+        </div>
+      </AuthGate>
       {/* Global overlay: shown while Gateway intentionally restarts */}
       <GatewayRestartingOverlay />
-    </div>
+    </>
   );
 }

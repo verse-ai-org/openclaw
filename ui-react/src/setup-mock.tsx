@@ -132,6 +132,36 @@ const mockElectronBridge = {
       model: "anthropic/claude-opus-4-5"
     };
   },
+
+  authStart: async () => {
+    console.log("[Mock IPC] authStart");
+    mockOAuthStartTime["bossim-auth"] = Date.now();
+    return { ok: true };
+  },
+
+  authPoll: async () => {
+    const elapsed = Date.now() - (mockOAuthStartTime["bossim-auth"] ?? Date.now());
+    if (elapsed < 4000) {
+      return { ok: false, error: "pending" };
+    }
+    return {
+      ok: true,
+      user: {
+        id: "mock-user",
+        email: "mock@bossim.local",
+        display_name: "Mock User",
+        avatar_url: "",
+      },
+    };
+  },
+
+  authCancel: async () => ({ ok: true }),
+
+  authGetSession: async () => ({ user: null, status: "unauthenticated" as const }),
+
+  authLogout: async () => ({ ok: true }),
+
+  onAuthSessionChanged: () => () => {},
 };
 
 // 注入 mock bridge

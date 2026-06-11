@@ -21,6 +21,7 @@ import { TAB_GROUPS, TAB_PATHS, type Tab } from "@/types/gateway";
 import { Separator } from "../ui/separator.tsx";
 import { CONFIG } from "@/data/config.ts";
 import { isMacOSElectron } from "@/utils/electron-env.ts";
+import { UserSettingsPopover } from "@/components/settings/UserSettingsPopover.tsx";
 
 export function AppSidebar() {
   // const status = useGatewayStore((s) => s.status);
@@ -78,7 +79,9 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-2 pt-0 group-data-[collapsible=icon]:p-2">
         <SidebarMenu>
-          <NavItem tab="settings" />
+          <SidebarMenuItem>
+            <UserSettingsPopover />
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

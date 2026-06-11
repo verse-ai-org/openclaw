@@ -2,6 +2,7 @@ import { createHashRouter, Navigate } from "react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { ChatPage } from "@/pages/ChatPage";
 import { ScheduledTasksPage } from "@/pages/ScheduledTasksPage";
+import { ProfilePage } from "@/pages/ProfilePage";
 import {
   AgentsPage,
   ChannelsPage,
@@ -28,6 +29,7 @@ export const router = createHashRouter([
       { path: "skills", element: <SkillsPage /> },
       { path: "automation", element: <ScheduledTasksPage /> },
       { path: "plugins", element: <PluginsPage /> },
+      { path: "profile", element: <ProfilePage /> },
       { path: "settings", element: <ConfigPage /> }
     ],
   },
