@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRightIcon } from "lucide-react";
-import { findAuthMethod, findProviderGroup } from "@/data/auth-choice-groups";
+import {
+  findAuthMethod,
+  findProviderGroup,
+  useProviderCatalogStore,
+} from "@/store/provider-catalog.store";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +54,7 @@ export function ProviderModelEditDialog({
     }
   }, [open, initialDraft]);
 
+  useProviderCatalogStore((s) => s.version);
   const selectedGroup = findProviderGroup(draft.providerId);
   const selectedMethod = findAuthMethod(draft.methodId);
   const applyBlockedReason = useMemo(() => {

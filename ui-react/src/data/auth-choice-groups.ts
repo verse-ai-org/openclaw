@@ -9,6 +9,7 @@
  * Do NOT import directly from src/ — this package must not depend on CLI internals.
  */
 
+import type { ProviderCatalog } from "./provider-catalog.types";
 import anthropicLogo from "@/assets/anthropic.png";
 import chatgptLogo from "@/assets/chatgpt.png";
 import deepseekLogo from "@/assets/deepseek-color.webp";
@@ -707,37 +708,16 @@ export const AUTH_PROVIDER_GROUPS: AuthProviderGroupDef[] = [
   },
 ];
 
-/** Look up a provider group by its id. */
-export function findProviderGroup(
-  id: string,
-): AuthProviderGroupDef | undefined {
-  return AUTH_PROVIDER_GROUPS.find((g) => g.id === id);
-}
-
-/** Look up an auth method across all groups by its id. */
-export function findAuthMethod(methodId: string): AuthMethodDef | undefined {
-  for (const group of AUTH_PROVIDER_GROUPS) {
-    const method = group.methods.find((m) => m.id === methodId);
-    if (method) {
-      return method;
-    }
-  }
-  return undefined;
-}
-
-/** Return only the featured provider groups. */
-export function getFeaturedProviders(): AuthProviderGroupDef[] {
-  return AUTH_PROVIDER_GROUPS.filter((g) => g.featured);
-}
-
 /**
- * Given an authMethod id, return the parent provider group.
- * e.g. "openai-api-key" → the "openai" group.
+ * Built-in provider catalog snapshot. Serves as the final fallback when the
+ * remote bossim-service catalog is unavailable (offline / timeout / first run).
+ * Logos stay client-side (PROVIDER_LOGO), so they are not part of this object.
+ *
+ * Runtime lookups (findProviderGroup, findAuthMethod, ...) live in
+ * @/store/provider-catalog.store so they read the dynamically delivered catalog.
  */
-export function findProviderGroupForMethod(
-  methodId: string,
-): AuthProviderGroupDef | undefined {
-  return AUTH_PROVIDER_GROUPS.find((g) =>
-    g.methods.some((m) => m.id === methodId),
-  );
-}
+export const BUILTIN_PROVIDER_CATALOG: ProviderCatalog = {
+  groups: AUTH_PROVIDER_GROUPS,
+  emoji: PROVIDER_EMOJI,
+  modelCandidates: PROVIDER_MODEL_CANDIDATES as Record<string, string[]>,
+};

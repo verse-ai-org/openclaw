@@ -1,6 +1,6 @@
 import { ExternalLink, CheckCircle, XCircle, Loader2, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
-import { findAuthMethod } from "@/data/auth-choice-groups";
+import { findAuthMethod } from "@/store/provider-catalog.store";
 import { useWizardStore } from "@/store/setup-wizard.store";
 import { useWizardAdapter } from "@/context/AdapterContext";
 

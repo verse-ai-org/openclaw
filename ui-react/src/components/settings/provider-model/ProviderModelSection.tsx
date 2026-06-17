@@ -11,8 +11,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   findAuthMethod,
   findProviderGroup,
-  PROVIDER_MODEL_CANDIDATES,
-} from "@/data/auth-choice-groups";
+  modelCandidates,
+  useProviderCatalogStore,
+} from "@/store/provider-catalog.store";
 import { useOptionalWizardAdapter } from "@/context/AdapterContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,8 @@ export function ProviderModelSection({
   onValidationStateChange,
 }: ProviderModelSectionProps) {
   const adapter = useOptionalWizardAdapter();
+  // Re-render lookups when the dynamic catalog updates.
+  useProviderCatalogStore((s) => s.version);
   const selectedGroup = selectedProviderId
     ? findProviderGroup(selectedProviderId)
     : undefined;
@@ -109,7 +112,7 @@ export function ProviderModelSection({
     return Array.from(
       new Set([
         ...list,
-        ...(selectedProviderId ? (PROVIDER_MODEL_CANDIDATES[selectedProviderId] ?? []) : []),
+        ...(selectedProviderId ? modelCandidates(selectedProviderId) : []),
       ]),
     );
   }, [selectedGroup, selectedProviderId]);

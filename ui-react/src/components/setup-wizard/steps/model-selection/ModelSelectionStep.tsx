@@ -4,10 +4,8 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  getFeaturedProviders,
-  type AuthProviderGroupDef,
-} from "@/data/auth-choice-groups";
+import type { AuthProviderGroupDef } from "@/data/auth-choice-groups";
+import { useFeaturedProviders } from "@/store/provider-catalog.store";
 import { useWizardStore } from "@/store/setup-wizard.store";
 import { FeaturedProviderCard } from "./FeaturedProviderCard";
 import { AllProvidersDialog } from "./AllProvidersDialog";
@@ -25,7 +23,7 @@ export function ModelSelectionStep({ onNext }: ModelSelectionStepProps) {
   const [pendingGroupId, setPendingGroupId] = useState("anthropic");
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const featuredGroups = getFeaturedProviders();
+  const featuredGroups = useFeaturedProviders();
 
   /**
    * Called when user selects a provider — from featured cards or the Dialog.

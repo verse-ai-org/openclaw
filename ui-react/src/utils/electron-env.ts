@@ -4,6 +4,8 @@ import type { CSSProperties } from "react";
 export type ElectronBridgeEnv = {
   platform?: string;
   isElectron?: boolean;
+  /** App version string, when exposed by preload; best-effort, may be undefined. */
+  appVersion?: string;
   getBossimStateDir?: () => Promise<{
     stateDir: string;
     defaultAgentWorkspace: string;

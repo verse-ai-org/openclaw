@@ -32,8 +32,9 @@ import {
 import {
   findAuthMethod,
   findProviderGroup,
-  PROVIDER_MODEL_CANDIDATES,
-} from "@/data/auth-choice-groups";
+  modelCandidates,
+  useProviderCatalogStore,
+} from "@/store/provider-catalog.store";
 import { cn } from "@/lib/utils";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
@@ -101,6 +102,9 @@ export function ConfigPage() {
   const saveConfig = useAgentsStore((s) => s.saveConfig);
   const reloadConfig = useAgentsStore((s) => s.reloadConfig);
   const changeAgentModel = useAgentsStore((s) => s.changeAgentModel);
+  // Re-render derived provider state when the dynamic catalog updates.
+  useProviderCatalogStore((s) => s.version);
+  const catalogLoading = useProviderCatalogStore((s) => s.source === "loading");
   const [editOpen, setEditOpen] = useState(false);
   const [rawConfigOpen, setRawConfigOpen] = useState(false);
   const [providerValidation, setProviderValidation] = useState<{
@@ -132,7 +136,7 @@ export function ConfigPage() {
     new Set(
       [
         ...configuredModelOptions,
-        ...(PROVIDER_MODEL_CANDIDATES[providerState.providerId] ?? []),
+        ...modelCandidates(providerState.providerId),
         ...(selectedGroup?.methods ?? [])
           .map((m) => m.defaultModelId ?? "")
           .filter((id): id is string => !!id.trim()),
@@ -232,10 +236,33 @@ export function ConfigPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Provider Configuration</CardTitle>
-            <CardDescription>
-              Active provider, authentication method, and default model configuration.
-            </CardDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1.5">
+                <CardTitle className="text-base">Provider Configuration</CardTitle>
+                <CardDescription>
+                  Active provider, authentication method, and default model configuration.
+                </CardDescription>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={catalogLoading}
+                onClick={() =>
+                  void useProviderCatalogStore
+                    .getState()
+                    .refresh({ force: true })
+                }
+                className="rounded-full"
+                title="Re-fetch the provider list from the server"
+              >
+                {catalogLoading ? (
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                ) : (
+                  <RotateCcwIcon className="size-3.5" />
+                )}
+                Refresh providers
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <ProviderModelSummaryCard

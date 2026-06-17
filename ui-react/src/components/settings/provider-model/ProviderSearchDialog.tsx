@@ -3,10 +3,10 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { AuthProviderGroupDef } from "@/data/auth-choice-groups";
 import {
-  AUTH_PROVIDER_GROUPS,
-  PROVIDER_EMOJI,
-  PROVIDER_LOGO,
-} from "@/data/auth-choice-groups";
+  providerEmoji,
+  providerLogo,
+  useProviderGroups,
+} from "@/store/provider-catalog.store";
 
 interface ProviderSearchDialogProps {
   selectedProviderId: string | null;
@@ -18,19 +18,20 @@ export function ProviderSearchDialog({
   onSelect,
 }: ProviderSearchDialogProps) {
   const [search, setSearch] = useState("");
+  const allGroups = useProviderGroups();
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) {
-      return AUTH_PROVIDER_GROUPS;
+      return allGroups;
     }
-    return AUTH_PROVIDER_GROUPS.filter(
+    return allGroups.filter(
       (g) =>
         g.label.toLowerCase().includes(term) ||
         g.id.toLowerCase().includes(term) ||
         g.hint?.toLowerCase().includes(term),
     );
-  }, [search]);
+  }, [search, allGroups]);
 
   return (
     <div className="flex flex-col gap-4 py-2">
@@ -57,14 +58,14 @@ export function ProviderSearchDialog({
                 ].join(" ")}
               >
                 <span className="inline-flex size-8 items-center justify-center rounded-md bg-muted text-base">
-                  {PROVIDER_LOGO[group.id] ? (
+                  {providerLogo(group.id) ? (
                     <img
-                      src={PROVIDER_LOGO[group.id]}
+                      src={providerLogo(group.id)}
                       alt={`${group.label} logo`}
                       className="size-6 object-contain"
                     />
                   ) : (
-                    PROVIDER_EMOJI[group.id] ?? "🤖"
+                    providerEmoji(group.id) || "🤖"
                   )}
                 </span>
                 <span className="min-w-0 flex-1">

@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { AuthProviderGroupDef } from "@/data/auth-choice-groups";
-import { AUTH_PROVIDER_GROUPS, PROVIDER_EMOJI, PROVIDER_LOGO } from "@/data/auth-choice-groups";
+import {
+  providerEmoji,
+  providerLogo,
+  useProviderGroups,
+} from "@/store/provider-catalog.store";
 
 interface ProviderPickerProps {
   selectedProviderId: string | null;
@@ -13,19 +17,19 @@ export function ProviderPicker({
   onSelect,
 }: ProviderPickerProps) {
   const [search, setSearch] = useState("");
+  const allGroups = useProviderGroups();
   const providers = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const all = AUTH_PROVIDER_GROUPS;
     if (!term) {
-      return all;
+      return allGroups;
     }
-    return all.filter(
+    return allGroups.filter(
       (group) =>
         group.label.toLowerCase().includes(term) ||
         group.id.toLowerCase().includes(term) ||
         group.hint?.toLowerCase().includes(term),
     );
-  }, [search]);
+  }, [search, allGroups]);
 
   return (
     <div className="space-y-3">
@@ -53,14 +57,14 @@ export function ProviderPicker({
             >
               <div className="flex items-center gap-2.5">
                 <span className="inline-flex size-8 items-center justify-center overflow-hidden rounded-md bg-muted text-base">
-                  {PROVIDER_LOGO[group.id] ? (
+                  {providerLogo(group.id) ? (
                     <img
-                      src={PROVIDER_LOGO[group.id]}
+                      src={providerLogo(group.id)}
                       alt={`${group.label} logo`}
                       className="size-6 object-contain"
                     />
                   ) : (
-                    <span>{PROVIDER_EMOJI[group.id] ?? "🤖"}</span>
+                    <span>{providerEmoji(group.id) || "🤖"}</span>
                   )}
                 </span>
                 <p className="truncate text-sm font-semibold text-foreground">{group.label}</p>

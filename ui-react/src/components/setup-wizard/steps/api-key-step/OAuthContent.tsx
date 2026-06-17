@@ -1,6 +1,6 @@
 import { ExternalLink, CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { findProviderGroupForMethod } from "@/data/auth-choice-groups";
+import { findProviderGroupForMethod } from "@/store/provider-catalog.store";
 import { useWizardAdapter } from "@/context/AdapterContext";
 
 type OAuthPhase = "idle" | "opening" | "polling" | "success" | "error";

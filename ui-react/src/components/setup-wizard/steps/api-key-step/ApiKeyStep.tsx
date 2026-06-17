@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { findAuthMethod, findProviderGroupForMethod } from "@/data/auth-choice-groups";
+import { findAuthMethod, findProviderGroupForMethod } from "@/store/provider-catalog.store";
 import { useWizardStore } from "@/store/setup-wizard.store";
 import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";

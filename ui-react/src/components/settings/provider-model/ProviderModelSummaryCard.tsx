@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PROVIDER_EMOJI, PROVIDER_LOGO } from "@/data/auth-choice-groups";
+import { providerEmoji, providerLogo } from "@/store/provider-catalog.store";
 import { cn } from "@/lib/utils";
 
 interface ProviderModelSummaryCardProps {
@@ -51,14 +51,14 @@ export function ProviderModelSummaryCard({
           </p>
           <div className="flex items-center gap-2">
             <span className="inline-flex size-7 items-center justify-center overflow-hidden rounded-md bg-muted text-sm">
-              {PROVIDER_LOGO[providerId] ? (
+              {providerLogo(providerId) ? (
                 <img
-                  src={PROVIDER_LOGO[providerId]}
+                  src={providerLogo(providerId)}
                   alt={`${providerLabel} logo`}
                   className="size-5 object-contain"
                 />
               ) : (
-                PROVIDER_EMOJI[providerId] ?? "🤖"
+                providerEmoji(providerId) || "🤖"
               )}
             </span>
             <p className="text-sm font-medium text-foreground">{providerLabel}</p>

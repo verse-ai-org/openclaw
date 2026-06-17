@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useWizardStore } from "@/store/setup-wizard.store";
 import { useOptionalWizardAdapter } from "@/context/AdapterContext";
-import { findAuthMethod, findProviderGroupForMethod } from "@/data/auth-choice-groups";
+import { findAuthMethod, findProviderGroupForMethod } from "@/store/provider-catalog.store";
 
 // Emoji map for providers (mirrors ApiKeyStep)
 const PROVIDER_EMOJI: Record<string, string> = {

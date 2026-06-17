@@ -1,9 +1,11 @@
+import type {
+  AuthMethodDef,
+  AuthProviderGroupDef,
+} from "@/data/auth-choice-groups";
 import {
   findProviderGroup,
   getFeaturedProviders,
-  type AuthMethodDef,
-  type AuthProviderGroupDef,
-} from "@/data/auth-choice-groups";
+} from "@/store/provider-catalog.store";
 import type { AgentConfigSnapshot } from "@/types/agents";
 import type { ProviderModelResolvedState } from "./types";
 

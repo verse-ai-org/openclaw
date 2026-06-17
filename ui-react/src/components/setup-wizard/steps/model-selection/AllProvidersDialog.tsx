@@ -1,8 +1,8 @@
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { AUTH_PROVIDER_GROUPS } from "@/data/auth-choice-groups";
 import type { AuthProviderGroupDef } from "@/data/auth-choice-groups";
+import { useProviderGroups } from "@/store/provider-catalog.store";
 import { PROVIDER_EMOJI } from "./provider-constants";
 
 interface AllProvidersDialogProps {
@@ -26,8 +26,9 @@ function SectionHeader({ label }: { label: string }) {
 /** All-providers dialog content — styled per Figma "Explore Providers" modal */
 export function AllProvidersDialog({ selectedGroupId, onSelect, onClose }: AllProvidersDialogProps) {
   const [search, setSearch] = useState("");
-  const featured = AUTH_PROVIDER_GROUPS.slice(0, 4);
-  const allFiltered = AUTH_PROVIDER_GROUPS.filter(
+  const allGroups = useProviderGroups();
+  const featured = allGroups.slice(0, 4);
+  const allFiltered = allGroups.filter(
     (g) =>
       g.label.toLowerCase().includes(search.toLowerCase()) ||
       g.hint?.toLowerCase().includes(search.toLowerCase()),
@@ -152,7 +153,7 @@ export function AllProvidersDialog({ selectedGroupId, onSelect, onClose }: AllPr
             <div className="mb-6">
               <SectionHeader label="All Providers" />
               <div className="grid grid-cols-3 gap-3">
-                {AUTH_PROVIDER_GROUPS.map((group) => {
+                {allGroups.map((group) => {
                   const isSelected = selectedGroupId === group.id;
                   return (
                     <button

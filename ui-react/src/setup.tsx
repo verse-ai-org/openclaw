@@ -3,7 +3,11 @@ import { useRef, useState, useMemo } from "react";
 import { SetupWizard } from "@/components/setup-wizard/index";
 import { ElectronWizardAdapter } from "@/adapters/ElectronWizardAdapter";
 import { useWizardStore } from "@/store/setup-wizard.store";
+import { useProviderCatalogStore } from "@/store/provider-catalog.store";
 import "./index.css";
+
+// Hydrate the provider catalog from cache and refresh from bossim-service.
+void useProviderCatalogStore.getState().init();
 
 /**
  * setup.tsx - 生产入口
