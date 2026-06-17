@@ -100,9 +100,9 @@ pnpm electron:dev:static
 
 **ui-react 如何解析 Gateway URL**（`ui-react/src/store/settings.store.ts`）：
 
-1. **Vite dev（`localhost:5174`）**：直连 `ws://127.0.0.1:${VITE_GATEWAY_PORT}`，默认 `18789`；不经过 Vite 代理，避免 WebSocket EPIPE。
+1. **Vite dev（`localhost:5174`）**：直连 `ws://127.0.0.1:${VITE_GATEWAY_PORT}`，Bossim 默认 **18790**；不经过 Vite 代理，避免 WebSocket EPIPE。Electron+Vite 刷新时优先读 `localStorage` 里 persisted gateway URL（首次由 query 注入）。
 2. **Electron 注入 query**：`?gatewayUrl=ws://127.0.0.1:…&token=…`，读完后从地址栏 strip，并写入 `localStorage`（`openclaw.control.electron-gateway-url.v1`）供刷新恢复。
-3. **Electron 静态 HTTP（`http://127.0.0.1:<staticPort>`）**：不用 `location.host` 作 WS 地址，优先 persisted gateway URL，否则 `ws://127.0.0.1:18789`。
+3. **Electron 静态 HTTP（`http://127.0.0.1:<staticPort>`）**：不用 `location.host` 作 WS 地址，优先 persisted gateway URL，否则 `ws://127.0.0.1:18790`。
 4. **其他 HTTP(S) 部署**：`ws(s)://<location.host>`。
 
 ---

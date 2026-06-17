@@ -1,5 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { resolveGatewayToken } from "./settings.store";
+import { resolveGatewayToken, __test } from "./settings.store";
+
+describe("resolveDevViteGatewayUrlFromState", () => {
+  it("restores persisted Electron gateway URL on Vite dev refresh", () => {
+    const url = __test.resolveDevViteGatewayUrlFromState({
+      inElectron: true,
+      persistedGatewayUrl: "ws://127.0.0.1:18790",
+    });
+    expect(url).toBe("ws://127.0.0.1:18790");
+  });
+
+  it("falls back to Bossim default port when Electron has no persisted URL", () => {
+    const url = __test.resolveDevViteGatewayUrlFromState({
+      inElectron: true,
+      persistedGatewayUrl: "",
+    });
+    expect(url).toBe("ws://127.0.0.1:18790");
+  });
+
+  it("uses VITE_GATEWAY_PORT for browser-only Vite dev", () => {
+    const url = __test.resolveDevViteGatewayUrlFromState({
+      inElectron: false,
+      persistedGatewayUrl: "ws://127.0.0.1:18790",
+      viteGatewayPort: "19999",
+    });
+    expect(url).toBe("ws://127.0.0.1:19999");
+  });
+});
 
 describe("resolveGatewayToken", () => {
   it("prefers dev env token over sessionStorage on localhost:5174 dev", () => {

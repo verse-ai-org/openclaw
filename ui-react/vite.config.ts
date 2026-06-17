@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
       // Expose gateway port to client so resolveDefaultGatewayUrl() can use
       // the correct port (Electron uses 18790, standalone dev uses 18789).
       "import.meta.env.VITE_GATEWAY_PORT": JSON.stringify(
-        process.env.VITE_GATEWAY_PORT ?? "18789",
+        process.env.VITE_GATEWAY_PORT ?? "18790",
       ),
       // Optional dev token: set VITE_GATEWAY_TOKEN in ui-react/.env.local so
       // the UI can connect when opened directly in a browser without Electron.

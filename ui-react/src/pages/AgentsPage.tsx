@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAgentsStore } from "@/store/agents.store";
 import { useGatewayStore } from "@/store/gateway.store";
+import { formatAgentWorkspace } from "@/lib/bossim-paths";
+import { useBossimPaths } from "@/hooks/use-bossim-paths";
 import { AgentCard } from "../components/agents/card";
 import { AgentDetailDrawer } from "../components/agents/detail-drawer";
 
@@ -24,6 +26,7 @@ function CreateAgentDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const createAgent = useAgentsStore((s) => s.createAgent);
+  const bossimPaths = useBossimPaths();
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -33,11 +36,14 @@ function CreateAgentDialog({
     e.preventDefault();
     const trimName = name.trim();
     if (!trimName) { setErr("Name is required."); return; }
+    if (!bossimPaths) {
+      setErr("Bossim workspace paths are not ready yet.");
+      return;
+    }
     setSubmitting(true);
     setErr(null);
-    // workspace defaults to ${BOSSIM_STATE_DIR}/agents/<id> (default ~/.bossim/agents/<id>)
     const workspaceName = trimName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    const workspace = `~/.bossim/agents/${workspaceName}`;
+    const workspace = formatAgentWorkspace(bossimPaths.stateDir, workspaceName);
     const res = await createAgent({
       name: trimName,
       workspace,

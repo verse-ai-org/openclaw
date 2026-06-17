@@ -9,6 +9,7 @@ import {
   BOSSIM_STATE_DIR,
   installBossimStateDirEnv,
 } from "./bossim-state.js";
+import { DEFAULT_GATEWAY_PORT_BOSSIM } from "./gateway/constants.js";
 import { maybeMigrateOpenclawToBossim } from "./state-migration.js";
 installBossimStateDirEnv();
 maybeMigrateOpenclawToBossim();
@@ -280,6 +281,8 @@ ipcMain.handle("gateway:info", () => {
 ipcMain.handle("bossim:state-dir", () => ({
   stateDir: BOSSIM_STATE_DIR,
   defaultAgentWorkspace: path.join(BOSSIM_STATE_DIR, "workspace"),
+  managedSkillsDir: path.join(BOSSIM_STATE_DIR, "skills"),
+  defaultGatewayPort: DEFAULT_GATEWAY_PORT_BOSSIM,
 }));
 
 function isSafeAbsolutePath(filePath: string): boolean {

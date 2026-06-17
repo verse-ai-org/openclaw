@@ -63,23 +63,54 @@ function persistSessionToken(gatewayUrl: string, token: string) {
   }
 }
 
+/** Bossim default gateway port (Electron uses 18790; CLI openclaw uses 18789). */
+const DEFAULT_BOSSIM_GATEWAY_PORT = "18790";
+
+function loadPersistedElectronGatewayUrl(): string {
+  try {
+    return (localStorage.getItem(ELECTRON_GATEWAY_URL_KEY) ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function resolveDevViteGatewayUrlFromState(params: {
+  inElectron: boolean;
+  persistedGatewayUrl: string;
+  viteGatewayPort?: string;
+}): string {
+  if (params.inElectron) {
+    const persisted = params.persistedGatewayUrl.trim();
+    if (persisted) {
+      return persisted;
+    }
+  }
+  const port = params.viteGatewayPort ?? DEFAULT_BOSSIM_GATEWAY_PORT;
+  return `ws://127.0.0.1:${port}`;
+}
+
+function resolveDevViteGatewayUrl(): string {
+  return resolveDevViteGatewayUrlFromState({
+    inElectron: isElectronRenderer(),
+    persistedGatewayUrl: loadPersistedElectronGatewayUrl(),
+    viteGatewayPort: import.meta.env.VITE_GATEWAY_PORT as string | undefined,
+  });
+}
+
 function resolveDefaultGatewayUrl(): string {
   // In development (Vite on :5174), default to the gateway directly so we
   // don't need a WebSocket proxy and avoid Vite EPIPE noise.
-  // Port is read from VITE_GATEWAY_PORT env var so it stays in sync with
-  // the Electron main process (which may use 18790 to avoid conflicts).
   if (
     import.meta !== undefined &&
     import.meta.env?.DEV &&
     location.hostname === "localhost" &&
     location.port === "5174"
   ) {
-    const port = import.meta.env.VITE_GATEWAY_PORT ?? "18789";
-    return `ws://127.0.0.1:${port}`;
+    return resolveDevViteGatewayUrl();
   }
   // file:// protocol (Electron packaged): location.host is empty, default to loopback
   if (location.protocol === "file:") {
-    return "ws://127.0.0.1:18789";
+    return `ws://127.0.0.1:${DEFAULT_BOSSIM_GATEWAY_PORT}`;
   }
   // Electron packaged with embedded static HTTP server: the page is served from
   // http://127.0.0.1:<static-server-port>/ which is NOT the Gateway port.
@@ -88,15 +119,11 @@ function resolveDefaultGatewayUrl(): string {
   // Instead, prefer the Gateway URL persisted by Electron on first load, then
   // fall back to the default loopback Gateway port.
   if (location.protocol === "http:" && location.hostname === "127.0.0.1") {
-    try {
-      const persisted = localStorage.getItem(ELECTRON_GATEWAY_URL_KEY);
-      if (persisted?.trim()) {
-        return persisted.trim();
-      }
-    } catch {
-      // best-effort
+    const persisted = loadPersistedElectronGatewayUrl();
+    if (persisted) {
+      return persisted;
     }
-    return "ws://127.0.0.1:18789";
+    return `ws://127.0.0.1:${DEFAULT_BOSSIM_GATEWAY_PORT}`;
   }
   const proto = location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${location.host}`;
@@ -248,9 +275,14 @@ export function loadSettings(): UiSettings {
       if (urlGatewayUrl) {
         return urlGatewayUrl;
       }
-      // In dev mode (port 5174) always use the gateway override — never trust
-      // a stale localStorage URL that may point back at the Vite dev server.
+      // In dev mode (port 5174) use gateway override — Electron keeps injected URL on refresh.
       if (isDevGatewayOverrideActive()) {
+        if (isElectronRenderer()) {
+          const persisted = loadPersistedElectronGatewayUrl();
+          if (persisted) {
+            return persisted;
+          }
+        }
         return defaultUrl;
       }
       return typeof parsed.gatewayUrl === "string" && parsed.gatewayUrl.trim()
@@ -347,3 +379,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     get().updateSettings({ theme });
   },
 }));
+
+export const __test = {
+  resolveDevViteGatewayUrlFromState,
+};

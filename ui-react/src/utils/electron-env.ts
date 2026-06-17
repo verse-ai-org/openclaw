@@ -4,6 +4,12 @@ import type { CSSProperties } from "react";
 export type ElectronBridgeEnv = {
   platform?: string;
   isElectron?: boolean;
+  getBossimStateDir?: () => Promise<{
+    stateDir: string;
+    defaultAgentWorkspace: string;
+    managedSkillsDir?: string;
+    defaultGatewayPort?: number;
+  }>;
   getPathForFile?: (file: File) => string;
   showItemInFolder?: (absolutePath: string) => Promise<{ ok: boolean }>;
   openPath?: (absolutePath: string) => Promise<{ ok: boolean }>;

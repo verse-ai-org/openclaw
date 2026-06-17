@@ -98,7 +98,7 @@ const DEFAULT_STATE: WizardState = {
     browser: true,
     fileAccess: false,
   },
-  gatewayPort: 18789,
+  gatewayPort: 18790,
   gatewayBind: "loopback",
   gatewayAuth: "token",
   installDaemon: true,

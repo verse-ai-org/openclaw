@@ -162,6 +162,13 @@ const mockElectronBridge = {
   authLogout: async () => ({ ok: true }),
 
   onAuthSessionChanged: () => () => {},
+
+  getBossimStateDir: async () => ({
+    stateDir: "~/.bossim",
+    defaultAgentWorkspace: "~/.bossim/workspace",
+    managedSkillsDir: "~/.bossim/skills",
+    defaultGatewayPort: 18790,
+  }),
 };
 
 // 注入 mock bridge

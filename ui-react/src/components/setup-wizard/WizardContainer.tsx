@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { hydrateWizardBossimDefaults } from "@/lib/bossim-paths";
+import { useWizardStore } from "@/store/setup-wizard.store";
 import { WizardFooter } from "./components/WizardFooter";
 import { AccessStep } from "./steps/AccessStep";
 import { ApiKeyStep } from "./steps/api-key-step";
@@ -19,10 +21,17 @@ const STEPS: { id: WizardStep; label: string }[] = [
 ];
 
 export function WizardContainer() {
+  const updateWizardState = useWizardStore((s) => s.updateWizardState);
   const [currentStep, setCurrentStep] = useState<WizardStep>("welcome");
   const [canProceed, setCanProceed] = useState(true);
   const [usedInvitePath, setUsedInvitePath] = useState(false);
   const [accessVerified, setAccessVerified] = useState(false);
+
+  useEffect(() => {
+    hydrateWizardBossimDefaults((partial) => {
+      updateWizardState(partial);
+    });
+  }, [updateWizardState]);
 
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
 

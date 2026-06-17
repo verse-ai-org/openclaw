@@ -54,6 +54,7 @@ describe("runMigration", () => {
     );
     writeFile(path.join(source, "openclaw.json.last-good"), "{}");
     writeFile(path.join(source, "openclaw.json.bak.1"), "{}");
+    writeFile(path.join(source, "bossim-auth.json"), '{"plain":{}}');
     writeFile(path.join(source, "gateway-instance-id"), "abc");
     writeFile(
       path.join(source, "agents", "main", "agent", "auth-profiles.json"),
@@ -72,6 +73,7 @@ describe("runMigration", () => {
     expect(fs.existsSync(path.join(target, "openclaw.json"))).toBe(true);
     expect(fs.existsSync(path.join(target, "openclaw.json.last-good"))).toBe(true);
     expect(fs.existsSync(path.join(target, "openclaw.json.bak.1"))).toBe(true);
+    expect(fs.existsSync(path.join(target, "bossim-auth.json"))).toBe(true);
     expect(fs.existsSync(path.join(target, "gateway-instance-id"))).toBe(true);
     expect(
       fs.existsSync(

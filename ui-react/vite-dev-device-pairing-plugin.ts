@@ -38,9 +38,26 @@ function readJsonBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
+function resolveBossimStateDir(
+  env: NodeJS.ProcessEnv = process.env,
+  homedir: () => string = os.homedir,
+): string {
+  const configOverride = env.OPENCLAW_CONFIG_DIR?.trim();
+  if (configOverride) {
+    return configOverride;
+  }
+  if (env.BOSSIM_USE_OPENCLAW_STATE === "1") {
+    return path.join(homedir(), ".openclaw");
+  }
+  const stateOverride = env.BOSSIM_STATE_DIR?.trim();
+  if (stateOverride) {
+    return path.isAbsolute(stateOverride) ? stateOverride : path.resolve(stateOverride);
+  }
+  return path.join(homedir(), ".bossim");
+}
+
 function readGatewayTokenFromConfig(): string {
-  const override = process.env.OPENCLAW_CONFIG_DIR?.trim();
-  const baseDir = override || path.join(os.homedir(), ".openclaw");
+  const baseDir = resolveBossimStateDir();
   const cfgPath = path.join(baseDir, "openclaw.json");
   try {
     const raw = fs.readFileSync(cfgPath, "utf8");
@@ -105,7 +122,7 @@ export function devDevicePairingPlugin(): Plugin {
             });
             return;
           }
-          const port = Number.parseInt(process.env.VITE_GATEWAY_PORT ?? "18789", 10);
+          const port = Number.parseInt(process.env.VITE_GATEWAY_PORT ?? "18790", 10);
           const result = await approveDevicePairingRequest({ requestId, token, port });
           sendJson(res, result.ok ? 200 : 500, result);
         } catch (err) {

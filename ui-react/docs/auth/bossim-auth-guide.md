@@ -17,7 +17,7 @@ Bossim 支持三种登录方式，三种入口共用同一套用户账号：
 | 入口 | 令牌存放 | 浏览器/渲染进程能否读到 token |
 | --- | --- | --- |
 | **官网**（bossim-client） | httpOnly Cookie（`bossim_at` / `bossim_rt`） | 否，仅持有 `user` 对象 |
-| **桌面 App**（openclaw Electron） | 主进程 `safeStorage`（`~/.openclaw/bossim-auth.json`） | 否，渲染进程仅通过 IPC 读 `user` |
+| **桌面 App**（openclaw Electron） | 主进程 `safeStorage`（`~/.bossim/bossim-auth.json`；`BOSSIM_USE_OPENCLAW_STATE=1` 时退回 `~/.openclaw/`） | 否，渲染进程仅通过 IPC 读 `user` |
 | **后端**（bossim-service） | 签发 JWT + Redis 存 refresh token | — |
 
 桌面 App **不改造 bossim-service**；桌面登录桥接由 **bossim-client BFF** 提供一次性 `desktop_code` 交换接口。
@@ -214,7 +214,7 @@ sequenceDiagram
   M->>B: POST /api/auth/desktop/exchange { code }
   B->>S: （可选）GET /users/me 校验
   B-->>M: { access_token, refresh_token, user }
-  M->>M: safeStorage 写入 ~/.openclaw/bossim-auth.json
+  M->>M: safeStorage 写入 ~/.bossim/bossim-auth.json
   M->>R: auth:sessionChanged { user }
   R->>R: AuthGate 放行，进入主界面
 ```

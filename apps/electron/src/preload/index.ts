@@ -96,6 +96,8 @@ contextBridge.exposeInMainWorld("electronBridge", {
   getBossimStateDir: (): Promise<{
     stateDir: string;
     defaultAgentWorkspace: string;
+    managedSkillsDir: string;
+    defaultGatewayPort: number;
   }> => ipcRenderer.invoke("bossim:state-dir"),
 
   /** Loopback desktop: approve a pending device pairing request */

@@ -8,6 +8,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
+import {
+  isUsingOpenclawState,
+  legacyOpenclawStateDir,
+  resolveBossimStateDir,
+} from "./bossim-state.js";
 
 function bffBaseUrl(): string {
   return (process.env.BOSSIM_BFF_URL?.trim() || "https://aiverser.com").replace(/\/$/, "");
@@ -53,10 +58,49 @@ type PendingAuthSession = {
 
 let pendingSession: PendingAuthSession | null = null;
 let sessionChangedListeners: Array<(user: BossimUser | null) => void> = [];
+let legacyAuthMigrationDone = false;
+
+export function resolveAuthStorePath(
+  env: NodeJS.ProcessEnv = process.env,
+  homedir: () => string = os.homedir,
+): string {
+  const override = env.OPENCLAW_CONFIG_DIR?.trim();
+  const base = override || resolveBossimStateDir(env, homedir);
+  return path.join(base, "bossim-auth.json");
+}
 
 function authStorePath(): string {
-  const base = process.env.OPENCLAW_CONFIG_DIR?.trim() || path.join(os.homedir(), ".openclaw");
-  return path.join(base, "bossim-auth.json");
+  return resolveAuthStorePath();
+}
+
+function legacyAuthStorePath(homedir: () => string = os.homedir): string {
+  return path.join(legacyOpenclawStateDir(homedir), "bossim-auth.json");
+}
+
+/** Copy ~/.openclaw/bossim-auth.json once when workspace moved to ~/.bossim. */
+export function maybeMigrateLegacyAuthStore(
+  homedir: () => string = os.homedir,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  if (legacyAuthMigrationDone || isUsingOpenclawState(env)) {
+    legacyAuthMigrationDone = true;
+    return;
+  }
+  legacyAuthMigrationDone = true;
+  const target = resolveAuthStorePath(env, homedir);
+  if (fs.existsSync(target)) {
+    return;
+  }
+  const legacy = legacyAuthStorePath(homedir);
+  if (!fs.existsSync(legacy)) {
+    return;
+  }
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(legacy, target);
+  } catch (err) {
+    console.warn(`[bossim-auth] failed to migrate auth store: ${String(err)}`);
+  }
 }
 
 function normalizeUser(raw: unknown): BossimUser | null {
@@ -82,6 +126,7 @@ function normalizeUser(raw: unknown): BossimUser | null {
 }
 
 function readStoreFile(): BossimAuthStore | null {
+  maybeMigrateLegacyAuthStore();
   const filePath = authStorePath();
   if (!fs.existsSync(filePath)) {
     return null;
@@ -435,3 +480,9 @@ export async function authDevMockLogin(user?: Partial<BossimUser>): Promise<void
     pendingSession.completed = { ok: true, user: mockUser };
   }
 }
+
+export const __test = {
+  resetLegacyAuthMigration(): void {
+    legacyAuthMigrationDone = false;
+  },
+};

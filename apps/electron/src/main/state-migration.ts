@@ -34,6 +34,7 @@ const WHITELIST: readonly string[] = [
   "openclaw.json.bak",
   "gateway-instance-id",
   "exec-approvals.json",
+  "bossim-auth.json",
   "update-check.json",
   // Long-lived state directories
   "agents",
