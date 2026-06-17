@@ -1,7 +1,7 @@
 {
   "name": "openclaw-electron",
   "private": true,
-  "version": "2026.5.28",
+  "version": "2026.6.11",
   "description": "OpenClaw Electron desktop client",
   "author": "OpenClaw Team",
   "type": "commonjs",
@@ -9,12 +9,13 @@
   "scripts": {
     "build": "tsdown --config-loader unrun --config tsdown.config.electron.ts",
     "prepackage": "pnpm --filter openclaw-control-ui-react build",
-    "dev": "concurrently -k \"tsdown --config-loader unrun --config tsdown.config.electron.ts --watch\" \"pnpm --filter openclaw-control-ui-react dev\" \"sleep 6 && cross-env VITE_UI_REACT_URL=http://localhost:5174 electron .\"",
+    "patch:electron-plist": "node scripts/patch-electron-dev-plist.cjs",
+    "dev": "node scripts/patch-electron-dev-plist.cjs && concurrently -k \"tsdown --config-loader unrun --config tsdown.config.electron.ts --watch\" \"pnpm --filter openclaw-control-ui-react dev\" \"sleep 6 && cross-env VITE_UI_REACT_URL=http://localhost:5174 BOSSIM_BFF_URL=http://localhost:3000 BOSSIM_AUTH_APP_URL=http://localhost:3000/auth/app electron .\"",
     "dev:static": "concurrently -k \"tsdown --config-loader unrun --config tsdown.config.electron.ts --watch\" \"sleep 3 && electron .\"",
     "package": "pnpm build && electron-builder",
     "package:mac": "pnpm build && electron-builder --mac",
     "package:win": "pnpm build && electron-builder --win",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps && node scripts/patch-electron-dev-plist.cjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

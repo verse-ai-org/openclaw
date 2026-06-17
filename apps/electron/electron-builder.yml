@@ -10,6 +10,19 @@ directories:
 # asar 打包主进程代码
 asar: true
 
+# 勿将本地 .env / 源码 / 构建产物打进 app.asar
+files:
+  - "**/*"
+  - "!**/.env"
+  - "!**/.env.*"
+  - "!.env"
+  - "!.env.*"
+  - "!src/**"
+  - "!scripts/**"
+  - "!docs/**"
+  - "!release/**"
+  - "!resources/prod-node_modules/**"
+
 # 不进 asar 的资源（需要保持文件权限的可执行文件）
 asarUnpack:
   - "**/*.node"
@@ -158,7 +171,9 @@ mac:
     - name: OpenClaw OAuth
       schemes:
         - openclaw
-  # 架构由打包脚本通过 --arch 参数指定（arm64 或 x64），每次只打单架构
+    - name: Bossim Auth
+      schemes:
+        - bossim
   target:
     - target: dmg
     - target: zip
@@ -193,6 +208,9 @@ win:
     - name: OpenClaw OAuth
       schemes:
         - openclaw
+    - name: Bossim Auth
+      schemes:
+        - bossim
   # Electron 42+ 内嵌 Node 24，Windows 不再需要独立 node.exe
   target:
     - target: nsis

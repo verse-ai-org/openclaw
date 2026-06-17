@@ -162,6 +162,7 @@ prune_runtime_dependencies() {
 build_electron_main() {
   echo ""
   echo "🔨 [4/5] 构建 Electron 主进程 (tsdown)"
+  unset BOSSIM_BFF_URL BOSSIM_AUTH_APP_URL BOSSIM_SERVICE_URL || true
   (cd "$ELECTRON_DIR" && pnpm build)
 }
 

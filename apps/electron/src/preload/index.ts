@@ -288,4 +288,66 @@ contextBridge.exposeInMainWorld("electronBridge", {
     elapsedMs?: number;
     error?: string;
   } | null> => ipcRenderer.invoke("startup:get-phase"),
+
+  /** Open browser for Bossim user account login (desktop auth bridge). */
+  authStart: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("auth:start"),
+
+  /** Poll for Bossim user auth completion after authStart. */
+  authPoll: (): Promise<{
+    ok: boolean;
+    user?: {
+      id: string;
+      email: string;
+      display_name: string;
+      avatar_url: string;
+    };
+    error?: string;
+  }> => ipcRenderer.invoke("auth:poll"),
+
+  /** Cancel in-progress Bossim user auth. */
+  authCancel: (): Promise<{ ok: boolean }> => ipcRenderer.invoke("auth:cancel"),
+
+  /** Read current Bossim user session (no tokens exposed). */
+  authGetSession: (): Promise<{
+    user: {
+      id: string;
+      email: string;
+      display_name: string;
+      avatar_url: string;
+    } | null;
+    status: "authenticated" | "unauthenticated";
+  }> => ipcRenderer.invoke("auth:getSession"),
+
+  /** Log out Bossim user account and clear stored session. */
+  authLogout: (): Promise<{ ok: boolean }> => ipcRenderer.invoke("auth:logout"),
+
+  /**
+   * Listen for Bossim auth session changes (e.g. after protocol callback).
+   * Returns unsubscribe function.
+   */
+  onAuthSessionChanged: (
+    callback: (payload: {
+      user: {
+        id: string;
+        email: string;
+        display_name: string;
+        avatar_url: string;
+      } | null;
+    }) => void,
+  ): (() => void) => {
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      payload: {
+        user: {
+          id: string;
+          email: string;
+          display_name: string;
+          avatar_url: string;
+        } | null;
+      },
+    ) => callback(payload);
+    ipcRenderer.on("auth:sessionChanged", handler);
+    return () => ipcRenderer.removeListener("auth:sessionChanged", handler);
+  },
 });
