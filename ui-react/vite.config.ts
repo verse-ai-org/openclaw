@@ -31,6 +31,13 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_GATEWAY_TOKEN": JSON.stringify(
         env.VITE_GATEWAY_TOKEN ?? "",
       ),
+      // bossim-service base URL for dynamic provider catalog (renderer fetch).
+      "import.meta.env.VITE_BOSSIM_SERVICE_URL": JSON.stringify(
+        env.VITE_BOSSIM_SERVICE_URL?.trim() ||
+          process.env.VITE_BOSSIM_SERVICE_URL?.trim() ||
+          process.env.BOSSIM_SERVICE_URL?.trim() ||
+          "",
+      ),
     },
     resolve: {
       alias: {

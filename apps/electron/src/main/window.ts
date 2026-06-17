@@ -184,6 +184,21 @@ function installExternalLinkNavigationHandlers(
  */
 const VITE_UI_REACT_URL = process.env.VITE_UI_REACT_URL?.replace(/\/$/, "");
 
+const BOSSIM_SERVICE_URL = (
+  process.env.BOSSIM_SERVICE_URL?.trim() ||
+  "https://bossim-service-production.up.railway.app"
+).replace(/\/$/, "");
+
+function httpOrigin(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "";
+  }
+}
+
+const BOSSIM_SERVICE_CONNECT_ORIGIN = httpOrigin(BOSSIM_SERVICE_URL);
+
 function resolveRendererAuthToken(token: string): string {
   // Vite dev: prefer persisted config token over ephemeral sessionTokenForStartup.
   if (VITE_UI_REACT_URL && !app.isPackaged) {
@@ -299,7 +314,7 @@ export function configureSession(port: number): void {
             `media-src 'self' data: blob: file: http://127.0.0.1:${port} *`,
             `font-src 'self' data: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
             `frame-src 'self' blob: file: http://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin}` : ""}`,
-            `connect-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port} wss://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin} ws://localhost:5174` : ""}`,
+            `connect-src 'self' file: http://127.0.0.1:${port} ws://127.0.0.1:${port} wss://127.0.0.1:${port}${uiReactOrigin ? ` ${uiReactOrigin} ws://localhost:5174` : ""}${BOSSIM_SERVICE_CONNECT_ORIGIN ? ` ${BOSSIM_SERVICE_CONNECT_ORIGIN}` : ""}`,
           ].join("; "),
         ],
       },
