@@ -6,6 +6,7 @@
 
 | 文档 | 说明 |
 |------|------|
+| [bossim-workspace.md](../bossim-workspace.md) | **Bossim 工作空间隔离**：`~/.bossim` 背景、迁移、端口、Session 路径、开发与验证 |
 | [electron-local-dev.md](./electron-local-dev.md) | Electron + Vite 热更新、纯浏览器 dev、静态产物模式、Gateway 连接与 device pairing |
 
 ## 相关文档（其他目录）

@@ -1,6 +1,6 @@
 # Setup Wizard - 快速开始指南
 
-> **工作空间**：Bossim 默认把配置 / agent / 凭证 / 工作目录都存到 `~/.bossim/`，与 CLI `openclaw`（`~/.openclaw/`）隔离。Gateway 默认端口 18790（CLI 18789）。首次启动若检测到 `~/.openclaw/`，会自动复制必要文件到 `~/.bossim/`（不会动 CLI 目录）。详见 `apps/electron/docs/gateway-lifecycle.md`。
+> **工作空间**：Bossim 默认把配置 / agent / 凭证 / 工作目录都存到 `~/.bossim/`，与 CLI `openclaw`（`~/.openclaw/`）隔离。Gateway 默认端口 18790（CLI 18789）。首次启动若检测到 `~/.openclaw/`，会自动复制必要文件到 `~/.bossim/`（不会动 CLI 目录）。详见 [bossim-workspace.md](./bossim-workspace.md) 与 `apps/electron/docs/gateway-lifecycle.md`。
 
 ## 🚀 快速开始
 
