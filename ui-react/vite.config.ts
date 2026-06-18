@@ -38,6 +38,18 @@ export default defineConfig(({ mode }) => {
           process.env.BOSSIM_SERVICE_URL?.trim() ||
           "",
       ),
+      "import.meta.env.VITE_BOSSIM_BFF_URL": JSON.stringify(
+        env.VITE_BOSSIM_BFF_URL?.trim() ||
+          process.env.VITE_BOSSIM_BFF_URL?.trim() ||
+          process.env.BOSSIM_BFF_URL?.trim() ||
+          "",
+      ),
+      "import.meta.env.VITE_BOSSIM_AUTH_APP_URL": JSON.stringify(
+        env.VITE_BOSSIM_AUTH_APP_URL?.trim() ||
+          process.env.VITE_BOSSIM_AUTH_APP_URL?.trim() ||
+          process.env.BOSSIM_AUTH_APP_URL?.trim() ||
+          "",
+      ),
     },
     resolve: {
       alias: {

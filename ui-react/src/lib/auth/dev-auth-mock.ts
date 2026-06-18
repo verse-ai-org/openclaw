@@ -1,4 +1,5 @@
 import type { BossimUser } from "@/lib/auth/bridge";
+import { CONFIG } from "@/data/config";
 
 /** Dev-only mock Bossim auth IPC for browser testing without Electron. */
 export function installDevAuthMock(): void {
@@ -27,7 +28,7 @@ export function installDevAuthMock(): void {
     authStart: async () => {
       authPending = true;
       authStartedAt = Date.now();
-      window.open("https://aiverser.com/auth/app", "_blank");
+      window.open(CONFIG.authAppUrl, "_blank");
       return { ok: true };
     },
     authPoll: async () => {
