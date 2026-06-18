@@ -1,5 +1,5 @@
 import { BellIcon, RefreshCwIcon, UserIcon } from "lucide-react";
-import { Outlet, useLocation } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { AuthGate } from "@/components/auth/AuthGate";
 import { GatewayStatusIndicator } from "@/components/gateway/GatewayStatusIndicator";
 import { GatewayRestartingOverlay } from "@/components/gateway/GatewayRestartingOverlay";
@@ -14,6 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useGateway } from "@/hooks/gateway";
+import { isAuthAvailable } from "@/lib/auth/bridge";
 import { tabLabel } from "@/lib/tabs";
 import { TAB_PATHS, type Tab } from "@/types/gateway";
 import {
@@ -29,6 +30,7 @@ const PATH_LABELS: Record<string, string> = Object.fromEntries(
 function TopNav() {
   const location = useLocation();
   const { state, isMobile, openMobile } = useSidebar();
+  const profilePath = isAuthAvailable() ? "/profile" : "/settings";
   // macOS Electron: when the inset sidebar is off-screen, reserve inline-start space for traffic lights (env + fallback; see `titleBarOverlay` in Electron main).
   const reserveTitleBarControlsInset =
     isMacOSElectron() && (isMobile ? !openMobile : state === "collapsed");
@@ -81,11 +83,17 @@ function TopNav() {
           <BellIcon className="size-4" />
         </button>
         <GatewayStatusIndicator />
-        <Avatar className="size-8 ml-1 cursor-pointer">
-          <AvatarFallback className="text-xs">
-            <UserIcon className="size-4" />
-          </AvatarFallback>
-        </Avatar>
+        <NavLink
+          to={profilePath}
+          className="ml-1 rounded-full transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Profile"
+        >
+          <Avatar className="size-8 cursor-pointer">
+            <AvatarFallback className="text-xs">
+              <UserIcon className="size-4" />
+            </AvatarFallback>
+          </Avatar>
+        </NavLink>
       </div>
     </header>
   );
